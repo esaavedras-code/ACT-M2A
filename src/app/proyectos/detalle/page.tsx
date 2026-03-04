@@ -18,7 +18,7 @@ import type { FormRef } from "@/components/ProjectForm";
 import {
     ListChecks, User, Building2, FileText, FileEdit,
     LayoutDashboard, FileCheck, Factory, PackageSearch, ShieldCheck,
-    FileCheck2, ChevronLeft, Cloud, CheckCircle2, Loader2
+    FileCheck2, ChevronLeft, Cloud, CheckCircle2, Loader2, Trash2
 } from "lucide-react";
 import Link from "next/link";
 
@@ -87,6 +87,25 @@ function ProjectDetailContent() {
         if (data) {
             setProjectName(data.name);
             setNumAct(data.num_act);
+        }
+    };
+
+    const handleDeleteProject = async () => {
+        const confirmDelete = window.confirm(
+            `¿Estás seguro que deseas ELIMINAR el proyecto "${projectName}"? Esta acción no se puede deshacer y borrará todos los datos asociados (contratistas, partidas, pagos, etc.).`
+        );
+
+        if (confirmDelete) {
+            try {
+                const { error } = await supabase.from('projects').delete().eq('id', id);
+                if (error) throw error;
+
+                alert("Proyecto eliminado exitosamente.");
+                window.location.href = "/proyectos";
+            } catch (error) {
+                console.error("Error eliminando proyecto:", error);
+                alert("Hubo un error al intentar eliminar el proyecto.");
+            }
         }
     };
 
@@ -167,6 +186,16 @@ function ProjectDetailContent() {
                     </h1>
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Detalle del Proyecto</p>
                 </div>
+
+                {/* Botón Eliminar Proyecto */}
+                <button
+                    onClick={handleDeleteProject}
+                    className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium transition-colors border border-red-200 dark:border-red-800/30"
+                    title="Eliminar Proyecto"
+                >
+                    <Trash2 size={16} />
+                    <span className="hidden sm:inline">Eliminar</span>
+                </button>
 
                 {/* Indicador de autoguardado */}
                 <div className="flex items-center gap-2 text-xs font-bold transition-all duration-300">

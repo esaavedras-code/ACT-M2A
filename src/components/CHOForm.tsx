@@ -135,7 +135,8 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
 
     const removeCHOItem = (choIdx: number, itemIdx: number) => {
         const newList = [...chos];
-        newList[choIdx].items = newList[choIdx].items.filter((_: any, i: number) => i !== itemIdx);
+        const newItems = (newList[choIdx].items || []).filter((_: any, i: number) => i !== itemIdx);
+        newList[choIdx] = { ...newList[choIdx], items: newItems };
         setChos(newList);
         if (onDirty) onDirty();
     };
@@ -311,7 +312,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                 >
                                     {expandedCHO === cho.id ? "Cerrar Partidas" : "Ver / Añadir Partidas"}
                                 </button>
-                                <button onClick={() => removeCHO(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
+                                <button type="button" onClick={() => removeCHO(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
                                     <Trash2 size={18} />
                                 </button>
                             </div>
@@ -443,7 +444,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                                         </select>
                                                     </td>
                                                     <td className="py-1 px-1 text-center">
-                                                        <button onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500">
+                                                        <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500">
                                                             <Trash2 size={12} />
                                                         </button>
                                                     </td>

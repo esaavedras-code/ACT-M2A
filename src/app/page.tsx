@@ -38,8 +38,8 @@ export default function Dashboard() {
             return;
         }
 
-        // 1. Projects
-        const { data: projectsData, count: projCount } = await supabase
+        // 1. Projects (Filtramos por allowedIds para la tabla inferior solamente)
+        const { data: projectsData } = await supabase
             .from("projects")
             .select("id, name, num_act, region, created_at, cost_original, date_project_start, date_rev_completion")
             .in("id", allowedIds)
@@ -110,7 +110,7 @@ export default function Dashboard() {
         const globalAdjusted = projectSummaries.reduce((acc, p) => acc + p.adjustedCost, 0);
 
         setStats({
-            totalProjects: projCount || 0,
+            totalProjects: projectSummaries.length,
             totalBudget: globalAdjusted,
             totalCertified: globalCertified,
             totalPendingCHO: projectSummaries.reduce((acc, p) => acc + p.pendingCHO, 0),
@@ -167,76 +167,8 @@ export default function Dashboard() {
                     icon={<FileText className="text-blue-600" />}
                     title="Total Proyectos"
                     value={loading ? "..." : stats.totalProjects.toString()}
-                    subtitle="Registrados"
+                    subtitle="Registrados en el programa"
                 />
-                <StatCard
-                    icon={<DollarSign className="text-emerald-600" />}
-                    title="Presupuesto Total"
-                    value={loading ? "..." : formatCurrency(stats.totalBudget)}
-                    subtitle="Incluye CHOs Aprobados"
-                />
-                <StatCard
-                    icon={<Activity className="text-primary" />}
-                    title="Total Certificado"
-                    value={loading ? "..." : formatCurrency(stats.totalCertified)}
-                    subtitle={`${stats.avgProgress}% de avance global`}
-                />
-                <StatCard
-                    icon={<Clock className="text-amber-600" />}
-                    title="Balance Restante"
-                    value={loading ? "..." : formatCurrency(stats.totalBalance)}
-                    subtitle="Por certificar"
-                />
-            </div>
-
-            {/* Detailed Metrics Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="card p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 border-none shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                        <Activity size={16} className="text-blue-500" /> Distribución de Fondos
-                    </h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-medium text-slate-400 uppercase">Fondo ACT (Local)</span>
-                            <span className="text-sm font-bold text-emerald-600">{formatCurrency(stats.actTotal)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-medium text-slate-400 uppercase">Fondo FHWA (Federal)</span>
-                            <span className="text-sm font-bold text-blue-600">{formatCurrency(stats.fhwaTotal)}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="card p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 border-none shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                        <FileText size={16} className="text-amber-500" /> Órdenes de Cambio
-                    </h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-medium text-slate-400 uppercase">CHOs en Trámite</span>
-                            <span className="text-sm font-bold text-amber-600">{formatCurrency(stats.totalPendingCHO)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-medium text-slate-400 uppercase">Impacto Presupuestario</span>
-                            <span className="text-sm font-bold">{Math.round((stats.totalBudget / (stats.totalBudget - stats.totalPendingCHO) - 1) * 100 || 0)}%</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="card p-5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 border-none shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center gap-2">
-                        <Percent size={16} className="text-purple-500" /> Estado de Ejecución
-                    </h3>
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-xs mb-1">
-                            <span className="text-slate-400 uppercase font-medium">Progreso Financiero</span>
-                            <span className="font-bold">{stats.avgProgress}%</span>
-                        </div>
-                        <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                            <div className="bg-primary h-2 rounded-full transition-all duration-1000" style={{ width: `${stats.avgProgress}%` }}></div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div className="space-y-6">

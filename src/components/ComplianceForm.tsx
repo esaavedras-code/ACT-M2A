@@ -320,11 +320,12 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =>
                                             {/* Eliminar */}
                                             <td className="px-2 py-2 text-center">
                                                 <button
+                                                    type="button"
                                                     onClick={() => removeRecord(idx)}
-                                                    className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                    className="text-slate-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
                                                     title="Eliminar fila"
                                                 >
-                                                    <Trash2 size={15} />
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </td>
                                         </tr>
@@ -404,6 +405,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =>
                                                     </td>
                                                     <td className="px-2 py-2 text-center">
                                                         <button
+                                                            type="button"
                                                             onClick={() => removeRecord(sidx)}
                                                             className="text-slate-300 hover:text-red-500 transition-colors"
                                                         >

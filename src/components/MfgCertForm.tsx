@@ -191,6 +191,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 </td>
                                 <td className="px-4 py-2 text-center">
                                     <button
+                                        type="button"
                                         onClick={() => removeCert(idx)}
                                         className="text-slate-300 hover:text-red-500 transition-colors"
                                         title="Eliminar certificado"

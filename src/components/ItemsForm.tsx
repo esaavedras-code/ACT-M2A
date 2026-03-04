@@ -335,7 +335,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                                         <PlusSquare size={14} strokeWidth={2.5} />
                                                     </button>
                                                 </div>
-                                                <button onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors" title="Eliminar partida">
+                                                <button type="button" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors" title="Eliminar partida">
                                                     <Trash2 size={14} />
                                                 </button>
                                             </div>

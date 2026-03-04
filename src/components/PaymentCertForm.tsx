@@ -365,7 +365,8 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
 
     const removeCertItem = (certIdx: number, itemIdx: number) => {
         const newList = [...certs];
-        newList[certIdx].items = newList[certIdx].items.filter((_: any, i: number) => i !== itemIdx);
+        const newItems = (newList[certIdx].items || []).filter((_: any, i: number) => i !== itemIdx);
+        newList[certIdx] = { ...newList[certIdx], items: newItems };
         setCerts(newList);
         if (onDirty) onDirty();
     };
@@ -625,7 +626,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                                     </div>
                                 </div>
                                 <div className="flex items-center xl:items-start gap-3 justify-end xl:flex-col shrink-0">
-                                    <button onClick={() => removeCert(certIdx)} className="text-slate-300 hover:text-red-500 transition-colors order-2 xl:order-1 self-end" title="Eliminar certificación">
+                                    <button type="button" onClick={() => removeCert(certIdx)} className="text-slate-300 hover:text-red-500 transition-colors order-2 xl:order-1 self-end" title="Eliminar certificación">
                                         <Trash2 size={18} />
                                     </button>
                                     <button
@@ -886,7 +887,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                                                                     </label>
                                                                 </td>
                                                                 <td className="py-1 px-1 text-center">
-                                                                    <button onClick={() => removeCertItem(certIdx, itIdx)} className="text-slate-300 hover:text-red-500">
+                                                                    <button type="button" onClick={() => removeCertItem(certIdx, itIdx)} className="text-slate-300 hover:text-red-500">
                                                                         <Trash2 size={12} />
                                                                     </button>
                                                                 </td>

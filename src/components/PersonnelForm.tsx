@@ -169,6 +169,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
                                     </td>
                                     <td className="px-4 py-3 text-center">
                                         <button
+                                            type="button"
                                             onClick={() => removeItem(idx)}
                                             className="text-slate-300 hover:text-red-500 transition-colors"
                                             title="Eliminar registro"
