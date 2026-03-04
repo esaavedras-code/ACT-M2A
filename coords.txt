@@ -1,0 +1,261 @@
+1.  To:: x=3.75, y=5.21
+9.  Date:: x=21.44, y=5.21
+2.  Project Name:: x=3.75, y=6.25
+10.  Cert. Num.:: x=21.45, y=6.25
+3.  Contractor:: x=3.75, y=7.24
+11.  Work Performed up to:: x=21.45, y=7.24
+4.  Project Num.:: x=3.75, y=8.18
+12.  Contract Beginning Date:: x=19.41, y=8.18
+5.  Federal Num.:: x=3.75, y=8.93
+13.  Contract Completion Date:: x=19.40, y=8.93
+6.  Oracle Num.:: x=3.75, y=9.68
+14.  Revised Completion Date : x=19.40, y=9.68
+7.  Contract Num.:: x=3.75, y=10.43
+15.  Project Original Amount:: x=19.40, y=10.43
+8.  Municipality:: x=3.75, y=11.18
+16.  Project Revised Amount:: x=19.39, y=11.18
+17: x=4.40, y=12.82
+18: x=6.21, y=12.82
+19: x=8.20, y=12.82
+20: x=10.69, y=12.82
+21: x=14.93, y=12.82
+22: x=22.07, y=12.82
+23: x=25.00, y=12.82
+24: x=28.57, y=12.82
+25: x=31.97, y=12.82
+Item No.: x=3.84, y=13.93
+Alt: x=6.14, y=13.93
+Spec. Code: x=7.45, y=13.93
+% Federal : x=10.04, y=13.65
+Participation: x=9.77, y=14.20
+Unit: x=21.89, y=13.93
+Quantity: x=24.42, y=13.93
+Unit Price: x=27.89, y=13.93
+Amount: x=31.42, y=13.93
+-: x=33.26, y=15.21
+$                             : x=30.54, y=15.21
+-: x=33.26, y=15.96
+$                             : x=30.54, y=15.96
+-: x=33.26, y=16.71
+$                             : x=30.54, y=16.71
+-: x=33.26, y=17.46
+$                             : x=30.54, y=17.46
+-: x=33.26, y=18.21
+$                             : x=30.54, y=18.21
+-: x=33.26, y=18.96
+$                             : x=30.54, y=18.96
+-: x=33.26, y=19.84
+$                             : x=30.54, y=19.84
+-: x=33.26, y=20.66
+$                             : x=30.54, y=20.66
+-: x=33.26, y=21.73
+$                             : x=30.54, y=21.73
+-: x=33.26, y=22.75
+$                             : x=30.54, y=22.75
+-: x=33.26, y=23.77
+$                             : x=30.54, y=23.77
+26.  Work Performed (WP):: x=23.23, y=28.90
+39.Prepared by:: x=3.75, y=29.85
+27.  5% Retained (WP):: x=23.23, y=29.85
+-: x=33.26, y=29.85
+$                             : x=30.49, y=29.85
+Contractor: x=9.57, y=30.41
+Date: x=19.41, y=30.41
+28.  Reimbursement (WP)(+):: x=23.23, y=30.80
+-: x=33.25, y=30.80
+$                             : x=30.49, y=30.80
+40. Concurred by:: x=3.75, y=31.76
+29.  Sub Total:: x=23.23, y=31.76
+-: x=33.26, y=31.76
+$                             : x=30.49, y=31.76
+Project Administrator or Resident Engineer or Inspector: x=9.57, y=32.28
+Date: x=19.40, y=32.31
+30.  Material on Site (+/-):: x=23.23, y=32.71
+41.  Received for Review:: x=3.75, y=33.66
+31.  Liquidated Damages (LQD)(-):: x=23.23, y=33.66
+-: x=33.25, y=33.66
+$                             : x=30.49, y=33.66
+32. Reimbursement (LqD)(+):: x=23.23, y=34.94
+-: x=33.24, y=34.94
+$                             : x=30.49, y=34.94
+42.  Submitted for Review:: x=3.75, y=35.89
+33.  Extra Retainage (+/-):: x=23.23, y=35.89
+-: x=33.28, y=35.89
+$                             : x=30.49, y=35.89
+Area Supervisor (Program Manager): x=9.57, y=36.44
+34.  Price Adjustment Clause (+/-):: x=23.23, y=36.84
+-: x=33.27, y=36.84
+$                             : x=30.49, y=36.84
+43.  Approved by:: x=3.75, y=37.79
+35. Safety Penalties - Spec 638(-):: x=23.22, y=37.79
+-: x=33.26, y=37.79
+$                             : x=30.49, y=37.79
+Regional Director: x=9.57, y=38.35
+Date: x=19.40, y=38.35
+36.  Other (+/-):: x=23.23, y=38.74
+-: x=33.27, y=38.74
+$                             : x=30.49, y=38.74
+44.  Approved for Payment by:: x=3.75, y=40.65
+37.  : x=23.23, y=40.63
+Net Payment:: x=23.93, y=40.63
+-: x=33.26, y=40.65
+$                            : x=30.49, y=40.65
+ : x=33.22, y=40.65
+Finance Area Director: x=9.57, y=41.20
+Date: x=19.41, y=41.20
+38.  : x=23.23, y=41.59
+Total to Date (WP):: x=23.93, y=41.59
+45.  Percent Work Performed:: x=3.75, y=43.51
+46.  Percent Time: x=3.75, y=45.41
+Goverment of Puerto Rico: x=16.47, y=1.52
+Department of Transportation and Public Works: x=14.44, y=2.29
+HIGHWAY AND TRANSPORTATION AUTHORITY: x=13.78, y=2.96
+MONTHLY PROGRESS PAYMENT REPORT: x=14.46, y=4.04
+Description: x=15.82, y=13.90
+Date: x=19.35, y=36.37
+Under: x=3.75, y=24.51
+penalty: x=5.01, y=24.51
+of: x=6.48, y=24.51
+absolute: x=6.97, y=24.51
+nullity,: x=8.66, y=24.51
+I: x=9.97, y=24.51
+hereby: x=10.21, y=24.51
+certify: x=11.61, y=24.51
+that: x=12.84, y=24.51
+no: x=13.67, y=24.51
+public: x=14.27, y=24.51
+servant: x=15.49, y=24.51
+of: x=16.97, y=24.51
+the: x=17.46, y=24.51
+Puerto: x=18.17, y=24.51
+Rico: x=19.52, y=24.51
+Highways: x=20.49, y=24.51
+and: x=22.42, y=24.51
+Transportation: x=23.25, y=24.51
+Authority: x=26.05, y=24.51
+is: x=27.80, y=24.51
+a: x=28.25, y=24.51
+party: x=28.61, y=24.51
+to: x=29.67, y=24.51
+or: x=30.15, y=24.51
+has: x=30.65, y=24.51
+an: x=31.46, y=24.51
+interest: x=32.06, y=24.51
+of: x=33.54, y=24.51
+any: x=3.75, y=25.02
+kind: x=4.54, y=25.02
+in: x=5.42, y=25.02
+the: x=5.86, y=25.02
+profits: x=6.56, y=25.02
+or: x=7.80, y=25.02
+benefits: x=8.29, y=25.02
+to: x=9.86, y=25.02
+be: x=10.33, y=25.02
+obtained: x=10.91, y=25.02
+under: x=12.61, y=25.02
+the: x=13.78, y=25.02
+contract: x=14.48, y=25.02
+which: x=16.06, y=25.02
+is: x=17.24, y=25.02
+the: x=17.66, y=25.02
+basis: x=18.36, y=25.02
+of: x=19.45, y=25.02
+this: x=19.91, y=25.02
+invoice,: x=20.67, y=25.02
+and: x=22.19, y=25.02
+should: x=23.00, y=25.02
+he: x=24.33, y=25.02
+be: x=24.91, y=25.02
+a: x=25.49, y=25.02
+party: x=25.85, y=25.02
+to,: x=26.88, y=25.02
+or: x=27.46, y=25.02
+have: x=27.95, y=25.02
+an: x=28.97, y=25.02
+interest: x=29.55, y=25.02
+in,: x=31.03, y=25.02
+the: x=31.58, y=25.02
+profits: x=32.28, y=25.02
+or: x=33.53, y=25.02
+benefits: x=3.75, y=25.53
+to: x=5.37, y=25.53
+be: x=5.89, y=25.53
+obtained: x=6.52, y=25.53
+under: x=8.28, y=25.53
+the: x=9.51, y=25.53
+contract,: x=10.26, y=25.53
+a: x=12.01, y=25.53
+waiver: x=12.41, y=25.53
+has: x=13.77, y=25.53
+been: x=14.61, y=25.53
+previously: x=15.70, y=25.53
+issued.: x=17.71, y=25.53
+The: x=19.18, y=25.53
+only: x=20.06, y=25.53
+consideration: x=20.98, y=25.53
+to: x=23.60, y=25.53
+provide: x=24.12, y=25.53
+the: x=25.64, y=25.53
+contracted: x=26.39, y=25.53
+goods: x=28.47, y=25.53
+or: x=29.77, y=25.53
+services: x=30.30, y=25.53
+under: x=31.99, y=25.53
+the: x=33.20, y=25.53
+contract: x=3.75, y=26.04
+is: x=5.33, y=26.04
+the: x=5.74, y=26.04
+payment: x=6.43, y=26.04
+agreed: x=8.12, y=26.04
+upon: x=9.52, y=26.04
+with: x=10.55, y=26.04
+the: x=11.40, y=26.04
+authorized: x=12.08, y=26.04
+representative: x=14.12, y=26.04
+of: x=16.85, y=26.04
+the: x=17.30, y=26.04
+government: x=17.99, y=26.04
+entity.: x=20.28, y=26.04
+The: x=21.48, y=26.04
+amount: x=22.31, y=26.04
+that: x=23.79, y=26.04
+appears: x=24.59, y=26.04
+in: x=26.20, y=26.04
+the: x=26.63, y=26.04
+invoice: x=27.32, y=26.04
+is: x=28.71, y=26.04
+fair: x=29.13, y=26.04
+and: x=29.82, y=26.04
+correct.: x=30.62, y=26.04
+The: x=32.11, y=26.04
+work: x=32.94, y=26.04
+has: x=3.75, y=26.55
+been: x=4.79, y=26.55
+performed,: x=6.08, y=26.55
+the: x=8.43, y=26.55
+goods: x=9.38, y=26.55
+have: x=10.87, y=26.55
+been: x=12.13, y=26.55
+delivered,: x=13.42, y=26.55
+and: x=15.57, y=26.55
+the: x=16.63, y=26.55
+services: x=17.57, y=26.55
+have: x=19.45, y=26.55
+been: x=20.71, y=26.55
+rendered,: x=22.00, y=26.55
+and: x=24.12, y=26.55
+no: x=25.18, y=26.55
+payment: x=26.00, y=26.55
+has: x=27.95, y=26.55
+been: x=28.98, y=26.55
+received: x=30.27, y=26.55
+therefor.: x=32.19, y=26.55
+Contractor:: x=3.75, y=27.08
+__________________________________________________________: x=6.00, y=27.08
+Regional Director's Designated: x=9.57, y=34.22
+Representative : x=9.57, y=34.77
+Prompt Payment : x=18.52, y=34.14
+Process Start Date: x=18.42, y=34.58
+PAGE 1: x=15.19, y=27.87
+ACT-117C: x=31.11, y=1.38
+(Rev. 03/2020): x=30.70, y=1.88

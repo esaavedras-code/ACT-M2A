@@ -1,0 +1,461 @@
+"use client";
+
+import React, { useEffect, useState, forwardRef, useImperativeHandle } from "react";
+import { supabase } from "@/lib/supabase";
+import { Save, ListChecks, Plus, Trash2, Info, PlusSquare } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import type { FormRef } from "./ProjectForm";
+
+import specsData from "@/data/specifications.json";
+
+const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
+
+interface SpecInfo {
+    unit: string;
+    description: string;
+}
+
+const specs = specsData as Record<string, SpecInfo>;
+
+const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function ItemsForm({ projectId, onDirty, onSaved }, ref) {
+    const [items, setItems] = useState<any[]>([]);
+    const [chos, setChos] = useState<any[]>([]);
+    const [certs, setCerts] = useState<any[]>([]);
+    const [expandedItem, setExpandedItem] = useState<number | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (projectId) {
+            fetchItems();
+            fetchCHOs();
+            fetchCerts();
+        } else {
+            setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false }]);
+        }
+    }, [projectId]);
+
+    const fetchItems = async () => {
+        const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId).order('item_num', { ascending: true });
+        if (data && data.length > 0) setItems(data);
+        else setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false }]);
+    };
+
+    const fetchCHOs = async () => {
+        const { data } = await supabase.from("chos").select("*").eq("project_id", projectId);
+        if (data) setChos(data);
+    };
+
+    const fetchCerts = async () => {
+        const { data } = await supabase.from("payment_certifications").select("*").eq("project_id", projectId).order('cert_num', { ascending: true });
+        if (data) setCerts(data);
+    };
+
+    const getCHOQty = (itemNum: string) => {
+        let total = 0;
+        chos.forEach(cho => {
+            const items = Array.isArray(cho.items) ? cho.items : [];
+            items.forEach((it: any) => {
+                if (it.item_num === itemNum) {
+                    total += (parseFloat(it.quantity) || 0);
+                }
+            });
+        });
+        return total;
+    };
+
+    const addItem = () => {
+        // Find the highest item number currently in the list and suggest next
+        const maxNum = items.reduce((max, item) => {
+            const num = parseInt(item.item_num);
+            return isNaN(num) ? max : Math.max(max, num);
+        }, 0);
+        const nextNum = (maxNum + 1).toString().padStart(3, '0');
+        setItems([...items, { item_num: nextNum, specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false }]);
+        if (onDirty) onDirty();
+    };
+
+    const removeItem = (idx: number) => {
+        setItems(items.filter((_, i) => i !== idx));
+        if (onDirty) onDirty();
+    };
+
+    const insertItem = (idx: number) => {
+        const newItems = [...items];
+        const currentItemNum = parseInt(items[idx]?.item_num);
+        const nextNum = !isNaN(currentItemNum) ? (currentItemNum + 1).toString().padStart(3, '0') : "";
+
+        newItems.splice(idx + 1, 0, {
+            item_num: nextNum,
+            specification: "",
+            description: "",
+            additional_description: "",
+            quantity: 0,
+            unit: "",
+            unit_price: 0,
+            fund_source: FUND_SOURCES[0],
+            requires_mfg_cert: false
+        });
+        setItems(newItems);
+        if (onDirty) onDirty();
+    };
+
+    const updateItem = (index: number, field: string, value: any) => {
+        const newItems = [...items];
+        let finalValue = value;
+        if (field === 'item_num') {
+            finalValue = value.toString().replace(/\D/g, '').substring(0, 3);
+        }
+        // Auto-format specification XXX-XXX
+        if (field === 'specification' && /^\d{6}$/.test(value.toString().trim())) {
+            const val = value.toString().trim();
+            finalValue = val.substring(0, 3) + '-' + val.substring(3);
+        }
+
+        newItems[index][field] = finalValue;
+
+        // Autofill logic for specification (global catalog)
+        if (field === 'specification') {
+            const specInfo = specs[finalValue.toString().trim()];
+            if (specInfo) {
+                newItems[index]['description'] = specInfo.description;
+                newItems[index]['unit'] = specInfo.unit;
+            }
+        }
+
+        setItems(newItems);
+        if (onDirty) onDirty();
+    };
+
+    const saveData = async (silent = false) => {
+        if (!projectId) return;
+        await supabase.from("contract_items").delete().eq("project_id", projectId);
+        const itemsToInsert = items.map(item => {
+            const { id, ...rest } = item;
+            return { ...rest, project_id: projectId };
+        });
+        const { error } = await supabase.from("contract_items").insert(itemsToInsert);
+        if (error && !silent) alert("Error: " + error.message);
+        else if (!error) {
+            if (!silent) alert("Partidas actualizadas correctamente");
+            if (onSaved) onSaved();
+        }
+    };
+
+    useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!projectId) return;
+        setLoading(true);
+        await saveData(false);
+        setLoading(false);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="sticky top-[133px] z-20 bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 -mt-4 mb-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div className="space-y-1">
+                    <h2 className="text-2xl font-bold flex items-center gap-2 font-geist tracking-tight">
+                        <ListChecks className="text-primary" />
+                        4. Partidas del Contrato
+                    </h2>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total del Contrato (Revisado):</span>
+                        <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-extrabold border border-emerald-100 dark:border-emerald-800/50">
+                            {formatCurrency(items.reduce((sum, item) => {
+                                const choQty = getCHOQty(item.item_num);
+                                const totalQty = (parseFloat(item.quantity) || 0) + choQty;
+                                return sum + (totalQty * (parseFloat(item.unit_price) || 0));
+                            }, 0))}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex gap-3">
+                    <button onClick={addItem} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition-colors font-bold text-sm flex items-center gap-2">
+                        <Plus size={18} /> Añadir Item
+                    </button>
+                    <button onClick={handleSubmit} disabled={loading} className="btn-primary flex items-center gap-2">
+                        <Save size={18} />
+                        {loading ? "Guardando..." : "Sincronizar Partidas"}
+                    </button>
+                </div>
+            </div>
+
+            <div className="card overflow-x-auto p-0 border-none shadow-sm">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
+                        <tr>
+                            <th className="px-2 py-4 w-16 text-center">#</th>
+                            <th className="px-2 py-4 w-32 text-center">Espec.</th>
+                            <th className="px-2 py-4">Descripción</th>
+                            <th className="px-2 py-4 w-20 text-right">Cant. Orig.</th>
+                            <th className="px-2 py-4 w-20 text-right text-blue-600">Cant. CHO</th>
+                            <th className="px-2 py-4 w-20 text-right font-black">Cant. Total</th>
+                            <th className="px-2 py-4 w-20 text-center">Unid.</th>
+                            <th className="px-2 py-4 w-24 text-right">U.P. ($)</th>
+                            <th className="px-2 py-4 w-32 text-right">Amount Final ($)</th>
+                            <th className="px-2 py-4 w-32 text-center">Fondos</th>
+                            <th className="px-2 py-4 w-12 text-center" title="Requiere Cert. Manufactura">Mfg</th>
+                            <th className="px-2 py-4 w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                        {items.map((item, idx) => {
+                            const choQty = getCHOQty(item.item_num);
+                            const totalQty = (parseFloat(item.quantity) || 0) + choQty;
+                            const amountFinal = totalQty * (parseFloat(item.unit_price) || 0);
+
+                            const paidBreakdown = certs.map(cert => {
+                                const certItems = Array.isArray(cert.items) ? cert.items : [];
+                                const itemInCert = certItems.find((it: any) => it.item_num === item.item_num);
+                                if (!itemInCert) return null;
+                                return {
+                                    certNum: cert.cert_num,
+                                    periodTo: cert.period_to,
+                                    qty: parseFloat(itemInCert.quantity) || 0,
+                                    amount: (parseFloat(itemInCert.quantity) || 0) * (parseFloat(item.unit_price) || 0)
+                                };
+                            }).filter(Boolean);
+
+                            const choBreakdown = chos.map(cho => {
+                                const choItems = Array.isArray(cho.items) ? cho.items : [];
+                                const itemInCho = choItems.find((it: any) => it.item_num === item.item_num);
+                                if (!itemInCho) return null;
+                                return {
+                                    choNum: cho.cho_num,
+                                    amendmentLetter: cho.amendment_letter,
+                                    date: cho.cho_date,
+                                    qty: parseFloat(itemInCho.quantity) || 0,
+                                    unitPrice: parseFloat(itemInCho.unit_price) || 0,
+                                    amount: (parseFloat(itemInCho.quantity) || 0) * (parseFloat(itemInCho.unit_price) || 0)
+                                };
+                            }).filter(Boolean);
+
+                            const paidQty = paidBreakdown.reduce((sum, b) => sum + (b?.qty || 0), 0);
+                            const remainingQty = totalQty - paidQty;
+
+                            return (
+                                <React.Fragment key={idx}>
+                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                                        <td className="px-1 py-2">
+                                            <input
+                                                type="text"
+                                                maxLength={3}
+                                                className="input-field text-xs text-center font-bold h-8"
+                                                style={{ backgroundColor: '#66FF99' }}
+                                                value={item.item_num || ""}
+                                                onChange={(e) => updateItem(idx, 'item_num', e.target.value)}
+                                                onBlur={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val !== "" && !isNaN(parseInt(val))) {
+                                                        updateItem(idx, 'item_num', val.padStart(3, '0'));
+                                                    }
+                                                }}
+                                            />
+                                        </td>
+                                        <td className="px-1 py-2">
+                                            <input type="text" className="input-field text-xs text-center h-8" value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
+                                        </td>
+                                        <td className="px-1 py-2">
+                                            <div className="space-y-1">
+                                                <input type="text" className="input-field text-xs h-8" value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
+                                                <input type="text" className="input-field text-[10px] h-6 opacity-70" style={{ backgroundColor: '#66FF99' }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                            </div>
+                                        </td>
+                                        <td className="px-1 py-2">
+                                            <input type="number" className="input-field text-xs text-right h-8" style={{ backgroundColor: '#66FF99' }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
+                                        </td>
+                                        <td className="px-1 py-2 text-right text-xs font-bold text-blue-600 pr-4">
+                                            {choQty !== 0 ? choQty : "-"}
+                                        </td>
+                                        <td className="px-1 py-2 text-right text-xs font-black pr-4">
+                                            {totalQty}
+                                        </td>
+                                        <td className="px-1 py-2 text-center">
+                                            <input type="text" className="input-field text-xs uppercase h-8 text-center px-1" value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
+                                        </td>
+                                        <td className="px-1 py-2">
+                                            <input type="number" step="0.0001" className="input-field text-xs text-right font-medium h-8" style={{ backgroundColor: '#66FF99' }} value={isNaN(item.unit_price) ? "" : item.unit_price} onChange={(e) => updateItem(idx, 'unit_price', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
+                                        </td>
+                                        <td className="px-2 py-2 text-right font-black text-xs text-primary pr-4">
+                                            {formatCurrency(amountFinal)}
+                                        </td>
+                                        <td className="px-1 py-2">
+                                            <select
+                                                className="input-field text-[10px] font-bold h-8"
+                                                style={{ backgroundColor: '#66FF99' }}
+                                                value={item.fund_source || ""}
+                                                onChange={(e) => updateItem(idx, 'fund_source', e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Tab' && !e.shiftKey && idx === items.length - 1) {
+                                                        addItem();
+                                                    }
+                                                }}
+                                            >
+                                                {FUND_SOURCES.map(f => <option key={f} value={f}>{f}</option>)}
+                                            </select>
+                                        </td>
+                                        <td className="px-1 py-2 text-center">
+                                            <label
+                                                title="Requiere Cert. Manufactura"
+                                                className={`inline-flex items-center justify-center w-6 h-6 rounded cursor-pointer border-2 transition-all ${item.requires_mfg_cert
+                                                    ? 'bg-amber-500 border-amber-500 text-white'
+                                                    : 'border-slate-300 hover:border-amber-400'
+                                                    }`}
+                                                style={!item.requires_mfg_cert ? { backgroundColor: '#66FF99' } : {}}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only"
+                                                    checked={!!item.requires_mfg_cert}
+                                                    onChange={(e) => updateItem(idx, 'requires_mfg_cert', e.target.checked)}
+                                                />
+                                                {item.requires_mfg_cert && (
+                                                    <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <polyline points="1,6 5,10 11,2" />
+                                                    </svg>
+                                                )}
+                                            </label>
+                                        </td>
+                                        <td className="px-2 py-2 text-center">
+                                            <div className="flex flex-col gap-1.5 items-center">
+                                                <div className="flex gap-1.5">
+                                                    <button
+                                                        onClick={() => setExpandedItem(expandedItem === idx ? null : idx)}
+                                                        className={`transition-all rounded-full p-1 shadow-sm transform hover:scale-110 ${expandedItem === idx ? 'bg-blue-600 text-white ring-2 ring-blue-300' : 'bg-blue-100/80 text-blue-600 hover:bg-blue-500 hover:text-white'}`}
+                                                        title="Ver desglose de pagos detallado"
+                                                    >
+                                                        <Info size={14} strokeWidth={2.5} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => insertItem(idx)}
+                                                        className="bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all rounded-full p-1 shadow-sm transform hover:scale-110"
+                                                        title="Insertar item debajo"
+                                                    >
+                                                        <PlusSquare size={14} strokeWidth={2.5} />
+                                                    </button>
+                                                </div>
+                                                <button onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors" title="Eliminar partida">
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {expandedItem === idx && (
+                                        <tr className="bg-blue-50/30 dark:bg-blue-900/10 border-l-2 border-blue-400">
+                                            <td colSpan={12} className="px-4 py-4">
+                                                <div className="flex flex-col gap-3">
+                                                    <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm">
+                                                        <div className="space-y-1">
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Resumen de Pagos</span>
+                                                            <h6 className="text-sm font-black text-slate-700 dark:text-slate-200">Partida {item.item_num}</h6>
+                                                        </div>
+                                                        <div className="flex gap-6 items-center">
+                                                            <div className="text-right">
+                                                                <div className="text-[10px] uppercase font-bold text-slate-400">Cant. Total</div>
+                                                                <div className="text-sm font-black text-slate-700">{totalQty % 1 !== 0 ? totalQty.toFixed(2) : totalQty}</div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-[10px] uppercase font-bold text-slate-400">Sumatoria Pagada</div>
+                                                                <div className="text-sm font-black text-emerald-600">
+                                                                    {paidQty % 1 !== 0 ? paidQty.toFixed(2) : paidQty}
+                                                                    <span className="text-xs text-slate-400 font-normal ml-1">({totalQty ? ((paidQty / totalQty) * 100).toFixed(0) : 0}%)</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-[10px] uppercase font-bold text-slate-400">Balance Disponible</div>
+                                                                <div className="text-sm font-black text-blue-600">{remainingQty % 1 !== 0 ? remainingQty.toFixed(2) : remainingQty}</div>
+                                                            </div>
+                                                            <div className="text-right pl-6 border-l border-slate-100 dark:border-slate-700 ml-2">
+                                                                <div className="text-[10px] uppercase font-bold text-primary tracking-wider">Resultado Económico</div>
+                                                                <div className="text-xl font-black text-primary leading-none mt-1">
+                                                                    {formatCurrency(paidQty * (parseFloat(item.unit_price) || 0))}
+                                                                </div>
+                                                                <div className="text-[9px] font-bold text-slate-400 uppercase mt-1">de {formatCurrency(amountFinal)}</div>
+                                                            </div>
+                                                            <div className="text-right pl-6 border-l border-slate-100 dark:border-slate-700 ml-2">
+                                                                <div className="text-[10px] uppercase font-bold text-blue-600 tracking-wider">Balance ($)</div>
+                                                                <div className="text-xl font-black text-blue-600 leading-none mt-1">
+                                                                    {formatCurrency(remainingQty * (parseFloat(item.unit_price) || 0))}
+                                                                </div>
+                                                                <div className="text-[9px] font-bold text-slate-400 uppercase mt-1">Pendiente</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 gap-4">
+                                                        {/* CHOs Horizontal Breakdown */}
+                                                        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                                                            <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 p-2 px-3">
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Enmiendas (Órdenes de Cambio)</span>
+                                                            </div>
+                                                            <div className="p-4 overflow-x-auto flex flex-nowrap gap-8 min-w-max items-center">
+                                                                {choBreakdown.length > 0 ? (
+                                                                    <>
+                                                                        {choBreakdown.map((b, i) => (
+                                                                            <div key={`cho-${i}`} className="flex flex-col items-center min-w-[70px]">
+                                                                                <span className="text-[11px] font-bold text-blue-600 mb-2 whitespace-nowrap">CHO #{b?.choNum}{b?.amendmentLetter}</span>
+                                                                                <span className={`text-sm font-black ${b?.qty && b.qty > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                                                    {b?.qty && b.qty > 0 ? `+${b.qty}` : b?.qty}
+                                                                                </span>
+                                                                                <span className="text-[10px] font-medium text-slate-400 mt-1">{b?.amount ? formatCurrency(b.amount) : formatCurrency(0)}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                        <div className="border-l-2 border-slate-100 dark:border-slate-700 h-10 mx-2"></div>
+                                                                        <div className="flex flex-col items-center min-w-[70px]">
+                                                                            <span className="text-[11px] font-bold text-blue-600 mb-2 whitespace-nowrap">TOTAL CHO</span>
+                                                                            <span className={`text-sm font-black ${choQty > 0 ? 'text-emerald-600' : (choQty < 0 ? 'text-red-500' : 'text-slate-700')}`}>
+                                                                                {choQty > 0 ? `+${choQty}` : choQty}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-bold text-slate-400 mt-1">{formatCurrency(choQty * (parseFloat(item.unit_price) || 0))}</span>
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="text-xs font-bold text-slate-400 italic">No hay órdenes de cambio registradas que modifiquen esta partida.</div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Certifications Horizontal Breakdown */}
+                                                        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                                                            <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 p-2 px-3">
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Pagos Registrados (Certificaciones)</span>
+                                                            </div>
+                                                            <div className="p-4 overflow-x-auto flex flex-nowrap gap-8 min-w-max items-center">
+                                                                {paidBreakdown.length > 0 ? (
+                                                                    <>
+                                                                        {paidBreakdown.map((b, i) => (
+                                                                            <div key={`cert-${i}`} className="flex flex-col items-center min-w-[70px]">
+                                                                                <span className="text-[11px] font-bold text-emerald-600 mb-2 whitespace-nowrap">CERT #{b?.certNum}</span>
+                                                                                <span className="text-sm font-black text-slate-700">{b?.qty}</span>
+                                                                                <span className="text-[10px] font-medium text-slate-400 mt-1">{b?.amount ? formatCurrency(b.amount) : formatCurrency(0)}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                        <div className="border-l-2 border-slate-100 dark:border-slate-700 h-10 mx-2"></div>
+                                                                        <div className="flex flex-col items-center min-w-[70px]">
+                                                                            <span className="text-[11px] font-bold text-emerald-600 mb-2 whitespace-nowrap">PAGADO</span>
+                                                                            <span className="text-sm font-black text-emerald-600">{paidQty % 1 !== 0 ? paidQty.toFixed(2) : paidQty}</span>
+                                                                            <span className="text-[10px] font-bold text-emerald-600 mt-1">{formatCurrency(paidQty * (parseFloat(item.unit_price) || 0))}</span>
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="text-xs font-bold text-slate-400 italic">Esta partida no ha sido cobrada en ninguna certificación todavía.</div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+});
+
+export default ItemsForm;

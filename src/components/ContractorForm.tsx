@@ -1,0 +1,163 @@
+"use client";
+
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { supabase } from "@/lib/supabase";
+import { Save, Building2 } from "lucide-react";
+import { formatPhoneNumber } from "@/lib/utils";
+import type { FormRef } from "./ProjectForm";
+
+const ContractorForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function ContractorForm({ projectId, onDirty, onSaved }, ref) {
+    const [formData, setFormData] = useState({
+        project_id: projectId || "",
+        name: "",
+        representative: "",
+        ss_patronal: "",
+        phone_office: "",
+        phone_mobile: "",
+        email: "",
+    });
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (projectId) fetchContractor();
+    }, [projectId]);
+
+    const fetchContractor = async () => {
+        const { data } = await supabase.from("contractors").select("*").eq("project_id", projectId).single();
+        if (data) setFormData(data);
+    };
+
+    const saveData = async (silent = false) => {
+        if (!projectId) return;
+        const contractorData = { ...formData, project_id: projectId };
+        const { data: existing } = await supabase.from("contractors").select("id").eq("project_id", projectId).single();
+        let res;
+        if (existing) {
+            res = await supabase.from("contractors").update(contractorData).eq('project_id', projectId);
+        } else {
+            res = await supabase.from("contractors").insert([contractorData]);
+        }
+        if (res.error && !silent) alert("Error: " + res.error.message);
+        else if (!res.error) {
+            if (!silent) alert("Información de contratista sincronizada");
+            if (onSaved) onSaved();
+        }
+    };
+
+    useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!projectId) return;
+        setLoading(true);
+        await saveData(false);
+        setLoading(false);
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
+            <div className="sticky top-[133px] z-20 bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 -mt-4 mb-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Building2 className="text-primary" />
+                    2. Información del Contratista
+                </h2>
+                <button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="btn-primary flex items-center gap-2"
+                >
+                    <Save size={18} />
+                    {loading ? "Sincronizando..." : "Actualizar Contratista"}
+                </button>
+            </div>
+
+            <form className="card grid grid-cols-1 md:grid-cols-2 gap-6 border-none shadow-sm">
+                <div className="md:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nombre de la Empresa</label>
+                    <input
+                        type="text"
+                        maxLength={50}
+                        className="input-field"
+                        style={{ backgroundColor: '#66FF99' }}
+                        value={formData.name || ""}
+                        onChange={(e) => {
+                            setFormData({ ...formData, name: e.target.value });
+                            if (onDirty) onDirty();
+                        }}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Representante</label>
+                    <input
+                        type="text"
+                        maxLength={50}
+                        className="input-field"
+                        style={{ backgroundColor: '#66FF99' }}
+                        value={formData.representative || ""}
+                        onChange={(e) => {
+                            setFormData({ ...formData, representative: e.target.value });
+                            if (onDirty) onDirty();
+                        }}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">SS Patronal</label>
+                    <input
+                        type="text"
+                        className="input-field"
+                        style={{ backgroundColor: '#66FF99' }}
+                        placeholder="000-000-000"
+                        value={formData.ss_patronal || ""}
+                        onChange={(e) => {
+                            setFormData({ ...formData, ss_patronal: e.target.value });
+                            if (onDirty) onDirty();
+                        }}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Teléfono Oficina</label>
+                    <input
+                        type="tel"
+                        className="input-field"
+                        style={{ backgroundColor: '#66FF99' }}
+                        placeholder="(000) 000-0000"
+                        value={formData.phone_office || ""}
+                        onChange={(e) => {
+                            setFormData({ ...formData, phone_office: formatPhoneNumber(e.target.value) });
+                            if (onDirty) onDirty();
+                        }}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Teléfono Celular</label>
+                    <input
+                        type="tel"
+                        className="input-field"
+                        style={{ backgroundColor: '#66FF99' }}
+                        placeholder="(000) 000-0000"
+                        value={formData.phone_mobile || ""}
+                        onChange={(e) => {
+                            setFormData({ ...formData, phone_mobile: formatPhoneNumber(e.target.value) });
+                            if (onDirty) onDirty();
+                        }}
+                    />
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email</label>
+                    <input
+                        type="email"
+                        className="input-field"
+                        style={{ backgroundColor: '#66FF99' }}
+                        value={formData.email || ""}
+                        onChange={(e) => {
+                            setFormData({ ...formData, email: e.target.value });
+                            if (onDirty) onDirty();
+                        }}
+                    />
+                </div>
+            </form>
+        </div>
+    );
+});
+
+export default ContractorForm;
