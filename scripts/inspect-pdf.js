@@ -10,5 +10,5 @@ pdfParser.on("pdfParser_dataReady", pdfData => {
     console.log(textLines.slice(0, 100).join('\n')); // Show first 100 lines to see structure
 });
 
-const pdfPath = path.join(__dirname, '../Documentos/item_sin_duplicados.pdf');
+const pdfPath = path.join(__dirname, '../Documentos/Forma de hoja de liquidacion.pdf');
 pdfParser.loadPDF(pdfPath);

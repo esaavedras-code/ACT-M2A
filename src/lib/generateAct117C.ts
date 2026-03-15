@@ -1,192 +1,465 @@
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
+import { formatDate } from './utils';
 
 export async function generateAct117C(projectId: string, certId: string, certNum: number, certDate: string) {
-    // 1. Fetch Project data
-    const { data: projData } = await supabase.from('projects').select('*').eq('id', projectId).single();
-    if (!projData) throw new Error("Proyecto no encontrado");
+    try {
+        // 1. Fetch Data
+        const { data: projData } = await supabase.from('projects').select('*').eq('id', projectId).single();
+        if (!projData) throw new Error("Proyecto no encontrado");
 
-    // 2. Fetch Contractor data
-    const { data: contrData } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
+        const { data: contrData } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
+        const { data: currentCert } = await supabase.from('payment_certifications').select('*').eq('id', certId).single();
+        const { data: allCerts } = await supabase.from('payment_certifications')
+            .select('*')
+            .eq('project_id', projectId)
+            .lte('cert_num', certNum)
+            .order('cert_num', { ascending: true });
 
-    // 3. Fetch Certification data (to check skip_retention)
-    const { data: currentCert } = await supabase.from('payment_certifications').select('*').eq('id', certId).single();
+        const { data: items } = await supabase.from('contract_items')
+            .select('*')
+            .eq('project_id', projectId)
+            .order('item_num', { ascending: true });
 
-    // 4. Fetch Items
-    const { data: items } = await supabase.from('contract_items').select('*').eq('project_id', projectId).order('item_num', { ascending: true });
+        const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
 
-    // 4. Fetch Personnel for signatures
-    const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
+        const currentCertItemsRaw = Array.isArray(currentCert?.items) ? currentCert.items : (currentCert?.items?.list || []);
+        const currentCertItems = [...currentCertItemsRaw].sort((a, b) => (parseInt(a.item_num) || 0) - (parseInt(b.item_num) || 0));
 
-    // 5. Fetch Materials on Site
-    const { data: mats } = await supabase.from('materials_on_site').select('invoice_total').eq('project_id', projectId);
-    const materialValue = mats?.reduce((acc, m) => acc + (m.invoice_total || 0), 0) || 0;
+        const { data: chos } = await supabase.from("chos").select("proposed_change").eq("project_id", projectId).eq("doc_status", "Aprobado");
+        const totalCho = (chos || []).reduce((sum, c) => sum + (c.proposed_change || 0), 0);
 
-    // 6. Load raw PDF from public folder
-    const url = '/ACT-117C_Reporte.pdf';
-    const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
+        // 2. Calculations
+        const calcOriginalAmount = (items || []).reduce((acc: number, it: any) => acc + ((it.quantity || 0) * (it.unit_price || 0)), 0);
+        const totalProjectAmount = calcOriginalAmount + totalCho;
 
-    const pdfDoc = await PDFDocument.load(existingPdfBytes);
-    const page = pdfDoc.getPages()[0];
+        const fmt = (val: number, dec = 2) => {
+            if (val === 0) return "0.00";
+            const s = Math.abs(val).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+            return val < 0 ? `(${s})` : s;
+        };
 
-    // Standard factor for pdf2json coordinates (1 unit approx 16 points)
-    const factor = 16.0;
-    const pageHeight = 792; // Letter size
+        let wpPrevious = 0;
+        let wpCurrent = 0;
+        let materialBalance = 0;
 
-    const drawText = (text: string, x: number, y: number, size = 9) => {
-        if (text === undefined || text === null || text === '') return;
-        page.drawText(text.toString(), {
-            x: x * factor,
-            y: pageHeight - (y * factor) - 15, // Adjusted from -10 to -15 to lower the text even further
-            size,
-            color: rgb(0, 0, 0),
+        allCerts?.forEach(c => {
+            const cItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+            let certWP = 0;
+            let certMOSChange = 0;
+
+            cItems.forEach((it: any) => {
+                const q = parseFloat(it.quantity) || 0;
+                const p = parseFloat(it.unit_price) || 0;
+                certWP += q * p;
+
+                const addedMOS = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
+                const mosPU = parseFloat(it.mos_unit_price) || p;
+                const deductedMOS = (parseFloat(it.qty_from_mos) || 0) * mosPU;
+                certMOSChange += addedMOS - deductedMOS;
+            });
+
+            if (c.cert_num < certNum) {
+                wpPrevious += certWP;
+                materialBalance += certMOSChange;
+            } else if (c.cert_num === certNum) {
+                wpCurrent = certWP;
+                materialBalance += certMOSChange;
+            }
         });
-    };
 
-    const formatCurrency = (val: number, decimals = 2) => {
-        return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: decimals });
-    }
+        const wpTotalToDate = wpPrevious + wpCurrent;
+        const percentWPValue = totalProjectAmount > 0 ? (wpTotalToDate / totalProjectAmount) * 100 : 0;
+        const retentionValue = currentCert?.skip_retention ? 0 : (wpTotalToDate * 0.05);
+        const subTotalValue = wpTotalToDate - retentionValue;
+        const netPaymentValue = subTotalValue + materialBalance;
 
-    // Header Details
-    // 1. To: (label at 3.75, 5.21)
-    drawText(projData.region ? `Director Regional - Región ${projData.region}` : '', 5.5, 5.21);
+        // 3. Document Setup
+        const pdfDoc = await PDFDocument.create();
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // 9. Date: (label at 21.44, 5.21)
-    drawText(new Date().toLocaleDateString('en-US'), 25.5, 5.21);
+        const ITEMS_PER_PAGE = 10; // Reduced to ensure legal box and footer fit perfectly
+        const numSheets = Math.ceil(Math.max(1, currentCertItems.length) / ITEMS_PER_PAGE);
+        const personnelMap: Record<string, string> = {};
+        personnel?.forEach(p => { personnelMap[p.role] = p.name; });
 
-    // 2. Project Name: (label at 3.75, 6.25)
-    drawText(projData.name || '', 8.0, 6.25);
-
-    // 10. Cert. Num.: (label at 21.45, 6.25)
-    drawText(certNum.toString(), 25.5, 6.25);
-
-    // 3. Contractor: (label at 3.75, 7.24)
-    drawText(contrData?.name || '', 8.0, 7.24);
-
-    // 11. Work Performed up to: (label at 21.45, 7.24)
-    drawText(certDate, 27.5, 7.24);
-
-    // 4. Project Num.: (label at 3.75, 8.18)
-    drawText(projData.num_act || '', 8.0, 8.18);
-
-    // 12. Contract Beginning Date:
-    drawText(projData.date_project_start || '', 27.5, 8.18);
-
-    // 5. Federal Num.: (label at 3.75, 8.93)
-    drawText(projData.num_federal || '', 8.0, 8.93);
-
-    // 13. Contract Completion Date: (label at 19.40, 8.93)
-    drawText(projData.date_orig_completion || '', 27.5, 8.93);
-
-    // 6. Oracle Num.: (label at 3.75, 9.68)
-    drawText(projData.num_oracle || '', 8.0, 9.68);
-
-    // 14. Revised Completion Date: (label at 19.40, 9.68)
-    drawText(projData.date_rev_completion || '', 27.5, 9.68);
-
-    // 7. Contract Num.: (label at 3.75, 10.43)
-    drawText(projData.num_contrato || '', 8.0, 10.43);
-
-    // 15. Project Original Amount: (label at 19.40, 10.43)
-    const calcOriginalAmount = (items || []).reduce((acc: number, it: any) => acc + ((it.quantity || 0) * (it.unit_price || 0)), 0);
-    drawText(`$ ${formatCurrency(calcOriginalAmount)}`, 31.5, 10.43);
-
-    // 8. Municipality: (label at 3.75, 11.18)
-    drawText(projData.municipios?.join(", ") || '', 8.0, 11.18);
-
-    // 16. Project Revised Amount: (label at 19.39, 11.18)
-    const { data: chos } = await supabase.from("chos").select("proposed_change").eq("project_id", projectId).eq("doc_status", "Aprobado");
-    const totalCho = (chos || []).reduce((sum, c) => sum + (c.proposed_change || 0), 0);
-    drawText(`$ ${formatCurrency(calcOriginalAmount + totalCho)}`, 31.5, 11.18);
-
-    // Grid - Starts at y=15.21
-    let startY = 15.21;
-    let stepY = 0.75;
-
-    // Drawing items
-    let curWorkPerformed = 0;
-    if (items) {
-        items.slice(0, 15).forEach((item, index) => {
-            let y = startY + (index * stepY);
-            drawText(item.item_num || '', 4.0, y, 7);
-            drawText(item.specification || '', 7.6, y, 7);
-            drawText(item.fund_source || '', 10.2, y, 6);
-            drawText((item.description || '').substring(0, 40), 12.0, y, 7);
-            drawText(item.unit || '', 22.0, y, 7);
-            drawText(item.quantity?.toString() || '0', 24.5, y, 7);
-            drawText(formatCurrency(item.unit_price || 0, 4), 28.0, y, 7);
-
-            const amt = (item.quantity || 0) * (item.unit_price || 0);
-            drawText(formatCurrency(amt), 31.5, y, 7);
-
-            curWorkPerformed += amt;
-        });
-    }
-
-    // Summary calculations
-    const workPerformedValue = curWorkPerformed;
-    const retentionValue = currentCert?.skip_retention ? 0 : (workPerformedValue * 0.05);
-    const subTotalValue = workPerformedValue - retentionValue;
-
-    const reimbursementWP = 0;
-    const lqdValue = 0;
-    const lqdReimbursement = 0;
-    const extraRetainage = 0;
-    const priceAdjustment = 0;
-    const safetyPenalties = 0;
-    const otherAdjustments = 0;
-
-    const netPaymentValue = subTotalValue + materialValue + reimbursementWP - lqdValue + lqdReimbursement + extraRetainage + priceAdjustment - safetyPenalties + otherAdjustments;
-
-    // Financial Fields (Section 26-38)
-    const summaryX = 31.5;
-    drawText(`$ ${formatCurrency(workPerformedValue)}`, summaryX, 28.90, 8); // 26. Work Performed (WP)
-    drawText(`$ ${formatCurrency(retentionValue)}`, summaryX, 29.85, 8);    // 27. 5% Retained (WP)
-    drawText(`$ ${formatCurrency(reimbursementWP)}`, summaryX, 30.80, 8);  // 28. Reimbursement (WP)(+)
-    drawText(`$ ${formatCurrency(subTotalValue)}`, summaryX, 31.76, 8);     // 29. Sub Total
-    drawText(`$ ${formatCurrency(materialValue)}`, summaryX, 32.71, 8);      // 30. Material on Site (+/-)
-    drawText(`$ ${formatCurrency(lqdValue)}`, summaryX, 33.66, 8);          // 31. Liquidated Damages (LQD)(-)
-    drawText(`$ ${formatCurrency(lqdReimbursement)}`, summaryX, 34.94, 8);  // 32. Reimbursement (LqD)(+)
-    drawText(`$ ${formatCurrency(extraRetainage)}`, summaryX, 35.89, 8);    // 33. Extra Retainage (+/-)
-    drawText(`$ ${formatCurrency(priceAdjustment)}`, summaryX, 36.84, 8);   // 34. Price Adjustment Clause (+/-)
-    drawText(`$ ${formatCurrency(safetyPenalties)}`, summaryX, 37.79, 8);   // 35. Safety Penalties - Spec 638(-)
-    drawText(`$ ${formatCurrency(otherAdjustments)}`, summaryX, 38.74, 8);  // 36. Other (+/-)
-    drawText(`$ ${formatCurrency(netPaymentValue)}`, summaryX, 40.65, 9);    // 37. Net Payment
-    drawText(`$ ${formatCurrency(workPerformedValue)}`, summaryX, 41.59, 9); // 38. Total to Date (WP)
-
-    // Percentages
-    const totalProjectAmount = calcOriginalAmount + totalCho;
-    const percentWP = totalProjectAmount > 0 ? (workPerformedValue / totalProjectAmount) * 100 : 0;
-    drawText(`${percentWP.toFixed(2)} %`, 10.0, 43.51, 9); // 45. Percent Work Performed
-
-    if (projData.date_project_start) {
-        const start = new Date(projData.date_project_start);
-        const end = new Date(projData.date_rev_completion || projData.date_orig_completion);
-        const today = new Date();
-        if (start.getTime() && end.getTime()) {
-            const totalTime = end.getTime() - start.getTime();
-            const usedTime = today.getTime() - start.getTime();
-            const percentTime = Math.min(100, Math.max(0, (usedTime / totalTime) * 100));
-            drawText(`${percentTime.toFixed(2)} %`, 10.0, 45.41, 9); // 46. Percent Time
+        // Load Logo
+        let logoImage: any = null;
+        try {
+            const logoUrl = `${window.location.origin}/act_logo.png`;
+            const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
+            logoImage = await pdfDoc.embedPng(logoBytes);
+        } catch (e) {
+            console.error("No se pudo cargar el logo:", e);
         }
+
+        const drawSecondPage = (page: any, sheetNum: number, totalSheets: number) => {
+            const { width, height } = page.getSize();
+            const drawText = (txt: any, x: number, y: number, size = 8, isBold = false, center = false) => {
+                if (txt === undefined || txt === null) return;
+                const s = txt.toString();
+                const usedFont = isBold ? fontBold : font;
+                const textWidth = usedFont.widthOfTextAtSize(s, size);
+                const finalX = center ? x - (textWidth / 2) : x;
+                page.drawText(s, { x: finalX, y: height - y, size, font: usedFont, color: rgb(0, 0, 0) });
+            };
+
+            const drawLine = (x1: number, y1: number, x2: number, y2: number, thickness = 0.5) => {
+                page.drawLine({ start: { x: x1, y: height - y1 }, end: { x: x2, y: height - y2 }, thickness, color: rgb(0, 0, 0) });
+            };
+
+            // Identificación del reporte en la esquina superior derecha
+            drawText("ACT-117C", width - 85, 25, 8.5, true);
+            drawText("(Rev 03/2020)", width - 85, 34, 7);
+
+            // SECCIÓN: LIQUIDATED DAMAGES
+            drawLine(40, 65, width - 40, 65, 1.5); // Línea gruesa superior
+            drawText("LIQUIDATED DAMAGES - N/A", width / 2, 75, 10.5, true, true);
+            drawLine(40, 81, width - 40, 81, 1.5); // Línea gruesa inferior de título
+
+            let dy2 = 110;
+            drawText("For not completing project on contract time from:", 45, dy2, 9);
+            drawLine(260, dy2 + 2, 345, dy2 + 2, 0.8);
+            drawText("47", 302, dy2 + 10, 6.5, false, true);
+            drawText("to", 355, dy2, 9);
+            drawLine(370, dy2 + 2, 455, dy2 + 2, 0.8);
+            drawText("48", 412, dy2 + 10, 6.5, false, true);
+            drawText("both dates included", 465, dy2, 9);
+
+            dy2 += 38;
+            drawText("a total of", 45, dy2, 9);
+            drawLine(105, dy2 + 2, 185, dy2 + 2, 0.8);
+            drawText("49", 145, dy2 + 10, 6.5, false, true);
+            drawText("days at", 195, dy2, 9);
+            drawLine(245, dy2 + 2, 335, dy2 + 2, 0.8);
+            drawText("50", 290, dy2 + 10, 6.5, false, true);
+            drawText("per day.", 345, dy2, 9);
+
+            drawText("3", 500, dy2, 9, true); // El "3" misterioso de la foto
+            drawText("Total to Date:", 460, dy2, 9, true);
+            drawLine(520, dy2 + 2, 575, dy2 + 2, 0.8);
+            drawText("51", 547, dy2 + 10, 6.5, false, true);
+
+            dy2 += 38;
+            drawText("Previous Date:", 45, dy2, 9);
+            drawLine(120, dy2 + 2, 230, dy2 + 2, 0.8);
+            drawText("52", 175, dy2 + 10, 6.5, false, true);
+
+            drawLine(520, dy2 + 2, 575, dy2 + 2, 0.8);
+            drawText("53", 547, dy2 + 10, 6.5, false, true);
+
+            // SECCIÓN: REIMBURSEMENT
+            dy2 = 230;
+            drawLine(40, dy2 - 12, width - 40, dy2 - 12, 1.5);
+            drawText("REIMBURSEMENT - N/A", width / 2, dy2, 10.5, true, true);
+            drawLine(40, dy2 + 4, width - 40, dy2 + 4, 1.5);
+
+            dy2 += 40;
+            drawText("For extension of Contract Time this period:", 45, dy2, 9);
+            drawLine(235, dy2 + 2, 325, dy2 + 2, 0.8);
+            drawText("54", 280, dy2 + 10, 6.5, false, true);
+            drawText("days at", 335, dy2, 9);
+            drawLine(385, dy2 + 2, 475, dy2 + 2, 0.8);
+            drawText("55", 430, dy2 + 10, 6.5, false, true);
+            drawText("per day", 485, dy2, 9);
+
+            dy2 += 40;
+            drawText("This Period:", 45, dy2, 9);
+            drawLine(115, dy2 + 2, 225, dy2 + 2, 0.8);
+            drawText("56", 170, dy2 + 10, 6.5, false, true);
+
+            dy2 += 40;
+            drawText("Previous Date:", 45, dy2, 9);
+            drawLine(125, dy2 + 2, 235, dy2 + 2, 0.8);
+            drawText("Total to Date:", 455, dy2, 9);
+            drawLine(520, dy2 + 2, 575, dy2 + 2, 0.8);
+
+            drawText("LS", width / 2, dy2 + 25, 10, true, true);
+
+            // SECCIÓN: 59. Remarks
+            dy2 = 380;
+            drawText("59. Remarks", 45, dy2, 9.5, true);
+            const rBoxTop = dy2 + 10;
+            const rBoxBottom = 700;
+            drawLine(40, rBoxTop, width - 40, rBoxTop, 1); // Top
+            drawLine(40, rBoxBottom, width - 40, rBoxBottom, 1); // Bottom
+            drawLine(40, rBoxTop, 40, rBoxBottom, 1); // Left
+            drawLine(width - 40, rBoxTop, width - 40, rBoxBottom, 1); // Right
+
+            // SECCIÓN: 60. Distribution (Tabla inferior)
+            dy2 = 720;
+            drawText("60. Distribution", 45, dy2, 9.5, true);
+            const dStartX = 140;
+            const dValX = 225;
+            const dCol2X = 380;
+            const dVal2X = 465;
+
+            let distY = 745;
+            drawText("ORIGINAL", dStartX, distY, 7.5, true);
+            drawText("Treasury Office", dValX, distY, 7.5);
+            drawText("COPY 3", dCol2X, distY, 7.5, true);
+            drawText("Project", dVal2X, distY, 7.5);
+
+            distY += 15;
+            drawText("COPY 1", dStartX, distY, 7.5, true);
+            drawText("Preaudit Office", dValX, distY, 7.5);
+            drawText("COPY 4", dCol2X, distY, 7.5, true);
+            drawText("Construction Area", dVal2X, distY, 7.5);
+
+            distY += 15;
+            drawText("COPY 2", dStartX, distY, 7.5, true);
+            drawText("Contractor", dValX, distY, 7.5);
+
+            // Numeración en la página dos también
+            drawText(`Sheet ${sheetNum} of ${totalSheets}`, width - 100, 770, 8, true);
+        };
+
+        for (let sIdx = 0; sIdx < numSheets; sIdx++) {
+            const page = pdfDoc.addPage([612, 792]);
+            const { width, height } = page.getSize();
+
+            const drawText = (txt: any, x: number, y: number, size = 8, isBold = false, center = false, forceColor?: any) => {
+                if (txt === undefined || txt === null) return;
+                const s = txt.toString();
+                const usedFont = isBold ? fontBold : font;
+                const textWidth = usedFont.widthOfTextAtSize(s, size);
+                const finalX = center ? x - (textWidth / 2) : x;
+
+                // Color logic: Purely negative numbers in red, rest in black
+                let textColor = rgb(0, 0, 0);
+                if (forceColor) {
+                    textColor = forceColor;
+                } else {
+                    const isNumLike = /^[(-]?[0-9,.]+[)]?%?$/.test(s.trim());
+                    const isNegative = isNumLike && (s.includes('(') || s.startsWith('-'));
+                    if (isNegative) textColor = rgb(0.8, 0, 0);
+                }
+
+                page.drawText(s, { x: finalX, y: height - y, size, font: usedFont, color: textColor });
+            };
+
+            const drawLine = (x1: number, y1: number, x2: number, y2: number, thickness = 0.5) => {
+                page.drawLine({ start: { x: x1, y: height - y1 }, end: { x: x2, y: height - y2 }, thickness, color: rgb(0, 0, 0) });
+            };
+
+            // --- HEADER (Matches Photo perfectly now) ---
+            if (logoImage) {
+                page.drawImage(logoImage, {
+                    x: 40,
+                    y: height - 65,
+                    width: 60,
+                    height: 45
+                });
+            }
+
+            drawText("Government of Puerto Rico", width / 2, 25, 7, false, true);
+            drawText("Department of Transportation and Public Works", width / 2, 35, 7, false, true);
+            drawText("HIGHWAY AND TRANSPORTATION AUTHORITY", width / 2, 48, 9, true, true);
+            drawText("ACT-117C", width - 85, 25, 8, true);
+            drawText("(Rev. 03/2020)", width - 85, 34, 6.5);
+            drawText("MONTHLY PROGRESS PAYMENT REPORT", width / 2, 72, 11, true, true);
+            drawLine(40, 78, width - 40, 78, 1.2);
+
+            // --- FIELDS 1-16 ---
+            const ly = 100; const ry = 100; const lh = 17;
+            const field = (n: string, lbl: string, x: number, y: number, lLen: number, v: any) => {
+                const fullLbl = `${n}. ${lbl}`;
+                drawText(fullLbl, x, y, 7.5, true);
+                const w = fontBold.widthOfTextAtSize(fullLbl, 7.5);
+                drawLine(x + w + 5, y + 2, x + lLen, y + 2);
+                drawText(v, x + w + 8, y, 8);
+            };
+
+            field("1", "To:", 40, ly, 290, "Director Regional");
+            field("2", "Project Name:", 40, ly + lh, 290, projData.name);
+            field("3", "Contractor:", 40, ly + lh * 2, 290, contrData?.name);
+            field("4", "Project Num.:", 40, ly + lh * 3, 290, projData.num_act);
+            field("5", "Federal Num.:", 40, ly + lh * 4, 290, projData.num_federal || 'N/A');
+            field("6", "Oracle Num.:", 40, ly + lh * 5, 315, projData.num_oracle);
+            field("7", "Contract Num.:", 40, ly + lh * 6, 290, projData.num_contrato);
+            field("8", "Municipality:", 40, ly + lh * 7, 290, projData.municipios?.join(", "));
+
+            const rx = 330;
+            field("9", "Date:", rx, ry, width - 40, formatDate(new Date()));
+            field("10", "Cert. Num.:", rx, ry + lh, width - 40, certNum.toString());
+            field("11", "Work Performed up to:", rx, ry + lh * 2, width - 40, formatDate(currentCert?.wp_up_to || certDate));
+            field("12", "Contract Beginning Date:", rx, ry + lh * 3, width - 40, formatDate(projData.date_project_start));
+            field("13", "Contract Completion Date:", rx, ry + lh * 4, width - 40, formatDate(projData.date_orig_completion));
+            field("14", "Revised Completion Date:", rx, ry + lh * 5, width - 40, formatDate(projData.date_rev_completion));
+            field("15", "Project Original Amount:", rx, ry + lh * 6, width - 40, fmt(calcOriginalAmount));
+            field("16", "Project Revised Amount:", rx, ry + lh * 7, width - 40, fmt(totalProjectAmount));
+
+            // --- GRID 17-25 (Table Structure) ---
+            const ty = 255; const th = 38;
+            const tableHeight = 200; // Reduced from 242 to shorten the empty space
+            drawLine(40, ty, width - 40, ty, 0.8); // Top line
+            drawLine(40, ty + th, width - 40, ty + th, 0.8); // Header Separator
+
+            const vLines = [40, 75, 100, 135, 180, 345, 385, 445, 515, width - 40];
+            vLines.forEach(x => drawLine(x, ty, x, ty + tableHeight, 0.6)); // Grid columns
+
+            const hdr = (n: string, l1: string, l2: string, x: number) => {
+                if (n) drawText(n, x, ty + 10, 8, true, true);
+                drawText(l1, x, ty + 22, 7, false, true);
+                if (l2) drawText(l2, x, ty + 31, 6.5, false, true);
+            };
+
+            hdr("17", "Item No.", "", 57.5);
+            hdr("", "Alt", "", 87.5);
+            hdr("19", "Spec. Code", "", 117.5);
+            hdr("20", "% Federal", "Participation", 157.5);
+            hdr("21", "Description", "", 262.5);
+            hdr("22", "Unit", "", 365);
+            hdr("23", "Quantity", "", 415);
+            hdr("24", "Unit Price", "", 480);
+            hdr("25", "Amount", "", 553.5);
+
+            const pageItems = currentCertItems.slice(sIdx * ITEMS_PER_PAGE, (sIdx + 1) * ITEMS_PER_PAGE);
+            pageItems.forEach((it, i) => {
+                const rowY = ty + th + 14 + (i * 15.5);
+                drawLine(40, rowY + 2, width - 40, rowY + 2, 0.1);
+                drawText(it.item_num, 57.5, rowY, 7, false, true);
+                drawText(it.specification, 117.5, rowY, 7, false, true);
+                const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('100%') ? '100%' : '0%');
+                drawText(fedP, 157.5, rowY, 7, false, true);
+                drawText(it.description?.substring(0, 48), 185, rowY, 6.5);
+                drawText(it.unit, 365, rowY, 7, false, true);
+                drawText(fmt(parseFloat(it.quantity) || 0), 415, rowY, 7, false, true);
+                drawText(fmt(parseFloat(it.unit_price) || 0, 4), 480, rowY, 7, false, true);
+                drawText(fmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)), 553.5, rowY, 7, false, true);
+            });
+            // --- LEGAL BOX (Continuation of the table) ---
+            const byTop = ty + tableHeight;
+            const byBottom = byTop + 72;
+
+            // Full width box lines (Continues the table borders)
+            drawLine(40, byTop, width - 40, byTop, 1); // Close table/Box top
+            drawLine(40, byBottom, width - 40, byBottom, 1); // Box bottom
+            drawLine(40, byTop, 40, byBottom, 1); // Left border
+            drawLine(width - 40, byTop, width - 40, byBottom, 1); // Right border
+
+            // Justified Legal Text
+            const ly2 = byTop + 12;
+            const certLines = [
+                "Under penalty of absolute nullity, I hereby certify that no public servant of the Puerto Rico Highways and Transportation Authority is a party to or has an interest of any",
+                "kind in the profits or benefits to be obtained under the contract which is the basis of this invoice, and should he be a party to, or have an interest in, the profits or",
+                "benefits to be obtained under the contract, a waiver has been previously issued. The only consideration to provide the contracted goods or services under the",
+                "contract is the payment agreed upon with the authorized representative of the government entity. The amount that appears in the invoice is fair and correct. The work",
+                "has been performed, the goods have been delivered, and the services have been rendered, and no payment has been received therefor."
+            ];
+
+            const maxWidth = width - 90; // Box width minus inner margins
+            certLines.forEach((line, idx) => {
+                const yPos = ly2 + (idx * 9);
+                const words = line.split(' ');
+
+                // Justify all lines except the last one
+                if (idx < certLines.length - 1) {
+                    const totalWordsWidth = words.reduce((acc, w) => acc + font.widthOfTextAtSize(w, 6.5), 0);
+                    const spaceWidth = (maxWidth - totalWordsWidth) / (words.length - 1);
+                    let curX = 45;
+                    words.forEach(w => {
+                        page.drawText(w, { x: curX, y: height - yPos, size: 6.5, font, color: rgb(0, 0, 0) });
+                        curX += font.widthOfTextAtSize(w, 6.5) + spaceWidth;
+                    });
+                } else {
+                    drawText(line, 45, yPos, 6.5);
+                }
+            });
+
+            drawText("Contractor:", 45, byBottom - 8, 8, true);
+            drawLine(100, byBottom - 6, 350, byBottom - 6);
+
+            // --- SUMMARY & SIGNATURES AREA ---
+            const ay = byBottom + 12; // Start after legal box
+
+            // Signature Sections (39-44)
+            const sigDefs = [
+                { id: "39", lbl: "Prepared by:", role: "Representante del Contratista", sub: "Contractor" },
+                { id: "40", lbl: "Concurred by:", role: "Administrador del Proyecto", sub: "Project Administrator or Resident Engineer or Inspector" },
+                { id: "41", lbl: "Received for Review:", role: "Representante Designado", sub: "Regional Director's Designated Representative" },
+                { id: "42", lbl: "Submitted for Review:", role: "Supervisor de Área", sub: "Area Supervisor (Program Manager)" },
+                { id: "43", lbl: "Approved by:", role: "Director Regional", sub: "Regional Director" },
+                { id: "44", lbl: "Approved for Payment by:", role: "Director Finanzas", sub: "Finance Area Director" }
+            ];
+
+            sigDefs.forEach((s, i) => {
+                const y = ay + (i * 30);
+                drawText(`${s.id}. ${s.lbl}`, 40, y, 7, true);
+                drawLine(135, y + 2, 290, y + 1.5, 0.5);
+                drawLine(295, y + 2, 355, y + 1.5, 0.5);
+                drawText(personnelMap[s.role] || '', 140, y, 7.5);
+                drawText(s.sub, 135, y + 10, 5.5);
+                drawText("Date", 300, y + 10, 5.5);
+            });
+
+            // Financial Summary (26-38)
+            const sx = 415; // Moved 1.5cm left from 455 as requested
+            const sumDefs = [
+                ["26", "Work Performed (WP):", fmt(wpCurrent)],
+                ["27", "5% Retained (WP):", fmt(retentionValue)],
+                ["28", "Reimbursement (WP)(+/-):", "0.00"],
+                ["29", "Sub Total:", fmt(subTotalValue)],
+                ["30", "Material on Site (+/-):", fmt(materialBalance)],
+                ["31", "Liquidated Damages (LQD)(-):", "0.00"],
+                ["32", "Reimbursement (LqD)(+):", "0.00"],
+                ["33", "Extra Retainage (+/-):", "0.00"],
+                ["34", "Price Adjustment Clause (+/-):", "0.00"],
+                ["35", "Safety Penalties - Spec 638(-):", "0.00"],
+                ["36", "Other (+/-):", "0.00"],
+                ["37", "Net Payment:", fmt(netPaymentValue)],
+                ["38", "Total to Date (WP):", fmt(wpTotalToDate)]
+            ];
+
+            sumDefs.forEach((sd, i) => {
+                const y = ay + (i * 15); // Consistent spacing
+                drawText(`${sd[0]}. ${sd[1]}`, sx, y, 6.8);
+                drawLine(width - 80, y + 2, width - 40, y + 2);
+                drawText(sd[2], width - 60, y, 7.5, false, true);
+            });
+
+            // Percent Progress (45-46) - Aligned with signatures (x=40)
+            const py = ay + (6 * 30);
+            drawText("45. Percent Work Performed:", 40, py, 7, true); // Aligned at 40
+            drawLine(155, py + 2, 230, py + 2);
+            drawText(`${percentWPValue.toFixed(2)} %`, 192.5, py, 7.5, false, true);
+
+            const py2 = ay + (7 * 30);
+            drawText("46. Percent Time:", 40, py2, 7, true); // Aligned at 40
+            drawLine(120, py2 + 2, 230, py2 + 2);
+            if (projData.date_project_start) {
+                const sDt = new Date(projData.date_project_start);
+                const eDt = new Date(projData.date_rev_completion || projData.date_orig_completion);
+                const wpDate = new Date(currentCert?.wp_up_to || certDate);
+                const usedMs = wpDate.getTime() - sDt.getTime();
+                const totalMs = eDt.getTime() - sDt.getTime();
+                const pctTime = Math.min(100, Math.max(0, (usedMs / totalMs) * 100));
+                drawText(`${pctTime.toFixed(2)} %`, 175, py2, 7.5, false, true);
+            }
+
+            // --- SEGUNDA PÁGINA (Añadida inmediatamente después de cada página de items) ---
+            const page2 = pdfDoc.addPage([612, 792]);
+            drawSecondPage(page2, sIdx + 1, numSheets);
+        }
+
+        // --- PAGE NUMBERING ---
+        const pages = pdfDoc.getPages();
+        pages.forEach((p, i) => {
+            const { width } = p.getSize();
+            p.drawText(`Page ${i + 1} of ${pages.length}`, {
+                x: width - 80,
+                y: 20,
+                size: 8,
+                font: font,
+                color: rgb(0, 0, 0)
+            });
+        });
+
+        const pdfBytes = await pdfDoc.save();
+        return new Blob([pdfBytes as any], { type: 'application/pdf' });
+    } catch (err: any) {
+        console.error("Error generating ACT-117C:", err);
+        throw err;
     }
-
-    // 39-44 Signatures (Personnel)
-    if (personnel) {
-        const contractorRep = personnel.find(p => p.role === 'Representante del Contratista')?.name || contrData?.representative || '';
-        const projectAdmin = personnel.find(p => p.role === 'Administrador del Proyecto')?.name || '';
-        const areaSuper = personnel.find(p => p.role === 'Supervisor de Área')?.name || '';
-        const regDirector = personnel.find(p => p.role === 'Director Regional')?.name || '';
-        const financeDirector = personnel.find(p => p.role === 'Director Finanzas')?.name || '';
-
-        drawText(contractorRep, 9.6, 29.85, 8); // 39. Prepared by (Representante del Contratista)
-        drawText(projectAdmin, 9.6, 31.76, 8); // 40. Concurred by (Administrador del Proyecto)
-        drawText(areaSuper, 9.6, 35.89, 8);    // 42. Submitted for Review (Supervisor de Área)
-        drawText(regDirector, 9.6, 37.79, 8);  // 43. Approved by (Director Regional)
-        drawText(financeDirector, 9.6, 40.65, 8); // 44. Approved for Payment by (Director Finanzas)
-    }
-
-    // Wrap up processing and return Blob
-    const pdfBytes = await pdfDoc.save();
-    return new Blob([pdfBytes as any], { type: 'application/pdf' });
 }

@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Clock, DollarSign, PieChart, Activity, AlertCircle, Download, Layers, ShieldAlert } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { Clock, DollarSign, PieChart, Activity, AlertCircle, Download, Layers, ShieldAlert, Info } from "lucide-react";
+import { formatCurrency, roundedAmt, formatDate } from "@/lib/utils";
+import Link from "next/link";
+import PriceComparison from "./PriceComparison";
 
-export default function SummaryDashboard({ projectId }: { projectId?: string }) {
+export default function SummaryDashboard({ projectId, numAct }: { projectId?: string, numAct?: string }) {
     const [metrics, setMetrics] = useState({
         time: { total: 0, used: 0, revised: 0, balance: 0, percent: 0 },
-        dates: { start: "", original: "", revised: "", fmis: "" },
+        dates: { start: "", original: "", revised: "", fmis: "", substantial: "", administrative: "" },
         cost: {
             original: 0,
             certTotal: 0,
@@ -18,6 +20,8 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
             percentObra: 0,
             actTotal: 0,
             fhwaTotal: 0,
+            actProjected: 0,
+            fhwaProjected: 0,
             materialOnSite: 0,
             priceAdjustment: 0,
         },
@@ -34,34 +38,58 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
             percentDays: 0,
         },
         penalties: { liquidated: 0, dlqReimbursement: 0, security: 0, others: 0, total: 0 },
-        retention: { fivePercent: 0, extra: 0, returned: 0, total: 0 }
+        retention: { fivePercent: 0, extra: 0, returned: 0, total: 0 },
+        liquidation: { totalItems: 0, adminSigned: 0, contractorSigned: 0, liquidatorSigned: 0, percent: 0 }
     });
 
     const [expiredDocs, setExpiredDocs] = useState<{ doc_type: string; date_expiry: string }[]>([]);
+    const [fmisAlert, setFmisAlert] = useState<{ status: 'warning' | 'expired'; daysLeft: number } | null>(null);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        if (projectId) fetchAllData();
-    }, [projectId]);
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (projectId && mounted) fetchAllData();
+    }, [projectId, mounted]);
 
     const fetchAllData = async () => {
         // 0. Fetch expired compliance documents
-        const today = new Date().toISOString().split("T")[0];
+        const today = new Date();
+        const todayStr = today.toISOString().split("T")[0];
         const { data: complianceData } = await supabase
             .from("labor_compliance")
             .select("doc_type, date_expiry")
             .eq("project_id", projectId)
             .not("date_expiry", "is", null)
-            .lt("date_expiry", today);
+            .lt("date_expiry", todayStr);
         setExpiredDocs(complianceData || []);
 
         // 1. Fetch Project
         const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
 
+        // 1.1 FMIS Expiry Check
+        if (proj?.fmis_end_date) {
+            const fmisDate = new Date(proj.fmis_end_date + "T23:59:59");
+            const diffTime = fmisDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+
+            if (diffDays < 0) {
+                setFmisAlert({ status: 'expired', daysLeft: diffDays });
+            } else if (diffDays <= 30) {
+                setFmisAlert({ status: 'warning', daysLeft: diffDays });
+            } else {
+                setFmisAlert(null);
+            }
+        }
+
         // 2. Fetch Items
-        const { data: items } = await supabase.from("contract_items").select("quantity, unit_price").eq("project_id", projectId);
+        const { data: items } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
+        const totalItemsCount = items?.length || 0;
 
         // 3. Fetch CHOs
-        const { data: chos } = await supabase.from("chos").select("proposed_change, doc_status, time_extension_days").eq("project_id", projectId);
+        const { data: chos } = await supabase.from("chos").select("proposed_change, doc_status, time_extension_days, items").eq("project_id", projectId);
 
         // 4. Fetch Payment Certifications
         const { data: certs } = await supabase
@@ -70,20 +98,49 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
             .eq("project_id", projectId)
             .order("cert_num", { ascending: true });
 
-        const originalCost = proj?.cost_original || items?.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0) || 0;
+        const originalCost = proj?.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
 
         // CHO calculations
         const approvedCHOs = chos?.filter(c => c.doc_status === 'Aprobado') || [];
         const pendingCHOs = chos?.filter(c => c.doc_status === 'En trámite') || [];
 
-        const approvedCHO = approvedCHOs.reduce((acc, c) => acc + parseFloat(c.proposed_change || '0'), 0);
-        const pendingCHO = pendingCHOs.reduce((acc, c) => acc + parseFloat(c.proposed_change || '0'), 0);
+        const approvedCHO = approvedCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
+        const pendingCHO = pendingCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
         const approvedDays = approvedCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
         const pendingDays = pendingCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
 
         // Calculate total certified amounts split by fund source
         let actTotal = 0;
         let fhwaTotal = 0;
+
+        // Calculate projected budget splits
+        let actProjected = 0;
+        let fhwaProjected = 0;
+
+        // Origin items projection
+        items?.forEach((item: any) => {
+            const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
+            if (item.fund_source?.includes('ACT')) {
+                actProjected = roundedAmt(actProjected + amount, 2);
+            } else if (item.fund_source?.includes('FHWA')) {
+                fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
+            }
+        });
+
+        // CHO items projection
+        chos?.forEach((cho: any) => {
+            if (cho.items && Array.isArray(cho.items)) {
+                cho.items.forEach((item: any) => {
+                    const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
+                    if (item.fund_source?.includes('ACT')) {
+                        actProjected = roundedAmt(actProjected + amount, 2);
+                    } else if (item.fund_source?.includes('FHWA')) {
+                        fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
+                    }
+                });
+            }
+        });
+
         let lastCertAmount = 0;
         let lastCertNum = 0;
         let totalRetentionDeducted = 0;
@@ -98,32 +155,39 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
             let certAmount = 0;
 
             certItems.forEach((item: any) => {
-                const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-                const source = item.fund_source || "";
+                const qty = parseFloat(item.quantity) || 0;
+                const up = parseFloat(item.unit_price) || 0;
+                const amount = roundedAmt(qty * up, 2);
+                const source = (item.fund_source || "").trim();
 
-                let itemAmount = 0;
-                if (source === "FHWA:80.25") {
-                    fhwaTotal += amount * 0.8025;
-                    actTotal += amount * (1 - 0.8025);
-                    itemAmount = amount;
-                } else if (source === "FHWA:100%") {
-                    fhwaTotal += amount;
-                    itemAmount = amount;
+                // ── Distribución por fuente de fondos ─────────────────────────
+                // ACT:100%   → todo va a ACT (PRHTA)
+                // FHWA:100%  → todo va a FHWA
+                // FHWA:80.25 → 80.25% FHWA, 19.75% ACT
+                if (source === "FHWA:100%") {
+                    fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
+                } else if (source === "FHWA:80.25") {
+                    const fhwaShare = roundedAmt(amount * 0.8025, 2);
+                    const actShare = roundedAmt(amount - fhwaShare, 2);
+                    fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
+                    actTotal = roundedAmt(actTotal + actShare, 2);
                 } else {
-                    actTotal += amount;
-                    itemAmount = amount;
+                    // ACT:100% y cualquier otro valor → ACT
+                    actTotal = roundedAmt(actTotal + amount, 2);
                 }
-                certAmount += itemAmount;
+                certAmount = roundedAmt(certAmount + amount, 2);
 
-                // MOS balance: track material on site added and used
-                if (item.has_material_on_site) {
-                    // This cert uses materials from MOS → deduct from balance
-                    const usedFromMOS = (parseFloat(item.qty_from_mos) || 0) * (parseFloat(item.mos_unit_price) || 0);
-                    mosBalance -= usedFromMOS;
+                // ── MOS balance ───────────────────────────────────────────────
+                // Al AGREGAR material en sitio: suma el total facturado
+                const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
+                if (mosInvoice > 0) {
+                    mosBalance = roundedAmt(mosBalance + mosInvoice, 2);
                 }
-                if (parseFloat(item.mos_invoice_total) > 0 && !item.has_material_on_site) {
-                    // MOS was invoiced (added to site) → add to balance
-                    mosBalance += parseFloat(item.mos_invoice_total) || 0;
+                // Al USAR material desde MOS en trabajo: descuenta qty_from_mos × precio
+                const qtyFromMos = parseFloat(item.qty_from_mos) || 0;
+                const mosPU = parseFloat(item.mos_unit_price) || up;
+                if (qtyFromMos > 0) {
+                    mosBalance = roundedAmt(mosBalance - roundedAmt(qtyFromMos * mosPU, 2), 2);
                 }
             });
 
@@ -135,35 +199,50 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
 
             // Retention
             if (!cert.skip_retention) {
-                totalRetentionDeducted += certAmount * 0.05;
+                certItems.forEach((item: any) => {
+                    if (!item.skip_retention) {
+                        const itemAmt = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
+                        totalRetentionDeducted = roundedAmt(totalRetentionDeducted + roundedAmt(itemAmt * 0.05, 2), 2);
+                    }
+                });
             }
             if (cert.show_retention_return && cert.retention_return_amount) {
-                totalRetentionReturned += parseFloat(cert.retention_return_amount) || 0;
+                totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
             }
         });
 
-        const certified = actTotal + fhwaTotal;
-        const ret5 = totalRetentionDeducted;
-        const retNet = ret5 - totalRetentionReturned;
+        const certified = roundedAmt(actTotal + fhwaTotal, 2);
+        const ret5 = totalRetentionDeducted; // Total acumulado bruto
+        const retNet = roundedAmt(ret5 - totalRetentionReturned + extraRetention, 2); // Balance neto actual
 
-        // Time calculations
-        const startDate = proj?.date_project_start ? new Date(proj.date_project_start) : new Date();
-        const origEndDate = proj?.date_orig_completion ? new Date(proj.date_orig_completion) : new Date();
-        const totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+        // Time calculations - Standardize with T00:00:00 or T23:59:59 to avoid timezone shifting
+        const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : new Date();
+        const origEndDate = proj?.date_orig_completion ? new Date(proj.date_orig_completion + "T23:59:59") : new Date();
+        const totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+
         // El tiempo usado se detiene en la fecha de terminación sustancial (si existe); si no, usa hoy
-        const timeEndDate = proj?.date_substantial_completion
-            ? new Date(proj.date_substantial_completion)
-            : new Date();
-        const usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+        let timeEndDate = new Date();
+        if (proj?.date_substantial_completion) {
+            timeEndDate = new Date(proj.date_substantial_completion + "T23:59:59");
+        } else if (proj?.date_real_completion) {
+            timeEndDate = new Date(proj.date_real_completion + "T23:59:59");
+        }
+
+        let usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        if (usedDays < 0) usedDays = 0;
         const revisedDays = (totalDays || 0) + approvedDays;
 
-        const liqDamages = usedDays > revisedDays ? (usedDays - revisedDays) * 500 : 0;
+        let adminDateStr = "";
+        if (proj?.date_rev_completion) {
+            const revEnd = new Date(proj.date_rev_completion + "T23:59:59");
+            revEnd.setFullYear(revEnd.getFullYear() + 2);
+            adminDateStr = revEnd.toISOString().split("T")[0];
+        }
 
-        const formatDate = (dateStr: string) => {
-            if (!dateStr) return "N/A";
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('es-PR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        };
+        const damAmt = parseFloat(proj?.liquidated_damages_amount) ?? 500.00;
+        const liqDamages = Math.max(0, (usedDays - revisedDays) * damAmt);
+
+
 
         setMetrics({
             time: {
@@ -171,12 +250,14 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
                 used: usedDays > 0 ? usedDays : 0,
                 revised: revisedDays,
                 balance: revisedDays - usedDays,
-                percent: revisedDays > 0 ? Math.round((usedDays / revisedDays) * 100) : 0
+                percent: revisedDays > 0 ? roundedAmt((usedDays / revisedDays) * 100, 2) : 0
             },
             dates: {
                 start: formatDate(proj?.date_project_start),
                 original: formatDate(proj?.date_orig_completion),
                 revised: formatDate(proj?.date_rev_completion),
+                substantial: formatDate(proj?.date_substantial_completion),
+                administrative: formatDate(adminDateStr),
                 fmis: formatDate(proj?.fmis_end_date)
             },
             cost: {
@@ -184,10 +265,12 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
                 certTotal: certified,
                 lastCertAmount,
                 lastCertNum,
-                balance: (originalCost + approvedCHO) - certified,
-                percentObra: (originalCost + approvedCHO) > 0 ? Math.round((certified / (originalCost + approvedCHO)) * 100) : 0,
+                balance: roundedAmt((originalCost + approvedCHO) - certified, 2),
+                percentObra: (originalCost + approvedCHO) > 0 ? roundedAmt((certified / (originalCost + approvedCHO)) * 100, 2) : 0,
                 actTotal,
                 fhwaTotal,
+                actProjected,
+                fhwaProjected,
                 materialOnSite: Math.max(mosBalance, 0),
                 priceAdjustment: 0,
             },
@@ -198,7 +281,7 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
                 pendingTotal: pendingCHO,
                 pendingCount: pendingCHOs.length,
                 pendingDays,
-                total: approvedCHO + pendingCHO,
+                total: roundedAmt(approvedCHO + pendingCHO, 2),
                 totalDays: approvedDays + pendingDays,
                 percentChange: originalCost > 0 ? Math.round((approvedCHO / originalCost) * 100) : 0,
                 percentDays: totalDays > 0 ? Math.round((approvedDays / totalDays) * 100) : 0,
@@ -215,29 +298,71 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
                 extra: extraRetention,
                 returned: totalRetentionReturned,
                 total: retNet
+            },
+            liquidation: {
+                totalItems: totalItemsCount,
+                adminSigned: proj?.liquidation_data?.admin_signed_count || 0,
+                contractorSigned: proj?.liquidation_data?.contractor_signed_count || 0,
+                liquidatorSigned: proj?.liquidation_data?.liquidator_signed_count || 0,
+                percent: totalItemsCount > 0 ? Math.round(((
+                    (proj?.liquidation_data?.admin_signed_count || 0) +
+                    (proj?.liquidation_data?.contractor_signed_count || 0) +
+                    (proj?.liquidation_data?.liquidator_signed_count || 0)
+                ) / (totalItemsCount * 3)) * 100) : 0
             }
         });
     };
 
+    if (!mounted) return null;
+
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div suppressHydrationWarning className="space-y-8 animate-in fade-in duration-500">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Activity className="text-primary" />
-                    13. Interfaz Resumen de Información Principal
+                    Interfaz Resumen de Información Principal
                 </h2>
-                <div className="flex gap-4 items-center">
-                    <button
-                        onClick={() => {
-                            import("@/lib/reportLogic").then(mod => mod.generateDashboardReportLogic(projectId!));
-                        }}
-                        className="flex items-center gap-2 text-sm font-bold bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-md transition-colors"
-                    >
-                        <Download size={16} /> Descargar (PDF)
-                    </button>
-                    <button className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline" onClick={fetchAllData}>Actualizar Datos</button>
-                </div>
+                <Link
+                    href="/acerca-de"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-primary rounded-xl border border-slate-200 transition-all text-xs font-bold uppercase tracking-wider"
+                    title="Acerca del Programa"
+                >
+                    <Info size={14} />
+                    Acerca de
+                </Link>
             </div>
+
+            {numAct && (
+                <div className="flex items-center gap-2 -mt-6 mb-6">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
+                        {numAct}
+                    </span>
+                </div>
+            )}
+
+            {/* ALERTA: FMIS Date Expiry */}
+            {fmisAlert && (
+                <div className={`rounded-xl border px-5 py-4 animate-pulse ${fmisAlert.status === 'expired'
+                    ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/40 text-orange-800 dark:text-orange-300'
+                    : 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+                    }`}>
+                    <div className="flex items-center gap-3">
+                        <AlertCircle size={24} className={fmisAlert.status === 'expired' ? 'text-orange-600' : 'text-amber-600'} />
+                        <div className="flex-1">
+                            <h4 className="text-sm font-black uppercase tracking-wider">
+                                {fmisAlert.status === 'expired' ? 'FMIS END DATE VENCIDA' : 'ADVERTENCIA: VENCIMIENTO FMIS PRÓXIMO'}
+                            </h4>
+                            <p className="text-xs font-semibold opacity-90 mt-0.5">
+                                {fmisAlert.status === 'expired'
+                                    ? `La fecha de FMIS para este proyecto venció hace ${Math.abs(fmisAlert.daysLeft)} días.`
+                                    : `Faltan ${fmisAlert.daysLeft} días para que expire la fecha de FMIS de este proyecto (${metrics.dates.fmis}).`
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ALERTA: Documentos de cumplimiento vencidos */}
             {expiredDocs.length > 0 && (
@@ -253,9 +378,7 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
                     </div>
                     <ul className="space-y-1.5">
                         {expiredDocs.map((doc, i) => {
-                            const expiryFormatted = new Date(doc.date_expiry + "T00:00:00").toLocaleDateString("es-PR", {
-                                day: "2-digit", month: "2-digit", year: "numeric"
-                            });
+                            const expiryFormatted = formatDate(doc.date_expiry);
                             return (
                                 <li key={i} className="flex items-center gap-2 text-sm">
                                     <span
@@ -279,13 +402,15 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
 
                 {/* TIEMPO */}
                 <div className="card border-t-4 border-t-blue-500">
-                    <div className="flex items-center gap-2 text-blue-600 font-bold mb-4 uppercase text-xs tracking-wider">
+                    <div className="flex items-center gap-2 text-blue-600 font-bold mb-2 uppercase text-xs tracking-wider">
                         <Clock size={16} /> TIEMPO
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-1">
                         <MetricRow label="Comienzo Proyecto" value={metrics.dates.start} color="text-slate-600" />
                         <MetricRow label="Terminación Original" value={metrics.dates.original} color="text-slate-600" />
                         <MetricRow label="Terminación Revisada" value={metrics.dates.revised} color="text-slate-600" />
+                        <MetricRow label="Terminación Sustancial" value={metrics.dates.substantial} color="text-blue-700 font-bold" />
+                        <MetricRow label="Terminación Administrativa" value={metrics.dates.administrative} color="text-amber-700 font-bold" />
                         <MetricRow label="FMIS End Date" value={metrics.dates.fmis} color="text-emerald-600" />
                         <hr className="my-2 border-slate-100 dark:border-slate-800" />
                         <MetricRow label="Tiempo Contrato" value={`${metrics.time.total} días`} />
@@ -295,10 +420,10 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
                         <div className="pt-2">
                             <div className="flex justify-between text-xs mb-1">
                                 <span>Progreso de Tiempo</span>
-                                <span>{metrics.time.percent}%</span>
+                                <span>{metrics.time.percent.toFixed(2)}%</span>
                             </div>
                             <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5">
-                                <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${Math.min(metrics.time.percent, 100)}%` }}></div>
+                                <div className={`${metrics.time.percent > 100 ? 'bg-red-500' : 'bg-blue-500'} h-1.5 rounded-full transition-all duration-500`} style={{ width: `${Math.min(metrics.time.percent, 100)}%` }}></div>
                             </div>
                         </div>
                     </div>
@@ -306,10 +431,10 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
 
                 {/* CHANGE ORDERS */}
                 <div className="card border-t-4 border-t-amber-500">
-                    <div className="flex items-center gap-2 text-amber-600 font-bold mb-4 uppercase text-xs tracking-wider">
+                    <div className="flex items-center gap-2 text-amber-600 font-bold mb-2 uppercase text-xs tracking-wider">
                         <PieChart size={16} /> CHANGE ORDERS
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                         {/* Header row */}
                         <div className="grid grid-cols-4 gap-1 text-[10px] font-bold text-slate-400 uppercase pb-1 border-b border-slate-100 dark:border-slate-800">
                             <span></span>
@@ -346,69 +471,99 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
 
                 {/* RETENCIÓN */}
                 <div className="card border-t-4 border-t-violet-500">
-                    <div className="flex items-center gap-2 text-violet-600 font-bold mb-4 uppercase text-xs tracking-wider">
+                    <div className="flex items-center gap-2 text-violet-600 font-bold mb-2 uppercase text-xs tracking-wider">
                         <Layers size={16} /> RETENCIÓN
                     </div>
-                    <div className="space-y-3">
-                        <MetricRow label="5% Retenido" value={formatCurrency(metrics.retention.fivePercent)} />
+                    <div className="space-y-1">
+                        <MetricRow label="5% Retenido (Acum.)" value={formatCurrency(metrics.retention.fivePercent)} />
+                        <MetricRow label="Retención Devuelta" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-600" />
                         <MetricRow label="Extra Retenido" value={formatCurrency(metrics.retention.extra)} />
-                        <MetricRow label="Retención Devuelta" value={formatCurrency(metrics.retention.returned)} color="text-emerald-600" />
+                        <MetricRow label="Cláusula Ajuste Precio" value={formatCurrency(metrics.cost.priceAdjustment)} />
+                        <MetricRow label="Multas Seguridad" value={formatCurrency(metrics.penalties.security)} />
+                        <MetricRow label="Otras Penalidades" value={formatCurrency(metrics.penalties.others)} />
+                        <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-600 font-bold" : ""} />
+                        <MetricRow label="Reembolso (Dlq)" value={formatCurrency(metrics.penalties.dlqReimbursement)} color="text-emerald-600" />
                         <hr className="my-2 border-slate-100 dark:border-slate-800" />
                         <MetricRow label="Total Retenido (Neto)" value={formatCurrency(metrics.retention.total)} color="text-violet-700 dark:text-violet-400 font-bold" />
                     </div>
                 </div>
 
-                {/* PENALIDADES */}
-                <div className="card border-t-4 border-t-red-500">
-                    <div className="flex items-center gap-2 text-red-600 font-bold mb-4 uppercase text-xs tracking-wider">
-                        <AlertCircle size={16} /> PENALIDADES
+                {/* LIQUIDACIÓN */}
+                <div className="card border-t-4 border-t-emerald-500 bg-amber-50/20 dark:bg-amber-900/5">
+                    <div className="flex items-center gap-2 text-emerald-600 font-bold mb-2 uppercase text-xs tracking-wider">
+                        <Activity size={16} /> LIQUIDACIÓN
                     </div>
-                    <div className="space-y-3">
-                        <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-600 font-bold" : ""} />
-                        <MetricRow label="Reembolso (Dlq)" value={formatCurrency(metrics.penalties.dlqReimbursement)} color="text-emerald-600" />
-                        <MetricRow label="Multas Seguridad" value={formatCurrency(metrics.penalties.security)} />
-                        <MetricRow label="Otras Penalidades" value={formatCurrency(metrics.penalties.others)} />
-                        <hr className="my-2 border-slate-100 dark:border-slate-800" />
-                        <MetricRow label="Total Penalidades" value={formatCurrency(metrics.penalties.total)} color="text-red-700 font-bold" />
+                    <div className="space-y-1">
+                        <div className="flex justify-between items-center py-1">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Total Partidas</span>
+                            <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 px-3 py-1 rounded shadow-inner font-mono font-bold text-slate-700 dark:text-slate-200">
+                                {metrics.liquidation.totalItems}
+                            </div>
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Firmadas por:</span>
+                            <div className="pl-2 space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-600 dark:text-slate-400">Administrador</span>
+                                    <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 px-3 py-0.5 rounded shadow-inner font-mono text-sm text-slate-600 dark:text-slate-300">
+                                        {metrics.liquidation.adminSigned}
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-600 dark:text-slate-400">Contratista</span>
+                                    <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 px-3 py-0.5 rounded shadow-inner font-mono text-sm text-slate-600 dark:text-slate-300">
+                                        {metrics.liquidation.contractorSigned}
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-600 dark:text-slate-400">Liquidador</span>
+                                    <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 px-3 py-0.5 rounded shadow-inner font-mono text-sm text-slate-600 dark:text-slate-300">
+                                        {metrics.liquidation.liquidatorSigned}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr className="my-3 border-slate-100 dark:border-slate-800" />
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">% Liquidación</span>
+                            <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 px-3 py-1 rounded shadow-inner font-mono font-black text-primary text-lg">
+                                {metrics.liquidation.percent} %
+                            </div>
+                        </div>
                     </div>
                 </div>
 
+
                 {/* COSTOS PROYECTO — wide card */}
                 <div className="card border-t-4 border-t-primary md:col-span-2 lg:col-span-2">
-                    <div className="flex items-center gap-2 text-primary font-bold mb-6 uppercase text-xs tracking-wider">
-                        <DollarSign size={16} /> COSTOS Y LIQUIDACIÓN
+                    <div className="flex items-center gap-2 text-primary font-bold mb-3 uppercase text-xs tracking-wider">
+                        <DollarSign size={16} /> COSTOS
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
                         {/* Columna 1: Costos principales */}
-                        <div className="space-y-3">
+                        <div className="space-y-1">
                             <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
                             <MetricRow label="Costo Proyecto (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-slate-900 dark:text-white font-bold" />
                             <MetricRow label={`Últ. Certificación #${metrics.cost.lastCertNum} (WP)`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-primary" />
                             <MetricRow label="Total Certificado (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-primary font-bold" />
-                        </div>
-                        {/* Columna 2: Deducciones y material */}
-                        <div className="space-y-3">
                             <MetricRow label="Material en Sitio (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-600" />
-                            <MetricRow label="5% Retenido" value={formatCurrency(metrics.retention.fivePercent)} />
-                            <MetricRow label="Extra Retenido" value={formatCurrency(metrics.retention.extra)} />
-                            <MetricRow label="Cláusula Ajuste Precio" value={formatCurrency(metrics.cost.priceAdjustment)} />
-                            <MetricRow label="Multas Seguridad" value={formatCurrency(metrics.penalties.security)} />
-                            <MetricRow label="Otras Penalidades" value={formatCurrency(metrics.penalties.others)} />
-                            <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-600" : ""} />
-                            <MetricRow label="Reembolso (Dlq)" value={formatCurrency(metrics.penalties.dlqReimbursement)} color="text-emerald-600" />
                         </div>
-                        {/* Columna 3: Balance y origen de fondos */}
-                        <div className="space-y-3">
+                        {/* Columna 2: Balance y origen de fondos */}
+                        <div className="space-y-1">
                             <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.balance)} color="text-blue-700 dark:text-blue-400 font-bold" />
+
                             <hr className="my-1 border-slate-100 dark:border-slate-800" />
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Origen de Fondos</p>
-                            <MetricRow label="ACT (PRHTA)" value={formatCurrency(metrics.cost.actTotal)} color="text-emerald-600" />
-                            <MetricRow label="FHWA" value={formatCurrency(metrics.cost.fhwaTotal)} color="text-blue-600" />
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-0.5">Presupuesto Proyectado (Contrato + CHO)</p>
+                            <MetricRow label="Balance Prov. ACT" value={formatCurrency(metrics.cost.actProjected)} color="text-emerald-700 dark:text-emerald-500 font-medium" />
+                            <MetricRow label="Balance Prov. FHWA" value={formatCurrency(metrics.cost.fhwaProjected)} color="text-blue-700 dark:text-blue-500 font-medium" />
+
                             <hr className="my-1 border-slate-100 dark:border-slate-800" />
-                            <MetricRow label="% de Obra Exec. (WP)" value={`${metrics.cost.percentObra}%`} />
+                            <MetricRow label="% de Obra Exec. (WP)" value={`${metrics.cost.percentObra.toFixed(2)}%`} />
                             <div className="pt-1">
                                 <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5">
-                                    <div className="bg-primary h-1.5 rounded-full" style={{ width: `${Math.min(metrics.cost.percentObra, 100)}%` }}></div>
+                                    <div className="bg-primary h-1.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(metrics.cost.percentObra, 100)}%` }}></div>
                                 </div>
                             </div>
                         </div>
@@ -416,13 +571,19 @@ export default function SummaryDashboard({ projectId }: { projectId?: string }) 
                 </div>
 
             </div>
+
+            <div className="mt-6">
+                <div className="card bg-white dark:bg-slate-900 border-none shadow-sm p-8 rounded-[2rem]">
+                    <PriceComparison projectId={projectId} />
+                </div>
+            </div>
         </div>
     );
 }
 
 function MetricRow({ label, value, color }: { label: string, value: string | number, color?: string }) {
     return (
-        <div className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-slate-900 last:border-0">
+        <div className="flex justify-between items-center py-0.5 border-b border-slate-50 dark:border-slate-900 last:border-0">
             <span className="text-xs font-medium text-slate-500 uppercase">{label}</span>
             <span className={`text-sm font-semibold ${color || 'text-slate-900 dark:text-white'}`}>{value}</span>
         </div>
@@ -431,7 +592,7 @@ function MetricRow({ label, value, color }: { label: string, value: string | num
 
 function CHORow({ label, count, days, amount, color }: { label: string, count: number, days: number, amount: string, color?: string }) {
     return (
-        <div className={`grid grid-cols-4 gap-1 py-2 border-b border-slate-50 dark:border-slate-900 last:border-0 ${color || 'text-slate-900 dark:text-white'}`}>
+        <div className={`grid grid-cols-4 gap-1 py-0.5 border-b border-slate-50 dark:border-slate-900 last:border-0 ${color || 'text-slate-900 dark:text-white'}`}>
             <span className="text-xs font-medium text-slate-500 uppercase">{label}</span>
             <span className="text-sm font-semibold text-center">{count}</span>
             <span className="text-sm font-semibold text-center">{days}</span>
@@ -439,3 +600,5 @@ function CHORow({ label, count, days, amount, color }: { label: string, count: n
         </div>
     );
 }
+
+

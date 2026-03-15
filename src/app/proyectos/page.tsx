@@ -3,22 +3,24 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Plus, Search, FolderOpen, MapPin, Calendar, ArrowRight } from "lucide-react";
+import { Plus, Search, FolderOpen, MapPin, Calendar, ArrowRight, User } from "lucide-react";
 
 export default function ProjectsPage() {
+    const [mounted, setMounted] = useState(false);
     const [projects, setProjects] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-
-    useEffect(() => {
-        fetchProjects();
-    }, []);
 
     const fetchProjects = async () => {
         setLoading(true);
 
         const registrationStr = localStorage.getItem("pact_registration");
-        const registration = registrationStr ? JSON.parse(registrationStr) : null;
+        let registration = null;
+        try {
+            registration = registrationStr ? JSON.parse(registrationStr) : null;
+        } catch (e) {
+            console.error("Error parsing registration", e);
+        }
         const allowedIds = registration?.allowedProjectIds || [];
 
         if (allowedIds.length === 0) {
@@ -27,7 +29,7 @@ export default function ProjectsPage() {
             return;
         }
 
-        const { data, error } = await supabase
+        let query = supabase
             .from("projects")
             .select(`
         id, 
@@ -38,18 +40,49 @@ export default function ProjectsPage() {
         date_project_start, 
         date_orig_completion
       `)
-            .in("id", allowedIds)
             .order("created_at", { ascending: false });
 
-        if (error) console.error(error);
-        else setProjects(data || []);
+        if (!allowedIds.includes("ALL")) {
+            query = query.in("id", allowedIds);
+        }
+
+        const { data: projectsData, error } = await query;
+
+        if (error) {
+            console.error("Error fetching projects:", error);
+            setLoading(false);
+            return;
+        }
+
+        // Obtener registros para encontrar el último usuario por proyecto
+        const { data: regsData } = await supabase
+            .from("app_registrations")
+            .select("name, project_ids, registered_at")
+            .order("registered_at", { ascending: false });
+
+        const projectsWithLastUser = (projectsData || []).map(proj => {
+            const lastReg = regsData?.find(r => r.project_ids?.includes(proj.id));
+            return {
+                ...proj,
+                lastUser: lastReg?.name || null
+            };
+        });
+
+        setProjects(projectsWithLastUser);
         setLoading(false);
     };
+
+    useEffect(() => {
+        setMounted(true);
+        fetchProjects();
+    }, []);
 
     const filteredProjects = projects.filter(p =>
         p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.num_act?.includes(searchTerm)
     );
+
+    if (!mounted) return null;
 
     return (
         <div className="py-8 space-y-8">
@@ -95,7 +128,7 @@ export default function ProjectsPage() {
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2">
                                         <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold rounded uppercase tracking-wider border border-blue-100 dark:border-blue-800">
-                                            ACT-{project.num_act}
+                                            {project.num_act}
                                         </span>
                                         <span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">{project.region}</span>
                                     </div>
@@ -117,6 +150,12 @@ export default function ProjectsPage() {
                                         <div className="flex items-center gap-2 text-slate-500 col-span-2 overflow-hidden truncate italic">
                                             <FolderOpen size={14} className="text-slate-400 shrink-0" />
                                             <span className="truncate" title={project.folder_path}>{project.folder_path}</span>
+                                        </div>
+                                    )}
+                                    {project.lastUser && (
+                                        <div className="flex items-center gap-2 text-slate-400 col-span-2 text-[10px] font-bold uppercase mt-1">
+                                            <User size={12} className="text-slate-300 shrink-0" />
+                                            <span>Último: {project.lastUser}</span>
                                         </div>
                                     )}
                                 </div>

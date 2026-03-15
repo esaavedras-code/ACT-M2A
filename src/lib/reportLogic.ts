@@ -1,24 +1,27 @@
 import { supabase } from "./supabase";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatCurrency as formatC } from "./utils";
+import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate } from "./utils";
+
+
+import { generateCCMLReport } from "./generateCCMLReport";
 
 export const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0);
 };
 
 export const formatDate = (dateStr: string) => {
-    if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('es-PR');
+    return utilsFormatDate(dateStr);
 };
 
 export const fetchAllReportData = async (projectId: string) => {
-    const { data: project } = await supabase.from('projects').select('name, num_act').eq('id', projectId).single();
+    const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
     const { data: items } = await supabase.from('contract_items').select('*').eq('project_id', projectId).order('item_num');
-    const { data: chos } = await supabase.from('chos').select('*').eq('project_id', projectId);
+    const { data: chos } = await supabase.from('chos').select('*').eq('project_id', projectId).order('cho_num');
     const { data: certs } = await supabase.from('payment_certifications').select('*').eq('project_id', projectId).order('cert_num');
     const { data: mfgCerts } = await supabase.from('manufacturing_certificates').select('*').eq('project_id', projectId);
+    const { data: agreementFunds } = await supabase.from('project_agreement_funds').select('*').eq('project_id', projectId).order('created_at');
 
-    return { project, items, chos, certs, mfgCerts };
+    return { project, items, chos, certs, mfgCerts, agreementFunds };
 };
 
 export const createPdfBlob = async (
@@ -101,17 +104,60 @@ export const createPdfBlob = async (
         return lines.length > 0 ? lines : [''];
     };
 
-    // Header
-    page.drawText('M2A Group - Sistema de Control de Proyectos', { x: marginX, y, size: 10, font: timesRomanFont });
+    const centerText = (txt: string, font: any, sz: number, yPos: number) => {
+        if (!txt) return;
+        const textWidth = font.widthOfTextAtSize(txt, sz);
+        page.drawText(txt, { x: marginX + (contentWidth - textWidth) / 2, y: yPos, size: sz, font });
+    };
+
+    // Logos
+    let actLogoImg: any = null;
+    let m2aLogoImg: any = null;
+    try {
+        const actResp = await fetch('/act_logo.png');
+        if (actResp.ok) {
+            const bytes = await actResp.arrayBuffer();
+            actLogoImg = await pdfDoc.embedPng(bytes).catch(() => pdfDoc.embedJpg(bytes));
+        }
+    } catch (_) { }
+
+    try {
+        const m2aResp = await fetch('/m2a_logo.png');
+        if (m2aResp.ok) {
+            const bytes = await m2aResp.arrayBuffer();
+            m2aLogoImg = await pdfDoc.embedPng(bytes).catch(() => pdfDoc.embedJpg(bytes));
+        }
+    } catch (_) { }
+
+    const headerY = height - 50;
+    if (actLogoImg) {
+        const dims = actLogoImg.scaleToFit(80, 40);
+        page.drawImage(actLogoImg, { x: marginX, y: height - 60, width: dims.width, height: dims.height });
+    }
+
+    if (m2aLogoImg) {
+        const dims = m2aLogoImg.scaleToFit(55, 20);
+        // La parte superior del logo ACT está en height - 20 (y: height - 60 + height 40)
+        // Para que el de M2A esté alineado por arriba: height - 20 - dims.height
+        page.drawImage(m2aLogoImg, {
+            x: width - marginX - dims.width,
+            y: height - 20 - dims.height,
+            width: dims.width,
+            height: dims.height
+        });
+    }
+
+    // Centered Headers
+    centerText('M2A Group - Sistema de Control de Proyectos', timesRomanFont, 10, y);
     y -= 15;
     if (projectInfo) {
-        page.drawText(`Proyecto: ${projectInfo.name || 'N/A'} - AC: ${projectInfo.num_act || 'N/A'}`, { x: marginX, y, size: 9, font: timesRomanBoldFont });
-        y -= 20;
+        centerText(`Proyecto: ${projectInfo.name || 'N/A'} - AC: ${projectInfo.num_act || 'N/A'}`, timesRomanBoldFont, 10, y);
+        y -= 22;
     }
-    page.drawText(title, { x: marginX, y, size: 14, font: timesRomanBoldFont });
-    y -= 15;
-    page.drawText(`Fecha: ${new Date().toLocaleDateString('es-PR')}`, { x: marginX, y, size: 9, font: timesRomanFont });
-    y -= 25;
+    centerText(title, timesRomanBoldFont, 14, y);
+    y -= 18;
+    centerText(`Fecha de impresión del reporte: ${utilsFormatDate(new Date())}`, timesRomanFont, 9, y);
+    y -= 30;
 
     const colCount = data[0]?.length || 1;
     const colWidths = customColWidths || Array(colCount).fill(contentWidth / colCount);
@@ -132,15 +178,29 @@ export const createPdfBlob = async (
         const lineHeight = fontSize + 3;
 
         const cellLines = row.map((cell, idx) => {
-            const text = cell?.toString() || '';
+            let text = cell?.toString() || '';
+            let isRed = false;
+            const trimmed = text.trim();
+
+            if (trimmed.startsWith('-')) {
+                const val = parseFloat(trimmed.replace(/[^\d.-]/g, '')) || 0;
+                if (val < 0) {
+                    isRed = true;
+                    text = `(${trimmed.substring(1).trim()})`;
+                } else {
+                    text = trimmed.substring(1).trim(); // Remueve el signo menos si es cero
+                }
+            }
+
             const width = colWidths[idx] || 50;
             const useBold = isHeader || isPartida || text.trim().endsWith(':') ||
                 text === 'Rol / Puesto' || text === 'Nombre' || text === 'Contacto' || text === 'Oficina' || text === 'Celular' || text === 'Email';
             const cellFont = useBold ? timesRomanBoldFont : timesRomanFont;
             return {
-                lines: splitTextIntoLines(text, width, cellFont, fontSize),
+                lines: splitTextIntoLines(text.trim() === '' ? '' : text, width, cellFont, fontSize),
                 font: cellFont,
-                useBold
+                useBold,
+                isRed
             };
         });
 
@@ -170,16 +230,19 @@ export const createPdfBlob = async (
 
         let currX = marginX;
         cellLines.forEach((cellData, cellIdx) => {
-            const textColor = isHeader ? rgb(1, 1, 1) : rgb(0, 0, 0);
+            let textColor = isHeader ? rgb(1, 1, 1) : rgb(0, 0, 0);
+            if (!isHeader && cellData.isRed) {
+                textColor = rgb(0.8, 0, 0); // Rojo
+            }
             const currentColWidth = colWidths[cellIdx] || 50;
 
             cellData.lines.forEach((line, lineIdx) => {
                 page.drawText(line, {
                     x: currX + 5,
-                    y: y - (lineIdx * lineHeight) - fontSize - 5,
+                    y: y - (lineIdx + 1) * lineHeight - 5,
                     size: fontSize,
                     font: cellData.font,
-                    color: textColor
+                    color: textColor,
                 });
             });
 
@@ -221,7 +284,29 @@ export const createPdfBlob = async (
         y -= rowHeight;
     });
 
-    const pdfBytes = await pdfDoc.save();
+    // Add Page Numbers
+    const pages = pdfDoc.getPages();
+    pages.forEach((p, idx) => {
+        const { width: pW } = p.getSize();
+        const pageNumText = `Página ${idx + 1} de ${pages.length}`;
+        const pNumWidth = timesRomanFont.widthOfTextAtSize(pageNumText, 8);
+        p.drawText(pageNumText, {
+            x: (pW - pNumWidth) / 2,
+            y: 20,
+            size: 8,
+            font: timesRomanFont,
+            color: rgb(0.4, 0.4, 0.4)
+        });
+    });
+
+    let pdfBytes;
+    try {
+        pdfBytes = await pdfDoc.save();
+    } catch (saveError: any) {
+        console.error("Error al guardar el PDF:", saveError);
+        throw new Error(`No se pudo generar el archivo PDF: ${saveError.message}`);
+    }
+    
     return new Blob([pdfBytes as any], { type: "application/pdf" });
 };
 
@@ -233,7 +318,10 @@ export const downloadBlob = (blob: Blob, filename: string) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Un pequeño delay ayuda en Electron y algunos navegadores para asegurar que el proceso de descarga inicie antes de revocar el URL
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 500);
 };
 
 export const generateBalanceReportLogic = async (projectId: string) => {
@@ -341,18 +429,22 @@ export const generateDetailReportLogic = async (projectId: string) => {
 };
 
 export const generateMfgReportLogic = async (projectId: string) => {
-    const { project, mfgCerts } = await fetchAllReportData(projectId);
+    const { project, items, mfgCerts } = await fetchAllReportData(projectId);
     if (!mfgCerts) return;
 
     const blob = await createPdfBlob('REPORTE DE CERTIFICADOS DE MANUFACTURA', [
-        ['Item', 'Especificación', 'Cantidad', 'Fecha'],
-        ...mfgCerts.map((c: any) => [
-            c.item_num,
-            c.specification,
-            c.quantity.toString(),
-            formatDate(c.cert_date)
-        ])
-    ], project, [80, 260, 100, 100]);
+        ['Item', 'Especificación', 'Cantidad del certificado', 'Fecha del certificado'],
+        ...mfgCerts.map((c: any) => {
+            const it = items?.find(i => i.id === c.item_id || i.item_num === c.item_num);
+            const unit = it?.unit || '';
+            return [
+                c.item_num,
+                c.specification,
+                `${c.quantity.toString()} ${unit}`,
+                formatDate(c.cert_date)
+            ];
+        })
+    ], project, [60, 240, 120, 120]);
     downloadBlob(blob, 'Reporte_Certificados_Manufactura.pdf');
 };
 
@@ -388,24 +480,24 @@ export const generateMissingMfgReportLogic = async (projectId: string) => {
             }
         }
 
-        return { item_num: b.item_num, certQty, mfgQty, missing, dateMissing };
+        return { item_num: b.item_num, unit: b.unit || '', certQty, mfgQty, missing, dateMissing };
     }).filter((m: any) => m.missing > 0);
 
     const blob = await createPdfBlob('REPORTE DE CERTIFICADOS DE MANUFACTURA QUE FALTAN', [
-        ['Item', 'Cant. Certificada', 'Cant. en Cert. MFG', 'Faltante', 'Fecha Inicio Falta'],
+        ['Item', 'Cant. Certificada', 'Cant. en Cert. MFG', 'Cantidad faltante', 'Fecha de comienzo'],
         ...missingCerts.map((m: any) => [
             m.item_num,
-            m.certQty.toString(),
-            m.mfgQty.toString(),
-            m.missing.toString(),
+            `${m.certQty.toString()} ${m.unit}`,
+            `${m.mfgQty.toString()} ${m.unit}`,
+            `${m.missing.toString()} ${m.unit}`,
             m.dateMissing
         ])
-    ], project, [80, 110, 110, 100, 140]);
+    ], project, [60, 115, 115, 115, 147]);
     downloadBlob(blob, 'Certificados_Manufactura_Faltantes.pdf');
 };
 
 export const generateMosReportLogic = async (projectId: string) => {
-    const { project, certs } = await fetchAllReportData(projectId);
+    const { project, items, certs } = await fetchAllReportData(projectId);
     if (!certs) return;
 
     // Helper para obtener el precio de factura (igual que en MaterialsForm.tsx)
@@ -465,6 +557,8 @@ export const generateMosReportLogic = async (projectId: string) => {
     let totalFinalBalance = 0;
 
     Array.from(groupedItems.values()).forEach(group => {
+        const it = (items || []).find((i: any) => i.item_num === group.item_num);
+        const unit = it?.unit || '';
         let itemBalance = 0;
         group.activities.forEach((act: any, idx: number) => {
             itemBalance += act.cost;
@@ -473,7 +567,7 @@ export const generateMosReportLogic = async (projectId: string) => {
                 idx === 0 ? group.description : '',
                 `#${act.certNum}`,
                 act.type,
-                act.qty.toFixed(2),
+                `${act.qty.toFixed(2)} ${unit}`,
                 formatCurrency(act.cost),
                 formatCurrency(itemBalance)
             ]);
@@ -604,12 +698,17 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
             ]);
         });
 
-        const retention = cert.skip_retention ? 0 : (subtotal * 0.05);
-        const totalNeto = subtotal - retention;
+        const grossRetention = cert.skip_retention ? 0 : (subtotal * 0.05);
+        const returnedAmount = parseFloat(cert.retention_return_amount) || 0;
+        const netRetention = grossRetention - returnedAmount;
+        const totalNeto = subtotal - (cert.skip_retention ? 0 : netRetention);
 
         reportData.push(['SUBTOTAL:', '', '', '', '', formatCurrency(subtotal)]);
-        if (!cert.skip_retention) {
-            reportData.push(['RETENCIÓN (5%):', '', '', '', '', `-${formatCurrency(retention)}`]);
+        if (!cert.skip_retention || returnedAmount > 0) {
+            reportData.push(['RETENCIÓN (5% Net):', '', '', '', '', netRetention > 0 ? `-${formatCurrency(netRetention)}` : formatCurrency(Math.abs(netRetention))]);
+            if (returnedAmount > 0) {
+                reportData.push(['  (Ret. Devuelta):', '', '', '', '', formatCurrency(returnedAmount)]);
+            }
         }
         reportData.push(['TOTAL NETO:', '', '', '', '', formatCurrency(totalNeto)]);
         reportData.push(['', '', '', '', '', '']); // Spacer
@@ -629,9 +728,9 @@ export const generateDashboardReportLogic = async (projectId: string) => {
     const { data: chos } = await supabase.from("chos").select("proposed_change, doc_status, time_extension_days").eq("project_id", projectId);
     const { data: certs } = await supabase.from("payment_certifications").select("items, skip_retention").eq("project_id", projectId);
 
-    const originalCost = proj.cost_original || items?.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0) || 0;
-    const approvedCHO = chos?.filter(c => c.doc_status === 'Aprobado').reduce((acc, c) => acc + (parseFloat(c.proposed_change) || 0), 0) || 0;
-    const pendingCHO = chos?.filter(c => c.doc_status === 'En trámite').reduce((acc, c) => acc + (parseFloat(c.proposed_change) || 0), 0) || 0;
+    const originalCost = proj.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
+    const approvedCHO = chos?.filter(c => c.doc_status === 'Aprobado').reduce((acc, c) => roundedAmt(acc + (parseFloat(c.proposed_change) || 0), 2), 0) || 0;
+    const pendingCHO = chos?.filter(c => c.doc_status === 'En trámite').reduce((acc, c) => roundedAmt(acc + (parseFloat(c.proposed_change) || 0), 2), 0) || 0;
     const timeExt = chos?.filter(c => c.doc_status === 'Aprobado').reduce((acc, c) => acc + (c.time_extension_days || 0), 0) || 0;
 
     let totalCertified = 0;
@@ -641,23 +740,23 @@ export const generateDashboardReportLogic = async (projectId: string) => {
     certs?.forEach((cert) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         certItems.forEach((item: any) => {
-            const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+            const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
             const source = item.fund_source || "";
 
             if (source === "FHWA:80.25") {
-                fhwaTotal += amount * 0.8025;
-                actTotal += amount * (1 - 0.8025);
+                fhwaTotal = roundedAmt(fhwaTotal + roundedAmt(amount * 0.8025, 2), 2);
+                actTotal = roundedAmt(actTotal + roundedAmt(amount * (1 - 0.8025), 2), 2);
             } else if (source === "FHWA:100%") {
-                fhwaTotal += amount;
+                fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
             } else {
-                actTotal += amount;
+                actTotal = roundedAmt(actTotal + amount, 2);
             }
-            totalCertified += amount;
+            totalCertified = roundedAmt(totalCertified + amount, 2);
         });
     });
 
-    const adjustedCost = originalCost + approvedCHO;
-    const budgetBalance = adjustedCost - totalCertified;
+    const adjustedCost = roundedAmt(originalCost + approvedCHO, 2);
+    const budgetBalance = roundedAmt(adjustedCost - totalCertified, 2);
     const percentObra = adjustedCost > 0 ? Math.round((totalCertified / adjustedCost) * 100) : 0;
 
     // Time calculations
@@ -695,7 +794,7 @@ export const generateDashboardReportLogic = async (projectId: string) => {
         ['', '', '', ''],
         ['3. ÓRDENES DE CAMBIO (CHOs)', '', '', ''],
         ['Aprobados:', formatCurrency(approvedCHO), 'En Trámite:', formatCurrency(pendingCHO)],
-        ['Partida CHOs:', formatCurrency(approvedCHO + pendingCHO), '% de Cambio (Precio):', `${originalCost > 0 ? Math.round((approvedCHO / originalCost) * 100) : 0}%`],
+        ['Partida CHOs:', formatCurrency(roundedAmt(approvedCHO + pendingCHO, 2)), '% de Cambio (Precio):', `${originalCost > 0 ? Math.round((approvedCHO / originalCost) * 100) : 0}%`],
         ['', '', '', ''],
         ['4. CONTRATISTA', '', '', ''],
         ['Nombre:', contractor?.name || 'N/A', 'Empresa SS:', contractor?.ss_patronal || 'N/A'],
@@ -712,4 +811,295 @@ export const generateDashboardReportLogic = async (projectId: string) => {
     const projectInfo = { name: proj.name, num_act: proj.num_act };
     const blob = await createPdfBlob('REPORTE DE INFORMACIÓN PRINCIPAL (DASHBOARD)', reportData, projectInfo, [138, 138, 138, 138]);
     downloadBlob(blob, `Dashboard_Reporte_${proj.num_act}.pdf`);
+};
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+// REPORTE DE DISTRIBUCIÓN DE FONDOS (ACT vs FHWA)
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+export const generateFundSourceReportLogic = async (projectId: string) => {
+    const { project, certs } = await fetchAllReportData(projectId);
+    if (!project) return;
+
+    type ItemEntry = { item_num: string; description: string; unit: string; qty: number; unit_price: number; amount: number };
+    const actMap = new Map<string, ItemEntry>();
+    const fhwaMap = new Map<string, ItemEntry>();
+
+    const addToMap = (map: Map<string, ItemEntry>, item: any, amount: number, qty: number) => {
+        const key = `${item.item_num || ''}__${item.unit_price}`;
+        const existing = map.get(key);
+        if (existing) {
+            existing.qty = roundedAmt(existing.qty + qty, 4);
+            existing.amount = roundedAmt(existing.amount + amount, 2);
+        } else {
+            map.set(key, {
+                item_num: item.item_num || '—',
+                description: item.description || '(sin descripción)',
+                unit: item.unit || '',
+                qty,
+                unit_price: parseFloat(item.unit_price) || 0,
+                amount,
+            });
+        }
+    };
+
+    certs?.forEach((cert: any) => {
+        const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
+        certItems.forEach((item: any) => {
+            const qty = parseFloat(item.quantity) || 0;
+            const up = parseFloat(item.unit_price) || 0;
+            const total = roundedAmt(qty * up, 2);
+            const source = (item.fund_source || '').trim();
+
+            if (source === 'FHWA:100%') {
+                addToMap(fhwaMap, item, total, qty);
+            } else if (source === 'FHWA:80.25') {
+                const fhwaAmt = roundedAmt(total * 0.8025, 2);
+                const actAmt = roundedAmt(total - fhwaAmt, 2);
+                const fhwaQty = roundedAmt(qty * 0.8025, 4);
+                const actQty = roundedAmt(qty - fhwaQty, 4);
+                addToMap(fhwaMap, { ...item, description: `${item.description || ''} [80.25%]` }, fhwaAmt, fhwaQty);
+                addToMap(actMap, { ...item, description: `${item.description || ''} [19.75%]` }, actAmt, actQty);
+            } else {
+                addToMap(actMap, item, total, qty);
+            }
+        });
+    });
+
+    const sortFn = (a: ItemEntry, b: ItemEntry) => a.item_num.localeCompare(b.item_num, undefined, { numeric: true });
+    const actArr = Array.from(actMap.values()).sort(sortFn);
+    const fhwaArr = Array.from(fhwaMap.values()).sort(sortFn);
+
+    const actGrand = roundedAmt(actArr.reduce((s, r) => s + r.amount, 0), 2);
+    const fhwaGrand = roundedAmt(fhwaArr.reduce((s, r) => s + r.amount, 0), 2);
+    const grandTotal = roundedAmt(actGrand + fhwaGrand, 2);
+
+    const COL_WIDTHS = [50, 312, 60, 90, 110, 110];
+    const HEADER_ROW = ['Item', 'Descripción', 'Unit', 'Qty', 'Precio Unit.', 'Importe'];
+
+    const rowOf = (e: ItemEntry) => [
+        e.item_num,
+        e.description,
+        e.unit,
+        e.qty.toFixed(4).replace(/\.?0+$/, ''),
+        formatCurrency(e.unit_price),
+        formatCurrency(e.amount),
+    ];
+
+    const reportData: any[][] = [
+        [`PARTIDA: Fondos ACT (PRHTA) — Partidas a cargo de la Autoridad de Carreteras y Transportación`, '', '', '', '', ''],
+        HEADER_ROW,
+        ...actArr.map(rowOf),
+        ['', '', '', '', 'TOTAL ACT:', formatCurrency(actGrand)],
+        ['', '', '', '', '', ''],
+        [`PARTIDA: Fondos FHWA (Federal) — Partidas a cargo de la Federal Highway Administration`, '', '', '', '', ''],
+        HEADER_ROW,
+        ...fhwaArr.map(rowOf),
+        ['', '', '', '', 'TOTAL FHWA:', formatCurrency(fhwaGrand)],
+        ['', '', '', '', '', ''],
+        ['', '', '', '', 'GRAN TOTAL:', formatCurrency(grandTotal)],
+    ];
+
+    const blob = await createPdfBlob('Distribución de Fondos por Origen (ACT vs FHWA)', reportData, project, COL_WIDTHS, 'landscape');
+    downloadBlob(blob, `Distribucion_Fondos_${project.num_act}.pdf`);
+};
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+// REPORTE DE PRESUPUESTO PROYECTADO POR ORIGEN DE FONDOS (ACT vs FHWA)
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+export const generateProjectedFundDistributionReportLogic = async (projectId: string) => {
+    const { project, items: originalItems, chos } = await fetchAllReportData(projectId);
+    if (!project) return;
+
+    let actOriginal = 0;
+    let actCHO = 0;
+    let fhwaOriginal = 0;
+    let fhwaCHO = 0;
+
+    for (const item of originalItems || []) {
+        const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
+        if (item.fund_source?.includes('ACT')) {
+            actOriginal += amount;
+        } else if (item.fund_source?.includes('FHWA')) {
+            fhwaOriginal += amount;
+        }
+    }
+
+    for (const cho of chos || []) {
+        for (const item of cho.items || []) {
+            const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
+            if (item.fund_source?.includes('ACT')) {
+                actCHO += amount;
+            } else if (item.fund_source?.includes('FHWA')) {
+                fhwaCHO += amount;
+            }
+        }
+    }
+
+    actOriginal = roundedAmt(actOriginal, 2);
+    actCHO = roundedAmt(actCHO, 2);
+    fhwaOriginal = roundedAmt(fhwaOriginal, 2);
+    fhwaCHO = roundedAmt(fhwaCHO, 2);
+
+    const actTotal = roundedAmt(actOriginal + actCHO, 2);
+    const fhwaTotal = roundedAmt(fhwaOriginal + fhwaCHO, 2);
+
+    const grandOriginal = roundedAmt(actOriginal + fhwaOriginal, 2);
+    const grandCHO = roundedAmt(actCHO + fhwaCHO, 2);
+    const grandTotal = roundedAmt(actTotal + fhwaTotal, 2);
+
+    const COL_WIDTHS = [160, 130, 130, 132];
+    const reportData: any[][] = [
+        ['Resumen de Distribución Proyectada', '', '', ''],
+        ['Origen de Fondos', 'Contrato Base ($)', 'Órdenes de Cambio ($)', 'Total Presupuestado ($)'],
+        ['Fondo ACT', formatCurrency(actOriginal), formatCurrency(actCHO), formatCurrency(actTotal)],
+        ['Fondo FHWA', formatCurrency(fhwaOriginal), formatCurrency(fhwaCHO), formatCurrency(fhwaTotal)],
+        ['', '', '', ''],
+        ['GRAN TOTAL GENERAL:', formatCurrency(grandOriginal), formatCurrency(grandCHO), formatCurrency(grandTotal)]
+    ];
+
+    const blob = await createPdfBlob('Presupuesto Proyectado por Origen de Fondos', reportData, project, COL_WIDTHS, 'portrait');
+    downloadBlob(blob, `Presupuesto_Proyectado_${project.num_act}.pdf`);
+};
+
+import { generateAct117C } from "./generateAct117C";
+import { generateAct117B } from "./generateAct117B";
+import { generateAct122 } from "./generateAct122";
+import { generateAct124 } from "./generateAct124";
+import { generateRoa } from "./generateRoa";
+import { generateTimeAnalysisReportLogic as generateTimeAnalysis } from "@/lib/generateTimeAnalysisReport";
+import { generateEnvironmentalReviewReportLogic as generateEnvironmentalReview } from "@/lib/generateEnvironmentalReviewReport";
+import { generateFinalEstimateReportLogic as generateFinalEstimate } from "@/lib/generateFinalEstimateReport";
+import { generateContractFinalReportLogic as generateContractFinal } from "@/lib/generateContractFinalReport";
+import { generateFinalAcceptanceReport } from "./generateFinalChecklistReport";
+import { generateFinalAcceptanceReportOfficial } from "./generateFinalAcceptanceReportOfficial";
+import { generatePayrollCertificationReport } from "./generatePayrollCertificationReport";
+import { generateMaterialCertificationReport } from "./generateMaterialCertificationReport";
+import { generateDbeCertificationReport } from "./generateDbeCertificationReport";
+import { generateFinalConstructionReport } from "./generateFinalConstructionReport";
+import { generateLiquidacionItemsReportLogic as generateLiquidacionGenerator } from "./generateLiquidacionReport";
+
+export const generateAct117CReportLogic = async (projectId: string, certId?: string) => {
+    const { project, certs } = await fetchAllReportData(projectId);
+    if (!project) return;
+    let cert = certId ? certs?.find(c => c.id === certId) : (certs && certs.length > 0 ? certs[certs.length - 1] : null);
+    if (!cert) {
+        alert("No se encontró la certificación de pago.");
+        return;
+    }
+    const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
+    downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}.pdf`);
+};
+
+export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string) => {
+    const blob = await generateAct117B(projectId, certId, itemNum);
+    downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.pdf`);
+};
+
+export const generateFinalAcceptanceChecklistReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateFinalAcceptanceReport(projectId);
+    if (blob) downloadBlob(blob, `Final_Acceptance_Checklist_${project.num_act}.pdf`);
+};
+
+export const generateFinalAcceptanceReportOfficialLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateFinalAcceptanceReportOfficial(projectId);
+    if (blob) downloadBlob(blob, `Final_Acceptance_Report_Official_${project.num_act}.pdf`);
+};
+
+export const generatePayrollCertificationReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generatePayrollCertificationReport(projectId);
+    if (blob) downloadBlob(blob, `Payroll_Certification_${project.num_act}.pdf`);
+};
+
+export const generateMaterialCertificationReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateMaterialCertificationReport(projectId);
+    if (blob) downloadBlob(blob, `Material_Certification_${project.num_act}.pdf`);
+};
+
+export const generateDbeCertificationReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateDbeCertificationReport(projectId);
+    if (blob) downloadBlob(blob, `DBE_Certification_${project.num_act}.pdf`);
+};
+
+export const generateFinalConstructionReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateFinalConstructionReport(projectId);
+    if (blob) downloadBlob(blob, `Final_Construction_Report_${project.num_act}.pdf`);
+};
+
+export const generateAct122ReportLogic = async (projectId: string, choId: string) => {
+    const { project, chos } = await fetchAllReportData(projectId);
+    const cho = chos?.find(c => c.id === choId);
+    if (!project || !cho) return;
+    const blob = await generateAct122(projectId, choId);
+    if (blob) downloadBlob(blob, `ACT-122_CHO_${cho.cho_num}_${project.num_act}.pdf`);
+};
+
+export const generateAct124ReportLogic = async (projectId: string, choId: string, selectedItems: string[]) => {
+    const { project, chos } = await fetchAllReportData(projectId);
+    const cho = chos?.find(c => c.id === choId);
+    if (!project || !cho) return;
+    const blob = await generateAct124(projectId, choId, selectedItems);
+    if (blob) downloadBlob(blob, `ACT-124_CHO_Checklist_${cho.cho_num}_${project.num_act}.pdf`);
+};
+
+export const generateRoaReportLogic = async (projectId: string, choId: string) => {
+    const { project, chos } = await fetchAllReportData(projectId);
+    const cho = chos?.find(c => c.id === choId);
+    if (!project || !cho) return;
+    const blob = await generateRoa(projectId, choId);
+    if (blob) downloadBlob(blob, `ROA_CHO_${cho.cho_num}_${project.num_act}.pdf`);
+};
+
+export const generateCCMLReportLogic = async (projectId: string, upToChoId?: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    const blob = await generateCCMLReport(projectId, upToChoId);
+    if (blob) downloadBlob(blob, `CCML_Report_${project?.num_act || projectId}.pdf`);
+};
+
+export const generateEnvironmentalReviewReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateEnvironmentalReview(projectId);
+    if (blob) downloadBlob(blob, `Environmental_Review_${project.num_act || 'PROJ'}.pdf`);
+};
+
+export const generateTimeAnalysisReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateTimeAnalysis(projectId);
+    if (blob) downloadBlob(blob, `Analisis_de_Tiempo_${project.num_act || 'PROJ'}.pdf`);
+};
+
+export const generateFinalEstimateReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateFinalEstimate(projectId);
+    if (blob) downloadBlob(blob, `Final_Estimate_${project.num_act || 'PROJ'}.pdf`);
+};
+
+export const generateContractFinalReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateContractFinal(projectId);
+    if (blob) downloadBlob(blob, `Contract_Final_Report_${project.num_act || 'PROJ'}.pdf`);
+};
+
+export const generateLiquidacionItemsReportLogic = async (projectId: string) => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const blob = await generateLiquidacionGenerator(projectId);
+    if (blob) {
+        downloadBlob(blob, `Hojas_Liquidacion_${project.num_act || project.id}.pdf`);
+    }
 };

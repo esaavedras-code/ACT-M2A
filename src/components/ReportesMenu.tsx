@@ -6,13 +6,14 @@ import { useSearchParams } from "next/navigation";
 import {
     FileText, ListChecks, Package, AlertCircle,
     ChevronDown, Download, Loader2, FileBarChart,
-    ExternalLink
+    ExternalLink, FileCheck
 } from "lucide-react";
 import {
     generateBalanceReportLogic,
     generateDetailReportLogic,
     generateMfgReportLogic,
-    generateMissingMfgReportLogic
+    generateMissingMfgReportLogic,
+    generateAct117CReportLogic
 } from "@/lib/reportLogic";
 import Link from "next/link";
 
@@ -61,6 +62,7 @@ export default function ReportesMenu() {
                 case "detail": await generateDetailReportLogic(projectId); break;
                 case "mfg": await generateMfgReportLogic(projectId); break;
                 case "missing": await generateMissingMfgReportLogic(projectId); break;
+                case "act117c": await generateAct117CReportLogic(projectId); break;
             }
         } catch (error) {
             console.error(error);
@@ -79,8 +81,8 @@ export default function ReportesMenu() {
         >
             <button
                 className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 font-bold text-sm ${isOpen
-                        ? "bg-white/20 text-white shadow-inner"
-                        : "hover:bg-white/10 text-blue-50"
+                    ? "bg-white/20 text-white shadow-inner"
+                    : "hover:bg-white/10 text-blue-50"
                     }`}
             >
                 <FileBarChart size={18} className={isOpen ? "animate-pulse" : ""} />
@@ -130,6 +132,14 @@ export default function ReportesMenu() {
                                 onClick={() => handleGenerate("missing")}
                                 disabled={!projectId}
                             />
+                            <ReportItem
+                                icon={<FileCheck size={18} className="text-blue-600" />}
+                                label="Certificación ACT-117C"
+                                description="Formulario mensual de pago (Anverso/Reverso)."
+                                onClick={() => handleGenerate("act117c")}
+                                onChoose={() => { setIsOpen(false); window.location.href = `/reportes?id=${projectId}&open=act117c`; }}
+                                disabled={!projectId}
+                            />
                         </div>
 
                         <Link
@@ -162,35 +172,49 @@ export default function ReportesMenu() {
     );
 }
 
-function ReportItem({ icon, label, description, onClick, disabled }: { icon: React.ReactNode, label: string, description: string, onClick: () => void, disabled?: boolean }) {
+function ReportItem({ icon, label, description, onClick, onChoose, disabled }: { icon: React.ReactNode, label: string, description: string, onClick: () => void, onChoose?: () => void, disabled?: boolean }) {
     return (
-        <button
-            onClick={onClick}
-            disabled={disabled}
-            className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-xl transition-all group ${disabled
+        <div className="flex items-center gap-2 group">
+            <button
+                onClick={onClick}
+                disabled={disabled}
+                className={`flex-1 flex items-center gap-4 px-3 py-2.5 rounded-xl transition-all ${disabled
                     ? 'opacity-30 cursor-not-allowed grayscale'
                     : 'hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98]'
-                }`}
-        >
-            <div className={`p-2.5 rounded-xl shadow-sm transition-colors ${disabled
+                    }`}
+            >
+                <div className={`p-2.5 rounded-xl shadow-sm transition-colors ${disabled
                     ? 'bg-slate-100 dark:bg-slate-800'
                     : 'bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 group-hover:border-primary/20 group-hover:shadow-md'
-                }`}>
-                {icon}
-            </div>
-            <div className="flex flex-col items-start truncate overflow-hidden">
-                <span className={`text-sm font-bold truncate ${disabled ? 'text-slate-500' : 'text-slate-900 dark:text-white group-hover:text-primary transition-colors'}`}>
-                    {label}
-                </span>
-                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate leading-tight">
-                    {description}
-                </span>
-            </div>
-            {!disabled && (
-                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
-                    <Download size={14} className="text-primary" />
+                    }`}>
+                    {icon}
                 </div>
+                <div className="flex flex-col items-start truncate overflow-hidden">
+                    <span className={`text-sm font-bold truncate ${disabled ? 'text-slate-500' : 'text-slate-900 dark:text-white group-hover:text-primary transition-colors'}`}>
+                        {label}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate leading-tight">
+                        {description}
+                    </span>
+                </div>
+                {!disabled && !onChoose && (
+                    <div className="ml-auto opacity-0 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
+                        <Download size={14} className="text-primary" />
+                    </div>
+                )}
+            </button>
+            {onChoose && !disabled && (
+                <button
+                    onClick={onChoose}
+                    className="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-primary/10 hover:border-primary/40 transition-all gap-1 h-[56px] min-w-[56px]"
+                    title="Elegir certificaciones"
+                >
+                    <Search size={14} className="text-primary" />
+                    <span className="text-[8px] font-black text-primary uppercase">Elegir</span>
+                </button>
             )}
-        </button>
+        </div>
     );
 }
+
+import { Search } from "lucide-react";

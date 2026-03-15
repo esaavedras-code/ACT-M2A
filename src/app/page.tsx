@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Plus, ArrowRight, Clock, Percent, DollarSign, Activity, FileText, Download, FolderSearch } from "lucide-react";
+import { Plus, ArrowRight, Clock, Percent, DollarSign, Activity, FileText, Download, FolderSearch, User, ShieldCheck, History, UserCheck } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { exportProjectToFile } from "@/lib/projectFileSystem";
+import { exportProjectToFile, importProjectData } from "@/lib/projectFileSystem";
 
 export default function Dashboard() {
+    const [mounted, setMounted] = useState(false);
     const [stats, setStats] = useState({
         totalProjects: 0,
         totalBudget: 0,
@@ -20,16 +21,36 @@ export default function Dashboard() {
         recentProjects: [] as any[]
     });
     const [loading, setLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
+        const checkRoles = () => {
+            const regStr = localStorage.getItem("pact_registration");
+            if (regStr) {
+                try {
+                    const reg = JSON.parse(regStr);
+                    if (reg && reg.role_global === 'A') setIsAdmin(true);
+                } catch (e) {
+                    console.error("Error parsing registration", e);
+                }
+            }
+        };
+        checkRoles();
         fetchStats();
     }, []);
+
 
     const fetchStats = async () => {
         setLoading(true);
 
         const registrationStr = localStorage.getItem("pact_registration");
-        const registration = registrationStr ? JSON.parse(registrationStr) : null;
+        let registration = null;
+        try {
+            registration = registrationStr ? JSON.parse(registrationStr) : null;
+        } catch (e) {
+            console.error("Error parsing registration", e);
+        }
         const allowedIds = registration?.allowedProjectIds || [];
 
         if (allowedIds.length === 0) {
@@ -38,21 +59,44 @@ export default function Dashboard() {
             return;
         }
 
-        // 1. Projects (Filtramos por allowedIds para la tabla inferior solamente)
-        const { data: projectsData } = await supabase
+        // 1. Projects
+        let projectsQuery = supabase
             .from("projects")
-            .select("id, name, num_act, region, created_at, cost_original, date_project_start, date_rev_completion")
-            .in("id", allowedIds)
+            .select("id, name, num_act, region, created_at, cost_original, date_project_start, date_rev_completion, folder_path")
             .order("created_at", { ascending: false });
+        
+        if (!allowedIds.includes("ALL")) {
+            projectsQuery = projectsQuery.in("id", allowedIds);
+        }
+        
+        const { data: projectsData, error: projError } = await projectsQuery;
+        
+        if (projError) {
+             console.error("Dashboard error:", projError);
+             setLoading(false);
+             return;
+        }
+
+        // Obtener registros para encontrar el último usuario por proyecto
+        const { data: regsData } = await supabase
+            .from("app_registrations")
+            .select("name, project_ids, registered_at")
+            .order("registered_at", { ascending: false });
 
         // 2. Items
-        const { data: allItems } = await supabase.from("contract_items").select("project_id, quantity, unit_price").in("project_id", allowedIds);
+        let itemsQuery = supabase.from("contract_items").select("project_id, quantity, unit_price");
+        if (!allowedIds.includes("ALL")) itemsQuery = itemsQuery.in("project_id", allowedIds);
+        const { data: allItems } = await itemsQuery;
 
         // 3. CHOs
-        const { data: allChos = [] } = await supabase.from("chos").select("project_id, proposed_change, doc_status, time_extension_days").in("project_id", allowedIds);
+        let chosQuery = supabase.from("chos").select("project_id, proposed_change, doc_status, time_extension_days");
+        if (!allowedIds.includes("ALL")) chosQuery = chosQuery.in("project_id", allowedIds);
+        const { data: allChos = [] } = await chosQuery;
 
         // 4. Certifications
-        const { data: allCerts = [] } = await supabase.from("payment_certifications").select("project_id, items, cert_date").in("project_id", allowedIds);
+        let certsQuery = supabase.from("payment_certifications").select("project_id, items, cert_date");
+        if (!allowedIds.includes("ALL")) certsQuery = certsQuery.in("project_id", allowedIds);
+        const { data: allCerts = [] } = await certsQuery;
 
         const projectSummaries = projectsData?.map(proj => {
             const projectItems = (allItems || []).filter(i => i.project_id === proj.id);
@@ -102,7 +146,8 @@ export default function Dashboard() {
                 fhwaF,
                 progress: adjustedCost > 0 ? Math.round((certified / adjustedCost) * 100) : 0,
                 daysLeft,
-                lastCertDate: pCerts[0]?.cert_date
+                lastCertDate: pCerts[0]?.cert_date,
+                lastUser: regsData?.find(r => r.project_ids?.includes(proj.id))?.name || null
             };
         }) || [];
 
@@ -128,24 +173,62 @@ export default function Dashboard() {
         e.stopPropagation();
 
         const { data: project } = await supabase.from("projects").select("folder_path, name").eq("id", proj.id).single();
-        let path = project?.folder_path;
+        let path = null;
 
-        if (!path) {
+        // Siempre preguntamos dónde guardar
+        // @ts-ignore
+        if (window.electronAPI && window.electronAPI.selectFolder) {
             // @ts-ignore
-            if (window.electronAPI && window.electronAPI.selectFolder) {
+            path = await window.electronAPI.selectFolder();
+        } else if ('showDirectoryPicker' in window) {
+            try {
                 // @ts-ignore
-                path = await window.electronAPI.selectFolder();
-            } else {
-                path = window.prompt("El proyecto no tiene una carpeta configurada. Ingrese la ruta de destino:");
+                const handle = await window.showDirectoryPicker();
+                path = handle.name;
+            } catch (err) {
+                return; // Cancelado
             }
-            if (!path) return;
-            await supabase.from("projects").update({ folder_path: path }).eq("id", proj.id);
+        } else {
+            path = window.prompt("Seleccione carpeta de destino:", project?.folder_path || "");
+        }
+
+        if (!path) return;
+
+        // Si la ruta es nueva, preguntamos si quiere guardarla como predeterminada
+        if (path !== project?.folder_path) {
+            const confirmedUpdate = window.confirm(`¿Desea guardar "${path}" como la ruta predeterminada para este proyecto?`);
+            if (confirmedUpdate) {
+                await supabase.from("projects").update({ folder_path: path }).eq("id", proj.id);
+            }
         }
 
         const result = await exportProjectToFile(proj.id, path, project?.name || proj.name);
         if (result.success) alert(`✓ Respaldo guardado exitosamente en:\n${path}`);
         else alert(`Error al exportar: ${result.error}`);
     };
+
+    const handleOpenFile = async () => {
+        // @ts-ignore
+        if (window.electronAPI && window.electronAPI.selectProjectFile) {
+            // @ts-ignore
+            const result = await window.electronAPI.selectProjectFile();
+            if (result && result.success) {
+                const importRes = await importProjectData(result.data);
+                if (importRes.success) {
+                    alert("✓ Proyecto cargado con éxito en el sistema.");
+                    fetchStats();
+                } else {
+                    alert(`Error al importar: ${importRes.error}`);
+                }
+            } else if (result && !result.success) {
+                alert(`Error al abrir archivo: ${result.error}`);
+            }
+        } else {
+            alert("No se detectó la API de Electron para abrir archivos locales.");
+        }
+    };
+
+    if (!mounted) return null;
 
     return (
         <div className="py-8 space-y-10">
@@ -155,11 +238,51 @@ export default function Dashboard() {
                     <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Proyectos ACT (PACT)</h1>
                     <p className="text-slate-500 mt-2 font-medium">Panel central de control y monitoreo de obras.</p>
                 </div>
-                <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group">
-                    <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-                    Nuevo Proyecto
-                </Link>
+                <div className="flex gap-3">
+                    <button
+                        onClick={handleOpenFile}
+                        className="px-6 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-xl shadow-sm hover:border-primary/30 hover:bg-slate-50 dark:hover:bg-slate-750 transition-all flex items-center justify-center gap-2 font-bold"
+                    >
+                        <FolderSearch size={22} className="text-primary" />
+                        Abrir Proyecto
+                    </button>
+                    <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group">
+                        <Plus size={20} className="group-hover:rotate-90 transition-transform" />
+                        Nuevo Proyecto
+                    </Link>
+                </div>
             </div>
+
+            {/* Admin Quick Links */}
+            {isAdmin && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 animate-in slide-in-from-bottom-4 duration-700">
+                    <Link href="/admin/requests" className="card group hover:border-primary/50 transition-all flex items-center justify-between p-6 bg-slate-900 text-white rounded-[2rem] shadow-2xl">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                <UserCheck size={24} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">Solicitudes de Acceso</h3>
+                                <p className="text-slate-400 text-sm font-medium">Gestionar nuevas cuentas y permisos</p>
+                            </div>
+                        </div>
+                        <ArrowRight className="text-slate-600 group-hover:text-primary transition-colors" />
+                    </Link>
+
+                    <Link href="/admin/audit-logs" className="card group hover:border-primary/50 transition-all flex items-center justify-between p-6 bg-slate-900 text-white rounded-[2rem] shadow-2xl">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                                <History size={24} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg">Logs de Auditoría</h3>
+                                <p className="text-slate-400 text-sm font-medium">Ver historial de cambios del sistema</p>
+                            </div>
+                        </div>
+                        <ArrowRight className="text-slate-600 group-hover:text-amber-500 transition-colors" />
+                    </Link>
+                </div>
+            )}
 
             {/* Main Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -205,11 +328,24 @@ export default function Dashboard() {
                                 ))
                             ) : (
                                 stats.recentProjects.map(proj => (
-                                    <tr key={proj.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
+                                    <tr 
+                                        key={proj.id} 
+                                        className="group hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors cursor-pointer"
+                                        onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}
+                                    >
                                         <td className="px-6 py-4">
-                                            <div className="flex flex-col">
+                                            <div className="flex flex-col gap-0.5">
                                                 <span className="font-bold text-slate-900 dark:text-white line-clamp-1">{proj.name}</span>
-                                                <span className="text-[10px] font-bold text-primary">ACT-{proj.num_act} • {proj.region}</span>
+                                                <span className="text-[10px] font-bold text-primary">{proj.num_act} • {proj.region}</span>
+                                                {proj.folder_path && (
+                                                    <span className="text-[9px] text-slate-400 italic truncate max-w-[200px]" title={proj.folder_path}>{proj.folder_path}</span>
+                                                )}
+                                                {proj.lastUser && (
+                                                    <span className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                                                        <User size={10} className="text-slate-300" />
+                                                        Último: {proj.lastUser}
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-right text-sm font-medium text-slate-500">{formatCurrency(proj.originalCost)}</td>

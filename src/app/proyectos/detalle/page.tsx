@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import ProjectForm from "@/components/ProjectForm";
 import ContractorForm from "@/components/ContractorForm";
@@ -13,21 +13,27 @@ import MfgCertForm from "@/components/MfgCertForm";
 import MaterialsForm from "@/components/MaterialsForm";
 import ComplianceForm from "@/components/ComplianceForm";
 import LiquidationForm from "@/components/LiquidationForm";
+import ForceAccountForm from "@/components/ForceAccountForm";
+import DailyLogForm from "@/components/DailyLogForm";
+import MinutesForm from "@/components/MinutesForm";
 import SummaryDashboard from "@/components/SummaryDashboard";
+import ProjectMemberships from "@/components/ProjectMemberships";
 import type { FormRef } from "@/components/ProjectForm";
 import {
     ListChecks, User, Building2, FileText, FileEdit,
     LayoutDashboard, FileCheck, Factory, PackageSearch, ShieldCheck,
-    FileCheck2, ChevronLeft, Cloud, CheckCircle2, Loader2, Trash2
+    FileCheck2, ChevronLeft, Cloud, CheckCircle2, Loader2, Trash2, Users, Calculator, Mic
 } from "lucide-react";
 import Link from "next/link";
 
 function ProjectDetailContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const id = searchParams.get("id") as string;
     const [activeTab, setActiveTab] = useState("summary");
     const [projectName, setProjectName] = useState("");
     const [numAct, setNumAct] = useState("");
+    const [currentUserRole, setCurrentUserRole] = useState("C");
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
@@ -42,6 +48,9 @@ function ProjectDetailContent() {
     const materialsRef = useRef<FormRef>(null);
     const complianceRef = useRef<FormRef>(null);
     const liquidationRef = useRef<FormRef>(null);
+    const forceAccountRef = useRef<FormRef>(null);
+    const dailyLogRef = useRef<FormRef>(null);
+    const minutesRef = useRef<FormRef>(null);
 
     // Mapa tab → ref
     const tabRefs: Record<string, React.RefObject<FormRef | null>> = {
@@ -55,6 +64,9 @@ function ProjectDetailContent() {
         materials: materialsRef,
         compliance: complianceRef,
         liquidation: liquidationRef,
+        forceAccount: forceAccountRef,
+        dailyLog: dailyLogRef,
+        minutes: minutesRef,
     };
 
     useEffect(() => {
@@ -69,17 +81,52 @@ function ProjectDetailContent() {
 
         window.addEventListener("beforeunload", handleBeforeUnload);
         return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [id, hasUnsavedChanges]);
+    }, [id]);
 
     const fetchProjectData = async () => {
-        // Verificar autorización
+        // Verificar autorización (mantenemos retrocompatibilidad con cache si lo hay o session base)
         const registrationStr = localStorage.getItem("pact_registration");
-        const registration = registrationStr ? JSON.parse(registrationStr) : null;
-        const allowedIds = registration?.allowedProjectIds || [];
+        let registration = null;
+        try {
+            registration = registrationStr ? JSON.parse(registrationStr) : null;
+        } catch (e) {
+            console.error("Error parsing registration", e);
+        }
+        let allowedIds = registration?.allowedProjectIds || [];
+
+        // Obtener la sesión real del usuario para determinar el currentUserRole real (A, B, C, D)
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        let role = "C"; // Default visual fallback
+        if (session) {
+             const userId = session.user.id;
+             // Verificamos nivel global primero
+             const { data: userData } = await supabase.from("users").select("role_global").eq("id", userId).single();
+             if (userData?.role_global === "A") {
+                 role = "A";
+                 allowedIds = ["ALL"]; // Forzar acceso total
+             } else {
+                 // Verificamos en membresías de este proyecto
+                 const { data: memData } = await supabase.from("memberships").select("role").eq("project_id", id).eq("user_id", userId).single();
+                 if (memData) role = memData.role;
+             }
+        }
+        
+        setCurrentUserRole(role);
+
+        // Si es global override 
+        if (allowedIds.includes("ALL")) {
+            const { data } = await supabase.from("projects").select("name, num_act").eq("id", id).single();
+            if (data) {
+                setProjectName(data.name);
+                setNumAct(data.num_act);
+            }
+            return;
+        }
 
         if (!allowedIds.includes(id)) {
             alert("Acceso denegado: No tiene autorización para este proyecto.");
-            window.location.href = "/proyectos";
+            router.push("/proyectos");
             return;
         }
 
@@ -101,7 +148,7 @@ function ProjectDetailContent() {
                 if (error) throw error;
 
                 alert("Proyecto eliminado exitosamente.");
-                window.location.href = "/proyectos";
+                router.push("/proyectos");
             } catch (error) {
                 console.error("Error eliminando proyecto:", error);
                 alert("Hubo un error al intentar eliminar el proyecto.");
@@ -149,6 +196,9 @@ function ProjectDetailContent() {
         { id: "materials", label: "8. Materiales", icon: <PackageSearch size={18} /> },
         { id: "compliance", label: "9. Cumplimiento", icon: <ShieldCheck size={18} /> },
         { id: "liquidation", label: "10. Liquidación", icon: <FileCheck2 size={18} /> },
+        { id: "forceAccount", label: "11. Force Account", icon: <Calculator size={18} /> },
+        { id: "dailyLog", label: "12. Daily Log", icon: <FileEdit size={18} /> },
+        { id: "minutes", label: "13. Minutas de Reunión", icon: <Mic size={18} /> },
     ];
 
     return (
@@ -168,7 +218,7 @@ function ProjectDetailContent() {
                                     setAutoSaveStatus("saved");
                                 }
                             }
-                            window.location.href = "/proyectos";
+                            router.push("/proyectos");
                         }
                     }}
                     className="p-2 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-full transition-colors text-slate-500"
@@ -194,7 +244,7 @@ function ProjectDetailContent() {
                     title="Eliminar Proyecto"
                 >
                     <Trash2 size={16} />
-                    <span className="hidden sm:inline">Eliminar</span>
+                    <span className="hidden sm:inline">Eliminar Proyecto</span>
                 </button>
 
                 {/* Indicador de autoguardado */}
@@ -238,18 +288,21 @@ function ProjectDetailContent() {
             </div>
 
             {/* Tab Content */}
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {activeTab === "summary" && <SummaryDashboard projectId={id} />}
-                {activeTab === "project" && <ProjectForm ref={projectRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "contractor" && <ContractorForm ref={contractorRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "personnel" && <PersonnelForm ref={personnelRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "items" && <ItemsForm ref={itemsRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "cho" && <CHOForm ref={choRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "certs" && <PaymentCertForm ref={certsRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "mfg" && <MfgCertForm ref={mfgRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "materials" && <MaterialsForm ref={materialsRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "compliance" && <ComplianceForm ref={complianceRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
-                {activeTab === "liquidation" && <LiquidationForm ref={liquidationRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} />}
+            <div className="">
+                <div className={activeTab === "summary" ? "block" : "hidden"}><SummaryDashboard projectId={id} numAct={numAct} /></div>
+                <div className={activeTab === "project" ? "block" : "hidden"}><ProjectForm ref={projectRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "contractor" ? "block" : "hidden"}><ContractorForm ref={contractorRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "personnel" ? "block" : "hidden"}><PersonnelForm ref={personnelRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "items" ? "block" : "hidden"}><ItemsForm ref={itemsRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "cho" ? "block" : "hidden"}><CHOForm ref={choRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "certs" ? "block" : "hidden"}><PaymentCertForm ref={certsRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "mfg" ? "block" : "hidden"}><MfgCertForm ref={mfgRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "materials" ? "block" : "hidden"}><MaterialsForm ref={materialsRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "compliance" ? "block" : "hidden"}><ComplianceForm ref={complianceRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "liquidation" ? "block" : "hidden"}><LiquidationForm ref={liquidationRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "forceAccount" ? "block" : "hidden"}><ForceAccountForm ref={forceAccountRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "dailyLog" ? "block" : "hidden"}><DailyLogForm ref={dailyLogRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+                <div className={activeTab === "minutes" ? "block" : "hidden"}><MinutesForm ref={minutesRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
             </div>
         </div>
     );

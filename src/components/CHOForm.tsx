@@ -3,7 +3,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, roundedAmt } from "@/lib/utils";
 import specsData from "@/data/specifications.json";
 import type { FormRef } from "./ProjectForm";
 
@@ -13,18 +13,23 @@ const DOC_STATUSES = ["Borrador", "En trámite", "Aprobado"];
 const TIME_EXT_STATUSES = ["Aprobada", "Pendiente"];
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 
-const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function CHOForm({ projectId, onDirty, onSaved }, ref) {
+const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function CHOForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [chos, setChos] = useState<any[]>([]);
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [expandedCHO, setExpandedCHO] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        if (projectId) {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (projectId && mounted) {
             fetchContractItems();
             fetchCHOs();
         }
-    }, [projectId]);
+    }, [projectId, mounted]);
 
     const fetchContractItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
@@ -57,6 +62,14 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
             cho_date: new Date().toISOString().split('T')[0],
             time_extension_days: 0,
             doc_status: DOC_STATUSES[0],
+            reason: "",
+            justification: "",
+            federal_share_pct: 0,
+            toll_credits_amt: 0,
+            non_participating_state_amt: 0,
+            state_share_federal_funds: 0,
+            fed_share_mod_letter: 0,
+            toll_credits_mod: 0,
             items: []
         }]);
         setExpandedCHO(newId);
@@ -80,6 +93,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
         if (!newList[choIdx].items) newList[choIdx].items = [];
         newList[choIdx].items.push({
             item_num: "",
+            is_new: false,
             specification: "",
             description: "",
             quantity: 0,
@@ -175,21 +189,55 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
             }
         }
 
-        await supabase.from("chos").delete().eq("project_id", projectId);
-        const chosToSave = chos.map(c => {
-            const { id: _, created_at, ...rest } = c;
-            const total = (c.items || []).reduce((acc: number, item: any) => {
-                const q = parseFloat(item.quantity) || 0;
-                const p = parseFloat(item.unit_price) || 0;
-                return acc + (q * p);
-            }, 0);
-            return { ...rest, project_id: projectId, proposed_change: total, items: c.items || [] };
-        });
-        const { error } = await supabase.from("chos").insert(chosToSave);
-        if (error && !silent) alert("Error: " + error.message);
-        else if (!error) {
+        try {
+            const { data: existingRecords, error: fetchError } = await supabase.from("chos").select("id").eq("project_id", projectId);
+            if (fetchError) throw fetchError;
+            const existingIds = existingRecords?.map(r => r.id) || [];
+
+            const updates = [];
+            const inserts = [];
+
+            for (const c of chos) {
+                const { id, created_at, ...rest } = c;
+                const total = (c.items || []).reduce((acc: number, item: any) => {
+                    const q = parseFloat(item.quantity) || 0;
+                    const p = parseFloat(item.unit_price) || 0;
+                    return roundedAmt(acc + roundedAmt(q * p, 2), 2);
+                }, 0);
+
+                const payload = {
+                    ...rest,
+                    project_id: projectId,
+                    proposed_change: total,
+                    items: c.items || []
+                };
+
+                // Because id is locally generated via crypto.randomUUID() during addCHO,
+                // we should check if `existingIds` has the ID before deciding to UPDATE or INSERT
+                // For Supabase UPSERT, we can just supply the ID.
+                updates.push({ id, ...payload });
+            }
+
+            const currentIds = updates.map(u => u.id);
+            const idsToDelete = existingIds.filter(id => !currentIds.includes(id));
+
+            if (idsToDelete.length > 0) {
+                const { error: delError } = await supabase.from("chos").delete().in("id", idsToDelete);
+                if (delError) throw delError;
+            }
+
+            if (updates.length > 0) {
+                const { error: updateError } = await supabase.from("chos").upsert(updates, { onConflict: "id" });
+                if (updateError) throw updateError;
+            }
+
             if (!silent) alert("Órdenes de Cambio sincronizadas");
+            await fetchCHOs(); // Refresh IDs correctly
             if (onSaved) onSaved();
+
+        } catch (error: any) {
+            console.error("Save error:", error);
+            if (!silent) alert("Error: " + error.message);
         }
     };
 
@@ -207,9 +255,11 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
         setExpandedCHO(expandedCHO === id ? null : id);
     };
 
+    if (!mounted) return null;
+
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
-            <div className="sticky top-[133px] z-20 bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 -mt-4 mb-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div suppressHydrationWarning className="max-w-6xl mx-auto space-y-6">
+            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
                 <div>
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <FileEdit className="text-primary" />
@@ -227,22 +277,31 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                 </div>
             </div>
 
+            {numAct && (
+                <div className="flex items-center gap-2 -mt-4 mb-6">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
+                        ACT-{numAct}
+                    </span>
+                </div>
+            )}
+
             {/* Cuadro de Resumen Financiero de CHOs */}
             {(() => {
                 const approvedTotal = chos
                     .filter(c => c.doc_status === "Aprobado")
-                    .reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => s + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)), 0), 0);
+                    .reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
 
                 const pendingTotal = chos
                     .filter(c => c.doc_status === "En trámite")
-                    .reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => s + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)), 0), 0);
+                    .reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
 
                 const approvedDays = chos
                     .filter(c => c.doc_status === "Aprobado")
                     .reduce((sum, c) => sum + (c.time_extension_days || 0), 0);
 
                 return (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                         <SummaryItem
                             label="Total Aprobado ($)"
                             value={approvedTotal}
@@ -282,7 +341,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                     <div key={cho.id || idx} className="card border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 p-0">
                         {/* Header de la CHO */}
                         <div className="p-4 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
-                            <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">CHO / Enmienda</label>
                                     <div className="text-2xl font-black text-primary flex items-baseline gap-1">
@@ -292,15 +351,25 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha</label>
-                                    <input type="date" className="input-field text-sm font-bold bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.cho_date || ""} onChange={(e) => updateCHO(idx, 'cho_date', e.target.value)} />
+                                    <input suppressHydrationWarning type="date" className="input-field text-xs font-bold bg-white dark:bg-slate-900 w-32" style={{ backgroundColor: '#66FF99' }} value={cho.cho_date || ""} onChange={(e) => updateCHO(idx, 'cho_date', e.target.value)} />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ext. Días</label>
-                                    <input type="number" className="input-field text-sm font-bold w-20 bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.time_extension_days ?? 0} onChange={(e) => updateCHO(idx, 'time_extension_days', parseInt(e.target.value))} />
+                                    <input suppressHydrationWarning type="number" className="input-field text-xs text-center font-bold w-16 bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.time_extension_days ?? 0} onChange={(e) => updateCHO(idx, 'time_extension_days', parseInt(e.target.value))} />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Impacto Económico</label>
+                                    <div className="h-9 flex items-center px-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800/50 font-black text-primary text-sm min-w-[120px] justify-end">
+                                        {formatCurrency((cho.items || []).reduce((acc: number, it: any) => {
+                                            const q = parseFloat(it.quantity) || 0;
+                                            const p = parseFloat(it.unit_price) || 0;
+                                            return roundedAmt(acc + roundedAmt(q * p, 2), 2);
+                                        }, 0))}
+                                    </div>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Estatus Doc.</label>
-                                    <select className="input-field text-xs font-bold bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.doc_status || DOC_STATUSES[0]} onChange={(e) => updateCHO(idx, 'doc_status', e.target.value)}>
+                                    <select suppressHydrationWarning className="input-field text-xs font-bold bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.doc_status || DOC_STATUSES[0]} onChange={(e) => updateCHO(idx, 'doc_status', e.target.value)}>
                                         {DOC_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                 </div>
@@ -323,23 +392,13 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                             <div className="p-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
                                 {/* Resumen de esta Enmienda */}
                                 {(() => {
-                                    const choTotal = (cho.items || []).reduce((acc: number, item: any) => {
-                                        const q = parseFloat(item.quantity) || 0;
-                                        const p = parseFloat(item.unit_price) || 0;
-                                        return acc + (q * p);
-                                    }, 0);
                                     return (
-                                        <div className="mb-6 p-5 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
-                                            <div className="space-y-1">
-                                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">DATOS DE ESTA ENMIENDA</h5>
-                                                <div className="flex items-baseline gap-4">
-                                                    <div>
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Impacto Económico</span>
-                                                        <span className="text-2xl font-black text-primary font-geist tracking-tight">{formatCurrency(choTotal)}</span>
-                                                    </div>
-                                                </div>
+                                        <div className="mb-6 p-4 bg-slate-50/30 dark:bg-slate-800/10 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Activity size={14} className="text-primary" />
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Partidas Vinculadas</span>
                                             </div>
-                                            <div className="px-3 py-1.5 bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase tracking-widest">Impacto en Contrato</div>
+                                            <div className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase tracking-widest">Impacto en Contrato Activo</div>
                                         </div>
                                     );
                                 })()}
@@ -351,31 +410,41 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                     </h4>
                                     <div className="flex gap-4">
                                         <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline">
-                                            + Añadir Manual
+                                            + Añadir item
                                         </button>
                                     </div>
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
+                                    <table suppressHydrationWarning className="w-full text-left border-collapse">
                                         <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                             <tr>
-                                                <th className="py-2 px-1 w-16 text-center"># Item</th>
-                                                <th className="py-2 px-1 w-24">Espec.</th>
-                                                <th className="py-2 px-1">Descripción</th>
-                                                <th className="py-2 px-1 w-20 text-center">Unit</th>
-                                                <th className="py-2 px-1 w-20 text-right">Qty</th>
-                                                <th className="py-2 px-1 w-24 text-right">Unit Price</th>
-                                                <th className="py-2 px-1 w-24 text-right">Amount</th>
-                                                <th className="py-2 px-1 w-40">Fondos</th>
-                                                <th className="py-2 px-1 w-8"></th>
+                                                <th className="py-1 px-0.5 w-10 text-center">Nuevo</th>
+                                                <th className="py-1 px-0.5 w-16 text-center"># Item</th>
+                                                <th className="py-1 px-0.5 w-24">Espec.</th>
+                                                <th className="py-1 px-0.5">Descripción</th>
+                                                <th className="py-1 px-0.5 w-20 text-center">Unit</th>
+                                                <th className="py-1 px-0.5 w-20 text-right">Qty</th>
+                                                <th className="py-1 px-0.5 w-24 text-right">Unit Price</th>
+                                                <th className="py-1 px-0.5 w-24 text-right">Amount</th>
+                                                <th className="py-1 px-0.5 w-40">Fondos</th>
+                                                <th className="py-1 px-0.5 w-8"></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                                             {(cho.items || []).map((item: any, itIdx: number) => (
                                                 <tr key={itIdx}>
-                                                    <td className="py-1 px-1">
+                                                    <td className="py-0.5 px-0.5 text-center">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                                                            checked={item.is_new || false}
+                                                            onChange={(e) => updateCHOItem(idx, itIdx, 'is_new', e.target.checked)}
+                                                        />
+                                                    </td>
+                                                    <td className="py-0.5 px-0.5">
                                                         <input
+                                                            suppressHydrationWarning
                                                             type="text"
                                                             maxLength={20}
                                                             className="input-field text-xs text-center p-1 h-7"
@@ -390,12 +459,19 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                                             }}
                                                         />
                                                     </td>
-                                                    <td className="py-1 px-1">
-                                                        <input type="text" className="input-field text-xs p-1 h-7" value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} />
+                                                    <td className="py-0.5 px-0.5">
+                                                        <input 
+                                                            suppressHydrationWarning
+                                                            type="text" 
+                                                            className="input-field text-xs p-1 h-7 transition-colors" 
+                                                            style={{ backgroundColor: item.is_new ? '#66FF99' : '' }}
+                                                            value={item.specification || ""} 
+                                                            onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} 
+                                                        />
                                                     </td>
-                                                    <td className="py-1 px-1">
+                                                    <td className="py-0.5 px-0.5">
                                                         <div className="space-y-0.5">
-                                                            <input type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
+                                                            <input suppressHydrationWarning type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
                                                             {(() => {
                                                                 const match = contractItems.find(it => it.item_num === item.item_num);
                                                                 if (match) {
@@ -405,11 +481,12 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                                             })()}
                                                         </div>
                                                     </td>
-                                                    <td className="py-1 px-1 text-center">
-                                                        <input type="text" className="input-field text-xs p-1 h-7 text-center uppercase" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} />
+                                                    <td className="py-0.5 px-0.5 text-center">
+                                                        <input suppressHydrationWarning type="text" className="input-field text-xs p-1 h-7 text-center uppercase" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} />
                                                     </td>
-                                                    <td className="py-1 px-1">
+                                                    <td className="py-0.5 px-0.5">
                                                         <input
+                                                            suppressHydrationWarning
                                                             type="text"
                                                             className="input-field text-xs text-right p-1 h-7 border-blue-200 focus:ring-blue-500"
                                                             style={{ backgroundColor: '#66FF99' }}
@@ -417,21 +494,25 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                                             onChange={(e) => updateCHOItem(idx, itIdx, 'quantity', e.target.value)}
                                                         />
                                                     </td>
-                                                    <td className="py-1 px-1">
+                                                    <td className="py-0.5 px-0.5">
                                                         <input
+                                                            suppressHydrationWarning
                                                             type="number"
                                                             step="0.0001"
-                                                            className="input-field text-xs text-right p-1 h-7"
+                                                            className="input-field text-xs text-right p-1 h-7 transition-colors"
+                                                            style={{ backgroundColor: item.is_new ? '#66FF99' : '' }}
                                                             value={isNaN(parseFloat(item.unit_price)) ? "" : (item.unit_price ?? "")}
                                                             onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)}
                                                         />
                                                     </td>
-                                                    <td className="py-1 px-2 text-right text-xs font-bold text-primary">
-                                                        {formatCurrency((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0))}
+                                                    <td className="py-0.5 px-0.5 text-right text-xs font-bold text-primary">
+                                                        {formatCurrency(roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2))}
                                                     </td>
-                                                    <td className="py-1 px-1">
+                                                    <td className="py-0.5 px-0.5">
                                                         <select
-                                                            className="input-field text-[10px] font-bold py-1 px-2"
+                                                            suppressHydrationWarning
+                                                            className="input-field text-[10px] font-bold py-1 px-2 transition-colors"
+                                                            style={{ backgroundColor: item.is_new ? '#66FF99' : '' }}
                                                             value={item.fund_source || ""}
                                                             onChange={(e) => updateCHOItem(idx, itIdx, 'fund_source', e.target.value)}
                                                             onKeyDown={(e) => {
@@ -443,7 +524,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                                             {FUND_SOURCES.map(f => <option key={f} value={f}>{f}</option>)}
                                                         </select>
                                                     </td>
-                                                    <td className="py-1 px-1 text-center">
+                                                    <td className="py-0.5 px-0.5 text-center">
                                                         <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500">
                                                             <Trash2 size={12} />
                                                         </button>
@@ -452,19 +533,98 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, 
                                             ))}
                                             {(cho.items || []).length === 0 && (
                                                 <tr>
-                                                    <td colSpan={9} className="py-8 text-center text-xs text-slate-400 font-medium italic">
-                                                        No hay partidas añadidas a esta enmienda. Haz clic en "+ Añadir Manual".
+                                                    <td colSpan={10} className="py-8 text-center text-xs text-slate-400 font-medium italic">
+                                                        No hay partidas añadidas a esta enmienda. Haz clic en "+ Añadir item".
                                                     </td>
                                                 </tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
+
+                                {/* Justificación y Razones */}
+                                <div className="mt-8 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Activity size={12} className="text-primary" />
+                                                35. Razones que justifican (Due to)
+                                            </label>
+                                            <div className="flex flex-wrap gap-3">
+                                                {["Design", "Construction", "Contract", "Utilities", "Other"].map((r) => (
+                                                    <label key={r} className="flex items-center gap-2 cursor-pointer group">
+                                                        <input 
+                                                            type="radio" 
+                                                            name={`reason-${cho.id}`}
+                                                            className="w-4 h-4 text-primary focus:ring-primary border-slate-300"
+                                                            checked={cho.reason === r}
+                                                            onChange={() => updateCHO(idx, 'reason', r)}
+                                                        />
+                                                        <span className="text-xs font-bold text-slate-600 group-hover:text-primary transition-colors">{r}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <FileEdit size={12} className="text-primary" />
+                                            36. Justificación Técnica y Legal
+                                        </label>
+                                        <textarea 
+                                            suppressHydrationWarning
+                                            className="w-full min-h-[120px] input-field text-xs p-3 font-medium leading-relaxed resize-y"
+                                            placeholder="Describa aquí la justificación técnica y legal para esta orden de cambio..."
+                                            style={{ backgroundColor: '#F8FAFC' }}
+                                            value={cho.justification || ""}
+                                            onChange={(e) => updateCHO(idx, 'justification', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* CCML Details */}
+                                <div className="mt-8 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-6">
+                                    <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                                        <Activity size={14} /> Detalle para CCML (Contract Modification Log)
+                                    </h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Federal Share %</label>
+                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.federal_share_pct ?? 80.25} onChange={(e) => updateCHO(idx, 'federal_share_pct', parseFloat(e.target.value))} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Toll Credits Amt ($)</label>
+                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.toll_credits_amt ?? 0} onChange={(e) => updateCHO(idx, 'toll_credits_amt', parseFloat(e.target.value))} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Not Part. State ($)</label>
+                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.non_participating_state_amt ?? 0} onChange={(e) => updateCHO(idx, 'non_participating_state_amt', parseFloat(e.target.value))} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">State Share Fed Funds ($)</label>
+                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.state_share_federal_funds ?? 0} onChange={(e) => updateCHO(idx, 'state_share_federal_funds', parseFloat(e.target.value))} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fed Share Mod Letter ($)</label>
+                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.fed_share_mod_letter ?? 0} onChange={(e) => updateCHO(idx, 'fed_share_mod_letter', parseFloat(e.target.value))} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Toll Credits Mod ($)</label>
+                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.toll_credits_mod ?? 0} onChange={(e) => updateCHO(idx, 'toll_credits_mod', parseFloat(e.target.value))} />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
                 ))}
             </div>
+
+            {/* CCML Component - Shown only when a CHO is selected or as a global summary? 
+                Actually, the CCML report is global, but some fields are per-CHO. 
+                I'll add the per-CHO field inputs inside the Expanded view of each CHO. 
+            */}
         </div>
     );
 });

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, ListChecks, Plus, Trash2, Info, PlusSquare } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, roundedAmt } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
 import specsData from "@/data/specifications.json";
@@ -17,7 +17,7 @@ interface SpecInfo {
 
 const specs = specsData as Record<string, SpecInfo>;
 
-const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function ItemsForm({ projectId, onDirty, onSaved }, ref) {
+const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function ItemsForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [items, setItems] = useState<any[]>([]);
     const [chos, setChos] = useState<any[]>([]);
     const [certs, setCerts] = useState<any[]>([]);
@@ -128,16 +128,57 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
 
     const saveData = async (silent = false) => {
         if (!projectId) return;
-        await supabase.from("contract_items").delete().eq("project_id", projectId);
-        const itemsToInsert = items.map(item => {
-            const { id, ...rest } = item;
-            return { ...rest, project_id: projectId };
-        });
-        const { error } = await supabase.from("contract_items").insert(itemsToInsert);
-        if (error && !silent) alert("Error: " + error.message);
-        else if (!error) {
+
+        try {
+            const { data: existingItems, error: fetchError } = await supabase.from("contract_items").select("id").eq("project_id", projectId);
+            if (fetchError) throw fetchError;
+
+            const existingIds = existingItems?.map(item => item.id) || [];
+
+            // Require at least an item_num to consider saving the row
+            const validItems = items.filter(item => item.item_num?.trim() !== "");
+
+            const updates = [];
+            const inserts = [];
+
+            for (const item of validItems) {
+                const { id, created_at, ...rest } = item;
+                const payload = { ...rest, project_id: projectId };
+
+                if (id) {
+                    updates.push({ id, ...payload });
+                } else {
+                    inserts.push(payload);
+                }
+            }
+
+            const currentIds = updates.map(u => u.id);
+            const idsToDelete = existingIds.filter(id => !currentIds.includes(id));
+
+            if (idsToDelete.length > 0) {
+                const { error: delError } = await supabase.from("contract_items").delete().in("id", idsToDelete);
+                if (delError) throw delError;
+            }
+
+            if (updates.length > 0) {
+                const { error: updateError } = await supabase.from("contract_items").upsert(updates, { onConflict: "id" });
+                if (updateError) throw updateError;
+            }
+
+            if (inserts.length > 0) {
+                const { error: insertError } = await supabase.from("contract_items").insert(inserts);
+                if (insertError) throw insertError;
+            }
+
             if (!silent) alert("Partidas actualizadas correctamente");
+
+            await fetchItems(); // Actualizar IDs en estado
+
             if (onSaved) onSaved();
+
+        } catch (error: any) {
+            console.error("Save error:", error);
+            if (!silent) alert("Error: " + error.message);
         }
     };
 
@@ -153,7 +194,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
 
     return (
         <div className="space-y-6">
-            <div className="sticky top-[133px] z-20 bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 -mt-4 mb-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
                 <div className="space-y-1">
                     <h2 className="text-2xl font-bold flex items-center gap-2 font-geist tracking-tight">
                         <ListChecks className="text-primary" />
@@ -162,11 +203,11 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total del Contrato (Revisado):</span>
                         <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-extrabold border border-emerald-100 dark:border-emerald-800/50">
-                            {formatCurrency(items.reduce((sum, item) => {
+                            {formatCurrency(React.useMemo(() => items.reduce((sum, item) => {
                                 const choQty = getCHOQty(item.item_num);
                                 const totalQty = (parseFloat(item.quantity) || 0) + choQty;
-                                return sum + (totalQty * (parseFloat(item.unit_price) || 0));
-                            }, 0))}
+                                return roundedAmt(sum + roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2), 2);
+                            }, 0), [items, chos]))}
                         </span>
                     </div>
                 </div>
@@ -181,29 +222,38 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                 </div>
             </div>
 
+            {numAct && (
+                <div className="flex items-center gap-2 -mt-4 mb-6">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
+                        ACT-{numAct}
+                    </span>
+                </div>
+            )}
+
             <div className="card overflow-x-auto p-0 border-none shadow-sm">
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                            <th className="px-2 py-4 w-16 text-center">#</th>
-                            <th className="px-2 py-4 w-32 text-center">Espec.</th>
-                            <th className="px-2 py-4">Descripción</th>
-                            <th className="px-2 py-4 w-20 text-right">Cant. Orig.</th>
-                            <th className="px-2 py-4 w-20 text-right text-blue-600">Cant. CHO</th>
-                            <th className="px-2 py-4 w-20 text-right font-black">Cant. Total</th>
-                            <th className="px-2 py-4 w-20 text-center">Unid.</th>
-                            <th className="px-2 py-4 w-24 text-right">U.P. ($)</th>
-                            <th className="px-2 py-4 w-32 text-right">Amount Final ($)</th>
-                            <th className="px-2 py-4 w-32 text-center">Fondos</th>
-                            <th className="px-2 py-4 w-12 text-center" title="Requiere Cert. Manufactura">Mfg</th>
-                            <th className="px-2 py-4 w-10"></th>
+                            <th className="px-1 py-2 w-16 text-center">#</th>
+                            <th className="px-1 py-2 w-32 text-center">Espec.</th>
+                            <th className="px-1 py-2">Descripción</th>
+                            <th className="px-1 py-2 w-20 text-right">Cant. Orig.</th>
+                            <th className="px-1 py-2 w-20 text-right text-blue-600">Cant. CHO</th>
+                            <th className="px-1 py-2 w-20 text-right font-black">Cant. Total</th>
+                            <th className="px-1 py-2 w-20 text-center">Unid.</th>
+                            <th className="px-1 py-2 w-24 text-right">U.P. ($)</th>
+                            <th className="px-1 py-2 w-32 text-right">Amount Final ($)</th>
+                            <th className="px-1 py-2 w-32 text-center">Fondos</th>
+                            <th className="px-1 py-2 w-12 text-center" title="Requiere Cert. Manufactura">Mfg</th>
+                            <th className="px-1 py-2 w-10"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                         {items.map((item, idx) => {
                             const choQty = getCHOQty(item.item_num);
                             const totalQty = (parseFloat(item.quantity) || 0) + choQty;
-                            const amountFinal = totalQty * (parseFloat(item.unit_price) || 0);
+                            const amountFinal = roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2);
 
                             const paidBreakdown = certs.map(cert => {
                                 const certItems = Array.isArray(cert.items) ? cert.items : [];
@@ -213,7 +263,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                     certNum: cert.cert_num,
                                     periodTo: cert.period_to,
                                     qty: parseFloat(itemInCert.quantity) || 0,
-                                    amount: (parseFloat(itemInCert.quantity) || 0) * (parseFloat(item.unit_price) || 0)
+                                    amount: roundedAmt((parseFloat(itemInCert.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2)
                                 };
                             }).filter(Boolean);
 
@@ -227,7 +277,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                     date: cho.cho_date,
                                     qty: parseFloat(itemInCho.quantity) || 0,
                                     unitPrice: parseFloat(itemInCho.unit_price) || 0,
-                                    amount: (parseFloat(itemInCho.quantity) || 0) * (parseFloat(itemInCho.unit_price) || 0)
+                                    amount: roundedAmt((parseFloat(itemInCho.quantity) || 0) * (parseFloat(itemInCho.unit_price) || 0), 2)
                                 };
                             }).filter(Boolean);
 
@@ -237,7 +287,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                             return (
                                 <React.Fragment key={idx}>
                                     <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                        <td className="px-1 py-2">
+                                        <td className="px-1 py-1.5">
                                             <input
                                                 type="text"
                                                 maxLength={3}
@@ -253,34 +303,34 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                                 }}
                                             />
                                         </td>
-                                        <td className="px-1 py-2">
+                                        <td className="px-1 py-1.5">
                                             <input type="text" className="input-field text-xs text-center h-8" value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
                                         </td>
-                                        <td className="px-1 py-2">
+                                        <td className="px-1 py-1.5">
                                             <div className="space-y-1">
                                                 <input type="text" className="input-field text-xs h-8" value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
                                                 <input type="text" className="input-field text-[10px] h-6 opacity-70" style={{ backgroundColor: '#66FF99' }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
                                             </div>
                                         </td>
-                                        <td className="px-1 py-2">
+                                        <td className="px-1 py-1.5">
                                             <input type="number" className="input-field text-xs text-right h-8" style={{ backgroundColor: '#66FF99' }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
                                         </td>
-                                        <td className="px-1 py-2 text-right text-xs font-bold text-blue-600 pr-4">
+                                        <td className="px-1 py-1.5 text-right text-xs font-bold text-blue-600 pr-4">
                                             {choQty !== 0 ? choQty : "-"}
                                         </td>
-                                        <td className="px-1 py-2 text-right text-xs font-black pr-4">
+                                        <td className="px-1 py-1.5 text-right text-xs font-black pr-4">
                                             {totalQty}
                                         </td>
-                                        <td className="px-1 py-2 text-center">
+                                        <td className="px-1 py-1.5 text-center">
                                             <input type="text" className="input-field text-xs uppercase h-8 text-center px-1" value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
                                         </td>
-                                        <td className="px-1 py-2">
+                                        <td className="px-1 py-1.5">
                                             <input type="number" step="0.0001" className="input-field text-xs text-right font-medium h-8" style={{ backgroundColor: '#66FF99' }} value={isNaN(item.unit_price) ? "" : item.unit_price} onChange={(e) => updateItem(idx, 'unit_price', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
                                         </td>
-                                        <td className="px-2 py-2 text-right font-black text-xs text-primary pr-4">
+                                        <td className="px-1 py-1.5 text-right font-black text-xs text-primary pr-4">
                                             {formatCurrency(amountFinal)}
                                         </td>
-                                        <td className="px-1 py-2">
+                                        <td className="px-1 py-1.5">
                                             <select
                                                 className="input-field text-[10px] font-bold h-8"
                                                 style={{ backgroundColor: '#66FF99' }}
@@ -295,7 +345,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                                 {FUND_SOURCES.map(f => <option key={f} value={f}>{f}</option>)}
                                             </select>
                                         </td>
-                                        <td className="px-1 py-2 text-center">
+                                        <td className="px-1 py-1.5 text-center">
                                             <label
                                                 title="Requiere Cert. Manufactura"
                                                 className={`inline-flex items-center justify-center w-6 h-6 rounded cursor-pointer border-2 transition-all ${item.requires_mfg_cert
@@ -317,7 +367,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                                 )}
                                             </label>
                                         </td>
-                                        <td className="px-2 py-2 text-center">
+                                        <td className="px-1 py-1.5 text-center">
                                             <div className="flex flex-col gap-1.5 items-center">
                                                 <div className="flex gap-1.5">
                                                     <button
@@ -369,14 +419,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                                             <div className="text-right pl-6 border-l border-slate-100 dark:border-slate-700 ml-2">
                                                                 <div className="text-[10px] uppercase font-bold text-primary tracking-wider">Resultado Económico</div>
                                                                 <div className="text-xl font-black text-primary leading-none mt-1">
-                                                                    {formatCurrency(paidQty * (parseFloat(item.unit_price) || 0))}
+                                                                    {formatCurrency(roundedAmt(paidQty * (parseFloat(item.unit_price) || 0), 2))}
                                                                 </div>
                                                                 <div className="text-[9px] font-bold text-slate-400 uppercase mt-1">de {formatCurrency(amountFinal)}</div>
                                                             </div>
                                                             <div className="text-right pl-6 border-l border-slate-100 dark:border-slate-700 ml-2">
                                                                 <div className="text-[10px] uppercase font-bold text-blue-600 tracking-wider">Balance ($)</div>
                                                                 <div className="text-xl font-black text-blue-600 leading-none mt-1">
-                                                                    {formatCurrency(remainingQty * (parseFloat(item.unit_price) || 0))}
+                                                                    {formatCurrency(roundedAmt(remainingQty * (parseFloat(item.unit_price) || 0), 2))}
                                                                 </div>
                                                                 <div className="text-[9px] font-bold text-slate-400 uppercase mt-1">Pendiente</div>
                                                             </div>
@@ -407,7 +457,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                                                             <span className={`text-sm font-black ${choQty > 0 ? 'text-emerald-600' : (choQty < 0 ? 'text-red-500' : 'text-slate-700')}`}>
                                                                                 {choQty > 0 ? `+${choQty}` : choQty}
                                                                             </span>
-                                                                            <span className="text-[10px] font-bold text-slate-400 mt-1">{formatCurrency(choQty * (parseFloat(item.unit_price) || 0))}</span>
+                                                                            <span className="text-[10px] font-bold text-slate-400 mt-1">{formatCurrency(roundedAmt(choQty * (parseFloat(item.unit_price) || 0), 2))}</span>
                                                                         </div>
                                                                     </>
                                                                 ) : (
@@ -435,7 +485,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void
                                                                         <div className="flex flex-col items-center min-w-[70px]">
                                                                             <span className="text-[11px] font-bold text-emerald-600 mb-2 whitespace-nowrap">PAGADO</span>
                                                                             <span className="text-sm font-black text-emerald-600">{paidQty % 1 !== 0 ? paidQty.toFixed(2) : paidQty}</span>
-                                                                            <span className="text-[10px] font-bold text-emerald-600 mt-1">{formatCurrency(paidQty * (parseFloat(item.unit_price) || 0))}</span>
+                                                                            <span className="text-[10px] font-bold text-emerald-600 mt-1">{formatCurrency(roundedAmt(paidQty * (parseFloat(item.unit_price) || 0), 2))}</span>
                                                                         </div>
                                                                     </>
                                                                 ) : (

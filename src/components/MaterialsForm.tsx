@@ -8,7 +8,7 @@ import type { FormRef } from "./ProjectForm";
 
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 
-const MaterialsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function MaterialsForm({ projectId, onDirty, onSaved }, ref) {
+const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function MaterialsForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [certs, setCerts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -166,7 +166,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
             } else {
                 runBal -= act.cost;
             }
-            act.runningBalance = runBal;
+            act.runningBalance = Math.max(0, runBal);
         });
         return group;
     });

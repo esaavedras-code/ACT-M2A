@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer } from "lucide-react";
+import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2 } from "lucide-react";
 import { generateAct117C } from "@/lib/generateAct117C";
+import { downloadBlob } from "@/lib/reportLogic";
 import { formatCurrency } from "@/lib/utils";
 import specsData from "@/data/specifications.json";
 import type { FormRef } from "./ProjectForm";
@@ -22,7 +23,7 @@ const getInvoicePUFromList = (certsList: any[], itemNum: string, currentCertIdx:
     return 0;
 };
 
-const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function PaymentCertForm({ projectId, onDirty, onSaved }, ref) {
+const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function PaymentCertForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [certs, setCerts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState<number | null>(null);
@@ -36,8 +37,10 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [chos, setChos] = useState<any[]>([]);
     const [mfgCerts, setMfgCerts] = useState<any[]>([]);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         if (projectId) {
             fetchCerts();
             fetchSummary();
@@ -251,6 +254,20 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
         setExpandedCert(expandedCert === certNum ? null : certNum);
     };
 
+    const handlePrint = async (cert: any) => {
+        if (!projectId) return;
+        setGenerating(cert.cert_num);
+        try {
+            const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
+            downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${numAct}.pdf`);
+        } catch (error) {
+            console.error(error);
+            alert("Error al generar el reporte ACT-117C");
+        } finally {
+            setGenerating(null);
+        }
+    };
+
     const addCertItem = (certIdx: number) => {
         const newList = [...certs];
         if (!newList[certIdx].items) newList[certIdx].items = [];
@@ -265,6 +282,10 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
             has_material_on_site: false,
             mos_quantity: 0,
             mos_unit_price: 0,
+            mos_invoice_total: 0,
+            mos_invoice_num: "",
+            mos_provider: "",
+            mos_lot_num: "1",
             qty_from_mos: 0,
             skip_retention: false,
         });
@@ -307,6 +328,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                     newList[certIdx].items[itemIdx].mos_invoice_total = workAmount.toFixed(2);
                     // Also try to set MOS quantity = WP quantity as default
                     if (!it.mos_quantity) newList[certIdx].items[itemIdx].mos_quantity = it.quantity;
+                    if (!it.mos_lot_num) newList[certIdx].items[itemIdx].mos_lot_num = "1";
                     // Trigger calculation of unit price
                     const total = workAmount;
                     const qty = parseFloat(it.quantity) || 0;
@@ -392,9 +414,59 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
     };
 
 
+    // Cálculos financieros memoizados para evitar lentitud al escribir
+    const { liveExecuted, liveRetention, liveMOS, livePaid, totalProjectGrossRetention } = React.useMemo(() => {
+        let executed = 0;
+        let retentionTotal = 0;
+        let mosTotal = 0;
+        let grossRetention = 0;
+
+        certs.forEach((c, cIdx) => {
+            const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+            let certExecuted = 0;
+            let certMOSChange = 0;
+            let certGrossRetention = 0;
+
+            certItems.forEach((it: any) => {
+                const q = parseFloat(it.quantity) || 0;
+                const p = parseFloat(it.unit_price) || 0;
+                certExecuted += q * p;
+
+                const addedMOS = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
+                const mosPU = getInvoicePUFromList(certs, it.item_num, cIdx);
+                const deductedMOS = (parseFloat(it.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p);
+                certMOSChange += addedMOS - deductedMOS;
+
+                if (!c.skip_retention && !it.skip_retention) {
+                    certGrossRetention += (q * p * 0.05);
+                }
+            });
+
+            executed += certExecuted;
+            mosTotal += certMOSChange;
+            grossRetention += certGrossRetention;
+
+            let currentCertRetention = certGrossRetention;
+            if (c.show_retention_return && c.retention_return_amount) {
+                currentCertRetention -= parseFloat(c.retention_return_amount) || 0;
+            }
+            retentionTotal += currentCertRetention;
+        });
+
+        return {
+            liveExecuted: executed,
+            liveRetention: retentionTotal,
+            liveMOS: mosTotal,
+            livePaid: executed - retentionTotal + mosTotal,
+            totalProjectGrossRetention: grossRetention
+        };
+    }, [certs]);
+
+    if (!mounted) return null;
+
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
-            <div className="sticky top-[133px] z-20 bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 -mt-4 mb-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div suppressHydrationWarning className="max-w-6xl mx-auto space-y-6">
+            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <FileCheck className="text-primary" />
                     6. Certificaciones de Pago
@@ -411,76 +483,43 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
             </div>
 
             {/* Cuadro de Resumen Financiero */}
-            {(() => {
-                let liveExecuted = 0;
-                let liveRetention = 0;
-                let liveMOS = 0;
-                certs.forEach(c => {
-                    let certExecuted = 0;
-                    let certMOSChange = 0;
-                    (c.items || []).forEach((it: any) => {
-                        const q = parseFloat(it.quantity) || 0;
-                        const p = parseFloat(it.unit_price) || 0;
-                        certExecuted += q * p;
-
-                        const addedMOS = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
-                        const mosPU = getInvoicePUFromList(certs, it.item_num, certs.indexOf(c));
-                        const deductedMOS = (parseFloat(it.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p);
-                        certMOSChange += addedMOS - deductedMOS;
-
-                        if (!c.skip_retention && !it.skip_retention) {
-                            liveRetention += (q * p * 0.05);
-                        }
-                    });
-                    liveExecuted += certExecuted;
-                    liveMOS += certMOSChange;
-                    // Restar devolución de retenido siempre que esté activa
-                    if (c.show_retention_return && c.retention_return_amount) {
-                        liveRetention -= parseFloat(c.retention_return_amount) || 0;
-                    }
-                });
-                const livePaid = liveExecuted - liveRetention + liveMOS;
-
-                return (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <SummaryItem
-                            label="Trabajo Ejecutado (WP)"
-                            value={liveExecuted}
-                            icon={<DollarSign size={16} />}
-                            color="text-emerald-600"
-                            bgColor="bg-emerald-50 dark:bg-emerald-900/20"
-                        />
-                        <SummaryItem
-                            label="Neto Pagado"
-                            value={livePaid}
-                            icon={<Wallet size={16} />}
-                            color="text-primary"
-                            bgColor="bg-blue-50 dark:bg-blue-900/20"
-                        />
-                        <SummaryItem
-                            label="5% Retenido"
-                            value={liveRetention}
-                            icon={<ShieldAlert size={16} />}
-                            color="text-amber-600"
-                            bgColor="bg-amber-50 dark:bg-amber-900/20"
-                        />
-                        <SummaryItem
-                            label="Balance MOS"
-                            value={liveMOS}
-                            icon={<Package size={16} />}
-                            color="text-slate-600"
-                            bgColor="bg-slate-100 dark:bg-slate-800"
-                        />
-                        <SummaryItem
-                            label="Daños Líquidos"
-                            value={summary.liquidated}
-                            icon={<Timer size={16} />}
-                            color="text-red-600"
-                            bgColor="bg-red-50 dark:bg-red-900/20"
-                        />
-                    </div>
-                );
-            })()}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <SummaryItem
+                    label="Trabajo Ejecutado (WP)"
+                    value={liveExecuted}
+                    icon={<DollarSign size={16} />}
+                    color="text-emerald-600"
+                    bgColor="bg-emerald-50 dark:bg-emerald-900/20"
+                />
+                <SummaryItem
+                    label="Neto Pagado"
+                    value={livePaid}
+                    icon={<Wallet size={16} />}
+                    color="text-primary"
+                    bgColor="bg-blue-50 dark:bg-blue-900/20"
+                />
+                <SummaryItem
+                    label="5% Retenido"
+                    value={liveRetention}
+                    icon={<ShieldAlert size={16} />}
+                    color="text-amber-600"
+                    bgColor="bg-amber-50 dark:bg-amber-900/20"
+                />
+                <SummaryItem
+                    label="Balance MOS"
+                    value={liveMOS}
+                    icon={<Package size={16} />}
+                    color="text-slate-600"
+                    bgColor="bg-slate-100 dark:bg-slate-800"
+                />
+                <SummaryItem
+                    label="Daños Líquidos"
+                    value={summary.liquidated}
+                    icon={<Timer size={16} />}
+                    color="text-red-600"
+                    bgColor="bg-red-50 dark:bg-red-900/20"
+                />
+            </div>
 
             <div className="space-y-4">
                 {certs.map((c, certIdx) => {
@@ -625,13 +664,24 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center xl:items-start gap-3 justify-end xl:flex-col shrink-0">
-                                    <button type="button" onClick={() => removeCert(certIdx)} className="text-slate-300 hover:text-red-500 transition-colors order-2 xl:order-1 self-end" title="Eliminar certificación">
-                                        <Trash2 size={18} />
-                                    </button>
+                                <div className="flex items-center xl:items-start gap-2 justify-end xl:flex-col shrink-0">
+                                    <div className="flex gap-2 mb-2 w-full justify-end">
+                                        <button
+                                            disabled={generating === c.cert_num}
+                                            onClick={() => handlePrint(c)}
+                                            className="text-slate-500 hover:text-blue-600 transition-all flex items-center gap-1.5 px-2 py-1 rounded bg-blue-50/50 hover:bg-blue-100 border border-blue-100 dark:bg-blue-900/10 dark:hover:bg-blue-900/20 dark:border-blue-800"
+                                            title="Imprimir Formulario ACT-117C"
+                                        >
+                                            {generating === c.cert_num ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+                                            <span className="text-[10px] font-black uppercase">Imprimir ACT-117C</span>
+                                        </button>
+                                        <button type="button" onClick={() => removeCert(certIdx)} className="text-slate-300 hover:text-red-500 transition-colors" title="Eliminar certificación">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
                                     <button
                                         onClick={() => toggleExpand(c.cert_num)}
-                                        className={`bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors order-1 xl:order-2 w-full text-center ${expandedCert === c.cert_num ? 'bg-slate-200' : ''}`}
+                                        className={`bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-full text-center ${expandedCert === c.cert_num ? 'bg-slate-200' : ''}`}
                                     >
                                         {expandedCert === c.cert_num ? "Ocultar Partidas" : "Ver / Añadir Partidas"}
                                     </button>
@@ -650,12 +700,12 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                                         </h4>
                                         <div className="flex gap-4">
                                             <button onClick={() => addCertItem(certIdx)} className="text-xs font-bold text-primary hover:underline">
-                                                + Añadir Manual
+                                                + Añadir item
                                             </button>
                                         </div>
                                     </div>
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse">
+                                        <table suppressHydrationWarning className="w-full text-left border-collapse">
                                             <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                                 <tr>
                                                     <th className="py-2 px-1 w-16 text-center"># Item</th>
@@ -703,12 +753,12 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                                                     const mosPUForCalc = getInvoicePUFromList(certs, item.item_num, certIdx);
                                                     const currentDeductionPU = mosPUForCalc > 0 ? mosPUForCalc : (parseFloat(item.unit_price) || 0);
 
-                                                    const availableMOSQty = currentDeductionPU > 0 ? availableMOSBalance / currentDeductionPU : 0;
+                                                    const availableMOSQty = currentDeductionPU > 0 ? Math.max(0, availableMOSBalance / currentDeductionPU) : 0;
                                                     const workQty = parseFloat(item.quantity) || 0;
 
                                                     let autoQtyFromMOS = 0;
                                                     if (workQty <= availableMOSQty) {
-                                                        autoQtyFromMOS = workQty;
+                                                        autoQtyFromMOS = Math.max(0, workQty);
                                                     } else {
                                                         autoQtyFromMOS = availableMOSQty;
                                                     }
@@ -898,6 +948,39 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                                                                     <td colSpan={2} className="py-1 px-2">
                                                                         <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Material on Site</span>
                                                                     </td>
+                                                                    <td className="py-1 px-1" colSpan={3}>
+                                                                        <span className="text-[10px] text-amber-500 font-bold">Proveedor</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            className="input-field text-xs p-1 h-7 border-amber-200 focus:ring-amber-400 font-bold"
+                                                                            style={{ backgroundColor: '#66FF99' }}
+                                                                            placeholder="Nombre del Proveedor"
+                                                                            value={item.mos_provider ?? ""}
+                                                                            onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_provider', e.target.value)}
+                                                                        />
+                                                                    </td>
+                                                                    <td className="py-1 px-1" colSpan={1}>
+                                                                        <span className="text-[10px] text-amber-500 font-bold">N° Factura</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            className="input-field text-xs p-1 h-7 border-amber-200 focus:ring-amber-400 font-bold"
+                                                                            style={{ backgroundColor: '#66FF99' }}
+                                                                            placeholder="Factura"
+                                                                            value={item.mos_invoice_num ?? ""}
+                                                                            onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_invoice_num', e.target.value)}
+                                                                        />
+                                                                    </td>
+                                                                    <td className="py-1 px-1" colSpan={1}>
+                                                                        <span className="text-[10px] text-amber-500 font-bold">Lote</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            className="input-field text-xs text-center p-1 h-7 border-amber-200 focus:ring-amber-400 font-bold"
+                                                                            style={{ backgroundColor: '#66FF99' }}
+                                                                            placeholder="1"
+                                                                            value={item.mos_lot_num ?? "1"}
+                                                                            onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_lot_num', e.target.value)}
+                                                                        />
+                                                                    </td>
                                                                     <td className="py-1 px-1" colSpan={2}>
                                                                         <span className="text-[10px] text-amber-500 font-bold">Total Factura</span>
                                                                         <div className="relative">
@@ -911,7 +994,6 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                                                                                 value={item.mos_invoice_total ?? ""}
                                                                                 onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_invoice_total', e.target.value)}
                                                                             />
-
                                                                         </div>
                                                                     </td>
                                                                     <td className="py-1 px-1" colSpan={2}>
@@ -937,7 +1019,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =
                                                                             onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_unit_price', e.target.value)}
                                                                         />
                                                                     </td>
-                                                                    <td colSpan={3} />
+                                                                    <td colSpan={1} />
                                                                 </tr>
                                                             )}
                                                         </React.Fragment>

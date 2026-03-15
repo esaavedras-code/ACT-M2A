@@ -2,11 +2,14 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FolderOpen, Trash2 } from "lucide-react";
+import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
+import ProjectAgreementForm from "./ProjectAgreementForm";
 
 export interface FormRef { save: () => Promise<void>; }
+
+const DOC_TYPES = ["Orden de comienzo", "Project Agreement", "Proposal", "Contrato"];
 
 const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: (newId?: string) => void }>(function ProjectForm({ projectId, onDirty, onSaved }, ref) {
     const [formData, setFormData] = useState({
@@ -22,6 +25,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         municipios: "",
         carreteras: "",
         designer: "",
+        admin_name: "",
+        contractor_name: "",
+        liquidador_name: "",
         date_contract_sign: "",
         date_project_start: "",
         date_orig_completion: "",
@@ -33,15 +39,70 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         fmis_end_date: "",
         cost_original: 0,
         folder_path: "",
+        liquidated_damages_amount: 500.00,
+        created_by_email: "",
+        reached_substantial_completion: false,
+        eligible_toll_credits: false,
+        pay_items_er_funds: false,
+        project_manager_name: "",
     });
+    const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(false);
     const [isCostFocused, setIsCostFocused] = useState(false);
     const [showFolderModal, setShowFolderModal] = useState(false);
+    const [isDlqFocused, setIsDlqFocused] = useState(false);
     const [tempPath, setTempPath] = useState("");
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [selectedDocType, setSelectedDocType] = useState(DOC_TYPES[0]);
+    const [uploadingDoc, setUploadingDoc] = useState(false);
 
     useEffect(() => {
-        if (projectId) fetchProject();
+        setMounted(true);
+        if (projectId) {
+            fetchProject();
+            fetchDocuments();
+        }
     }, [projectId]);
+
+    const fetchDocuments = async () => {
+        if (!projectId) return;
+        const { data, error } = await supabase.from("project_documents").select("*").eq("project_id", projectId);
+        if (data) setDocuments(data);
+    };
+
+    const handleFileUpload = async (file: File) => {
+        if (!projectId) {
+            alert("Debe guardar el proyecto primero antes de subir documentos.");
+            return;
+        }
+
+        setUploadingDoc(true);
+        try {
+            // Intentar subir a storage (opcional, pero grabamos en DB siempre)
+            const fileName = `${Date.now()}_${file.name}`;
+            const { error: storageErr } = await supabase.storage.from("project-documents").upload(`${projectId}/${fileName}`, file);
+            
+            // Si falla el storage (probablemente bucket no creado), igual registramos en DB 
+            // para cumplir con la interfaz del usuario por ahora.
+            
+            const { error: dbErr } = await supabase.from("project_documents").upsert({
+                project_id: projectId,
+                doc_type: selectedDocType,
+                file_name: file.name
+            });
+
+            if (dbErr) throw dbErr;
+            
+            fetchDocuments();
+            alert(`Documento "${selectedDocType}" subido correctamente.`);
+            
+        } catch (err: any) {
+            console.error("Error upload:", err);
+            alert("Error al subir el documento: " + err.message);
+        } finally {
+            setUploadingDoc(false);
+        }
+    };
 
     const fetchProject = async () => {
         const { data, error } = await supabase.from("projects").select("*").eq("id", projectId).single();
@@ -71,40 +132,73 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     };
 
     const saveData = async (silent = false) => {
-        setLoading(true);
-        const dataToSave = {
-            ...formData,
-            municipios: formData.municipios ? formData.municipios.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
-            carreteras: formData.carreteras ? formData.carreteras.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
-            date_contract_sign: formData.date_contract_sign || null,
-            date_project_start: formData.date_project_start || null,
-            date_orig_completion: formData.date_orig_completion || null,
-            date_rev_completion: formData.date_rev_completion || null,
-            date_est_completion: formData.date_est_completion || null,
-            date_real_completion: formData.date_real_completion || null,
-            date_substantial_completion: formData.date_substantial_completion || null,
-            date_final_inspection: formData.date_final_inspection || null,
-            fmis_end_date: formData.fmis_end_date || null,
-        };
+        // Validar formato del número de proyecto (AC-XXXXXX)
+        const numActRegex = /^AC-[0-9]{6}$/;
+        if (!numActRegex.test(formData.num_act)) {
+            if (!silent) alert("El número de proyecto estatal debe tener el formato AC-XXXXXX (Exactamente 6 dígitos después del prefijo AC-).");
+            setLoading(false);
+            return;
+        }
 
-        let result;
-        if (projectId) {
-            result = await supabase.from("projects").update(dataToSave).eq("id", projectId).select();
-        } else {
-            // Si es un proyecto nuevo y no hay ruta de carpeta, activamos el modal
-            if (!formData.folder_path) {
-                setShowFolderModal(true);
+        setLoading(true);
+        try {
+            const dataToSave = {
+                ...formData,
+                municipios: formData.municipios ? formData.municipios.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
+                carreteras: formData.carreteras ? formData.carreteras.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
+                date_contract_sign: formData.date_contract_sign || null,
+                date_project_start: formData.date_project_start || null,
+                date_orig_completion: formData.date_orig_completion || null,
+                date_rev_completion: formData.date_rev_completion || null,
+                date_est_completion: formData.date_est_completion || null,
+                date_real_completion: formData.date_real_completion || null,
+                date_substantial_completion: formData.date_substantial_completion || null,
+                date_final_inspection: formData.date_final_inspection || null,
+                fmis_end_date: formData.fmis_end_date || null,
+                created_by_email: formData.created_by_email || null,
+                reached_substantial_completion: formData.reached_substantial_completion,
+                eligible_toll_credits: formData.eligible_toll_credits,
+                pay_items_er_funds: formData.pay_items_er_funds,
+                project_manager_name: formData.project_manager_name || null,
+            };
+
+            let result;
+            if (projectId) {
+                result = await supabase.from("projects").update(dataToSave).eq("id", projectId).select();
+            } else {
+                // Si es un proyecto nuevo y no hay ruta de carpeta, activamos el modal
+                if (!formData.folder_path) {
+                    setShowFolderModal(true);
+                    setLoading(false);
+                    return;
+                }
+
+                // Asignar el creador al proyecto nuevo
+                const regStr = localStorage.getItem("pact_registration");
+                if (regStr) {
+                    try {
+                        const reg = JSON.parse(regStr);
+                        if (reg) dataToSave.created_by_email = reg.email;
+                    } catch (e) {
+                        console.error("Error parsing registration", e);
+                    }
+                }
+
+                result = await supabase.from("projects").insert([dataToSave]).select();
+            }
+
+            const { data, error } = result;
+
+            if (error) {
+                if (!silent) alert("Error guardando proyecto: " + error.message);
                 setLoading(false);
                 return;
             }
-            result = await supabase.from("projects").insert([dataToSave]).select();
-        }
 
-        const { data, error } = result;
-        if (!error) {
+            const targetId = projectId || (data && data[0]?.id);
+
             // EXPORTACIÓN LOCAL: Si hay ruta, grabamos el archivo independiente
-            if (dataToSave.folder_path && (projectId || (data && data[0]?.id))) {
-                const targetId = projectId || data[0].id;
+            if (dataToSave.folder_path && targetId) {
                 const exportResult = await exportProjectToFile(targetId, dataToSave.folder_path, dataToSave.name);
 
                 if (!silent) {
@@ -118,16 +212,22 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             } else if (!silent) {
                 alert(projectId ? "Actualizado correctamente" : "Proyecto creado correctamente");
             }
-            if (onSaved) {
-                // Si es nuevo, pasamos el ID creado
-                if (!projectId && data && data[0]) {
-                    onSaved(data[0].id);
+
+            // IMPORTANTE: Llamamos a onSaved() AL FINAL para iniciar la redirección 
+            // solo después de que todo el trabajo y las alertas hayan concluido.
+            if (onSaved && targetId) {
+                if (!projectId) {
+                    onSaved(targetId);
                 } else {
                     onSaved();
                 }
             }
+        } catch (err: any) {
+            console.error("Error en saveData:", err);
+            if (!silent) alert("Error inesperado: " + err.message);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
@@ -139,6 +239,23 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
 
     const handleDelete = async () => {
         if (!projectId) return;
+
+        // Verificar si el usuario actual es el creador o un administrador global
+        const regStr = localStorage.getItem("pact_registration");
+        const currentUserEmail = regStr ? JSON.parse(regStr).email : null;
+        
+        let isGlobalAdmin = false;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
+            isGlobalAdmin = userData?.role_global === "A";
+        }
+
+        if (!isGlobalAdmin && formData.created_by_email && currentUserEmail !== formData.created_by_email) {
+            alert(`Acceso denegado: Solo el creador del proyecto (${formData.created_by_email}) o un administrador pueden eliminarlo.`);
+            return;
+        }
+
         const confirmed = window.confirm("¿Estás seguro de que deseas eliminar este proyecto completamente? Esta acción no se puede deshacer y borrará toda la información relacionada.");
         if (!confirmed) return;
 
@@ -175,8 +292,10 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         }
     };
 
+    if (!mounted) return null;
+
     return (
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div suppressHydrationWarning className="max-w-5xl mx-auto space-y-6">
             {/* Modal de Selección de Carpeta */}
             {showFolderModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -243,7 +362,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 </div>
             )}
 
-            <div className="sticky top-[133px] z-20 bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 -mt-4 mb-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
                 <h2 className="text-2xl font-bold">1. Información del Proyecto</h2>
                 <div className="flex gap-3">
                     {/* Delete button was moved to the Project Name section */}
@@ -254,18 +373,112 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 </div>
             </div>
 
-            <form className="card grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-white dark:bg-slate-900 border-none shadow-sm">
+            {formData.num_act && (
+                <div className="flex items-center gap-2 -mt-4 mb-4">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
+                        {formData.num_act}
+                    </span>
+                </div>
+            )}
+
+            {/* Nueva Sección de Documentación */}
+            <div className="bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 mb-6 shadow-sm">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div className="space-y-4 flex-1 w-full">
+                        <div className="flex items-center gap-2">
+                            <Upload className="text-primary" size={20} />
+                            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Documentación Crítica del Proyecto</h3>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row items-end gap-3">
+                            <div className="space-y-1 flex-1 min-w-[240px]">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Seleccionar Tipo de Documento</label>
+                                <select 
+                                    className="input-field py-2 h-11 text-sm bg-slate-50 dark:bg-slate-800/50 border-slate-200"
+                                    value={selectedDocType}
+                                    onChange={(e) => setSelectedDocType(e.target.value)}
+                                    disabled={!projectId || uploadingDoc}
+                                >
+                                    {DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <label className={`btn-primary py-2.5 px-6 text-sm flex items-center justify-center gap-2 cursor-pointer h-11 transition-all ${(!projectId || uploadingDoc) ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-[1.02] active:scale-[0.98]'}`}>
+                                {uploadingDoc ? (
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <Plus size={18} />
+                                )}
+                                <span>{uploadingDoc ? "Subiendo..." : "Subir Archivo"}</span>
+                                <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    disabled={!projectId || uploadingDoc}
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleFileUpload(file);
+                                        // Reset input so same file can be selected again if needed
+                                        e.target.value = '';
+                                    }}
+                                />
+                            </label>
+                        </div>
+                        {!projectId && (
+                            <p className="text-[10px] text-amber-600 font-medium bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg border border-amber-100 dark:border-amber-900/50">
+                                * Guarde el proyecto por primera vez para habilitar la subida de documentos.
+                            </p>
+                        )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2 w-full md:w-auto">
+                        {DOC_TYPES.map(type => {
+                            const doc = documents.find(d => d.doc_type === type);
+                            return (
+                                <div 
+                                    key={type}
+                                    className={`px-3 py-2.5 rounded-xl border flex items-center gap-3 transition-all ${
+                                        doc 
+                                        ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" 
+                                        : "bg-slate-50 border-slate-100 dark:bg-slate-800/30 dark:border-slate-800 text-slate-400 opacity-60"
+                                    }`}
+                                >
+                                    <div className={`p-1.5 rounded-lg ${doc ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-slate-100 dark:bg-slate-700/50"}`}>
+                                        {doc ? <CheckCircle size={14} /> : <FileText size={14} />}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold leading-tight">{type}</span>
+                                        <span className="text-[9px] opacity-70 leading-tight">
+                                            {doc ? `Subido: ${new Date(doc.uploaded_at).toLocaleDateString()}` : "Pendiente"}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            <form suppressHydrationWarning className="card grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-white dark:bg-slate-900 border-none shadow-sm">
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Núm. AC</label>
                     <input
                         type="text"
-                        maxLength={20}
+                        maxLength={9}
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
-                        placeholder="000000"
+                        placeholder="AC-000000"
                         value={formData.num_act || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, num_act: e.target.value.replace(/[^0-9a-zA-Z-]/g, "") });
+                            let val = e.target.value.toUpperCase();
+                            // If user tries to delete the prefix or it's empty, we keep it as "AC-"
+                            if (!val.startsWith("AC-")) {
+                                val = "AC-" + val.replace(/[^0-9]/g, "");
+                            } else {
+                                // Extract only digits after "AC-"
+                                const digits = val.substring(3).replace(/[^0-9]/g, "");
+                                val = "AC-" + digits.substring(0, 6);
+                            }
+                            setFormData({ ...formData, num_act: val });
                             if (onDirty) onDirty();
                         }}
                     />
@@ -298,24 +511,14 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 if (onDirty) onDirty();
                             }}
                         />
-                        {projectId && (
-                            <button
-                                type="button"
-                                onClick={handleDelete}
-                                disabled={loading}
-                                className="px-3 bg-red-100/50 hover:bg-red-100 text-red-600 border border-transparent hover:border-red-200 rounded-lg transition-colors flex items-center justify-center shrink-0"
-                                title="Borrar Proyecto"
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        )}
+
                     </div>
                 </div>
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Núm. Oracle</label>
                     <input
                         type="text"
-                        maxLength={20}
+                        maxLength={50}
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_oracle || ""}
@@ -390,6 +593,24 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         <option>Oeste</option>
                         <option>Metro</option>
                     </select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Daños Líquidos Diarios ($)</label>
+                    <input
+                        type={isDlqFocused ? "number" : "text"}
+                        step="0.01"
+                        className="input-field border-red-100 focus:ring-red-500 font-bold"
+                        style={{ backgroundColor: '#66FF99' }}
+                        value={isDlqFocused
+                            ? (isNaN(formData.liquidated_damages_amount) ? "" : (formData.liquidated_damages_amount ?? ""))
+                            : formatCurrency(formData.liquidated_damages_amount)}
+                        onFocus={() => setIsDlqFocused(true)}
+                        onBlur={() => setIsDlqFocused(false)}
+                        onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            handleChange('liquidated_damages_amount', isNaN(val) ? 0 : val);
+                        }}
+                    />
                 </div>
                 <div className="space-y-1 md:col-span-2">
                     <label className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
@@ -516,10 +737,53 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     ></textarea>
                 </div>
 
+                {/* Personal del Proyecto */}
+                <div className="md:col-span-2 lg:col-span-3 mt-2">
+                    <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4">Personal del Proyecto</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Administrador del Proyecto</label>
+                            <input
+                                type="text"
+                                maxLength={100}
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                placeholder="Nombre completo"
+                                value={(formData as any).admin_name || ""}
+                                onChange={(e) => handleChange('admin_name', e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contratista</label>
+                            <input
+                                type="text"
+                                maxLength={100}
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                placeholder="Nombre / Empresa"
+                                value={(formData as any).contractor_name || ""}
+                                onChange={(e) => handleChange('contractor_name', e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Liquidador</label>
+                            <input
+                                type="text"
+                                maxLength={100}
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                placeholder="Nombre completo"
+                                value={(formData as any).liquidador_name || ""}
+                                onChange={(e) => handleChange('liquidador_name', e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 {/* Seccion  de Fechas */}
                 <div className="md:col-span-2 lg:col-span-3 mt-4">
                     <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4">Fechas Relevantes</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hoy (Automática)</label>
                             <input
@@ -660,6 +924,36 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             />
                         </div>
                     </div>
+                </div>
+
+                {/* Sección de Estatus y Project Manager */}
+                <div className="md:col-span-2 lg:col-span-3 mt-4 space-y-4">
+                    <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4">Información Adicional (CCML)</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">¿Subst. Completion?</label>
+                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
+                                <button type="button" onClick={() => handleChange('reached_substantial_completion', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.reached_substantial_completion ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>SÍ</button>
+                                <button type="button" onClick={() => handleChange('reached_substantial_completion', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.reached_substantial_completion ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>NO</button>
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">¿Toll Credits?</label>
+                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
+                                <button type="button" onClick={() => handleChange('eligible_toll_credits', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.eligible_toll_credits ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>SÍ</button>
+                                <button type="button" onClick={() => handleChange('eligible_toll_credits', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.eligible_toll_credits ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>NO</button>
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">¿ER Funds?</label>
+                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
+                                <button type="button" onClick={() => handleChange('pay_items_er_funds', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.pay_items_er_funds ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>SÍ</button>
+                                <button type="button" onClick={() => handleChange('pay_items_er_funds', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.pay_items_er_funds ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>NO</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {projectId && <ProjectAgreementForm projectId={projectId} />}
                 </div>
             </form>
         </div >

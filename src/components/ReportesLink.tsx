@@ -13,6 +13,7 @@ export default function ReportesLink() {
         <Link
             href={projectId ? `/reportes?id=${projectId}` : "/reportes"}
             className="flex items-center gap-1.5 hover:text-blue-200 transition-colors py-2 font-medium"
+            suppressHydrationWarning
         >
             <FileBarChart size={18} />
             Reportes

@@ -19,11 +19,13 @@ const ROLES_WITHOUT_CONTACT_INFO = [
     "Dir. Oficina Control de Proyectos"
 ];
 
-const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function PersonnelForm({ projectId, onDirty, onSaved }, ref) {
+const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function PersonnelForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [personnel, setPersonnel] = useState<any[]>([]);
+    const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         if (projectId) fetchPersonnel();
     }, [projectId]);
 
@@ -52,16 +54,54 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
 
     const saveData = async (silent = false) => {
         if (!projectId) return;
-        await supabase.from("act_personnel").delete().eq("project_id", projectId);
-        const personnelToInsert = personnel.map(p => {
-            const { id, created_at, ...rest } = p;
-            return { ...rest, project_id: projectId };
-        });
-        const { error } = await supabase.from("act_personnel").insert(personnelToInsert);
-        if (error && !silent) alert("Error: " + error.message);
-        else if (!error) {
+
+        try {
+            const { data: existingRecords, error: fetchError } = await supabase.from("act_personnel").select("id").eq("project_id", projectId);
+            if (fetchError) throw fetchError;
+            const existingIds = existingRecords?.map(r => r.id) || [];
+
+            const updates = [];
+            const inserts = [];
+
+            // Ignore rows where no name has been typed to avoid creating junk rows
+            const validPersonnel = personnel.filter(p => p.name?.trim() !== "");
+
+            for (const p of validPersonnel) {
+                const { id, created_at, ...rest } = p;
+                const payload = { ...rest, project_id: projectId };
+
+                if (id) {
+                    updates.push({ id, ...payload });
+                } else {
+                    inserts.push(payload);
+                }
+            }
+
+            const currentIds = updates.map(u => u.id);
+            const idsToDelete = existingIds.filter(id => !currentIds.includes(id));
+
+            if (idsToDelete.length > 0) {
+                const { error: delError } = await supabase.from("act_personnel").delete().in("id", idsToDelete);
+                if (delError) throw delError;
+            }
+
+            if (updates.length > 0) {
+                const { error: updateError } = await supabase.from("act_personnel").upsert(updates, { onConflict: "id" });
+                if (updateError) throw updateError;
+            }
+
+            if (inserts.length > 0) {
+                const { error: insertError } = await supabase.from("act_personnel").insert(inserts);
+                if (insertError) throw insertError;
+            }
+
             if (!silent) alert("Firmas actualizadas");
+            await fetchPersonnel(); // Refresh state
             if (onSaved) onSaved();
+
+        } catch (error: any) {
+            console.error("Save error:", error);
+            if (!silent) alert("Error: " + error.message);
         }
     };
 
@@ -75,9 +115,11 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
         setLoading(false);
     };
 
+    if (!mounted) return null;
+
     return (
-        <div className="w-full px-4 space-y-6">
-            <div className="sticky top-[133px] z-20 bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 -mt-4 mb-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div suppressHydrationWarning className="w-full px-4 space-y-6">
+            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Users className="text-primary" />
                     3. Firmas ACT
@@ -97,16 +139,25 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
                 </div>
             </div>
 
+            {numAct && (
+                <div className="flex items-center gap-2 -mt-4 mb-6">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
+                        ACT-{numAct}
+                    </span>
+                </div>
+            )}
+
             <div className="card overflow-x-auto p-0 border-none shadow-sm">
-                <table className="w-full text-left border-collapse min-w-[1250px]">
+                <table suppressHydrationWarning className="w-full text-left border-collapse min-w-[1250px]">
                     <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                            <th className="px-4 py-4 min-w-[260px] w-1/4">Rol / Puesto</th>
-                            <th className="px-4 py-4 min-w-[220px] w-1/4">Nombre Completo</th>
-                            <th className="px-4 py-4 min-w-[180px] text-center">Oficina</th>
-                            <th className="px-4 py-4 min-w-[180px] text-center">Celular</th>
-                            <th className="px-4 py-4 min-w-[280px]">Email</th>
-                            <th className="px-4 py-4 min-w-[60px] text-center"></th>
+                            <th className="px-2 py-2 min-w-[260px] w-1/4">Rol / Puesto</th>
+                            <th className="px-2 py-2 min-w-[220px] w-1/4">Nombre Completo</th>
+                            <th className="px-2 py-2 min-w-[180px] text-center">Oficina</th>
+                            <th className="px-2 py-2 min-w-[180px] text-center">Celular</th>
+                            <th className="px-2 py-2 min-w-[280px]">Email</th>
+                            <th className="px-2 py-2 min-w-[60px] text-center"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -114,7 +165,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
                             const isNoContact = ROLES_WITHOUT_CONTACT_INFO.includes(p.role || STAFF_ROLES[0]);
                             return (
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                    <td className="px-4 py-3">
+                                    <td className="px-2 py-1.5">
                                         <select
                                             className="input-field text-xs font-bold h-9 bg-white"
                                             style={{ backgroundColor: '#66FF99' }}
@@ -124,7 +175,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
                                             {STAFF_ROLES.map(role => <option key={role} value={role}>{role}</option>)}
                                         </select>
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-2 py-1.5">
                                         <input
                                             type="text"
                                             className="input-field text-xs h-9"
@@ -134,7 +185,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
                                             onChange={(e) => updateItem(idx, 'name', e.target.value)}
                                         />
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-2 py-1.5">
                                         <input
                                             type="tel"
                                             className={`input-field text-xs h-9 text-center ${isNoContact ? 'bg-slate-50/50 text-slate-300 cursor-not-allowed border-dashed' : 'bg-white'}`}
@@ -145,7 +196,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
                                             onChange={(e) => updateItem(idx, 'phone_office', formatPhoneNumber(e.target.value))}
                                         />
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-2 py-1.5">
                                         <input
                                             type="tel"
                                             className={`input-field text-xs h-9 text-center ${isNoContact ? 'bg-slate-50/50 text-slate-300 cursor-not-allowed border-dashed' : 'bg-white'}`}
@@ -156,7 +207,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
                                             onChange={(e) => updateItem(idx, 'phone_mobile', formatPhoneNumber(e.target.value))}
                                         />
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-2 py-1.5">
                                         <input
                                             type="email"
                                             className={`input-field text-xs h-9 ${isNoContact ? 'bg-slate-50/50 text-slate-300 cursor-not-allowed border-dashed' : 'bg-white'}`}
@@ -167,7 +218,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => 
                                             onChange={(e) => updateItem(idx, 'email', e.target.value)}
                                         />
                                     </td>
-                                    <td className="px-4 py-3 text-center">
+                                    <td className="px-2 py-1.5 text-center">
                                         <button
                                             type="button"
                                             onClick={() => removeItem(idx)}

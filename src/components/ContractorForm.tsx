@@ -6,7 +6,7 @@ import { Save, Building2 } from "lucide-react";
 import { formatPhoneNumber } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
-const ContractorForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function ContractorForm({ projectId, onDirty, onSaved }, ref) {
+const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function ContractorForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [formData, setFormData] = useState({
         project_id: projectId || "",
         name: "",
@@ -16,9 +16,11 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =>
         phone_mobile: "",
         email: "",
     });
+    const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         if (projectId) fetchContractor();
     }, [projectId]);
 
@@ -54,9 +56,11 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =>
         setLoading(false);
     };
 
+    if (!mounted) return null;
+
     return (
-        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
-            <div className="sticky top-[133px] z-20 bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 -mt-4 mb-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div suppressHydrationWarning className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Building2 className="text-primary" />
                     2. Información del Contratista
@@ -71,7 +75,16 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, onDirty?: () =>
                 </button>
             </div>
 
-            <form className="card grid grid-cols-1 md:grid-cols-2 gap-6 border-none shadow-sm">
+            {numAct && (
+                <div className="flex items-center gap-2 -mt-4 mb-6">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
+                        ACT-{numAct}
+                    </span>
+                </div>
+            )}
+
+            <form suppressHydrationWarning className="card grid grid-cols-1 md:grid-cols-2 gap-3 border-none shadow-sm">
                 <div className="md:col-span-2 space-y-1">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nombre de la Empresa</label>
                     <input
