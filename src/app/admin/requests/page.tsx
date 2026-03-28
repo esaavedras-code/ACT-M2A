@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
 import { UserCheck, UserX, Clock, Mail, Hash, Shield, ArrowLeft, Pencil, Check, X as XIcon, Users, ChevronDown } from "lucide-react";
 import Link from "next/link";
@@ -12,6 +12,16 @@ interface UserProfile {
     role_global: string;
     created_at: string;
     is_active?: boolean;
+    last_active_at?: string;
+    current_platform?: string;
+}
+
+interface ActivityLog {
+    id: string;
+    user_id: string;
+    platform: string;
+    activity_detail: string;
+    created_at: string;
 }
 
 interface AccessRequest {
@@ -49,6 +59,10 @@ export default function AdminRequestsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const [restrictedProjects, setRestrictedProjects] = useState<string[]>([]);
+
+    const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+    const [userHistory, setUserHistory] = useState<Record<string, ActivityLog[]>>({});
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     useEffect(() => {
         const checkAdmin = async () => {
@@ -107,9 +121,53 @@ export default function AdminRequestsPage() {
     const fetchActiveUsers = async () => {
         const { data } = await supabase
             .from("users")
-            .select("*")
+            .select("id, email, name, role_global, created_at, is_active, last_active_at, current_platform")
             .order("created_at", { ascending: false });
         if (data) setActiveUsers(data);
+    };
+
+    const getRoleLabel = (role: string) => {
+        switch(role) {
+            case 'A': return 'Administrador Global';
+            case 'B': return 'Admin Proyecto';
+            case 'C': return 'Data Entry';
+            case 'D': return 'Lectura';
+            case 'E': return 'Inspector';
+            default: return 'Estándar';
+        }
+    };
+
+    const getRoleColorClass = (role: string) => {
+        switch(role) {
+            case 'A': return 'bg-primary/10 border-primary/20 text-primary';
+            case 'B': return 'bg-amber-50 border-amber-100 text-amber-600';
+            case 'C': return 'bg-slate-100 border-slate-200 text-slate-600';
+            case 'D': return 'bg-slate-100 border-slate-200 text-slate-400';
+            case 'E': return 'bg-blue-50 border-blue-100 text-blue-600';
+            default: return 'bg-slate-100 border-slate-200 text-slate-500';
+        }
+    };
+
+    const fetchUserHistory = async (userId: string) => {
+        if (expandedUserId === userId) {
+            setExpandedUserId(null);
+            return;
+        }
+        
+        setExpandedUserId(userId);
+        if (userHistory[userId]) return;
+        
+        setHistoryLoading(true);
+        const { data } = await supabase
+            .from("user_activity_log")
+            .select("*")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(10);
+        if (data) {
+            setUserHistory(prev => ({ ...prev, [userId]: data }));
+        }
+        setHistoryLoading(false);
     };
 
     const fetchRequests = async (isGlobal: boolean = isGlobalAdmin, limitations: string[] = restrictedProjects) => {
@@ -689,8 +747,8 @@ export default function AdminRequestsPage() {
                                                         <option value="E">Nivel E (Inspector)</option>
                                                     </select>
                                                 ) : (
-                                                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl w-fit border border-slate-200 dark:border-slate-700">
-                                                        <Shield size={14} className="text-slate-400" /> Nivel {req.desired_role}
+                                                    <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl w-fit border ${getRoleColorClass(req.desired_role)}`}>
+                                                        <Shield size={14} className="opacity-70" /> {getRoleLabel(req.desired_role)}
                                                     </span>
                                                 )}
                                             </td>
@@ -778,6 +836,7 @@ export default function AdminRequestsPage() {
                             <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado / Plataforma</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Global</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Miembro desde</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
@@ -797,59 +856,127 @@ export default function AdminRequestsPage() {
                                         (u.name || "").toLowerCase().includes(searchTerm.toLowerCase())
                                     )
                                     .map(user => (
-                                    <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
-                                        <td className="px-8 py-6">
-                                            <div className="flex flex-col gap-1">
-                                                <span className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
-                                                    {user.name || 'Sin nombre'}
-                                                    {user.is_active === false && (
-                                                        <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-rose-200">
-                                                            Inactivo
+                                        <Fragment key={user.id}>
+                                            <tr className={`transition-all ${expandedUserId === user.id ? 'bg-blue-50/30' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
+                                                            {user.name || 'Sin nombre'}
+                                                            {user.is_active === false && (
+                                                                <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-rose-200">
+                                                                    Inactivo
+                                                                </span>
+                                                            )}
                                                         </span>
-                                                    )}
-                                                </span>
-                                                <span className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
-                                                    <Mail size={14} className="text-slate-300" /> {user.email}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${user.role_global === 'A' ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
-                                                {user.role_global === 'A' ? 'Súper Admin' : 'Estándar'}
-                                            </span>
-                                        </td>
-                                        <td className="px-8 py-6 text-sm text-slate-500">
-                                            {new Date(user.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                                        </td>
-                                        <td className="px-8 py-6 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {/* Toggle Status Button */}
-                                                {(user.role_global !== 'A' || isGlobalAdmin) && (
-                                                    <button 
-                                                        disabled={isDeletingId === user.id || user.role_global === 'A'}
-                                                        onClick={() => handleToggleUserStatus(user.id, user.is_active !== false, user.email)}
-                                                        className={`p-3 rounded-2xl transition-all disabled:opacity-30 group flex-1 max-w-[40px] ${
-                                                            user.is_active === false 
-                                                                ? 'text-green-500 hover:bg-green-50' 
-                                                                : 'text-amber-500 hover:bg-amber-50'
-                                                        }`}
-                                                        title={user.is_active === false ? "Activar Usuario" : "Desactivar Usuario"}
-                                                    >
-                                                        {user.is_active === false ? <Check size={20} className="group-hover:scale-110 transition-transform" /> : <XIcon size={20} className="group-hover:scale-110 transition-transform" />}
-                                                    </button>
-                                                )}
-                                                <button 
-                                                    disabled={isDeletingId === user.id || user.role_global === 'A'}
-                                                    onClick={() => handleDeleteUser(user.id, user.email)}
-                                                    className="p-3 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all disabled:opacity-30 group"
-                                                    title="Eliminar Acceso de Usuario"
-                                                >
-                                                    <UserX size={20} className="group-hover:scale-110 transition-transform" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                        <span className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
+                                                            <Mail size={14} className="text-slate-300" /> {user.email}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        {(() => {
+                                                            const isOnline = user.last_active_at && (new Date().getTime() - new Date(user.last_active_at).getTime() < 300000); // 5 mins
+                                                            return (
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className={`w-3 h-3 rounded-full shadow-sm ${isOnline ? 'bg-green-500 animate-pulse ring-4 ring-green-500/20' : 'bg-red-400'}`}></div>
+                                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isOnline ? 'text-green-600' : 'text-slate-400'}`}>
+                                                                        {isOnline ? 'En línea' : 'Desconectado'}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                        {user.current_platform && (
+                                                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-black rounded border border-slate-200 dark:border-slate-700">
+                                                                {user.current_platform}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${getRoleColorClass(user.role_global)}`}>
+                                                        {getRoleLabel(user.role_global)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-6 text-sm text-slate-500">
+                                                    {new Date(user.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                                </td>
+                                                <td className="px-8 py-6 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button 
+                                                            onClick={() => fetchUserHistory(user.id)}
+                                                            className={`p-3 rounded-2xl transition-all flex items-center gap-2 border shadow-sm ${expandedUserId === user.id ? 'bg-primary text-white border-primary shadow-primary/20' : 'bg-white border-slate-200 text-slate-500 hover:border-primary/50 hover:text-primary'}`}
+                                                            title="Ver Historial de Actividad"
+                                                        >
+                                                            <Clock size={18} />
+                                                            <ChevronDown size={14} className={`transition-transform duration-300 ${expandedUserId === user.id ? 'rotate-180' : ''}`} />
+                                                        </button>
+                                                        <div className="w-[1px] h-8 bg-slate-100 dark:bg-slate-800 mx-1"></div>
+                                                        {/* Toggle Status Button */}
+                                                        {(user.role_global !== 'A' || isGlobalAdmin) && (
+                                                            <button 
+                                                                disabled={isDeletingId === user.id || user.role_global === 'A'}
+                                                                onClick={() => handleToggleUserStatus(user.id, user.is_active !== false, user.email)}
+                                                                className={`p-3 rounded-2xl transition-all disabled:opacity-30 group flex-1 max-w-[40px] ${
+                                                                    user.is_active === false 
+                                                                        ? 'text-green-500 hover:bg-green-50' 
+                                                                        : 'text-amber-500 hover:bg-amber-50'
+                                                                }`}
+                                                                title={user.is_active === false ? "Activar Usuario" : "Desactivar Usuario"}
+                                                            >
+                                                                {user.is_active === false ? <Check size={20} className="group-hover:scale-110 transition-transform" /> : <XIcon size={20} className="group-hover:scale-110 transition-transform" />}
+                                                            </button>
+                                                        )}
+                                                        <button 
+                                                            disabled={isDeletingId === user.id || user.role_global === 'A'}
+                                                            onClick={() => handleDeleteUser(user.id, user.email)}
+                                                            className="p-3 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all disabled:opacity-30 group"
+                                                            title="Eliminar Acceso de Usuario"
+                                                        >
+                                                            <UserX size={20} className="group-hover:scale-110 transition-transform" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {expandedUserId === user.id && (
+                                                <tr key={`${user.id}-history`} className="bg-blue-50/20 dark:bg-blue-900/5 animate-in slide-in-from-top-2 duration-300">
+                                                    <td colSpan={5} className="px-8 py-0">
+                                                        <div className="py-6 border-t border-blue-100/50 dark:border-blue-900/20">
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                                                                    <Clock size={12} /> Últimas 10 actividades en el programa
+                                                                </h4>
+                                                                {historyLoading && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
+                                                            </div>
+                                                            
+                                                            {userHistory[user.id]?.length === 0 ? (
+                                                                <p className="text-xs text-slate-400 italic py-4">No hay registros de actividad recientes.</p>
+                                                            ) : (
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                                    {userHistory[user.id]?.map((log) => (
+                                                                        <div key={log.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-1 hover:shadow-md transition-shadow">
+                                                                            <div className="flex justify-between items-start">
+                                                                                <span className="text-[10px] font-black text-slate-900 dark:text-white truncate pr-2">
+                                                                                    {log.activity_detail}
+                                                                                </span>
+                                                                                <span className="px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 text-[8px] font-bold text-slate-400 border border-slate-100 dark:border-slate-800 rounded">
+                                                                                    {log.platform}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 text-[9px] text-slate-400 font-medium">
+                                                                                <Clock size={10} />
+                                                                                {new Date(log.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </Fragment>
+                                    ))}
                             </tbody>
                         </table>
                     </div>
