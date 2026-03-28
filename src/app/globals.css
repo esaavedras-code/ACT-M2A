@@ -5,35 +5,81 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+  --primary: #0056b3;
+  --primary-dark: #004494;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #020617;
+    --foreground: #f8fafc;
+  }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
 }
 
 .card {
-  @apply bg-white rounded-3xl shadow-sm border border-slate-100 p-8 transition-all hover:shadow-md;
+  @apply bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 p-4 sm:p-6 md:p-8 transition-all hover:shadow-md;
 }
 
 .btn-primary {
-  @apply bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50;
+  @apply bg-blue-600 hover:bg-blue-700 text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-2xl transition-all font-black text-[10px] sm:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50;
+}
+
+.btn-secondary {
+  @apply bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-xl transition-all font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50;
 }
 
 .input-field {
-  @apply w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium;
+  @apply w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-white;
 }
 
 .label-field {
-  @apply block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 ml-1;
+  @apply block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 ml-1;
 }
 
-/* Ocultar barra de desplazamiento */
-.scrollbar-hide::-webkit-scrollbar {
+/* Ocultar barra de desplazamiento manteniendo funcionalidad */
+.no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-.scrollbar-hide {
+.no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Estilo premium para tablas con scroll horizontal */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-700 rounded-full;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300 dark:bg-slate-600;
+}
+
+/* Animaciones suaves */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Mejoras para inputs en móviles */
+@media (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important; /* Evita que iOS haga zoom al enfocar */
+  }
 }

@@ -64,12 +64,14 @@ export async function generateFinalAcceptanceReport(projectId: string) {
             if (logoResp.ok) {
                 const logoBytes = await logoResp.arrayBuffer();
                 const logoImg = await pdfDoc.embedPng(logoBytes);
-                const dims = logoImg.scaleToFit(140, 60);
+                const dims = logoImg.scale(1);
+                const targetHeight = 45;
+                const targetWidth = (dims.width / dims.height) * targetHeight;
                 pg.drawImage(logoImg, {
-                    x: PW - MR - dims.width,
-                    y: PH - 25 - dims.height,
-                    width: dims.width,
-                    height: dims.height
+                    x: PW - MR - targetWidth,
+                    y: PH - 25 - targetHeight,
+                    width: targetWidth,
+                    height: targetHeight
                 });
             }
         } catch (e) { console.warn("Logo PRHTA no cargado"); }
@@ -168,7 +170,7 @@ export async function generateFinalAcceptanceReport(projectId: string) {
             "Environmental Commitments Completed"
         ];
 
-        const ROW_H = 22;
+        const ROW_H = 26;
         items.forEach((item, i) => {
             const rY = Y + 20 + (i * ROW_H);
             RECT(ML, rY, TBL_W, ROW_H);
@@ -178,9 +180,9 @@ export async function generateFinalAcceptanceReport(projectId: string) {
             // Item text
             let fs = 8.5;
             if (item.length > 55) fs = 7.5;
-            TXT(item, ML + 5, rY + 13, fs);
-            if (i === 7) TXT("(Participating and Non-Participating)", ML + 5, rY + 20, 6, false);
-            if (i === 8) TXT("(Participating & Non-Participating)", ML + 5, rY + 20, 6, false);
+            TXT(item, ML + 5, rY + 12, fs);
+            if (i === 7) TXT("(Participating and Non-Participating)", ML + 5, rY + 22, 6, false);
+            if (i === 8) TXT("(Participating & Non-Participating)", ML + 5, rY + 22, 6, false);
 
             // Yes/No/N/A text
             const optX = ML + COL1 + 20;

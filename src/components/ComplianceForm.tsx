@@ -278,9 +278,9 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     return (
         <div className="w-full space-y-6">
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
+                <h2 className="text-xl font-bold flex items-center gap-2">
                     <ShieldCheck className="text-primary" />
-                    9. Cumplimiento Laboral
+                    5. Cumplimiento Log (Labor/DBE/EEO)
                 </h2>
                 <div className="flex gap-2">
                     <button onClick={handleSubmit} disabled={loading} className="btn-primary flex items-center gap-2">

@@ -197,7 +197,7 @@ export async function generateFinalEstimateReportLogic(projectId: string) {
         Y += 40;
 
         // Summary Section (Totals and Deductions)
-        if (Y > PH - 160) {
+        if (Y > PH - 220) {
             page = pdfDoc.addPage([PW, PH]);
             Y = drawHeader() + 20;
         }

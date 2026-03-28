@@ -3,6 +3,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Plus, Trash2, Calculator, Users, Truck, Package, FileText, ChevronRight, ChevronLeft, LayoutDashboard } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { formatCurrency } from "@/lib/utils";
 
@@ -129,11 +130,14 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                 <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <Calculator className="text-primary" />
-                        11. Force Accounts
+                        12. Force Account
                     </h2>
-                    <button onClick={handleCreateNew} className="btn-primary flex items-center gap-2">
-                        <Plus size={18} /> Nuevo Force Account
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {/* Los botones ahora son flotantes para mayor accesibilidad */}
+                        <button onClick={handleCreateNew} className="btn-primary flex items-center gap-2">
+                            <Plus size={18} /> Nuevo Force Account
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -166,11 +170,22 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                     <ChevronLeft size={18} /> Volver a la lista
                 </button>
                 <div className="flex gap-2">
-                    <button onClick={() => saveData(false)} disabled={loading} className="btn-primary flex items-center gap-2 shadow-lg shadow-primary/20">
-                        <Save size={18} /> {loading ? "Guardando..." : "Guardar Force Account"}
-                    </button>
+                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>
             </div>
+
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar Force Account",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Actualizar balances de mano de obra, equipo y materiales para este Force Account",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
 
             <div className="card p-0 overflow-hidden border-none shadow-xl rounded-[2rem] bg-white dark:bg-slate-900">
                 <div className="bg-slate-50 dark:bg-slate-800/50 flex border-b border-slate-100 dark:border-slate-800">

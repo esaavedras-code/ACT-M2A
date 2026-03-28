@@ -197,7 +197,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         const mfgMatch = text.match(/(?:Manufacturer|Fabricante|Produced\s*by|Vendido\s*por|Supplier|Planta)\s*(?::)?\s*([^,\.\n\r]{2,50})/i);
         const descMatch = text.match(/(?:Material|Description|Specification|Product|Type|Descripci[óo]n)\s*(?::)?\s*([^,\.\n\r]{10,100})/i);
 
-        const manufacturerName = mfgMatch ? mfgMatch[1].trim() : "Detectado en PDF";
+        const manufacturerName = mfgMatch ? mfgMatch[1].trim() : "";
         const materialDescription = descMatch ? descMatch[1].trim() : "Descripción identificada";
 
         const isSteel = /steel|iron|acero|hierro|molino|mill|reinforcing|rebar/i.test(text);
@@ -404,7 +404,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Factory className="text-primary" />
-                    7. Certificados de Manufactura
+                    8. Certificados de Manufactura
                 </h2>
                 <div className="flex gap-2">
                     <button onClick={handleFileUpload} disabled={loading || parsing} className="bg-emerald-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 text-emerald-700 hover:bg-emerald-200 transition-colors">
@@ -413,7 +413,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     </button>
                     <button onClick={handleSubmit} disabled={loading || parsing} className="btn-primary flex items-center gap-2">
                         <Save size={18} />
-                        {loading ? "Sincronizando..." : "Guardar Certificados"}
+                        {loading ? "Sincronizando..." : "Guardar cambios"}
                     </button>
                 </div>
             </div>
@@ -526,10 +526,11 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     <td className="px-2 py-1">
                                         <input
                                             type="text"
-                                            className="input-field text-[10px] !py-1 min-h-[32px]"
+                                            className="input-field text-[10px] !py-1 min-h-[32px] font-bold text-black"
+                                            style={{ backgroundColor: '#66FF99' }}
                                             value={c.manufacturer_name || ""}
                                             onChange={(e) => updateCert(idx, 'manufacturer_name', e.target.value)}
-                                            placeholder="Nombre del Fabricante"
+                                            placeholder={c.file_name ? "No detectado en PDF" : "Nombre del Fabricante"}
                                         />
                                     </td>
                                     <td className="px-2 py-1">

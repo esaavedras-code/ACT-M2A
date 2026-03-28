@@ -15,7 +15,12 @@ const drawText = (p: any, txt: any, x: number, y: number, font: any, size = 8, c
     let finalX = x;
     if (center) finalX = x - (textWidth / 2);
     else if (right) finalX = x - textWidth;
-    p.drawText(s, { x: finalX, y: PH - y, size, font, color: rgb(0, 0, 0) });
+
+    // Color logic for negatives
+    let textColor = rgb(0, 0, 0);
+    if (s.includes('(') && s.includes(')')) textColor = rgb(0.8, 0, 0);
+
+    p.drawText(s, { x: finalX, y: PH - y, size, font, color: textColor });
 };
 
 /**
@@ -26,7 +31,11 @@ const drawJustifiedText = (p: any, text: string, x: number, y: number, maxWidth:
     if (words.length === 0) return;
 
     if (isLastLine || words.length === 1) {
-        p.drawText(text, { x, y: PH - y, size, font, color: rgb(0, 0, 0) });
+        // Color logic for negatives
+        let textColor = rgb(0, 0, 0);
+        if (text.includes('(') && text.includes(')')) textColor = rgb(0.8, 0, 0);
+        
+        p.drawText(text, { x, y: PH - y, size, font, color: textColor });
         return;
     }
 

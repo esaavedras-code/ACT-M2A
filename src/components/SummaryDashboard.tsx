@@ -352,11 +352,22 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
     return (
         <div suppressHydrationWarning className="space-y-8 animate-in fade-in duration-500">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <Activity className="text-primary" />
-                    Interfaz Resumen de Información Principal
-                </h2>
+            <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                            <Activity className="text-primary" size={24} />
+                        </div>
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-3">
+                                <span>0. Interfaz Resumen de Información Principal</span>
+                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                    (no hace falta meter ninguna información en esa sección)
+                                </span>
+                            </div>
+                        </div>
+                    </h2>
+                </div>
             </div>
 
             {numAct && (

@@ -40,11 +40,27 @@ export default function Dashboard() {
             let allowedIds: string[] = [];
 
             if (session) {
-                const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
+                // Get user data by ID first (preferred)
+                let { data: userData } = await supabase.from("users").select("id, role_global").eq("id", session.user.id).single();
+                
+                // If ID match fails, try by email as a fallback
+                if (!userData && session.user.email) {
+                    const { data: userDataByEmail } = await supabase.from("users").select("id, role_global").eq("email", session.user.email.toLowerCase()).single();
+                    userData = userDataByEmail;
+                }
+
                 if (userData?.role_global === "A") {
+                    setIsAdmin(true);
                     allowedIds = ["ALL"];
                 } else {
-                    const { data: mems } = await supabase.from("memberships").select("project_id").eq("user_id", session.user.id);
+                    const queryId = userData?.id || session.user.id;
+                    const { data: mems } = await supabase
+                        .from("memberships")
+                        .select("project_id")
+                        .eq("user_id", queryId)
+                        .is("revoked_at", null)
+                        .eq("is_active", true);
+
                     if (mems && mems.length > 0) {
                         allowedIds = mems.map((m: any) => m.project_id);
                     }

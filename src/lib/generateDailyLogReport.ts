@@ -47,7 +47,12 @@ export const generateDailyLogReport = async (projectId: string, logId: string) =
     const drawCenteredText = (txt: string, yPos: number, size = 10, bld = false) => {
         const f = bld ? fontBold : font;
         const width = f.widthOfTextAtSize(txt, size);
-        page.drawText(txt, { x: (PW - width) / 2, y: yPos, size, font: f, color: BK });
+        
+        // Color logic for negatives
+        let textColor = BK;
+        if (txt.includes('(') && txt.includes(')')) textColor = rgb(0.8, 0, 0);
+        
+        page.drawText(txt, { x: (PW - width) / 2, y: yPos, size, font: f, color: textColor });
     };
 
     const drawBox = (x: number, yPos: number, width: number, height: number, label?: string, value?: string, fontSizeLabel = 6, fontSizeValue = 8, boldValue = false) => {
@@ -74,7 +79,12 @@ export const generateDailyLogReport = async (projectId: string, logId: string) =
                     // Truncate text that would overflow the box width
                     const maxChars = Math.floor((width - 6) / (fontSizeValue * 0.5));
                     const truncated = line.length > maxChars ? line.substring(0, maxChars - 3) + '...' : line;
-                    page.drawText(truncated, { x: x + 3, y: textY, size: fontSizeValue, font: f });
+                    
+                    // Color logic for negatives
+                    let textColor = BK;
+                    if (truncated.includes('(') && truncated.includes(')')) textColor = rgb(0.8, 0, 0);
+                    
+                    page.drawText(truncated, { x: x + 3, y: textY, size: fontSizeValue, font: f, color: textColor });
                 }
             });
         }

@@ -38,6 +38,7 @@ const MoneyCell = ({
     setEditingField,
     handleChange,
     className = "",
+    style,
 }: {
     fieldKey: string;
     rowIdx: number;
@@ -47,6 +48,7 @@ const MoneyCell = ({
     setEditingField: (val: string | null) => void;
     handleChange: (index: number, field: keyof FundRow, value: any) => void;
     className?: string;
+    style?: React.CSSProperties;
 }) => {
     const isEditing = editingField === fieldKey;
     const numVal = (funds[rowIdx] as any)[field] as number;
@@ -86,7 +88,7 @@ const MoneyCell = ({
     };
 
     return (
-        <td className={`border p-0.5 ${className}`}>
+        <td className={`border p-0.5 ${className}`} style={style}>
             <input
                 type="text"
                 suppressHydrationWarning
@@ -163,35 +165,35 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-2">
-                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">Original Project Funds Information (Project Agreement)</h3>
-                <div className="flex gap-2">
-                    <button type="button" onClick={addUnit} className="btn-secondary py-1 px-3 text-xs flex items-center gap-1">
+            <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">2. Fondos Originales (Project Agreement)</h3>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <button type="button" onClick={addUnit} className="btn-secondary flex-1 sm:flex-none py-1.5 px-3 text-[10px] flex items-center justify-center gap-1">
                         <Plus size={14} /> Añadir Unidad
                     </button>
-                    <button type="button" onClick={saveFunds} disabled={loading} className="btn-primary py-1 px-4 text-xs flex items-center gap-1">
+                    <button type="button" onClick={saveFunds} disabled={loading} className="btn-primary flex-1 sm:flex-none py-1.5 px-4 text-[10px] flex items-center justify-center gap-1">
                         <Save size={14} /> {loading ? "Guardando..." : "Guardar Fondos"}
                     </button>
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto custom-scrollbar">
                 <table className="min-w-full text-[10px] border-collapse bg-white dark:bg-slate-900">
                     <thead>
                         <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                             <th className="border p-1">Units</th>
-                            <th className="border p-1">Fed Share %</th>
+                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Fed Share %</th>
                             <th className="border p-1">Participating</th>
-                            <th className="border p-1">Contingencies (Participating)</th>
+                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Contingencies (Participating)</th>
                             <th className="border p-1">Payroll/Mileage and Diets</th>
-                            <th className="border p-1">F.A. Fund Requested</th>
+                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>F.A. Fund Requested</th>
                             <th className="border p-1 bg-blue-50 dark:bg-blue-900/20">Fed Cont.</th>
                             <th className="border p-1 bg-blue-50 dark:bg-blue-900/20">Toll Credits</th>
                             <th className="border p-1 bg-blue-50 dark:bg-blue-900/20">Contingencies (Toll Credits)</th>
                             <th className="border p-1 bg-green-50 dark:bg-green-900/20">State Share of Federal Funds</th>
                             <th className="border p-1 bg-green-50 dark:bg-green-900/20">Contingencies (State Share)</th>
-                            <th className="border p-1 bg-green-50 dark:bg-green-900/20">Not Participating (State Funds)</th>
-                            <th className="border p-1 bg-green-50 dark:bg-green-900/20">Contingencies (No Part.)</th>
+                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Not Participating (State Funds)</th>
+                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Contingencies (No Part.)</th>
                             <th className="border p-1 bg-gray-50 dark:bg-gray-900/20">Payroll, Millage and Diets</th>
                             <th className="border p-1">Acciones</th>
                         </tr>
@@ -203,23 +205,25 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
                                 <td className="border p-0.5">
                                     <input type="text" className="w-full bg-transparent border-none p-0.5" value={row.unit_name} onChange={(e) => handleChange(idx, 'unit_name', e.target.value)} />
                                 </td>
-                                {/* Fed Share % — se deja como número porque es porcentaje */}
-                                <td className="border p-0.5">
+                                {/* Fed Share % */}
+                                <td className="border p-0.5" style={{ backgroundColor: '#66FF99' }}>
                                     <input type="number" className="w-full bg-transparent border-none p-0.5 text-right" value={row.federal_share_pct} onChange={(e) => handleChange(idx, 'federal_share_pct', parseFloat(e.target.value))} />
                                 </td>
                                 {/* Celdas monetarias */}
                                 <MoneyCell fieldKey={`participating_${idx}`} rowIdx={idx} field="participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} />
-                                <MoneyCell fieldKey={`cont_part_${idx}`} rowIdx={idx} field="contingencies_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} />
+                                <MoneyCell fieldKey={`cont_part_${idx}`} rowIdx={idx} field="contingencies_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
                                 <MoneyCell fieldKey={`payroll_${idx}`} rowIdx={idx} field="payroll_mileage_diets" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} />
-                                {/* F.A. Requested — editable, fondo amarillo */}
-                                <MoneyCell fieldKey={`fa_req_${idx}`} rowIdx={idx} field="fa_funds_requested" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-yellow-50 dark:bg-yellow-900/10 font-bold" />
+                                {/* F.A. Requested — verde */}
+                                <MoneyCell fieldKey={`fa_req_${idx}`} rowIdx={idx} field="fa_funds_requested" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
                                 <MoneyCell fieldKey={`fed_cont_${idx}`} rowIdx={idx} field="contingencies_federal" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-blue-50/50 dark:bg-blue-900/10" />
                                 <MoneyCell fieldKey={`toll_${idx}`} rowIdx={idx} field="calc_toll_credits" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-blue-50/50 dark:bg-blue-900/10" />
                                 <MoneyCell fieldKey={`cont_toll_${idx}`} rowIdx={idx} field="contingencies_toll" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-blue-50/50 dark:bg-blue-900/10" />
                                 <MoneyCell fieldKey={`state_share_${idx}`} rowIdx={idx} field="state_share_federal" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-green-50/50 dark:bg-green-900/10" />
                                 <MoneyCell fieldKey={`cont_state_share_${idx}`} rowIdx={idx} field="contingencies_state_share" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-green-50/50 dark:bg-green-900/10" />
-                                <MoneyCell fieldKey={`not_participating_${idx}`} rowIdx={idx} field="not_participating_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-green-50/50 dark:bg-green-900/10" />
-                                <MoneyCell fieldKey={`cont_nop_${idx}`} rowIdx={idx} field="contingencies_not_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-green-50/50 dark:bg-green-900/10" />
+                                {/* Not Participating (State Funds) — verde */}
+                                <MoneyCell fieldKey={`not_participating_${idx}`} rowIdx={idx} field="not_participating_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
+                                {/* Contingencies (No Part.) — verde */}
+                                <MoneyCell fieldKey={`cont_nop_${idx}`} rowIdx={idx} field="contingencies_not_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
                                 <MoneyCell fieldKey={`payroll_mileage_diets_state_${idx}`} rowIdx={idx} field="payroll_mileage_diets_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-gray-50/50 dark:bg-gray-900/10" />
                                 {/* Acciones */}
                                 <td className="border p-0.5 text-center">

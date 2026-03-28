@@ -250,6 +250,7 @@ function ReportesContent() {
     const [mounted, setMounted] = useState(false);
     const [showNoMissingMsg, setShowNoMissingMsg] = useState(false);
     const [reportFormat, setReportFormat] = useState<'pdf' | 'excel'>('pdf');
+    const [endDate, setEndDate] = useState<string>("");
     const [reportFolderPath, setReportFolderPath] = useState<string | null>(null);
 
     useEffect(() => {
@@ -402,6 +403,18 @@ function ReportesContent() {
                          <FileDigit size={16} /> EXCEL
                     </button>
                 </div>
+                <div className="flex flex-col items-center gap-2 mb-6 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-xs">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Fecha de Corte (Opcional)
+                    </label>
+                    <input 
+                        type="date" 
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-1 focus:ring-primary transition-all cursor-pointer"
+                    />
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Si se deja vacío, se usa la fecha de hoy</p>
+                </div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Seleccione el formato preferido para sus reportes</p>
 
                 {/* --- Selector de Carpeta (Electron) --- */}
@@ -455,7 +468,7 @@ function ReportesContent() {
                             label: '1. Dashboard Ejecutivo',
                             description: 'Resumen gerencial de costos y tiempo.',
                             icon: <Activity size={18} className="text-indigo-500" />,
-                            action: () => generateDashboardReportLogic(projectId, reportFormat)
+                            action: () => generateDashboardReportLogic(projectId, reportFormat, endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
                                     console.error(e);
@@ -476,7 +489,7 @@ function ReportesContent() {
                             label: '1. Balances Actuales',
                             description: 'Cantidades originales vs ejecutadas.',
                             icon: <ListChecks size={18} className="text-emerald-500" />,
-                            action: () => generateBalanceReportLogic(projectId, reportFormat)
+                            action: () => generateBalanceReportLogic(projectId, reportFormat, endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
                                     console.error(e);
@@ -493,7 +506,7 @@ function ReportesContent() {
                             label: '2. Detalle de cada partida',
                             description: 'Historial completo por cada partida.',
                             icon: <Files size={18} className="text-teal-500" />,
-                            action: () => generateDetailReportLogic(projectId, reportFormat)
+                            action: () => generateDetailReportLogic(projectId, reportFormat, endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
                                     console.error(e);
@@ -912,10 +925,16 @@ function ReportesContent() {
                             label: '5. Material Certification',
                             description: 'Certificación oficial de materiales, muestreo y pruebas de aceptación.',
                             icon: <FileCheck size={18} className="text-orange-600" />,
-                            action: () => generateMaterialCertificationReportLogic(projectId, reportFormat)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => setStatus(`Error: ${e.message}`))
-                                .finally(() => setLoading(false))
+                            action: () => {
+                                alert("Recordatorio: Este documento de certificación de materiales no sustituye las firmas requeridas en los documentos originales firmados por el inspector.");
+                                return generateMaterialCertificationReportLogic(projectId, reportFormat)
+                                    .then(() => setStatus("Reporte generado."))
+                                    .catch(e => {
+                                        console.error(e);
+                                        setStatus(`Error: ${e.message}`);
+                                    })
+                                    .finally(() => setLoading(false));
+                            }
                         }}
                     />
                     <StandardReportItem
@@ -926,10 +945,16 @@ function ReportesContent() {
                             label: '6. Certification of DBE Participation',
                             description: 'Certificación oficial de participación y esfuerzos de buena fe de empresas DBE.',
                             icon: <FileCheck size={18} className="text-blue-600" />,
-                            action: () => generateDbeCertificationReportLogic(projectId, reportFormat)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => setStatus(`Error: ${e.message}`))
-                                .finally(() => setLoading(false))
+                            action: () => {
+                                alert("Recordatorio: Este documento de participación DBE no sustituye las firmas requeridas en los documentos originales firmados por el inspector.");
+                                return generateDbeCertificationReportLogic(projectId, reportFormat)
+                                    .then(() => setStatus("Reporte generado."))
+                                    .catch(e => {
+                                        console.error(e);
+                                        setStatus(`Error: ${e.message}`);
+                                    })
+                                    .finally(() => setLoading(false));
+                            }
                         }}
                     />
                     <StandardReportItem

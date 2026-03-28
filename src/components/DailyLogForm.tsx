@@ -6,9 +6,10 @@ import {
     Save, Plus, Trash2, Users, Truck,
     FileText, ChevronRight, ChevronLeft,
     CloudSun, MessageSquare, ListChecks,
-    Clock, Shield, AlertTriangle, Trash,
+    Clock, Shield, AlertTriangle, Trash, Check,
     Camera, Image as ImageIcon, Search, Upload, Printer, FileSpreadsheet, Info, Mic, Loader2
 } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { generateDailyLogReport } from "@/lib/generateDailyLogReport";
 import { downloadBlob } from "@/lib/reportLogic";
@@ -49,6 +50,8 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
     const [currentLog, setCurrentLog] = useState<any>(null);
     const [projectAddress, setProjectAddress] = useState("");
     const [loading, setLoading] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const [lastSaved, setLastSaved] = useState<Date | null>(null);
     const [editTab, setEditTab] = useState("partidas");
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [projectDefaults, setProjectDefaults] = useState({
@@ -109,6 +112,17 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
             });
         }
     };
+
+    // Lógica de Auto-guardado cada 3 segundos
+    useEffect(() => {
+        let timer: any;
+        if (activeSubTab === "edit" && currentLog && isDirty && !loading) {
+            timer = setTimeout(() => {
+                saveData(true, true); // silent=true, background=true
+            }, 3000);
+        }
+        return () => clearTimeout(timer);
+    }, [currentLog, isDirty, activeSubTab, loading]);
 
     const fetchDailyLogs = async () => {
         if (!projectId) return;
@@ -202,18 +216,18 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
     };
 
 
-    const saveData = async (silent = false) => {
+    const saveData = async (silent = false, background = false) => {
         if (!currentLog || !projectId) return;
 
         // Validation: Solo requerimos partidas por defecto, el resto es opcional/recomendado
         const hasPartidas = currentLog.partidas_data?.length > 0;
         
-        if (!hasPartidas && !silent) {
+        if (!hasPartidas && !silent && !background) {
             const proceed = confirm("No ha registrado ninguna partida trabajada hoy. ¿Desea guardar el informe de todos modos?");
             if (!proceed) return;
         }
 
-        setLoading(true);
+        if (!background) setLoading(true);
         try {
             const { id, created_at, updated_at, ...logData } = currentLog;
             
@@ -236,23 +250,28 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                 if (data) setCurrentLog(data);
             }
 
-            // Sync repetition preferences to project
-            const personnelToRepeat = (currentLog.personnel_v2_data || []).filter((p: any) => p.repetir);
-            const equipmentToRepeat = (currentLog.equipment_v2_data || []).filter((e: any) => e.repetir);
-            await supabase.from("projects").update({
-                daily_log_default_personnel: personnelToRepeat,
-                daily_log_default_equipment: equipmentToRepeat
-            }).eq("id", projectId);
+            setIsDirty(false);
+            setLastSaved(new Date());
 
-            if (!silent) alert("Informe Diario guardado correctamente");
-            await fetchDailyLogs();
-            if (onSaved) onSaved();
-            setActiveSubTab("list");
+            if (!background) {
+                // Sync repetition preferences to project
+                const personnelToRepeat = (currentLog.personnel_v2_data || []).filter((p: any) => p.repetir);
+                const equipmentToRepeat = (currentLog.equipment_v2_data || []).filter((e: any) => e.repetir);
+                await supabase.from("projects").update({
+                    daily_log_default_personnel: personnelToRepeat,
+                    daily_log_default_equipment: equipmentToRepeat
+                }).eq("id", projectId);
+
+                if (!silent) alert("Informe Diario guardado correctamente");
+                await fetchDailyLogs();
+                if (onSaved) onSaved();
+                setActiveSubTab("list");
+            }
         } catch (err: any) {
             console.error("Error saving daily log:", err);
-            alert("Error al guardar el informe: " + (err.message || "Error desconocido"));
+            if (!background) alert("Error al guardar el informe: " + (err.message || "Error desconocido"));
         } finally {
-            setLoading(false);
+            if (!background) setLoading(false);
         }
     };
 
@@ -274,15 +293,97 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
 
     const handleInputChange = (field: string, value: any) => {
         setCurrentLog((prev: any) => ({ ...prev, [field]: value }));
+        setIsDirty(true);
         if (onDirty) onDirty();
+    };
+
+    const handleGlobalAIResult = (aiResult: any) => {
+        if (!currentLog) return;
+        
+        let newLog = { ...currentLog };
+        let updated = false;
+
+        // 1. Personal
+        if (aiResult.personal && Array.isArray(aiResult.personal)) {
+            newLog.personnel_v2_data = [
+                ...(newLog.personnel_v2_data || []),
+                ...aiResult.personal.map((p: any) => ({ ...p, repetir: false }))
+            ];
+            updated = true;
+        }
+
+        // 2. Equipo
+        if (aiResult.equipo && Array.isArray(aiResult.equipo)) {
+            newLog.equipment_v2_data = [
+                ...(newLog.equipment_v2_data || []),
+                ...aiResult.equipo.map((e: any) => ({ ...e, repetir: false }))
+            ];
+            updated = true;
+        }
+
+        // 3. Partidas
+        if (aiResult.partidas_trabajadas && Array.isArray(aiResult.partidas_trabajadas)) {
+            const newEntries = aiResult.partidas_trabajadas.map((p: any) => {
+                const match = contractItems.find((ci: any) => String(ci.id) === String(p.item_id));
+                return {
+                    item_id: match?.id || "",
+                    item_num: match?.item_num || "",
+                    description: match?.description || p.notes || "Buscado por IA",
+                    unit: match?.unit || "",
+                    qty_worked: p.qty_worked || "",
+                    notes: p.notes || ""
+                };
+            });
+            newLog.partidas_data = [
+                ...(newLog.partidas_data || []),
+                ...newEntries
+            ];
+            updated = true;
+        }
+
+        // 4. Notas
+        if (aiResult.notas?.texto) {
+            const prev = newLog.notes_data?.comments || "";
+            newLog.notes_data = {
+                ...newLog.notes_data,
+                comments: prev + (prev ? "\n\n" : "") + aiResult.notas.texto
+            };
+            updated = true;
+        }
+
+        // 5. Seguridad
+        if (aiResult.seguridad?.texto) {
+            const prev = newLog.safety_violations_data?.comments || "";
+            newLog.safety_violations_data = {
+                ...newLog.safety_violations_data,
+                comments: prev + (prev ? "\n\n" : "") + aiResult.seguridad.texto
+            };
+            
+            if (aiResult.seguridad.es_incidente_grave) {
+                newLog.accidents_data = [
+                    ...(newLog.accidents_data || []),
+                    { descripcion: aiResult.seguridad.texto, hora: new Date().toLocaleTimeString(), medida_tomada: "Reportado por IA" }
+                ];
+            }
+            updated = true;
+        }
+
+        if (updated) {
+            setCurrentLog(newLog);
+            setIsDirty(true);
+            if (onDirty) onDirty();
+            alert("El Asistente de IA ha identificado y categorizado correctamente su dictado.");
+        } else {
+            alert("La IA no pudo identificar información específica para las secciones del informe.");
+        }
     };
 
     if (activeSubTab === "list") {
         return (
             <div className="space-y-6">
-                <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-black text-slate-800">Informe Diario de Campo</h2>
-                    <button onClick={handleCreateNew} className="btn-primary flex items-center gap-2"><Plus size={18} /> Nuevo Registro</button>
+                <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                    <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">10. Informe de Actividades (Daily Log)</h2>
+                    <button onClick={handleCreateNew} className="btn-primary w-full sm:w-auto flex items-center gap-2"><Plus size={18} /> Nuevo Registro</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {dailyLogs.map(log => (
@@ -309,24 +410,66 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
 
     return (
         <div className="space-y-6">
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => setActiveSubTab("list")} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-all"><ChevronLeft size={20} /></button>
+                    <button onClick={() => setActiveSubTab("list")} className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"><ChevronLeft size={20} /></button>
                     <div>
-                        <h2 className="text-lg font-black text-slate-800 dark:text-white">{currentLog.log_date}</h2>
-                        <p className="text-xs text-slate-400">{currentLog.inspector_name || "Nuevo Reporte"}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-base md:text-lg font-black text-slate-800 dark:text-white">{currentLog.log_date}</h2>
+                            {isDirty ? (
+                                <span className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-black text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-md border border-amber-100 dark:border-amber-800 animate-pulse">
+                                    <Clock size={10} /> Diferencia
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-black text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-md border border-green-100 dark:border-green-800">
+                                    <Check size={10} /> Guardado
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-[10px] md:text-xs text-slate-400 truncate max-w-[150px] md:max-w-none">{currentLog.inspector_name || "Nuevo Reporte"}</p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    {currentLog.id && (
-                        <button onClick={handlePrint} disabled={loading} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 font-bold">
-                            <Printer size={18} className="text-primary" /> Imprimir PDF
-                        </button>
-                    )}
-                    <button onClick={() => saveData()} disabled={loading} className="btn-primary flex items-center gap-2">
-                        <Save size={16} />
-                        {loading ? "Guardando..." : "Guardar Informe"}
-                    </button>
+                <div className="grid grid-cols-2 lg:flex gap-2">
+                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
+                </div>
+            </div>
+
+            <FloatingFormActions
+                actions={[
+                    ...(currentLog.id ? [{
+                        label: "Imprimir PDF",
+                        icon: <Printer />,
+                        onClick: handlePrint,
+                        description: "Generar el reporte oficial del informe diario en PDF",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    }] : []),
+                    {
+                        label: loading ? "Guardando..." : "Guardar Informe",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Sincronizar todos los cambios y actualizar balances de personal, equipo y partidas",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
+
+            <div className="flex items-center gap-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 p-5 rounded-[2.5rem] shadow-xl border border-blue-400/20 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                <SmartDictationButton 
+                    context="global"
+                    contractItems={contractItems}
+                    onResult={handleGlobalAIResult}
+                />
+                <div className="text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_#4ade80]"></div>
+                        <h3 className="font-black text-sm uppercase tracking-wider text-blue-50">Inteligencia Artificial Global</h3>
+                    </div>
+                    <p className="text-xs text-blue-100/90 font-medium leading-relaxed max-w-2xl">
+                        Dicta libremente personal, equipos, partidas o notas de seguridad. <br className="hidden md:block"/>
+                        Ej: <span className="italic opacity-80 text-[11px]">"Personal: Roberto 8h. Excavadora 4h. Se completó el tramo de asfalto y no hubo incidentes."</span>
+                    </p>
                 </div>
             </div>
 
@@ -348,28 +491,30 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                 </div>
             </div>
 
-            <div className="flex flex-col-reverse lg:flex-row gap-8">
-                <div className="flex-grow card p-8 rounded-3xl min-h-[500px]">
-                    <TabContent
-                        id={editTab}
-                        data={currentLog}
-                        update={(field: string, val: any) => handleInputChange(field, val)}
-                        contractItems={contractItems}
-                        projectDefaults={projectDefaults}
-                        setProjectDefaults={setProjectDefaults}
-                    />
-                </div>
-                <div className="w-full lg:w-72 shrink-0 space-y-2">
+            <div className="flex flex-col lg:flex-row gap-8">
+                <div className="w-full lg:w-72 shrink-0 flex lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-2 lg:pb-0">
                     {TAB_LIST.map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setEditTab(tab.id)}
-                            className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${editTab === tab.id ? 'bg-primary text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                            className={`flex-shrink-0 lg:w-full flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl transition-all whitespace-nowrap ${editTab === tab.id ? 'bg-primary text-white shadow-lg' : 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black ${editTab === tab.id ? 'bg-white/20' : 'bg-slate-100 text-slate-300'}`}>{tab.num}</div>
-                            <span className="text-sm font-bold">{tab.label}</span>
+                            <div className={`w-6 h-6 md:w-8 md:h-8 rounded-lg flex items-center justify-center font-black text-[10px] md:text-xs ${editTab === tab.id ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-300'}`}>{tab.num}</div>
+                            <span className="text-[11px] md:text-sm font-bold uppercase tracking-wider">{tab.label}</span>
                         </button>
                     ))}
+                </div>
+                <div className="flex-grow card p-4 sm:p-6 md:p-8 rounded-3xl min-h-[500px]">
+                    <TabContent
+                        id={editTab}
+                        data={currentLog}
+                        projectId={projectId}
+                        update={(field: string, val: any) => handleInputChange(field, val)}
+                        contractItems={contractItems}
+                        projectDefaults={projectDefaults}
+                        setProjectDefaults={setProjectDefaults}
+                        onDirty={() => { setIsDirty(true); if (onDirty) onDirty(); }}
+                    />
                 </div>
             </div>
         </div>
@@ -588,12 +733,13 @@ function PartidasTab({ items, setItems, contractItems }: { items: any[], setItem
 
 // ─────────────────────────────────────────────────────────────
 // TabContent dispatcher
-function TabContent({ id, data, update, contractItems = [], projectDefaults, setProjectDefaults }: any) {
+function TabContent({ id, data, update, projectId, contractItems = [], projectDefaults, setProjectDefaults, onDirty }: any) {
     if (!data) return null;
 
     const isNA = data.na_settings?.[id] || false;
     const handleToggleNA = (e: React.ChangeEvent<HTMLInputElement>) => {
         update("na_settings", { ...(data.na_settings || {}), [id]: e.target.checked });
+        if (onDirty) onDirty();
     };
 
     const NA_Checkbox = () => (
@@ -680,7 +826,7 @@ function TabContent({ id, data, update, contractItems = [], projectDefaults, set
                        </div>
                     </div>
                     <textarea rows={8} className="input-field" placeholder="Comentarios y notas sobre la obra de hoy (Indispensable)..." value={data.notes_data?.comments || ""} onChange={e => update("notes_data", { ...data.notes_data, comments: e.target.value })} />
-                    <MediaSection items={data.notes_data?.media || []} setItems={(media: any) => update("notes_data", { ...data.notes_data, media })} />
+                    <MediaSection projectId={projectId} items={data.notes_data?.media || []} setItems={(media: any) => update("notes_data", { ...data.notes_data, media })} />
                 </div>
             );
         case "personal":
@@ -945,7 +1091,7 @@ function TabContent({ id, data, update, contractItems = [], projectDefaults, set
                 </div>
             );
         case "fotos":
-            return renderWrapper(<MediaSection items={data.photos_v2_data || []} setItems={(media: any) => update("photos_v2_data", media)} fullGallery />);
+            return renderWrapper(<MediaSection projectId={projectId} items={data.photos_v2_data || []} setItems={(media: any) => update("photos_v2_data", media)} fullGallery />);
         default:
             return <div className="text-slate-400">Seleccione una sección</div>;
     }
@@ -977,16 +1123,50 @@ function SectionEditor({ items, setItems, emptyItem, renderItem }: any) {
     );
 }
 
-function MediaSection({ items, setItems, fullGallery }: any) {
-    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+function MediaSection({ items, setItems, fullGallery, projectId }: any) {
+    const [uploading, setUploading] = useState(false);
+
+    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setItems([...items, { id: Date.now().toString(), src: reader.result, type: file.type.startsWith("image/") ? "image" : "doc" }]);
-        };
-        reader.readAsDataURL(file);
+        if (!file || !projectId) return;
+
+        setUploading(true);
+        try {
+            const dateFolder = new Date().toISOString().split('T')[0];
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const storagePath = `${projectId}/logs/${dateFolder}/${Date.now()}_${safeName}`;
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from("project-documents")
+                .upload(storagePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage.from("project-documents").getPublicUrl(storagePath);
+
+            // Register in project_documents so it shows up in explorer
+            await supabase.from("project_documents").insert({
+                project_id: projectId,
+                doc_type: "Foto / Multimedia (Bitácora)",
+                section: "logs",
+                file_name: file.name,
+                storage_path: storagePath
+            });
+
+            setItems([...items, { 
+                id: Date.now().toString(), 
+                src: publicUrl, 
+                type: file.type.startsWith("image/") ? "image" : "doc",
+                storage_path: storagePath 
+            }]);
+        } catch (err: any) {
+            console.error("Error upload:", err);
+            alert("Error al subir archivo: " + err.message);
+        } finally {
+            setUploading(false);
+        }
     };
+
     const handleCameraClick = async () => {
         try {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -1001,20 +1181,31 @@ function MediaSection({ items, setItems, fullGallery }: any) {
     return (
         <div className="space-y-4">
             <div className="flex gap-2">
-                <label onClick={handleCameraClick} className="flex-1 p-3 border rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50">
-                    <Camera size={18} /> <span className="text-xs font-bold">Foto</span>
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+                <label onClick={handleCameraClick} className="flex-1 p-3 border rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 relative">
+                    {uploading ? <Loader2 size={18} className="animate-spin text-primary" /> : <Camera size={18} />}
+                    <span className="text-xs font-bold">{uploading ? "Subiendo..." : "Foto"}</span>
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} disabled={uploading} />
                 </label>
-                <label className="flex-1 p-3 border rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50">
-                    <Upload size={18} /> <span className="text-xs font-bold">Archivo</span>
-                    <input type="file" className="hidden" onChange={handleFile} />
+                <label className="flex-1 p-3 border rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-slate-50 relative">
+                    {uploading ? <Loader2 size={18} className="animate-spin text-primary" /> : <Upload size={18} />}
+                    <span className="text-xs font-bold">{uploading ? "Subiendo..." : "Archivo"}</span>
+                    <input type="file" className="hidden" onChange={handleFile} disabled={uploading} />
                 </label>
             </div>
             <div className={`grid gap-2 ${fullGallery ? "grid-cols-4" : "grid-cols-3"}`}>
                 {items.map((m: any) => (
-                    <div key={m.id} className="aspect-square bg-slate-100 rounded-lg relative overflow-hidden">
-                        {m.type === "image" ? <img src={m.src} className="w-full h-full object-cover" alt="" /> : <div className="w-full h-full flex items-center justify-center"><FileText size={20} /></div>}
-                        <button onClick={() => setItems(items.filter((i: any) => i.id !== m.id))} className="absolute top-1 right-1 bg-white/80 rounded-full p-1 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                    <div key={m.id} className="aspect-square bg-slate-100 rounded-lg relative overflow-hidden group">
+                        {m.type === "image" ? (
+                            <img src={m.src} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-blue-50">
+                                <FileText size={24} className="text-blue-500" />
+                            </div>
+                        )}
+                        <button 
+                            onClick={() => setItems(items.filter((i: any) => i.id !== m.id))} 
+                            className="absolute top-1 right-1 bg-white/80 rounded-full p-1 text-red-500 hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                        >
                             <Trash2 size={12} />
                         </button>
                     </div>

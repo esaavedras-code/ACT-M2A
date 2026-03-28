@@ -56,13 +56,19 @@ export function formatCurrency(value: number | string | null | undefined, decima
 
     // Aplicamos el redondeo específico antes de formatear
     const roundedValue = roundedAmt(numericValue, decimals);
+    const absValue = Math.abs(roundedValue);
 
-    return roundedValue.toLocaleString('en-US', {
+    const formatted = absValue.toLocaleString('en-US', {
         style: 'currency',
         currency: 'USD',
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
+
+    if (roundedValue < 0) {
+        return `(${formatted})`;
+    }
+    return formatted;
 }
 
 export function formatNumber(value: number | string | null | undefined, decimals = 2): string {

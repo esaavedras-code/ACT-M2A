@@ -465,11 +465,12 @@ export async function generateRoa(projectId: string, choId: string) {
                         const up = parseFloat(it.unit_price) || 0;
                         drawText(pageTable, it.item_num || "", (cols[0]+cols[1])/2, curRowY + 11, font, 7, true);
                         drawText(pageTable, it.specification || "", (cols[1]+cols[2])/2, curRowY + 11, font, 7, true);
-                        drawText(pageTable, (it.description || "").substring(0, 35), cols[2] + 4, curRowY + 11, font, 6.5);
+                        drawText(pageTable, (it.description || "").substring(0, 28), cols[2] + 4, curRowY + 11, font, 6.5);
+                        drawText(pageTable, (it.additional_description || "").substring(0, 18), cols[3] + 4, curRowY + 11, font, 6.5);
                         drawText(pageTable, it.unit || "", (cols[4]+cols[5])/2, curRowY + 11, font, 7, true);
-                        drawText(pageTable, q.toString(), cols[6] - 4, curRowY + 11, font, 7, false, true);
-                        drawText(pageTable, formatCurrency(up), cols[7] - 4, curRowY + 11, font, 7, false, true);
-                        drawText(pageTable, formatCurrency(q*up), cols[8] - 4, curRowY + 11, font, 7, false, true);
+                        drawText(pageTable, q.toString(), (cols[5]+cols[6])/2, curRowY + 11, font, 7, true);
+                        drawText(pageTable, formatCurrency(up).replace('$', ''), cols[7] - 4, curRowY + 11, font, 7, false, true);
+                        drawText(pageTable, formatCurrency(q*up).replace('$', ''), cols[8] - 4, curRowY + 11, font, 7, false, true);
                     }
                     // Bottom border of each row
                     drawLine(pageTable, 20, curRowY + 16, PW - 20, curRowY + 16, 0.5);

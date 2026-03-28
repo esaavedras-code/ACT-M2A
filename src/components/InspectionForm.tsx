@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import {
     Save, Plus, Trash2, Users, Search,
-    Clock, Shield, AlertTriangle, Trash, Info, ChevronLeft, ChevronRight, Printer
+    Clock, Shield, AlertTriangle, Trash, Info, ChevronLeft, ChevronRight, Printer, Mic, Loader2
 } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { generateInspectionReport } from "@/lib/generateInspectionReport";
 import { downloadBlob } from "@/lib/reportLogic";
 
@@ -25,6 +26,23 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
     const [currentLog, setCurrentLog] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState("inspecciones");
+    const [contractItems, setContractItems] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (projectId) {
+            fetchContractItems();
+        }
+    }, [projectId]);
+
+    const fetchContractItems = async () => {
+        if (!projectId) return;
+        const { data } = await supabase
+            .from("contract_items")
+            .select("id, item_num, description, unit")
+            .eq("project_id", projectId)
+            .order("item_num");
+        if (data) setContractItems(data);
+    };
 
     useEffect(() => {
         if (!selectedDate) {
@@ -68,6 +86,80 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
     const handleUpdate = (field: string, value: any) => {
         setCurrentLog((prev: any) => ({ ...prev, [field]: value }));
         if (onDirty) onDirty();
+    };
+
+    const handleGlobalAIResult = (aiResult: any) => {
+        if (!currentLog) return;
+        
+        let newLog = { ...currentLog };
+        let updated = false;
+
+        // 1. Inspecciones
+        if (aiResult.inspecciones && Array.isArray(aiResult.inspecciones)) {
+            newLog.inspections_data = [...(newLog.inspections_data || []), ...aiResult.inspecciones];
+            updated = true;
+        }
+
+        // 2. Retrasos
+        if (aiResult.retrasos && Array.isArray(aiResult.retrasos)) {
+            newLog.delays_data = [...(newLog.delays_data || []), ...aiResult.retrasos];
+            updated = true;
+        }
+
+        // 3. Seguridad e Incidentes
+        if (aiResult.seguridad?.texto) {
+            newLog.safety_violations_data = [
+                ...(newLog.safety_violations_data || []), 
+                { infracción: aiResult.seguridad.texto, comentarios: "Reportado por IA" }
+            ];
+            updated = true;
+        }
+
+        // 4. Accidentes
+        if (aiResult.accidentes && Array.isArray(aiResult.accidentes)) {
+            newLog.accidents_data = [...(newLog.accidents_data || []), ...aiResult.accidentes];
+            updated = true;
+        }
+
+        // 5. Desperdicios
+        if (aiResult.desperdicios && Array.isArray(aiResult.desperdicios)) {
+            newLog.waste_data = [...(newLog.waste_data || []), ...aiResult.desperdicios];
+            updated = true;
+        }
+
+        // 6. Visitantes
+        if (aiResult.visitantes && Array.isArray(aiResult.visitantes)) {
+            newLog.visitors_v2_data = [...(newLog.visitors_v2_data || []), ...aiResult.visitantes];
+            updated = true;
+        }
+
+        // 7. Partidas y Notas (Si el usuario los dicta aquí, también los guardamos si el log los soporta)
+        if (aiResult.partidas_trabajadas && Array.isArray(aiResult.partidas_trabajadas)) {
+             const newEntries = aiResult.partidas_trabajadas.map((p: any) => {
+                const match = contractItems.find((ci: any) => String(ci.id) === String(p.item_id));
+                return {
+                    item_id: match?.id || "",
+                    item_num: match?.item_num || "",
+                    description: match?.description || p.notes || "Buscado por IA",
+                    qty_worked: p.qty_worked || "",
+                    notes: p.notes || ""
+                };
+            });
+            newLog.partidas_data = [...(newLog.partidas_data || []), ...newEntries];
+            updated = true;
+        }
+
+        if (aiResult.notas?.texto) {
+            const prev = newLog.remarks || "";
+            newLog.remarks = prev + (prev ? "\n\n" : "") + aiResult.notas.texto;
+            updated = true;
+        }
+
+        if (updated) {
+            setCurrentLog(newLog);
+            if (onDirty) onDirty();
+            alert("El Asistente de Inspección ha procesado y categorizado su dictado correctamente.");
+        }
     };
 
     const handleSave = async () => {
@@ -115,19 +207,15 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
                         <Search size={24} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Informe de Inspección</h2>
+                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">11. Informes de Inspección</h2>
                         <div className="flex items-baseline gap-2">
                             <span className="text-[10px] font-black text-emerald-600 uppercase">Gestión de Campo</span>
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    {currentLog?.id && (
-                        <button onClick={handlePrint} disabled={loading} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-50 transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest shadow-sm">
-                            <Printer size={18} className="text-emerald-500" /> Imprimir (ACT-96)
-                        </button>
-                    )}
-                    <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
+                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
                         <input 
                             type="date" 
                             className="bg-transparent border-none text-xs font-bold focus:ring-0 p-1"
@@ -135,9 +223,45 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
                             onChange={(e) => setSelectedDate(e.target.value)}
                         />
                     </div>
-                    <button onClick={handleSave} disabled={loading} className="btn-primary flex items-center gap-2 text-xs py-2 px-4 shadow-emerald-200">
-                        <Save size={16} /> {loading ? "..." : "Guardar Inspección"}
-                    </button>
+                </div>
+            </div>
+
+            <FloatingFormActions
+                actions={[
+                    ...(currentLog?.id ? [{
+                        label: "Imprimir (ACT-96)",
+                        icon: <Printer />,
+                        onClick: handlePrint,
+                        description: "Generar el reporte oficial de inspección ACT-96 en PDF",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    }] : []),
+                    {
+                        label: loading ? "Guardando..." : "Guardar Inspección",
+                        icon: <Save />,
+                        onClick: () => handleSave(),
+                        description: "Sincronizar todos los datos de inspección, seguridad y visitantes",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
+
+            <div className="flex items-center gap-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-5 rounded-[2.5rem] shadow-xl border border-emerald-400/20 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                <SmartDictationButton 
+                    context="global"
+                    contractItems={contractItems}
+                    onResult={handleGlobalAIResult}
+                />
+                <div className="text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shadow-[0_0_8px_#6ee7b7]"></div>
+                        <h3 className="font-black text-sm uppercase tracking-wider text-emerald-50">Inteligencia Artificial de Inspección</h3>
+                    </div>
+                    <p className="text-xs text-emerald-100/90 font-medium leading-relaxed max-w-2xl">
+                        Dicta inspecciones, motivos de retraso, visitantes o desperdicios de material. <br className="hidden md:block"/>
+                        Ej: <span className="italic opacity-80 text-[11px]">"Llegó el inspector de EPA a las 10:00 para revisión ambiental. Hubo un retraso por clima de 2 horas."</span>
+                    </p>
                 </div>
             </div>
 
@@ -310,5 +434,68 @@ function SectionEditor({ items, setItems, emptyItem, renderItem }: any) {
                 <Plus size={16} /> Añadir Registro
             </button>
         </div>
+    );
+}
+// ─────────────────────────────────────────────────────────────
+// IA Voice Processing Helper (Same as DailyLogForm but tailored visually for Inspection if needed)
+function SmartDictationButton({ context, contractItems, onResult }: any) {
+    const [isListening, setIsListening] = useState(false);
+    const [processing, setProcessing] = useState(false);
+
+    const toggleListening = () => {
+        if (isListening) return;
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('El dictado nativo no es soportado en este navegador. Utilice Google Chrome, Safari, etc.');
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'es';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => setIsListening(true);
+        recognition.onresult = async (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setIsListening(false);
+            setProcessing(true);
+
+            try {
+                const res = await fetch('/api/process-dictation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: transcript, context, contractItems })
+                });
+
+                if (!res.ok) throw new Error("Error con servidor de IA");
+                const data = await res.json();
+                onResult(data);
+            } catch (err: any) {
+                console.error(err);
+                alert("Error procesando dictado con IA: " + err.message);
+            } finally {
+                setProcessing(false);
+            }
+        };
+
+        recognition.onerror = (event: any) => {
+             console.error(event.error);
+             setIsListening(false);
+        };
+        recognition.onspeechend = () => recognition.stop();
+        recognition.start();
+    };
+
+    return (
+        <button 
+           type="button"
+           onClick={toggleListening} 
+           disabled={processing || isListening}
+           className={`p-3.5 rounded-[20px] transition-all flex items-center justify-center shrink-0 w-14 h-14 ${isListening ? 'bg-red-500 text-white animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.5)] border border-red-400' : 'bg-white border border-slate-200 hover:border-emerald-500/50 text-emerald-600 shadow-sm'} ${processing ? 'opacity-50' : 'hover:scale-105 active:scale-95'}`}
+           title="Dictar a Inteligencia Artificial"
+        >
+            {processing ? <Loader2 size={24} className="animate-spin text-emerald-600" /> : <Mic size={24} strokeWidth={isListening ? 3 : 2} />}
+        </button>
     );
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, FileSearch } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency, getLocalStorageItem } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
 import ProjectAgreementForm from "./ProjectAgreementForm";
@@ -80,17 +81,17 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
 
         setUploadingDoc(true);
         try {
-            // Intentar subir a storage (opcional, pero grabamos en DB siempre)
-            const fileName = `${Date.now()}_${file.name}`;
-            const { error: storageErr } = await supabase.storage.from("project-documents").upload(`${projectId}/${fileName}`, file);
-            
-            // Si falla el storage (probablemente bucket no creado), igual registramos en DB 
-            // para cumplir con la interfaz del usuario por ahora.
+            const dateFolder = new Date().toISOString().split('T')[0];
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const storagePath = `${projectId}/${selectedDocType}/${dateFolder}/${Date.now()}_${safeName}`;
+            const { error: storageErr } = await supabase.storage.from("project-documents").upload(storagePath, file);
             
             const { error: dbErr } = await supabase.from("project_documents").upsert({
                 project_id: projectId,
                 doc_type: selectedDocType,
-                file_name: file.name
+                section: selectedDocType,
+                file_name: file.name,
+                storage_path: storageErr ? null : storagePath
             });
 
             if (dbErr) throw dbErr;
@@ -405,16 +406,41 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 </div>
             )}
 
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold">1. Información del Proyecto</h2>
-                <div className="flex gap-3">
-                    {/* Delete button was moved to the Project Name section */}
-                    <button onClick={handleSubmit} disabled={loading} className="btn-primary flex items-center gap-2">
-                        <Save size={18} />
-                        {loading ? "Guardando..." : projectId ? "Actualizar" : "Guardar"}
-                    </button>
+            <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+                <h2 className="text-2xl font-bold flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <FileText className="text-primary" size={24} />
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 1</span>
+                        <span>Información del Proyecto</span>
+                    </div>
+                </h2>
+                <div className="flex gap-3 w-full sm:w-auto">
+                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>
             </div>
+
+            <FloatingFormActions
+                actions={[
+                    ...(projectId ? [{
+                        label: "Eliminar Proyecto",
+                        icon: <Trash2 />,
+                        onClick: handleDelete,
+                        description: "Borrar este proyecto permanentemente de la base de datos",
+                        variant: 'danger' as const,
+                        disabled: loading
+                    }] : []),
+                    {
+                        label: loading ? "Guardando..." : projectId ? "Actualizar" : "Guardar",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Guardar toda la información del proyecto y crear respaldo",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
 
             {formData.num_act && (
                 <div className="flex items-center gap-2 -mt-4 mb-4">
@@ -1003,23 +1029,23 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">¿Subst. Completion?</label>
-                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
-                                <button type="button" onClick={() => handleChange('reached_substantial_completion', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.reached_substantial_completion ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>SÍ</button>
-                                <button type="button" onClick={() => handleChange('reached_substantial_completion', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.reached_substantial_completion ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>NO</button>
+                            <div className="flex gap-2 p-1 border border-green-300 rounded-lg w-fit" style={{ backgroundColor: '#66FF99' }}>
+                                <button type="button" onClick={() => handleChange('reached_substantial_completion', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.reached_substantial_completion ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-600'}`}>SÍ</button>
+                                <button type="button" onClick={() => handleChange('reached_substantial_completion', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.reached_substantial_completion ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-600'}`}>NO</button>
                             </div>
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">¿Toll Credits?</label>
-                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
-                                <button type="button" onClick={() => handleChange('eligible_toll_credits', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.eligible_toll_credits ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>SÍ</button>
-                                <button type="button" onClick={() => handleChange('eligible_toll_credits', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.eligible_toll_credits ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>NO</button>
+                            <div className="flex gap-2 p-1 border border-green-300 rounded-lg w-fit" style={{ backgroundColor: '#66FF99' }}>
+                                <button type="button" onClick={() => handleChange('eligible_toll_credits', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.eligible_toll_credits ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-600'}`}>SÍ</button>
+                                <button type="button" onClick={() => handleChange('eligible_toll_credits', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.eligible_toll_credits ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-600'}`}>NO</button>
                             </div>
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">¿ER Funds?</label>
-                            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
-                                <button type="button" onClick={() => handleChange('pay_items_er_funds', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.pay_items_er_funds ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>SÍ</button>
-                                <button type="button" onClick={() => handleChange('pay_items_er_funds', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.pay_items_er_funds ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-400'}`}>NO</button>
+                            <div className="flex gap-2 p-1 border border-green-300 rounded-lg w-fit" style={{ backgroundColor: '#66FF99' }}>
+                                <button type="button" onClick={() => handleChange('pay_items_er_funds', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.pay_items_er_funds ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-600'}`}>SÍ</button>
+                                <button type="button" onClick={() => handleChange('pay_items_er_funds', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.pay_items_er_funds ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-600'}`}>NO</button>
                             </div>
                         </div>
                     </div>

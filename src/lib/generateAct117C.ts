@@ -228,8 +228,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             drawText("COPY 2", dStartX, distY, 7.5, true);
             drawText("Contractor", dValX, distY, 7.5);
 
-            // Numeración en la página dos también
-            drawText(`Sheet ${sheetNum} of ${totalSheets}`, width - 100, 770, 8, true);
+            // Eliminada numeración redundante para evitar encimamiento con el footer global
         };
 
         for (let sIdx = 0; sIdx < numSheets; sIdx++) {
@@ -288,14 +287,14 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 drawText(v, x + w + 8, y, 8);
             };
 
-            field("1", "To:", 40, ly, 290, "Director Regional");
-            field("2", "Project Name:", 40, ly + lh, 290, projData.name);
-            field("3", "Contractor:", 40, ly + lh * 2, 290, contrData?.name);
-            field("4", "Project Num.:", 40, ly + lh * 3, 290, projData.num_act);
-            field("5", "Federal Num.:", 40, ly + lh * 4, 290, projData.num_federal || 'N/A');
+            field("1", "To:", 40, ly, 315, "Director Regional");
+            field("2", "Project Name:", 40, ly + lh, 315, projData.name);
+            field("3", "Contractor:", 40, ly + lh * 2, 315, contrData?.name);
+            field("4", "Project Num.:", 40, ly + lh * 3, 315, projData.num_act);
+            field("5", "Federal Num.:", 40, ly + lh * 4, 315, projData.num_federal || 'N/A');
             field("6", "Oracle Num.:", 40, ly + lh * 5, 315, projData.num_oracle);
-            field("7", "Contract Num.:", 40, ly + lh * 6, 290, projData.num_contrato);
-            field("8", "Municipality:", 40, ly + lh * 7, 290, projData.municipios?.join(", "));
+            field("7", "Contract Num.:", 40, ly + lh * 6, 315, projData.num_contrato);
+            field("8", "Municipality:", 40, ly + lh * 7, 315, projData.municipios?.join(", "));
 
             const rx = 330;
             field("9", "Date:", rx, ry, width - 40, certDate ? formatDate(certDate) : formatDate(new Date()));

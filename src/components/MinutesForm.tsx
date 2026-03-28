@@ -39,6 +39,10 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
         minutes: string;
         json: string;
         audio_url?: string;
+        meeting_num?: string;
+        meeting_time?: string;
+        meeting_date?: string;
+        attendees?: string;
     } | null>(null);
 
     useImperativeHandle(ref, () => ({
@@ -59,6 +63,42 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
         setSelectedFile(file);
         setAudioUrl(URL.createObjectURL(file));
         if (onDirty) onDirty();
+        // Auto-save registro de archivo en BD
+        autoSaveFileRecord(file);
+    };
+
+    const autoSaveFileRecord = async (file: File) => {
+        if (!projectId) return;
+        try {
+            const dateFolder = new Date().toISOString().split('T')[0];
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const fileName = `${projectId}/minutes/${dateFolder}/${Date.now()}_${safeName}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from("project-documents")
+                .upload(fileName, file);
+            if (!uploadError && uploadData) {
+                const { data: urlData } = supabase.storage.from("project-documents").getPublicUrl(fileName);
+                const uploadedUrl = urlData.publicUrl;
+                await supabase.from("project_documents").insert({
+                    project_id: projectId,
+                    doc_type: "Minuta (Audio / Grabación)",
+                    section: "minutes",
+                    file_name: file.name,
+                    storage_path: fileName
+                });
+                // Guardar minuta base en BD
+                await supabase.from("meeting_minutes").insert({
+                    project_id: projectId,
+                    meeting_date: new Date().toISOString().split('T')[0],
+                    content: `Audio subido: ${file.name}`,
+                    participants: { summary: "", json: "" },
+                    audio_url: uploadedUrl
+                });
+                if (onSaved) onSaved();
+            }
+        } catch (err) {
+            console.error("Auto-save error:", err);
+        }
     };
 
     const startRecording = async () => {
@@ -90,6 +130,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
             mediaRecorderRef.current.stop();
             setRecording(false);
             clearInterval(timerRef.current);
+            if (onDirty) onDirty();
         }
     };
 
@@ -125,19 +166,32 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
 
         try {
             // Upload to Supabase Storage
-            const fileName = `${projectId}/${Date.now()}_${selectedFile.name}`;
+            const dateFolder = new Date().toISOString().split('T')[0];
+            const safeName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const fileName = `${projectId}/minutes/${dateFolder}/${Date.now()}_${safeName}`;
+            
             const { data: uploadData, error: uploadError } = await supabase.storage
-                .from("meeting-audios")
+                .from("project-documents")
                 .upload(fileName, selectedFile);
 
-            if (uploadError && uploadError.message !== "Bucket not found") {
-                console.warn("Storage upload failed, continuing without audio link:", uploadError);
+            if (uploadError) {
+                console.error("Storage upload failed:", uploadError);
+                throw uploadError;
             }
 
             let uploadedUrl = "";
             if (uploadData) {
-                const { data: urlData } = supabase.storage.from("meeting-audios").getPublicUrl(fileName);
+                const { data: urlData } = supabase.storage.from("project-documents").getPublicUrl(fileName);
                 uploadedUrl = urlData.publicUrl;
+
+                // Also register in project_documents so it shows up in the explorer
+                await supabase.from("project_documents").insert({
+                    project_id: projectId,
+                    doc_type: "Minuta (Audio / Grabación)",
+                    section: "minutes",
+                    file_name: selectedFile.name,
+                    storage_path: fileName
+                });
             }
 
             setUploadProgress(50);
@@ -330,6 +384,29 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                                     <ConfigSwitch label="Hablantes" icon={<Speaker size={14} />} active={config.diarization} toggle={() => setConfig({...config, diarization: !config.diarization})} desc="Identificar participantes" />
                                     <ConfigSwitch label="Acciones" icon={<CheckCircle2 size={14} />} active={config.extractActions} toggle={() => setConfig({...config, extractActions: !config.extractActions})} desc="Extraer compromisos" />
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Meeting Metadata */}
+                        <div className="card p-6 space-y-4">
+                            <h3 className="font-bold uppercase text-[10px] tracking-widest text-slate-400">Detalles de la Reunión</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[9px] font-black text-slate-400 uppercase">Reunión #</label>
+                                    <input type="text" className="input-field text-xs py-1.5" placeholder="Ej: 15" value={result?.meeting_num || ""} onChange={e => setResult(r => r ? {...r, meeting_num: e.target.value} : null)} />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black text-slate-400 uppercase">Fecha</label>
+                                    <input type="date" className="input-field text-xs py-1.5" value={result?.meeting_date || ""} onChange={e => setResult(r => r ? {...r, meeting_date: e.target.value} : null)} />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] font-black text-slate-400 uppercase">Hora</label>
+                                    <input type="time" className="input-field text-xs py-1.5" value={result?.meeting_time || ""} onChange={e => setResult(r => r ? {...r, meeting_time: e.target.value} : null)} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[9px] font-black text-slate-400 uppercase">Lista de Asistentes</label>
+                                <textarea className="input-field text-xs py-1.5 min-h-[80px]" placeholder="Ej: Ing. Juan Pérez, Arq. María..." value={result?.attendees || ""} onChange={e => setResult(r => r ? {...r, attendees: e.target.value} : null)} />
                             </div>
                         </div>
                     </div>

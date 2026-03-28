@@ -165,7 +165,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 <div className="flex items-center gap-3 flex-wrap">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <FileCheck2 className="text-primary" />
-                        10. Liquidación
+                        13. Liquidación de Proyecto
                     </h2>
                     <button
                         onClick={() => setShowPartidas(true)}

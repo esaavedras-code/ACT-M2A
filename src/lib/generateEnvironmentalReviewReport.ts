@@ -132,6 +132,13 @@ export async function generateEnvironmentalReviewReportLogic(projectId: string) 
         Y += 15;
         TXT("Project Administrator", ML + 25, Y, 11);
 
+        // --- FOOTER (Punto 20) ---
+        const footerY = PH - 60;
+        TXT("Government of Puerto Rico", PW / 2, footerY, 7, false, 'center');
+        TXT("Department of Transportation and Public Works", PW / 2, footerY + 10, 7, false, 'center');
+        TXT("HIGHWAY AND TRANSPORTATION AUTHORITY", PW / 2, footerY + 23, 9, true, 'center');
+        TXT(`Page 1 of 1`, PW - 80, footerY + 23, 8, false, 'right');
+
         // Finalize
         const pdfBytes = await pdfDoc.save();
         const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });

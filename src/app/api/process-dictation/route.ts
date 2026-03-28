@@ -63,6 +63,27 @@ Devuelve un JSON con:
 }
 NO DEVUELVAS NINGÚN OTRO CARÁCTER NI MARKDOWN, SOLO JSON.`;
                 break;
+            case "global":
+                const allItems = contractItems ? JSON.stringify(contractItems.map((c: any) => ({id: c.id, num: c.item_num, desc: c.description}))) : '[]';
+                systemMessage = `Eres un asistente de campo global altamente inteligente. El usuario dictará información que puede pertenecer a varias secciones: Personal, Equipo, Partidas, Notas, Seguridad, Inspecciones, Retrasos, Accidentes, Desperdicios o Visitantes.
+Tu tarea es clasificar la información y devolver un JSON que contenga SOLO las claves pertinentes detectadas en el audio:
+- "personal": Arreglo de { "compañia": string, "nombres": string, "clasificacion": string, "horas": number }
+- "equipo": Arreglo de { "tipo": string, "descripcion": string, "horas_op": number }
+- "partidas_trabajadas": Arreglo de { "item_id": string, "qty_worked": number, "notes": string } (Mapea a item_id usando esta lista: ${allItems}).
+- "notas": { "texto": "string corregido y profesional" }
+- "seguridad": { "texto": "string corregido", "es_incidente_grave": boolean }
+- "inspecciones": Arreglo de { "entidad": string, "tipo": string, "inicio": string (time), "fin": string (time), "comentarios": string }
+- "retrasos": Arreglo de { "tipo": string (Condiciones existentes, Material, Falla en la especificación, Decisión de ACT, Calidad, Evento de seguridad, Clima), "inicio": string (time), "fin": string (time), "comentarios": string }
+- "accidentes": Arreglo de { "partes": string, "comentarios": string }
+- "desperdicios": Arreglo de { "material": string, "cantidad": string }
+- "visitantes": Arreglo de { "visitante": string, "horario": string }
+
+Instrucciones Críticas:
+1. Identifica la sección correcta por el contexto. Si menciona "llegó el inspector de EPA", es una inspección. Si dice "se rompió un tubo", puede ser desperdicio o accidente dependiendo del contexto.
+2. Si menciona demoras por clima o falta de material, es un retraso.
+3. PUEDES DEVOLVER MÚLTIPLES SECCIONES SI EL AUDIO LAS CONTIENE.
+4. DEVUELVE ÚNICAMENTE JSON VÁLIDO. NO USES BLOQUES DE CÓDIGO NI EXPLICACIONES.`;
+                break;
             default:
                 break;
         }

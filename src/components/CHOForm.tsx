@@ -2,7 +2,8 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare } from "lucide-react";
+import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare, TrendingUp } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency, roundedAmt } from "@/lib/utils";
 import { generateCCMLReportLogic } from "@/lib/reportLogic";
 import specsData from "@/data/specifications.json";
@@ -304,20 +305,34 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <div>
                     <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <FileEdit className="text-primary" />
-                        5. Órdenes de Cambio (CHO)
+                        <TrendingUp className="text-primary" />
+                        6. Change Orders / Enmiendas
                     </h2>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={addCHO} className="bg-slate-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors hover:bg-slate-200">
-                        <Plus size={16} /> Nueva Enmienda
-                    </button>
-                    <button onClick={handleSubmit} disabled={loading} className="btn-primary flex items-center gap-2">
-                        <Save size={18} />
-                        {loading ? "Sincronizando..." : "Guardar Cambios"}
-                    </button>
+                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>
             </div>
+
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: "Nueva Enmienda",
+                        icon: <Plus />,
+                        onClick: addCHO,
+                        description: "Crear una nueva Orden de Cambio (CHO) para el proyecto",
+                        variant: 'secondary' as const
+                    },
+                    {
+                        label: loading ? "Sincronizando..." : "Guardar Cambios",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Sincronizar todas las enmiendas y partidas vinculadas con el contrato",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
 
             {numAct && (
                 <div className="flex items-center gap-2 -mt-4 mb-6">
@@ -557,8 +572,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                         <div className="space-y-0.5">
-                                                            <input suppressHydrationWarning type="text" className="input-field text-xs p-1 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : '' }} value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
-                                                            {(item.additional_description || item.is_new) && (
+                                                            <input suppressHydrationWarning type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
                                                                 <input 
                                                                     suppressHydrationWarning 
                                                                     type="text" 
@@ -567,9 +581,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                                     placeholder="Descripción adicional..."
                                                                     value={item.additional_description || ""} 
                                                                     onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} 
-                                                                    readOnly={!item.is_new}
                                                                 />
-                                                            )}
                                                             {(() => {
                                                                 const match = contractItems.find(it => it.item_num === item.item_num);
                                                                 if (match) {

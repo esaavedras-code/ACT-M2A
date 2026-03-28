@@ -32,6 +32,10 @@ export default function AboutPage() {
                     <ShieldCheck size={18} />
                     Versión del Sistema: 3.1
                 </div>
+                <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full font-semibold text-xs border border-emerald-100">
+                    <CalendarDays size={14} />
+                    Última actualización: 28 de marzo de 2026 &nbsp;·&nbsp; 5:15 PM
+                </div>
             </div>
 
             {/* Autor del Programa */}

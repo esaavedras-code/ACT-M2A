@@ -145,7 +145,8 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                         <input
                                             type="number"
                                             step="0.01"
-                                            className="w-full bg-white dark:bg-slate-800 border-none p-2 text-right rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                                            className="w-full border-none p-2 text-right rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold text-black"
+                                            style={{ backgroundColor: '#66FF99' }}
                                             value={mod.federal_share || ""}
                                             autoFocus
                                             onBlur={() => setEditingField(null)}
@@ -167,7 +168,8 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                         <input
                                             type="number"
                                             step="0.01"
-                                            className="w-full bg-white dark:bg-slate-800 border-none p-2 text-right rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                                            className="w-full border-none p-2 text-right rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold text-black"
+                                            style={{ backgroundColor: '#66FF99' }}
                                             value={mod.toll_credits || ""}
                                             autoFocus
                                             onBlur={() => setEditingField(null)}
@@ -189,7 +191,8 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                         <input
                                             type="number"
                                             step="0.01"
-                                            className="w-full bg-white dark:bg-slate-800 border-none p-2 text-right rounded-lg focus:ring-2 focus:ring-primary/20 outline-none"
+                                            className="w-full border-none p-2 text-right rounded-lg focus:ring-2 focus:ring-primary/20 outline-none font-bold text-black"
+                                            style={{ backgroundColor: '#66FF99' }}
                                             value={mod.state_funds || ""}
                                             autoFocus
                                             onBlur={() => setEditingField(null)}

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import {
     FolderOpen, Folder, FileText, Download, Upload, Trash2,
     Search, ChevronRight, ChevronDown, RefreshCw, File,
-    Image as ImageIcon, Music, Video, Archive, AlertCircle
+    Image as ImageIcon, Music, Video, Archive, AlertCircle, Info
 } from "lucide-react";
 
 // ─── Secciones del proyecto ────────────────────────────────────────
@@ -105,9 +105,10 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
 
         for (const file of Array.from(files)) {
             try {
+                const dateFolder = new Date().toISOString().split('T')[0];
                 const timestamp = Date.now();
                 const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-                const storagePath = `${projectId}/${selectedSection}/${timestamp}_${safeName}`;
+                const storagePath = `${projectId}/${selectedSection}/${dateFolder}/${timestamp}_${safeName}`;
 
                 // 1. Subir al bucket de storage
                 const { error: storageErr } = await supabase.storage
@@ -287,7 +288,13 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
                     <p className="text-sm mt-1">Seleccione una sección y haga clic en "Subir Archivo(s)"</p>
                 </div>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-4 rounded-2xl">
+                        <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                            <Info size={14} /> 
+                            <span>Para gestionar archivos: entra en la carpeta correspondiente. Puedes <b>descargar</b> (flecha azul) o <b>eliminar permanentemente</b> (papelera roja) cada documento.</span>
+                        </p>
+                    </div>
                     {PROJECT_SECTIONS.map(section => {
                         const sectionDocs = getDocsForSection(section.id);
                         const isExpanded = expandedSections.has(section.id);
@@ -357,7 +364,7 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
                                                                 {formatDate(doc.uploaded_at)}
                                                             </td>
                                                             <td className="px-3 py-3 text-right">
-                                                                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <div className="flex items-center justify-end gap-1 opacity-100">
                                                                     <button
                                                                         onClick={() => handleDownload(doc)}
                                                                         disabled={!doc.storage_path}

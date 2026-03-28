@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, lazy } from "react";
+import { useState, useEffect, Suspense, lazy, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import {
     FileText, Building2, ChevronLeft, Loader2, 
     ListChecks, Users, PackageSearch, ShieldCheck, 
     FileCheck, FileEdit, LayoutDashboard, Calculator,
-    Mic, TrendingUp, Cloud, Factory, Info, FolderOpen
+    Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle
 } from "lucide-react";
 import { getLocalStorageItem } from "@/lib/utils";
 
@@ -40,16 +40,18 @@ function ProjectDetailContent() {
     const [activeTab, setActiveTab] = useState("dashboard");
     const [isDirty, setIsDirty] = useState(false);
     const [role, setRole] = useState("C");
+    const [dirtyDialog, setDirtyDialog] = useState<{ show: boolean; targetTab: string }>({ show: false, targetTab: "" });
 
     // Orden: Resumen → Proyecto (incluye Contratista) → Firmas ACT → Partidas → Materiales
     //        → Cumplimiento → Change Orders → Pagos → Cert CM → Minutas → Actividades
     //        → Inspección → Force Account → Liquidación
     const tabs = [
         { id: "dashboard",   label: "0. Resumen",        icon: <LayoutDashboard size={12} /> },
+        ...(role !== 'E' ? [{ id: "files",       label: "📁 Archivos",        icon: <FolderOpen size={12} /> }] : []),
         { id: "project",     label: "1. Datos Proyecto",       icon: <FileText size={12} /> },
         { id: "personnel",   label: "2. Firmas ACT",     icon: <Users size={12} /> },
-        { id: "items",       label: "3. Partidas",       icon: <ListChecks size={12} /> },
-        { id: "materials",   label: "4. Materiales",     icon: <PackageSearch size={12} /> },
+        { id: "items",       label: "3. Partidas contrato",  icon: <ListChecks size={12} /> },
+        { id: "materials",   label: "4. Mat. on Site",   icon: <PackageSearch size={12} /> },
         { id: "compliance",  label: "5. Cumplimiento",   icon: <ShieldCheck size={12} /> },
         { id: "cho",         label: "6. Change Orders",  icon: <FileEdit size={12} /> },
         { id: "payment",     label: "7. Pagos",          icon: <FileCheck size={12} /> },
@@ -60,14 +62,13 @@ function ProjectDetailContent() {
         { id: "force",       label: "12. Force Account", icon: <Calculator size={12} /> },
         { id: "liquidation", label: "13. Liquidación",   icon: <TrendingUp size={12} /> },
         { id: "ccml",        label: "14. Cambios al CCML", icon: <FileEdit size={12} /> },
-        { id: "files",       label: "📁 Archivos",        icon: <FolderOpen size={12} /> },
     ];
 
     const handleTabChange = (newTab: string) => {
         if (newTab === activeTab) return;
         if (isDirty) {
-            const confirmed = window.confirm("Tiene datos sin guardar en esta pestaña.\n\nPreseione CANCELAR para quedarse y guardar los datos manualmente.\nPresione ACEPTAR para salir y descartar los cambios.");
-            if (!confirmed) return;
+            setDirtyDialog({ show: true, targetTab: newTab });
+            return;
         }
         setIsDirty(false);
         setActiveTab(newTab);
@@ -105,14 +106,30 @@ function ProjectDetailContent() {
                 let currentRole = "C";
 
                 if (session) {
-                    // 1. Verificar si es admin global
-                    const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
+                    // Get user data by ID first (preferred)
+                    let { data: userData } = await supabase.from("users").select("id, role_global").eq("id", session.user.id).single();
+                    
+                    // If ID match fails, try by email as a fallback (resilience)
+                    if (!userData && session.user.email) {
+                        const { data: userDataByEmail } = await supabase.from("users").select("id, role_global").eq("email", session.user.email.toLowerCase()).single();
+                        userData = userDataByEmail;
+                    }
+
                     if (userData?.role_global === "A") {
                         isAuthorized = true;
                         currentRole = "A";
                     } else {
-                        // 2. Verificar membresía específica
-                        const { data: mem } = await supabase.from("memberships").select("role").eq("project_id", id).eq("user_id", session.user.id).maybeSingle();
+                        // 2. Verificar membresía específica usando el ID que encontramos (o el de la sesión)
+                        const queryId = userData?.id || session.user.id;
+                        const { data: mem } = await supabase
+                            .from("memberships")
+                            .select("role")
+                            .eq("project_id", id)
+                            .eq("user_id", queryId)
+                            .is("revoked_at", null)
+                            .eq("is_active", true)
+                            .maybeSingle();
+
                         if (mem) {
                             isAuthorized = true;
                             currentRole = mem.role;
@@ -173,6 +190,46 @@ function ProjectDetailContent() {
 
     return (
         <div className="py-2 space-y-4 animate-in fade-in duration-500">
+            {/* Modal: Datos sin guardar */}
+            {dirtyDialog.show && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md mx-4 overflow-hidden">
+                        <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800 px-6 py-4">
+                            <AlertTriangle size={22} className="text-amber-600 shrink-0" />
+                            <h3 className="text-base font-black text-amber-800 dark:text-amber-300">Datos sin guardar</h3>
+                        </div>
+                        <div className="px-6 py-5">
+                            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                                Tiene datos sin guardar en esta pestaña. ¿Qué desea hacer?
+                            </p>
+                        </div>
+                        <div className="px-6 pb-5 flex flex-col gap-2">
+                            <button
+                                onClick={() => { setDirtyDialog({ show: false, targetTab: "" }); }}
+                                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                Cancelar — quedarme y guardar manualmente
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setDirtyDialog({ show: false, targetTab: "" });
+                                    setIsDirty(false);
+                                    setActiveTab(dirtyDialog.targetTab);
+                                }}
+                                className="w-full py-2.5 px-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm font-bold text-red-700 dark:text-red-300 hover:bg-red-100 transition-colors"
+                            >
+                                No quiero guardar los cambios
+                            </button>
+                            <button
+                                onClick={() => { setDirtyDialog({ show: false, targetTab: "" }); }}
+                                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 transition-colors"
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Encabezado del proyecto y pestañas (Sticky) */}
             <div className="sticky top-16 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 pt-2 pb-4 -mx-4 px-4 shadow-sm backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -192,7 +249,7 @@ function ProjectDetailContent() {
 
                 {/* Pestañas pequeñas con flex-wrap para que no requieran scroll */}
                 <div className="flex flex-wrap gap-1.5">
-                    {tabs.filter(t => role !== 'E' || t.id === 'logs' || t.id === 'files').map(tab => (
+                    {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => handleTabChange(tab.id)}

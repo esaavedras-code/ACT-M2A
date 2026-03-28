@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, PackageSearch } from "lucide-react";
+import { PackageSearch, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
@@ -179,19 +179,16 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         <PackageSearch className="text-amber-600" size={24} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 8</span>
+                        <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 4</span>
                         <span>Inventario Material on Site</span>
                     </div>
                 </h2>
-                <button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="bg-primary text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-all shadow-lg active:scale-95 disabled:opacity-50"
-                >
-                    <Save size={18} />
-                    {loading ? "Sincronizando..." : "Guardar Cambios"}
-                </button>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl">
+                    <Info size={13} className="text-emerald-600 shrink-0" />
+                    <span className="text-[11px] font-semibold text-emerald-700">Esta sección se actualiza automáticamente — no es necesario ingresar información aquí.</span>
+                </div>
             </div>
+
 
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
                 <div className="overflow-x-auto">

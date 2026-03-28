@@ -154,24 +154,23 @@ export const createPdfBlob = async (
 
     const headerY = height - 50;
     if (actLogoImg) {
-        const dims = actLogoImg.scaleToFit(80, 40);
-        page.drawImage(actLogoImg, { x: marginX, y: height - 60, width: dims.width, height: dims.height });
-    }
-
-    if (m2aLogoImg) {
-        const dims = m2aLogoImg.scaleToFit(55, 20);
-        // La parte superior del logo ACT está en height - 20 (y: height - 60 + height 40)
-        // Para que el de M2A esté alineado por arriba: height - 20 - dims.height
-        page.drawImage(m2aLogoImg, {
-            x: width - marginX - dims.width,
-            y: height - 20 - dims.height,
-            width: dims.width,
-            height: dims.height
+        // Obtenemos las dimensiones originales para mantener el aspect ratio
+        const dims = actLogoImg.scale(1);
+        const targetHeight = 40;
+        const targetWidth = (dims.width / dims.height) * targetHeight;
+        
+        page.drawImage(actLogoImg, { 
+            x: marginX, 
+            y: height - 60, 
+            width: targetWidth, 
+            height: targetHeight 
         });
     }
 
+    // Se eliminó el logo de M2A por requerimiento del usuario.
+
     // Centered Headers
-    centerText('M2A Group - Sistema de Control de Proyectos', timesRomanFont, 10, y);
+    centerText('Sistema de Control de Proyectos', timesRomanFont, 10, y);
     y -= 15;
     if (projectInfo) {
         centerText(`Proyecto: ${projectInfo.name || 'N/A'} - AC: ${projectInfo.num_act || 'N/A'}`, timesRomanBoldFont, 10, y);
@@ -506,40 +505,77 @@ export const generateReport = async (
     }
 };
 
-export const generateBalanceReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateBalanceReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
     const { project, items, chos, certs } = await fetchAllReportData(projectId);
     if (!items) return;
 
-    const balances = items.map((item: any) => {
-        const itemChos = chos?.filter((c: any) => {
-            const choppedItems = Array.isArray(c.items) ? c.items : [];
-            return choppedItems.some((i: any) => i.item_id === item.id);
-        }) || [];
+    const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
 
-        const choQty = itemChos.reduce((acc: number, c: any) => {
-            const i = c.items.find((it: any) => it.item_id === item.id);
-            return acc + (parseFloat(i.proposed_change) || 0);
+    // Filtramos CHOs y certs por fecha de corte
+    const filteredChos = chos?.filter(c => new Date(c.cho_date) <= cutOff) || [];
+    const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff) || [];
+
+    // Coleccionamos todos los números de ítems únicos (originales + añadidos por CHO)
+    const allItemNums = new Set(items.map(i => i.item_num));
+    filteredChos.forEach(c => {
+        const choItems = Array.isArray(c.items) ? c.items : [];
+        choItems.forEach((ci: any) => {
+            if (ci.item_num) allItemNums.add(ci.item_num);
+        });
+    });
+
+    const sortedItemNums = Array.from(allItemNums).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    const balances = sortedItemNums.map(itemNum => {
+        // Buscamos el ítem base en el contrato
+        const baseItem = items.find(i => i.item_num === itemNum);
+        const origQty = baseItem ? (parseFloat(baseItem.quantity) || 0) : 0;
+        const description = baseItem ? [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ') : "";
+        const unit = baseItem ? baseItem.unit : "";
+
+        // Sumamos cambios de CHOs (solo los que apliquen a este ítem)
+        let totalChoQty = 0;
+        let choDescription = "";
+
+        filteredChos.forEach(c => {
+            const choItems = Array.isArray(c.items) ? c.items : [];
+            const match = choItems.find((ci: any) => ci.item_num === itemNum);
+            if (match) {
+                totalChoQty += (parseFloat(match.proposed_change) || 0);
+                if (!description && match.description) choDescription = match.description;
+                if (!unit && match.unit) choDescription = match.unit; // fallback unit
+            }
+        });
+
+        // Sumamos certificaciones
+        const certQty = filteredCerts.reduce((acc, c) => {
+            const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+            const match = certItems.find((it: any) => it.item_num === itemNum);
+            return acc + (parseFloat(match?.quantity || 0));
         }, 0);
 
-        const certQty = certs?.reduce((acc: number, c: any) => {
-            const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-            const i = certItems.find((it: any) => it.item_id === item.id);
-            return acc + (parseFloat(i?.quantity || 0));
-        }, 0) || 0;
-
-        const totalQty = (parseFloat(item.quantity) || 0) + choQty;
+        const totalQty = origQty + totalChoQty;
         const balance = totalQty - certQty;
 
-        return { ...item, choQty, totalQty, certQty, balance };
+        return { 
+            item_num: itemNum, 
+            description: description || choDescription || "Ítem nuevo por CHO", 
+            unit: unit || "UN", 
+            origQty, 
+            choQty: totalChoQty, 
+            totalQty, 
+            certQty, 
+            balance 
+        };
     });
 
     const data = [
         ['Item', 'Descripción', 'Unidad', 'C. Orig', 'CHO', 'Total', 'Certific.', 'Balance'],
         ...balances.map((b: any) => [
             b.item_num,
-            [b.description, b.additional_description].filter(Boolean).join(' - '),
+            b.description,
             b.unit,
-            b.quantity.toFixed(4),
+            b.origQty.toFixed(4),
             b.choQty.toFixed(4),
             b.totalQty.toFixed(4),
             b.certQty.toFixed(4),
@@ -547,43 +583,80 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
         ])
     ];
 
+    if (format === 'excel') {
+        alert("Este reporte no está disponible en formato Excel por requerimiento.");
+        return;
+    }
+
     await generateReport('REPORTE DE BALANCES DE PARTIDAS', data, project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape', format, 'Reporte_Balances_Partidas.pdf');
 };
 
-export const generateDetailReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateDetailReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
     const { project, items, chos, certs } = await fetchAllReportData(projectId);
     if (!items) return;
 
+    const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
+    const filteredChos = chos?.filter(c => new Date(c.cho_date) <= cutOff) || [];
+    const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff) || [];
+
+    // Coleccionamos todos los números de ítems únicos (originales + añadidos por CHO)
+    const allItemNums = new Set(items.map(i => i.item_num));
+    filteredChos.forEach(c => {
+        const choItems = Array.isArray(c.items) ? c.items : [];
+        choItems.forEach((ci: any) => {
+            if (ci.item_num) allItemNums.add(ci.item_num);
+        });
+    });
+
+    const sortedItemNums = Array.from(allItemNums).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
     const reportData: any[][] = [['ITEM', 'SPEC.', 'DESCRIPTION / ACTIVITY', 'QUANTITY', 'UNIT', 'BALANCE', 'UNIT PRICE', 'AMOUNT']];
 
-    items.forEach((b: any) => {
-        const uPrice = parseFloat(b.unit_price) || 0;
-        const fullDescription = [b.description, b.additional_description].filter(Boolean).join(' - ');
+    sortedItemNums.forEach(itemNum => {
+        const baseItem = items.find(i => i.item_num === itemNum);
+        let uPrice = baseItem ? (parseFloat(baseItem.unit_price) || 0) : 0;
+        let unit = baseItem ? baseItem.unit : "";
+        let spec = baseItem ? baseItem.specification : "";
+        let fullDescription = baseItem ? [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ') : "";
         let currentBalance = 0;
 
-        reportData.push([b.item_num, b.specification || '', fullDescription || '', '', '', '', '', '']);
-        
-        const origQty = parseFloat(b.quantity) || 0;
-        currentBalance += origQty;
-        reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(4), b.unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2))]);
+        // Si es ítem nuevo, buscar precio y descripción en el primer CHO que lo mencione
+        if (!baseItem) {
+            const firstCho = filteredChos.find(c => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === itemNum));
+            if (firstCho) {
+                const match = (firstCho.items as any[]).find(i => i.item_num === itemNum);
+                uPrice = parseFloat(match.unit_price) || 0;
+                unit = match.unit || "UN";
+                fullDescription = match.description || "Ítem nuevo por CHO";
+                spec = match.specification || "";
+            }
+        }
 
-        const itemChos = chos?.filter((c: any) => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === b.item_num)) || [];
-        itemChos.forEach((c: any) => {
-            const i = (Array.isArray(c.items) ? c.items : []).find((it: any) => it.item_num === b.item_num);
+        reportData.push([itemNum, spec || '', fullDescription || '', '', '', '', '', '']);
+        
+        if (baseItem) {
+            const origQty = parseFloat(baseItem.quantity) || 0;
+            currentBalance += origQty;
+            reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(4), unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2))]);
+        }
+
+        const itemChos = filteredChos.filter(c => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === itemNum));
+        itemChos.forEach(c => {
+            const i = (Array.isArray(c.items) ? c.items : []).find((it: any) => it.item_num === itemNum);
             if (i) {
                 const choQty = parseFloat(i.proposed_change !== undefined ? i.proposed_change : i.quantity) || 0;
                 currentBalance += choQty;
-                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''} (${formatDate(c.cho_date)})`, choQty.toFixed(4), b.unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2))]);
+                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''} (${formatDate(c.cho_date)})`, choQty.toFixed(4), unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2))]);
             }
         });
 
-        const itemCerts = certs?.filter((c: any) => (Array.isArray(c.items) ? c.items : (c.items?.list || [])).some((it: any) => it.item_num === b.item_num)) || [];
-        itemCerts.forEach((c: any) => {
-            const i = (Array.isArray(c.items) ? c.items : (c.items?.list || [])).find((it: any) => it.item_num === b.item_num);
+        const itemCerts = filteredCerts.filter(c => (Array.isArray(c.items) ? c.items : (c.items?.list || [])).some((it: any) => it.item_num === itemNum));
+        itemCerts.forEach(c => {
+            const i = (Array.isArray(c.items) ? c.items : (c.items?.list || [])).find((it: any) => it.item_num === itemNum);
             if (i) {
                 const certQty = parseFloat(i.quantity) || 0;
                 currentBalance -= certQty;
-                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, certQty.toFixed(4), b.unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(certQty * uPrice, 2))]);
+                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, certQty.toFixed(4), unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(certQty * uPrice, 2))]);
             }
         });
         reportData.push(['', '', '', '', '', '', '', '']);
@@ -597,7 +670,7 @@ export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 
     if (!mfgCerts) return;
 
     const data = [
-        ['Item', 'Especificación', 'Descripción', 'Cantidad del certificado (CM)', 'Fecha del certificado'],
+        ['Item', 'Especificación', 'Descripción', 'Cantidad del certificado (CM)', 'Unidades', 'Fecha del certificado'],
         ...mfgCerts.map((c: any) => {
             const it = items?.find(i => i.id === c.item_id || i.item_num === c.item_num);
             const unit = it?.unit || '';
@@ -606,12 +679,13 @@ export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 
                 c.item_num,
                 c.specification,
                 fullDescription || c.material_description || '',
-                `${c.quantity.toFixed(4)} ${unit}`,
+                c.quantity.toFixed(4),
+                unit,
                 formatDate(c.cert_date)
             ];
         })
     ];
-    await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM)', data, project, [40, 70, 200, 100, 100], 'landscape', format, 'Reporte_Certificados_CM.pdf');
+    await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM)', data, project, [40, 70, 200, 100, 60, 100], 'landscape', format, 'Reporte_Certificados_CM.pdf');
 };
 
 export const generateMissingMfgReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -686,7 +760,7 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
         });
     });
 
-    const reportData: any[][] = [['# Item / Espec.', 'Descripción', 'Cert #', 'Tipo', 'Cant.', 'Monto ($)', 'Balance ($)']];
+    const reportData: any[][] = [['# Item', 'Especificación', 'Descripción', 'Cert #', 'Tipo', 'Cantidad', 'Unidad', 'Monto ($)', 'Balance ($)']];
     let totalFinalBalance = 0;
     Array.from(groupedItems.values()).forEach(group => {
         const it = (itemsRepo || []).find((i: any) => i.item_num === group.item_num);
@@ -694,17 +768,28 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
         let itemBalance = 0;
         group.activities.forEach((act: any, idx: number) => {
             itemBalance += act.cost;
-            reportData.push([idx === 0 ? `${group.item_num}\n${group.spec}` : '', idx === 0 ? group.desc : '', `#${act.certNum}`, act.type, `${act.qty.toFixed(2)} ${unit}`, formatCurrency(act.cost), formatCurrency(itemBalance)]);
+            reportData.push([
+                idx === 0 ? group.item_num : '', 
+                idx === 0 ? group.spec : '', 
+                idx === 0 ? group.desc : '', 
+                `#${act.certNum}`, 
+                act.type, 
+                act.qty.toFixed(2), 
+                unit, 
+                formatCurrency(act.cost), 
+                formatCurrency(itemBalance)
+            ]);
         });
         totalFinalBalance += itemBalance;
-        reportData.push(['', '', '', '', '', '', '']);
+        reportData.push(['', '', '', '', '', '', '', '', '']);
     });
-    reportData.push(['BALANCE TOTAL EN INVENTARIO (MOS):', '', '', '', '', '', formatCurrency(totalFinalBalance)]);
+    reportData.push(['BALANCE TOTAL EN INVENTARIO (MOS):', '', '', '', '', '', '', '', formatCurrency(totalFinalBalance)]);
 
-    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [120, 220, 70, 100, 70, 70, 80], 'landscape', format, 'Reporte_Material_On_Site.pdf');
+    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [60, 80, 180, 50, 90, 60, 40, 70, 70], 'landscape', format, 'Reporte_Material_On_Site.pdf');
 };
 
 export const generateCCMLReportLogic = async (projectId: string, choId?: string) => {
+    // CCML es solo Excel por requerimiento
     const { project, chos, agreementFunds, certs } = await fetchAllReportData(projectId);
     if (!project) return;
 
@@ -799,9 +884,16 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
 };
 
 
-export const generateDashboardReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateDashboardReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
     const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
     if (!proj) return;
+
+    if (format === 'excel') {
+        alert("El reporte de información principal no está disponible en formato Excel por requerimiento.");
+        return;
+    }
+
+    const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
 
     const { data: contractor } = await supabase.from("contractors").select("*").eq("project_id", projectId).single();
     const { data: personnel } = await supabase.from("act_personnel").select("*").eq("project_id", projectId);
@@ -809,14 +901,18 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     const { data: chos } = await supabase.from("chos").select("*").eq("project_id", projectId);
     const { data: certs } = await supabase.from("payment_certifications").select("*").eq("project_id", projectId).order("cert_num", { ascending: true });
 
+    // Filtrar CHOs y Certs por fecha de corte
+    const filteredChos = chos?.filter(c => new Date(c.cho_date) <= cutOff) || [];
+    const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff) || [];
+
     const originalCost = proj.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
 
-    const approvedCHOs = chos?.filter(c => c.doc_status === 'Aprobado') || [];
-    const pendingCHOs = chos?.filter(c => c.doc_status === 'En trámite') || [];
+    const approvedCHOs = filteredChos.filter(c => c.doc_status === 'Aprobado');
+    const pendingCHOs = filteredChos.filter(c => c.doc_status === 'En trámite');
     const approvedCHO = approvedCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
     const pendingCHO = pendingCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
     const approvedDays = approvedCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
-    const pendingDays = pendingCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
+    // const pendingDays = pendingCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
 
     let actTotal = 0;
     let fhwaTotal = 0;
@@ -830,7 +926,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
         else if (item.fund_source?.includes('FHWA')) fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
     });
 
-    chos?.forEach((cho: any) => {
+    filteredChos.forEach((cho: any) => {
         if (cho.items && Array.isArray(cho.items)) {
             cho.items.forEach((item: any) => {
                 const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
@@ -844,7 +940,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     let totalRetentionReturned = 0;
     let mosBalance = 0;
 
-    certs?.forEach((cert) => {
+    filteredCerts.forEach((cert) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         certItems.forEach((item: any) => {
             const qty = parseFloat(item.quantity) || 0;
@@ -881,9 +977,9 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     if (startDate && origEndDate) totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
     const revisedDaysTotal = totalDays + approvedDays;
 
-    let timeEndDate = new Date();
-    if (proj.date_substantial_completion) timeEndDate = new Date(`${proj.date_substantial_completion}T23:59:59`);
-    else if (proj.date_real_completion) timeEndDate = new Date(`${proj.date_real_completion}T23:59:59`);
+    let timeEndDate = cutOff; // Usamos la fecha de corte como referencia de tiempo actual del reporte
+    if (proj.date_substantial_completion && new Date(proj.date_substantial_completion) <= cutOff) timeEndDate = new Date(`${proj.date_substantial_completion}T23:59:59`);
+    else if (proj.date_real_completion && new Date(proj.date_real_completion) <= cutOff) timeEndDate = new Date(`${proj.date_real_completion}T23:59:59`);
 
     let usedDays = 0;
     if (startDate) {
@@ -898,7 +994,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
 
     const reportData: any[][] = [
         ['SECCIÓN / CAMPO', 'INFORMACIÓN', '', ''],
-        ['1. RESUMEN DE TIEMPO', '', '', ''],
+        ['1. RESUMEN DE TIEMPO', `(Reporte al: ${endDate || 'Hoy'})`, '', ''],
         ['Fecha de Comienzo:', formatDate(proj.date_project_start), 'Term. Original:', formatDate(proj.date_orig_completion)],
         ['Term. Revisada:', formatDate(proj.date_rev_completion), 'Term. Sustancial:', formatDate(proj.date_substantial_completion)],
         ['FMIS End Date:', formatDate(proj.fmis_end_date), '', ''],
@@ -1106,6 +1202,10 @@ import { generateFinalConstructionReport } from "./generateFinalConstructionRepo
 import { generateLiquidacionItemsReportLogic as generateLiquidacionGenerator } from "./generateLiquidacionReport";
 
 export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'pdf') => {
+    if (format === 'excel') {
+        alert("El reporte ACT-117C no está disponible en formato Excel por requerimiento.");
+        return;
+    }
     const { project, certs } = await fetchAllReportData(projectId);
     if (!project) return;
     let cert = certId ? certs?.find(c => c.id === certId) : (certs && certs.length > 0 ? certs[certs.length - 1] : null);
@@ -1113,31 +1213,17 @@ export const generateAct117CReportLogic = async (projectId: string, certId?: str
         alert("No se encontró la certificación de pago.");
         return;
     }
-    if (format === 'excel') {
-        const { data: certItems } = await supabase.from('payment_certifications').select('items').eq('id', cert.id).single();
-        const itemsList = Array.isArray(certItems?.items) ? certItems.items : (certItems?.items?.list || []);
-        const data = [
-            ['Item No.', 'Spec. Code', 'Description', 'Unit', 'Quantity', 'Unit Price', 'Amount'],
-            ...itemsList.map((it: any) => [it.item_num, it.specification, it.description, it.unit, it.quantity, it.unit_price, (it.quantity * it.unit_price)])
-        ];
-        await generateReport(`ACT-117C - Certificación de Pago #${cert.cert_num}`, data, project, [60, 80, 200, 60, 60, 80, 80], 'portrait', 'excel', `ACT-117C_Cert_${cert.cert_num}_${project.num_act}.xlsx`);
-    } else {
-        const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
-        downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}.pdf`);
-    }
+    const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
+    downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}.pdf`);
 };
 
 export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string, format: 'pdf' | 'excel' = 'pdf') => {
     if (format === 'excel') {
-        const { project } = await fetchAllReportData(projectId);
-        // Nota: generateAct117B genera un PDF muy complejo, para Excel damos la data bruta o alertamos.
-        // Simulando data de balance MOS para Excel
-        const data = [['Item', 'Cert #', 'Descripción', 'Balance MOS']]; 
-        await generateReport(`ACT-117B - Item ${itemNum}`, data, project, [100, 100, 200, 100], 'portrait', 'excel', `ACT-117B_Item_${itemNum}_Balance.xlsx`);
-    } else {
-        const blob = await generateAct117B(projectId, certId, itemNum);
-        downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.pdf`);
+        alert("El reporte ACT-117B no está disponible en formato Excel por requerimiento.");
+        return;
     }
+    const blob = await generateAct117B(projectId, certId, itemNum);
+    downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.pdf`);
 };
 
 export const generateFinalAcceptanceChecklistReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -1191,6 +1277,10 @@ export const generateAct122ReportLogic = async (projectId: string, choId: string
 };
 
 export const generateAct124ReportLogic = async (projectId: string, choId: string, selectedItems: string[], format: 'pdf' | 'excel' = 'pdf') => {
+    if (format === 'excel') {
+        alert("El reporte ACT-124 no está disponible en formato Excel por requerimiento.");
+        return;
+    }
     const { project, chos } = await fetchAllReportData(projectId);
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
@@ -1199,6 +1289,10 @@ export const generateAct124ReportLogic = async (projectId: string, choId: string
 };
 
 export const generateRoaReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    if (format === 'excel') {
+        alert("El reporte ROA no está disponible en formato Excel por requerimiento.");
+        return;
+    }
     const { project, chos } = await fetchAllReportData(projectId);
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
@@ -1285,12 +1379,13 @@ export const generateSignedItemsReportLogic = async (projectId: string, format: 
 };
 
 export const generateMinuteReportLogic = async (projectId: string, minuteId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    if (format === 'excel') {
+        alert("El reporte de minutas no está disponible en formato Excel por requerimiento.");
+        return;
+    }
     const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
     const { data: minute } = await supabase.from("meeting_minutes").select("*").eq("id", minuteId).single();
-
     if (!minute) throw new Error("No se encontró la minuta.");
-
-    // Usamos el generador especializado que ya existe
     const { generateMinutesReport } = await import("./generateMinutesReport");
     const blob = await generateMinutesReport(projectId, {
         summary: "Puntos clave discutidos en la reunión.",
@@ -1298,12 +1393,14 @@ export const generateMinuteReportLogic = async (projectId: string, minuteId: str
         meeting_number: minute.meeting_number,
         meeting_date: minute.meeting_date
     });
-
-    // downloadBlob ya está disponible en este archivo
     downloadBlob(blob, `Minuta_${minute.meeting_date || 'N/A'}.pdf`);
 };
 
-export const generateTimeExtensionChartLogic = async (projectId: string, choId: string) => {
+export const generateTimeExtensionChartLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    if (format === 'excel') {
+        alert("La gráfica de extensión de tiempo no está disponible en formato Excel.");
+        return;
+    }
     const { generateTimeExtensionChart } = await import("./generateTimeExtensionChart");
     const blob = await generateTimeExtensionChart(projectId, choId);
     downloadBlob(blob, `Grafica_Ext_Tiempo_CHO_${choId}.pdf`);

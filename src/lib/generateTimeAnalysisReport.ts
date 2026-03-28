@@ -125,10 +125,40 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
             trY += 12;
         });
 
-        TXT("ANÁLISIS DE TIEMPO", PW / 2, 140, 11, true, 'center');
+        // --- ENCASILLADO DE RESUMEN DE CONTRATO (Punto 19) ---
+        let SY = 135;
+        const SL = 100, SR = PW - 50;
+        const SM = (SL + SR) / 2;
+        const SH = 45;
+        // Borde exterior
+        LINE(SL, SY, SR, SY, 1);
+        LINE(SL, SY + SH, SR, SY + SH, 1);
+        LINE(SL, SY, SL, SY + SH, 1);
+        LINE(SR, SY, SR, SY + SH, 1);
+        // Divisores
+        LINE(SM, SY, SM, SY + SH, 0.8);
+        LINE(SL, SY + 15, SR, SY + 15, 0.8);
+
+        // Headers
+        TXT("VALOR DEL CONTRATO", (SL + SM) / 2, SY + 10, 8, true, 'center');
+        TXT("TIEMPO DEL CONTRATO", (SM + SR) / 2, SY + 10, 8, true, 'center');
+
+        // Data Costos
+        TXT("Original:", SL + 5, SY + 25, 7.5);
+        TXT(utilsFormatCurrency(originalValue), SM - 5, SY + 25, 8, true, 'right');
+        TXT("Revisado:", SL + 5, SY + 38, 7.5);
+        TXT(utilsFormatCurrency(originalValue + valCHO), SM - 5, SY + 38, 8, true, 'right');
+
+        // Data Tiempo
+        TXT("Días Originales:", SM + 5, SY + 25, 7.5);
+        TXT(`${daysOriginal} días`, SR - 5, SY + 25, 8, true, 'right');
+        TXT("Días Revisados:", SM + 5, SY + 38, 7.5);
+        TXT(`${daysOriginal + daysCHO + daysEWO} días`, SR - 5, SY + 38, 8, true, 'right');
+
+        TXT("ANÁLISIS DE TIEMPO", PW / 2, 200, 11, true, 'center');
 
         // Section 1
-        let Y = 170;
+        let Y = 230;
         const L1 = 100, R1 = 380, R2 = 550;
 
         TXT("1. Net Overrun (Final Report)", L1, Y, 9);

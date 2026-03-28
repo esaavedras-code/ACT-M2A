@@ -3,6 +3,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Users, Plus, Trash2 } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { formatPhoneNumber } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
@@ -119,22 +120,35 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
 
     return (
         <div suppressHydrationWarning className="w-full px-4 space-y-6">
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <Users className="text-primary" />
-                    3. Firmas ACT
+            <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+                <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
+                    <Users className="text-primary" size={24} />
+                    <span>2. Firmas ACT</span>
                 </h2>
-                <div className="flex gap-2">
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="btn-primary flex items-center gap-2"
-                    >
-                        <Save size={18} />
-                        {loading ? "Sincronizando..." : "Guardar Firmas"}
-                    </button>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>
             </div>
+
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: "Añadir Persona",
+                        icon: <Plus />,
+                        onClick: addItem,
+                        description: "Incluir un nuevo funcionario de la ACT al registro de firmas del proyecto",
+                        variant: 'secondary' as const
+                    },
+                    {
+                        label: loading ? "Sincronizando..." : "Guardar Firmas",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Actualizar y sincronizar el registro oficial de firmas autorizadas de la ACT",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
 
             {numAct && (
                 <div className="flex items-center gap-2 -mt-4 mb-6">
@@ -145,7 +159,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                 </div>
             )}
 
-            <div className="card overflow-x-auto p-0 border-none shadow-sm">
+            <div className="card overflow-x-auto p-0 border-none shadow-sm custom-scrollbar">
                 <table suppressHydrationWarning className="w-full text-left border-collapse min-w-[1500px]">
                     <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
                         <tr>
@@ -165,7 +179,6 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                     <td className="px-2 py-1.5">
                                         <select
                                             className="input-field text-xs font-bold min-h-[38px] !py-1.5 bg-white"
-                                            style={{ backgroundColor: '#66FF99' }}
                                             value={p.role || STAFF_ROLES[0]}
                                             onChange={(e) => updateItem(idx, 'role', e.target.value)}
                                         >
@@ -176,7 +189,6 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                         <input
                                             type="text"
                                             className="input-field text-xs min-h-[38px] !py-1.5"
-                                            style={{ backgroundColor: '#66FF99' }}
                                             value={p.name || ""}
                                             placeholder="Nombre del funcionario"
                                             onChange={(e) => updateItem(idx, 'name', e.target.value)}
@@ -187,7 +199,6 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                             <input
                                                 type="tel"
                                                 className="input-field text-xs min-h-[38px] !py-1.5 text-center bg-white"
-                                                style={{ backgroundColor: '#66FF99' }}
                                                 placeholder="(000) 000-0000"
                                                 value={p.phone_office || ""}
                                                 onChange={(e) => updateItem(idx, 'phone_office', formatPhoneNumber(e.target.value))}
@@ -199,7 +210,6 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                             <input
                                                 type="tel"
                                                 className="input-field text-xs min-h-[38px] !py-1.5 text-center bg-white"
-                                                style={{ backgroundColor: '#66FF99' }}
                                                 placeholder="(000) 000-0000"
                                                 value={p.phone_mobile || ""}
                                                 onChange={(e) => updateItem(idx, 'phone_mobile', formatPhoneNumber(e.target.value))}
@@ -211,7 +221,6 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                             <input
                                                 type="email"
                                                 className="input-field text-xs min-h-[38px] !py-1.5 bg-white"
-                                                style={{ backgroundColor: '#66FF99' }}
                                                 placeholder="correo@ejemplo.com"
                                                 value={p.email || ""}
                                                 onChange={(e) => updateItem(idx, 'email', e.target.value)}

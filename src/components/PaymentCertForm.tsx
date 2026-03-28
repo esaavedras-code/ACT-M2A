@@ -3,6 +3,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2, PlusSquare } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { generateAct117C } from "@/lib/generateAct117C";
 import { downloadBlob } from "@/lib/reportLogic";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -496,18 +497,32 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <FileCheck className="text-primary" />
-                    6. Certificaciones de Pago
+                    7. Certificaciones de Pago
                 </h2>
                 <div className="flex gap-2">
-                    <button onClick={addCert} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors">
-                        <Plus size={16} /> Nueva Certificación
-                    </button>
-                    <button onClick={handleSubmit} disabled={loading} className="btn-primary flex items-center gap-2">
-                        <Save size={18} />
-                        {loading ? "Sincronizando..." : "Guardar Certificaciones"}
-                    </button>
+                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>
             </div>
+
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: "Nueva Certificación",
+                        icon: <Plus />,
+                        onClick: addCert,
+                        description: "Crear un nuevo documento de certificación de pago correlativo",
+                        variant: 'secondary' as const
+                    },
+                    {
+                        label: loading ? "Sincronizando..." : "Guardar Certificaciones",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Sincronizar todas las certificaciones y partidas con los balances del contrato",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
 
             {/* Cuadro de Resumen Financiero */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -1112,7 +1127,7 @@ function SummaryItem({ label, value, icon, color, bgColor }: { label: string, va
             </div>
             <div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</div>
-                <div className={`text-sm font-black ${color}`}>
+                <div className={`text-sm font-black ${value < 0 ? 'text-red-500' : color}`}>
                     {formatCurrency(value)}
                 </div>
             </div>

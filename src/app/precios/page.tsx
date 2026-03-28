@@ -10,7 +10,7 @@ export default function GlobalPriceHistoryPage() {
                 <div>
                     <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-4">
                         <TrendingUp size={36} className="text-primary" />
-                        Historial de Precios
+                        Historial de precios de la ACT
                     </h1>
                     <p className="text-slate-500 mt-2 font-medium">Buscador global de precios unitarios históricos (ACT 2024).</p>
                 </div>

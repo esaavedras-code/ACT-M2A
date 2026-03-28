@@ -152,6 +152,14 @@ export default function AdminRequestsPage() {
         if (!req) return;
 
         if (newStatus === 'approved') {
+            // Doble confirmación para Administrador Global si se intenta aprobar
+            if (req.desired_role === 'A') {
+                const firstConfirm = confirm("⚠️ ATENCIÓN: Estás por otorgar privilegios de ADMINISTRADOR GLOBAL (Nivel A). ¿Estás seguro de que quieres dar acceso total a este usuario?");
+                if (!firstConfirm) return;
+                const secondConfirm = confirm("🛑 ÚLTIMO AVISO: El acceso de Administrador Global permite borrar proyectos y gestionar otros usuarios. ¿Confirmas definitivamente elevar este usuario a Administrador Global?");
+                if (!secondConfirm) return;
+            }
+
             const tempPwd = Math.random().toString(36).slice(-10).toUpperCase();
             
             // 1. Crear el usuario en Supabase Auth vía Edge Function primero
@@ -326,6 +334,20 @@ export default function AdminRequestsPage() {
             }]);
 
             if (insertError) throw insertError;
+
+            // Doble confirmación para Administrador Global
+            if (directRole === 'A') {
+                const firstConfirm = confirm("⚠️ ATENCIÓN: Estás por crear un usuario con privilegios de ADMINISTRADOR GLOBAL (Nivel A). ¿Estás seguro de que quieres otorgar acceso total al programa a esta persona?");
+                if (!firstConfirm) {
+                    setDirectLoading(false);
+                    return;
+                }
+                const secondConfirm = confirm("🛑 ÚLTIMO AVISO: Un Administrador Global puede borrar proyectos, crear otros administradores y ver toda la información sensible. ¿Confirmas definitivamente la creación de este perfil de administrador?");
+                if (!secondConfirm) {
+                    setDirectLoading(false);
+                    return;
+                }
+            }
 
             // Crear usuario en Auth
             const tempPwd = Math.random().toString(36).slice(-10).toUpperCase();
@@ -548,6 +570,7 @@ export default function AdminRequestsPage() {
                             <div className="flex-1 space-y-1">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Rol</label>
                                 <select value={directRole} onChange={e => setDirectRole(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-2 px-4 text-sm">
+                                    {isGlobalAdmin && <option value="A">Administrador Global</option>}
                                     {isGlobalAdmin && <option value="B">Admin Proyecto</option>}
                                     <option value="C">Data Entry</option>
                                     <option value="D">Lectura</option>
@@ -627,7 +650,7 @@ export default function AdminRequestsPage() {
                                                         <Mail size={14} className="text-slate-300" /> {req.email}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400 font-mono mt-1 uppercase tracking-tighter">
-                                                        Recibida: {new Date(req.created_at).toLocaleString()}
+                                                        Recibida: {new Date(req.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                                                     </span>
                                                 </div>
                                             </td>
@@ -796,7 +819,7 @@ export default function AdminRequestsPage() {
                                             </span>
                                         </td>
                                         <td className="px-8 py-6 text-sm text-slate-500">
-                                            {new Date(user.created_at).toLocaleDateString()}
+                                            {new Date(user.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                                         </td>
                                         <td className="px-8 py-6 text-right">
                                             <div className="flex items-center justify-end gap-2">
