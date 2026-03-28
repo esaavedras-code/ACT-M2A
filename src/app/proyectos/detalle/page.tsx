@@ -1,308 +1,246 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useEffect, Suspense, lazy } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { 
+    FileText, Building2, ChevronLeft, Loader2, 
+    ListChecks, Users, PackageSearch, ShieldCheck, 
+    FileCheck, FileEdit, LayoutDashboard, Calculator,
+    Mic, TrendingUp, Cloud, Factory, Info, FolderOpen
+} from "lucide-react";
+import { getLocalStorageItem } from "@/lib/utils";
+
 import ProjectForm from "@/components/ProjectForm";
 import ContractorForm from "@/components/ContractorForm";
-import PersonnelForm from "@/components/PersonnelForm";
 import ItemsForm from "@/components/ItemsForm";
-import CHOForm from "@/components/CHOForm";
-import PaymentCertForm from "@/components/PaymentCertForm";
-import MfgCertForm from "@/components/MfgCertForm";
+import PersonnelForm from "@/components/PersonnelForm";
 import MaterialsForm from "@/components/MaterialsForm";
 import ComplianceForm from "@/components/ComplianceForm";
-import LiquidationForm from "@/components/LiquidationForm";
-import ForceAccountForm from "@/components/ForceAccountForm";
-import DailyLogForm from "@/components/DailyLogForm";
+import CHOForm from "@/components/CHOForm";
+import PaymentCertForm from "@/components/PaymentCertForm";
 import MinutesForm from "@/components/MinutesForm";
-import SummaryDashboard from "@/components/SummaryDashboard";
-import ProjectMemberships from "@/components/ProjectMemberships";
-import type { FormRef } from "@/components/ProjectForm";
-import {
-    ListChecks, User, Building2, FileText, FileEdit,
-    LayoutDashboard, FileCheck, Factory, PackageSearch, ShieldCheck,
-    FileCheck2, ChevronLeft, Cloud, CheckCircle2, Loader2, Trash2, Users, Calculator, Mic
-} from "lucide-react";
-import Link from "next/link";
+import DailyLogForm from "@/components/DailyLogForm";
+import LiquidationForm from "@/components/LiquidationForm";
+import MfgCertForm from "@/components/MfgCertForm";
+import ForceAccountForm from "@/components/ForceAccountForm";
+import InspectionForm from "@/components/InspectionForm";
+import CCMLModificationsForm from "@/components/CCMLModificationsForm";
+import ProjectFilesExplorer from "@/components/ProjectFilesExplorer";
+
+const SummaryDashboard = lazy(() => import("@/components/SummaryDashboard"));
 
 function ProjectDetailContent() {
     const searchParams = useSearchParams();
-    const router = useRouter();
-    const id = searchParams.get("id") as string;
-    const [activeTab, setActiveTab] = useState("summary");
+    const id = searchParams.get("id");
     const [projectName, setProjectName] = useState("");
     const [numAct, setNumAct] = useState("");
-    const [currentUserRole, setCurrentUserRole] = useState("C");
-    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-    const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState("dashboard");
+    const [isDirty, setIsDirty] = useState(false);
+    const [role, setRole] = useState("C");
 
-    // Refs para cada formulario con su función save()
-    const projectRef = useRef<FormRef>(null);
-    const contractorRef = useRef<FormRef>(null);
-    const personnelRef = useRef<FormRef>(null);
-    const itemsRef = useRef<FormRef>(null);
-    const choRef = useRef<FormRef>(null);
-    const certsRef = useRef<FormRef>(null);
-    const mfgRef = useRef<FormRef>(null);
-    const materialsRef = useRef<FormRef>(null);
-    const complianceRef = useRef<FormRef>(null);
-    const liquidationRef = useRef<FormRef>(null);
-    const forceAccountRef = useRef<FormRef>(null);
-    const dailyLogRef = useRef<FormRef>(null);
-    const minutesRef = useRef<FormRef>(null);
+    // Orden: Resumen → Proyecto (incluye Contratista) → Firmas ACT → Partidas → Materiales
+    //        → Cumplimiento → Change Orders → Pagos → Cert CM → Minutas → Actividades
+    //        → Inspección → Force Account → Liquidación
+    const tabs = [
+        { id: "dashboard",   label: "0. Resumen",        icon: <LayoutDashboard size={12} /> },
+        { id: "project",     label: "1. Datos Proyecto",       icon: <FileText size={12} /> },
+        { id: "personnel",   label: "2. Firmas ACT",     icon: <Users size={12} /> },
+        { id: "items",       label: "3. Partidas",       icon: <ListChecks size={12} /> },
+        { id: "materials",   label: "4. Materiales",     icon: <PackageSearch size={12} /> },
+        { id: "compliance",  label: "5. Cumplimiento",   icon: <ShieldCheck size={12} /> },
+        { id: "cho",         label: "6. Change Orders",  icon: <FileEdit size={12} /> },
+        { id: "payment",     label: "7. Pagos",          icon: <FileCheck size={12} /> },
+        { id: "mfg",         label: "8. Cert. CM",       icon: <Factory size={12} /> },
+        { id: "minutes",     label: "9. Minutas",        icon: <Mic size={12} /> },
+        { id: "logs",        label: "10. Actividades",   icon: <Cloud size={12} /> },
+        { id: "inspection",  label: "11. Inspección",    icon: <FileCheck size={12} /> },
+        { id: "force",       label: "12. Force Account", icon: <Calculator size={12} /> },
+        { id: "liquidation", label: "13. Liquidación",   icon: <TrendingUp size={12} /> },
+        { id: "ccml",        label: "14. Cambios al CCML", icon: <FileEdit size={12} /> },
+        { id: "files",       label: "📁 Archivos",        icon: <FolderOpen size={12} /> },
+    ];
 
-    // Mapa tab → ref
-    const tabRefs: Record<string, React.RefObject<FormRef | null>> = {
-        project: projectRef,
-        contractor: contractorRef,
-        personnel: personnelRef,
-        items: itemsRef,
-        cho: choRef,
-        certs: certsRef,
-        mfg: mfgRef,
-        materials: materialsRef,
-        compliance: complianceRef,
-        liquidation: liquidationRef,
-        forceAccount: forceAccountRef,
-        dailyLog: dailyLogRef,
-        minutes: minutesRef,
+    const handleTabChange = (newTab: string) => {
+        if (newTab === activeTab) return;
+        if (isDirty) {
+            const confirmed = window.confirm("Tiene datos sin guardar en esta pestaña.\n\nPreseione CANCELAR para quedarse y guardar los datos manualmente.\nPresione ACEPTAR para salir y descartar los cambios.");
+            if (!confirmed) return;
+        }
+        setIsDirty(false);
+        setActiveTab(newTab);
+    };
+
+    const getReportNote = (tab: string) => {
+        switch (tab) {
+            case "dashboard": return "El Dashboard Ejecutivo del proyecto pueden verlo en la pestaña de REPORTES, opción '1. Información General'.";
+            case "project": return "La información del proyecto y del contratista se gestiona en esta sección.";
+            case "personnel": return "El personal de ACT asignado al proyecto se gestiona en esta sección.";
+            case "items": return "Los balances y modificaciones de partidas los pueden ver en la pestaña de REPORTES, opción '2. Gestión de Partidas'.";
+            case "materials": return "El reporte oficial de materiales 'ACT-117B' lo pueden ver en la pestaña de REPORTES, opción '4. Material on Site (MOS)'.";
+            case "compliance": return "La documentación de cumplimiento los pueden ver en la pestaña de REPORTES.";
+            case "cho": return "Los reportes ACT-122, ACT-124, ROA y CCML los pueden ver en la pestaña de REPORTES, opción '5. Change Orders'.";
+            case "payment": return "Las certificaciones de pago 'ACT-117C' las pueden ver en la pestaña de REPORTES, opción '6. Certificaciones de Pago'.";
+            case "mfg": return "Los 'Certificados de Manufactura' los pueden ver en la pestaña de REPORTES, opción '3. Certificados de Manufactura'.";
+            case "minutes": return "Las minutas documentadas las pueden ver en la pestaña de REPORTES.";
+            case "logs": return "Los controles de tiempo de actividades los pueden ver en la pestaña de REPORTES.";
+            case "inspection": return "Los informes de inspección los pueden ver en la pestaña de REPORTES.";
+            case "force": return "El balance de Force Account lo pueden ver en la pestaña de REPORTES.";
+            case "liquidation": return "Las hojas de liquidación y checklists (Final Acceptance) los pueden ver en la pestaña de REPORTES, opción '7. Liquidación'.";
+            case "ccml": return "La información de las Cartas de Requerimiento de Modificación (Project Modification Letters) se gestiona en esta sección.";
+            default: return "Los reportes de esta sección los pueden ver en la pestaña de REPORTES de este proyecto.";
+        }
     };
 
     useEffect(() => {
-        if (id) fetchProjectData();
+        if (!id) return;
 
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (hasUnsavedChanges) {
-                e.preventDefault();
-                e.returnValue = "";
-            }
-        };
-
-        window.addEventListener("beforeunload", handleBeforeUnload);
-        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [id]);
-
-    const fetchProjectData = async () => {
-        // Verificar autorización (mantenemos retrocompatibilidad con cache si lo hay o session base)
-        const registrationStr = localStorage.getItem("pact_registration");
-        let registration = null;
-        try {
-            registration = registrationStr ? JSON.parse(registrationStr) : null;
-        } catch (e) {
-            console.error("Error parsing registration", e);
-        }
-        let allowedIds = registration?.allowedProjectIds || [];
-
-        // Obtener la sesión real del usuario para determinar el currentUserRole real (A, B, C, D)
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        let role = "C"; // Default visual fallback
-        if (session) {
-             const userId = session.user.id;
-             // Verificamos nivel global primero
-             const { data: userData } = await supabase.from("users").select("role_global").eq("id", userId).single();
-             if (userData?.role_global === "A") {
-                 role = "A";
-                 allowedIds = ["ALL"]; // Forzar acceso total
-             } else {
-                 // Verificamos en membresías de este proyecto
-                 const { data: memData } = await supabase.from("memberships").select("role").eq("project_id", id).eq("user_id", userId).single();
-                 if (memData) role = memData.role;
-             }
-        }
-        
-        setCurrentUserRole(role);
-
-        // Si es global override 
-        if (allowedIds.includes("ALL")) {
-            const { data } = await supabase.from("projects").select("name, num_act").eq("id", id).single();
-            if (data) {
-                setProjectName(data.name);
-                setNumAct(data.num_act);
-            }
-            return;
-        }
-
-        if (!allowedIds.includes(id)) {
-            alert("Acceso denegado: No tiene autorización para este proyecto.");
-            router.push("/proyectos");
-            return;
-        }
-
-        const { data } = await supabase.from("projects").select("name, num_act").eq("id", id).single();
-        if (data) {
-            setProjectName(data.name);
-            setNumAct(data.num_act);
-        }
-    };
-
-    const handleDeleteProject = async () => {
-        const confirmDelete = window.confirm(
-            `¿Estás seguro que deseas ELIMINAR el proyecto "${projectName}"? Esta acción no se puede deshacer y borrará todos los datos asociados (contratistas, partidas, pagos, etc.).`
-        );
-
-        if (confirmDelete) {
+        async function loadProject() {
+            setLoading(true);
             try {
-                const { error } = await supabase.from('projects').delete().eq('id', id);
-                if (error) throw error;
+                const { data: { session } } = await supabase.auth.getSession();
+                let isAuthorized = false;
+                let currentRole = "C";
 
-                alert("Proyecto eliminado exitosamente.");
-                router.push("/proyectos");
-            } catch (error) {
-                console.error("Error eliminando proyecto:", error);
-                alert("Hubo un error al intentar eliminar el proyecto.");
-            }
-        }
-    };
-
-    const handleTabChange = async (tabId: string) => {
-        if (tabId === activeTab) return;
-
-        // Preguntar si desea guardar antes de cambiar de sección
-        if (hasUnsavedChanges) {
-            const confirmSave = window.confirm("Tienes cambios sin guardar en esta sección. ¿Deseas guardarlos antes de cambiar?");
-            if (confirmSave) {
-                const currentRef = tabRefs[activeTab];
-                if (currentRef?.current?.save) {
-                    setAutoSaveStatus("saving");
-                    try {
-                        await currentRef.current.save();
-                        setAutoSaveStatus("saved");
-                        setTimeout(() => setAutoSaveStatus("idle"), 2500);
-                    } catch {
-                        setAutoSaveStatus("idle");
+                if (session) {
+                    // 1. Verificar si es admin global
+                    const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
+                    if (userData?.role_global === "A") {
+                        isAuthorized = true;
+                        currentRole = "A";
+                    } else {
+                        // 2. Verificar membresía específica
+                        const { data: mem } = await supabase.from("memberships").select("role").eq("project_id", id).eq("user_id", session.user.id).maybeSingle();
+                        if (mem) {
+                            isAuthorized = true;
+                            currentRole = mem.role;
+                        }
+                    }
+                } else {
+                    // 3. Fallback a localStorage solo si no hay sesión (compatibilidad)
+                    const registrationStr = getLocalStorageItem("pact_registration");
+                    if (registrationStr) {
+                        try {
+                            const registration = JSON.parse(registrationStr);
+                            const allowedIds = registration?.allowedProjectIds || [];
+                            if (allowedIds.includes("ALL") || allowedIds.includes(id)) {
+                                isAuthorized = true;
+                            }
+                        } catch (e) {
+                            console.error("Error parsing registration", e);
+                        }
                     }
                 }
-            } else {
-                // Si el usuario presiona "Cancelar", abortamos el cambio de tab.
-                return;
+
+                if (!isAuthorized) {
+                    console.warn("Acceso no autorizado al proyecto:", id);
+                    window.location.href = "/proyectos";
+                    return;
+                }
+
+                if (currentRole === 'E') {
+                    setActiveTab('logs');
+                }
+                setRole(currentRole);
+
+                // Cargar datos del proyecto
+                const { data: project } = await supabase.from("projects").select("name, num_act").eq("id", id).single();
+                if (project) {
+                    setProjectName(project.name);
+                    setNumAct(project.num_act);
+                }
+            } catch (err) {
+                console.error("Error loading project:", err);
+                window.location.href = "/proyectos";
+            } finally {
+                setLoading(false);
             }
         }
 
-        setHasUnsavedChanges(false);
-        setActiveTab(tabId);
-    };
+        loadProject();
+    }, [id]);
 
-    const tabs = [
-        { id: "summary", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-        { id: "project", label: "1. Proyecto", icon: <FileText size={18} /> },
-        { id: "contractor", label: "2. Contratista", icon: <Building2 size={18} /> },
-        { id: "personnel", label: "3. Firmas ACT", icon: <User size={18} /> },
-        { id: "items", label: "4. Partidas", icon: <ListChecks size={18} /> },
-        { id: "cho", label: "5. CHO", icon: <FileEdit size={18} /> },
-        { id: "certs", label: "6. Pagos", icon: <FileCheck size={18} /> },
-        { id: "mfg", label: "7. Manufactura", icon: <Factory size={18} /> },
-        { id: "materials", label: "8. Materiales", icon: <PackageSearch size={18} /> },
-        { id: "compliance", label: "9. Cumplimiento", icon: <ShieldCheck size={18} /> },
-        { id: "liquidation", label: "10. Liquidación", icon: <FileCheck2 size={18} /> },
-        { id: "forceAccount", label: "11. Force Account", icon: <Calculator size={18} /> },
-        { id: "dailyLog", label: "12. Daily Log", icon: <FileEdit size={18} /> },
-        { id: "minutes", label: "13. Minutas de Reunión", icon: <Mic size={18} /> },
-    ];
+    if (!id) return <div className="p-20 text-center font-bold text-red-500 uppercase tracking-widest">Error: Proyecto no encontrado</div>;
+
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+            <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
+            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Cargando expediente...</p>
+        </div>
+    );
 
     return (
-        <div className="py-6 space-y-8 font-geist">
-            <div className="flex items-center gap-4">
-                <Link
-                    href="/proyectos"
-                    onClick={async (e) => {
-                        if (hasUnsavedChanges) {
-                            e.preventDefault();
-                            const confirmSave = window.confirm("Tienes cambios sin guardar. ¿Deseas guardarlos antes de salir?");
-                            if (confirmSave) {
-                                const currentRef = tabRefs[activeTab];
-                                if (currentRef?.current?.save) {
-                                    setAutoSaveStatus("saving");
-                                    await currentRef.current.save();
-                                    setAutoSaveStatus("saved");
-                                }
-                            }
-                            router.push("/proyectos");
-                        }
-                    }}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-full transition-colors text-slate-500"
-                >
-                    <ChevronLeft size={24} />
-                </Link>
-                <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-                        {projectName || "Cargando..."}
-                        {numAct && (
-                            <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-sm font-bold rounded border border-blue-100 dark:border-blue-800">
-                                ACT-{numAct}
-                            </span>
-                        )}
-                    </h1>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Detalle del Proyecto</p>
+        <div className="py-2 space-y-4 animate-in fade-in duration-500">
+            {/* Encabezado del proyecto y pestañas (Sticky) */}
+            <div className="sticky top-16 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 pt-2 pb-4 -mx-4 px-4 shadow-sm backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <Link href="/proyectos" className="p-2.5 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100 group bg-slate-100 dark:bg-slate-800">
+                            <ChevronLeft size={24} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
+                        </Link>
+                        <div>
+                            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase line-clamp-1">{projectName || "Nuevo Proyecto"}</h1>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">ACT: {numAct || "N/A"}</span>
+                                <span className="text-[10px] font-black bg-slate-100 text-slate-400 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">{role === 'A' ? 'Administrador' : 'Colaborador'}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Botón Eliminar Proyecto */}
-                <button
-                    onClick={handleDeleteProject}
-                    className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium transition-colors border border-red-200 dark:border-red-800/30"
-                    title="Eliminar Proyecto"
-                >
-                    <Trash2 size={16} />
-                    <span className="hidden sm:inline">Eliminar Proyecto</span>
-                </button>
-
-                {/* Indicador de autoguardado */}
-                <div className="flex items-center gap-2 text-xs font-bold transition-all duration-300">
-                    {autoSaveStatus === "saving" && (
-                        <span className="flex items-center gap-1.5 text-amber-500">
-                            <Loader2 size={14} className="animate-spin" />
-                            Guardando...
-                        </span>
-                    )}
-                    {autoSaveStatus === "saved" && (
-                        <span className="flex items-center gap-1.5 text-emerald-600">
-                            <CheckCircle2 size={14} />
-                            Guardado automáticamente
-                        </span>
-                    )}
-                    {autoSaveStatus === "idle" && hasUnsavedChanges && (
-                        <span className="flex items-center gap-1.5 text-slate-400">
-                            <Cloud size={14} />
-                            Sin guardar
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            {/* Tab Navigation */}
-            <div className="sticky top-20 z-30 bg-slate-50 dark:bg-[#020617] flex border-b border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar pb-1">
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => handleTabChange(tab.id)}
-                        className={`flex items-center gap-2 px-5 py-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === tab.id
-                            ? "border-primary text-primary"
-                            : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                {/* Pestañas pequeñas con flex-wrap para que no requieran scroll */}
+                <div className="flex flex-wrap gap-1.5">
+                    {tabs.filter(t => role !== 'E' || t.id === 'logs' || t.id === 'files').map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => handleTabChange(tab.id)}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl font-black text-[9px] uppercase tracking-[0.1em] transition-all whitespace-nowrap active:scale-95 ${
+                                activeTab === tab.id 
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 ring-1 ring-blue-600 ring-offset-1' 
+                                : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50/50'
                             }`}
-                    >
-                        {tab.icon}
-                        {tab.label}
-                    </button>
-                ))}
+                        >
+                            <span className={activeTab === tab.id ? 'text-white' : 'text-blue-400'}>{tab.icon}</span>
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
-            {/* Tab Content */}
-            <div className="">
-                <div className={activeTab === "summary" ? "block" : "hidden"}><SummaryDashboard projectId={id} numAct={numAct} /></div>
-                <div className={activeTab === "project" ? "block" : "hidden"}><ProjectForm ref={projectRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "contractor" ? "block" : "hidden"}><ContractorForm ref={contractorRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "personnel" ? "block" : "hidden"}><PersonnelForm ref={personnelRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "items" ? "block" : "hidden"}><ItemsForm ref={itemsRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "cho" ? "block" : "hidden"}><CHOForm ref={choRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "certs" ? "block" : "hidden"}><PaymentCertForm ref={certsRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "mfg" ? "block" : "hidden"}><MfgCertForm ref={mfgRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "materials" ? "block" : "hidden"}><MaterialsForm ref={materialsRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "compliance" ? "block" : "hidden"}><ComplianceForm ref={complianceRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "liquidation" ? "block" : "hidden"}><LiquidationForm ref={liquidationRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "forceAccount" ? "block" : "hidden"}><ForceAccountForm ref={forceAccountRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "dailyLog" ? "block" : "hidden"}><DailyLogForm ref={dailyLogRef} projectId={id} numAct={numAct} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
-                <div className={activeTab === "minutes" ? "block" : "hidden"}><MinutesForm ref={minutesRef} projectId={id} onDirty={() => setHasUnsavedChanges(true)} onSaved={() => setHasUnsavedChanges(false)} /></div>
+            <div className="bg-white rounded-[2.5rem] p-4 md:p-8 shadow-2xl shadow-blue-900/5 border border-white relative w-full">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+                <div className="relative z-10">
+                    <div className="mb-6 px-4 py-2 border-l-4 border-blue-500 bg-blue-50/50 rounded-r shadow-sm flex items-center gap-2">
+                        <Info size={16} className="text-blue-600 shrink-0" />
+                        <span className="text-xs font-semibold text-blue-800">{getReportNote(activeTab)}</span>
+                    </div>
+
+                    <Suspense fallback={<div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-blue-500" size={32} /><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preparando sección...</span></div>}>
+                        {activeTab === "dashboard"   && <SummaryDashboard projectId={id} />}
+                        {activeTab === "project"     && (
+                            <div className="space-y-8">
+                                <ProjectForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                                <ContractorForm projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                            </div>
+                        )}
+                        {activeTab === "personnel"   && <PersonnelForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "items"       && <ItemsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "materials"   && <MaterialsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "compliance"  && <ComplianceForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "cho"         && <CHOForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "payment"     && <PaymentCertForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "mfg"         && <MfgCertForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "minutes"     && <MinutesForm projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "logs"        && <DailyLogForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "inspection"  && <InspectionForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "force"       && <ForceAccountForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "liquidation" && <LiquidationForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "ccml"        && <CCMLModificationsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                        {activeTab === "files"       && <ProjectFilesExplorer projectId={id} />}
+                    </Suspense>
+                </div>
             </div>
         </div>
     );
@@ -310,7 +248,7 @@ function ProjectDetailContent() {
 
 export default function ProjectDetailPage() {
     return (
-        <Suspense fallback={<div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>}>
+        <Suspense fallback={<div className="p-20 text-center uppercase font-black text-[10px] tracking-widest">Iniciando PACT...</div>}>
             <ProjectDetailContent />
         </Suspense>
     );

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, FileSearch } from "lucide-react";
+import { formatCurrency, getLocalStorageItem } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
 import ProjectAgreementForm from "./ProjectAgreementForm";
+import mfgItemsData from "@/lib/mfgItems.json";
 
 export interface FormRef { save: () => Promise<void>; }
 
@@ -47,6 +48,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         project_manager_name: "",
     });
     const [mounted, setMounted] = useState(false);
+    const [todayDate, setTodayDate] = useState("");
     const [loading, setLoading] = useState(false);
     const [isCostFocused, setIsCostFocused] = useState(false);
     const [showFolderModal, setShowFolderModal] = useState(false);
@@ -132,18 +134,59 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     };
 
     const saveData = async (silent = false) => {
-        // Validar formato del número de proyecto (AC-XXXXXX)
-        const numActRegex = /^AC-[0-9]{6}$/;
+        // Validar formato del número de proyecto (AC-XXXXXX o AC-XXXXXXA)
+        const numActRegex = /^AC-[0-9]{6}[A-Z]?$/;
         if (!numActRegex.test(formData.num_act)) {
-            if (!silent) alert("El número de proyecto estatal debe tener el formato AC-XXXXXX (Exactamente 6 dígitos después del prefijo AC-).");
+            if (!silent) alert("El número de proyecto estatal debe tener el formato AC-XXXXXX (Exactamente 6 dígitos después del prefijo AC-, opcionalmente seguido de una letra).");
             setLoading(false);
             return;
         }
 
         setLoading(true);
         try {
+            let finalNumAct = formData.num_act;
+            
+            // Check for duplicates if it's a new project
+            if (!projectId && !silent) {
+                const baseNumAct = finalNumAct.substring(0, 9); // e.g. "AC-123456"
+                const { data: existing } = await supabase.from("projects").select("num_act").like("num_act", `${baseNumAct}%`);
+                
+                if (existing && existing.length > 0) {
+                    const exactMatch = existing.find(p => p.num_act === finalNumAct);
+                    if (exactMatch) {
+                        // Find highest letter used
+                        let maxCode = 64; // before 'A'
+                        if (existing.some(p => p.num_act === baseNumAct)) {
+                            maxCode = 65; // 'A' if base exists
+                        }
+                        
+                        existing.forEach(p => {
+                            if (p.num_act.length === 10) {
+                                const code = p.num_act.charCodeAt(9);
+                                if (code > maxCode) maxCode = code;
+                            }
+                        });
+                        
+                        // We will start offering at least 'B' (66)
+                        const nextCode = Math.max(maxCode + 1, 66);
+                        const nextLetter = String.fromCharCode(nextCode);
+                        const suggestedNumAct = baseNumAct + nextLetter;
+                        
+                        const confirmDouble = window.confirm(`El proyecto ${finalNumAct} ya existe. ¿Desea crearlo de todos modos agregándole la letra ${nextLetter} (${suggestedNumAct})?`);
+                        if (!confirmDouble) {
+                            setLoading(false);
+                            return;
+                        }
+                        
+                        finalNumAct = suggestedNumAct;
+                        setFormData(prev => ({ ...prev, num_act: finalNumAct }));
+                    }
+                }
+            }
+
             const dataToSave = {
                 ...formData,
+                num_act: finalNumAct,
                 municipios: formData.municipios ? formData.municipios.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
                 carreteras: formData.carreteras ? formData.carreteras.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
                 date_contract_sign: formData.date_contract_sign || null,
@@ -174,7 +217,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 }
 
                 // Asignar el creador al proyecto nuevo
-                const regStr = localStorage.getItem("pact_registration");
+        const regStr = getLocalStorageItem("pact_registration");
                 if (regStr) {
                     try {
                         const reg = JSON.parse(regStr);
@@ -241,7 +284,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         if (!projectId) return;
 
         // Verificar si el usuario actual es el creador o un administrador global
-        const regStr = localStorage.getItem("pact_registration");
+        const regStr = getLocalStorageItem("pact_registration");
         const currentUserEmail = regStr ? JSON.parse(regStr).email : null;
         
         let isGlobalAdmin = false;
@@ -295,7 +338,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     if (!mounted) return null;
 
     return (
-        <div suppressHydrationWarning className="max-w-5xl mx-auto space-y-6">
+        <div suppressHydrationWarning className="w-full px-4 flex flex-col space-y-6">
             {/* Modal de Selección de Carpeta */}
             {showFolderModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -362,7 +405,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 </div>
             )}
 
-            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold">1. Información del Proyecto</h2>
                 <div className="flex gap-3">
                     {/* Delete button was moved to the Project Name section */}
@@ -417,15 +460,84 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     onChange={(e) => {
                                         const file = e.target.files?.[0];
                                         if (file) handleFileUpload(file);
-                                        // Reset input so same file can be selected again if needed
                                         e.target.value = '';
                                     }}
                                 />
                             </label>
                         </div>
+
+                        {/* Banner AI */}
+                        {projectId && (
+                            <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-indigo-200 dark:shadow-none relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16 group-hover:bg-white/20 transition-all duration-500"></div>
+                                <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+                                    <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30">
+                                        <FileSearch size={32} className="text-white" />
+                                    </div>
+                                    <div className="flex-1 text-center md:text-left">
+                                        <h4 className="text-lg font-black uppercase tracking-tight">Asistente AI</h4>
+                                        <p className="text-indigo-100 text-sm font-medium mt-1">Extrae automáticamente datos del proyecto y partidas.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={async () => {
+                                            if (!projectId) return;
+                                            setLoading(true);
+                                            try {
+                                                const { data: dbDocs } = await supabase.from('project_documents').select('file_name').eq('project_id', projectId);
+                                                if (!dbDocs?.length) { alert("Sube documentos (Proposal, Contrato) antes."); setLoading(false); return; }
+                                                const win = window as any;
+                                                if (!win.electronAPI?.parsePdfBase64) { alert("Usa la versión EXE."); setLoading(false); return; }
+                                                const { data: files } = await supabase.storage.from("project-documents").list(projectId);
+                                                if (!files?.length) { alert("No hay PDFs."); setLoading(false); return; }
+                                                let count = 0, items = 0;
+                                                const updated = { ...formData };
+                                                const itemsToInsert: any[] = [];
+                                                const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
+                                                    const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
+                                                });
+                                                for (const f of files) {
+                                                    if (!f.name.toLowerCase().endsWith('.pdf')) continue;
+                                                    const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
+                                                    if (!blob) continue;
+                                                    const res = await win.electronAPI.parsePdfBase64(await blobToBase64(blob));
+                                                    if (res.success && res.text) {
+                                                        const txt = res.text.replace(/\s+/g, ' ');
+                                                        const act = txt.match(/AC-\d{6}[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[0].toUpperCase(); count++; }
+                                                        const fed = txt.match(/(?:Federal(?: Aid)?(?:\s+Project)?(?: No| Number)?)\s*[:=]?\s*(PR-\d{4}\(\d{3}\)|PR-[A-Z0-9]+)/i); if (fed && !updated.num_federal) { updated.num_federal = fed[1]; count++; }
+                                                        const cost = txt.match(/(?:Total\s*Cost|Contract\s*Amount|Monto|Total\s*a\s*Pagar|Contract\s*Price)\s*[:=\$]*\s*\$?\s*([\d,]+\.\d{2})/i); if (cost && !updated.cost_original) { const v = parseFloat(cost[1].replace(/,/g, '')); if (!isNaN(v)) { updated.cost_original = v; count++; } }
+                                                        const lines = res.text.split("\n");
+                                                        const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
+                                                        for (const l of lines) {
+                                                            const m = pat.exec(l);
+                                                            if (m) {
+                                                                const n = m[1].padStart(3, '0');
+                                                                if (!itemsToInsert.some(it => it.item_num === n)) {
+                                                                    itemsToInsert.push({ project_id: projectId, item_num: n, specification: m[2].trim(), description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[m[2].trim()] });
+                                                                    items++;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                if (itemsToInsert.length) await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
+                                                setFormData(updated);
+                                                alert(`Extracción Finalizada: ${count} campos y ${items} partidas.`);
+                                            } catch (e) { console.error(e); }
+                                            setLoading(false);
+                                        }}
+                                        className="px-6 py-2 bg-white text-indigo-600 rounded-lg font-bold text-xs uppercase hover:bg-white/90 active:scale-95 transition-all"
+                                    >
+                                        {loading ? "Procesando..." : "Analizar con IA"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {!projectId && (
                             <p className="text-[10px] text-amber-600 font-medium bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg border border-amber-100 dark:border-amber-900/50">
-                                * Guarde el proyecto por primera vez para habilitar la subida de documentos.
+                                * Guarde el proyecto para habilitar la subida de documentos y el asistente IA.
                             </p>
                         )}
                     </div>
@@ -434,14 +546,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         {DOC_TYPES.map(type => {
                             const doc = documents.find(d => d.doc_type === type);
                             return (
-                                <div 
-                                    key={type}
-                                    className={`px-3 py-2.5 rounded-xl border flex items-center gap-3 transition-all ${
-                                        doc 
-                                        ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" 
-                                        : "bg-slate-50 border-slate-100 dark:bg-slate-800/30 dark:border-slate-800 text-slate-400 opacity-60"
-                                    }`}
-                                >
+                                <div key={type} className={`px-3 py-2.5 rounded-xl border flex items-center gap-3 transition-all ${doc ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" : "bg-slate-50 border-slate-100 dark:bg-slate-800/30 dark:border-slate-800 text-slate-400 opacity-60"}`}>
                                     <div className={`p-1.5 rounded-lg ${doc ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-slate-100 dark:bg-slate-700/50"}`}>
                                         {doc ? <CheckCircle size={14} /> : <FileText size={14} />}
                                     </div>
@@ -470,13 +575,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         value={formData.num_act || ""}
                         onChange={(e) => {
                             let val = e.target.value.toUpperCase();
-                            // If user tries to delete the prefix or it's empty, we keep it as "AC-"
                             if (!val.startsWith("AC-")) {
-                                val = "AC-" + val.replace(/[^0-9]/g, "");
+                                val = "AC-" + val.replace(/[^0-9A-Z]/g, "");
                             } else {
-                                // Extract only digits after "AC-"
-                                const digits = val.substring(3).replace(/[^0-9]/g, "");
-                                val = "AC-" + digits.substring(0, 6);
+                                const digits = val.substring(3).replace(/[^0-9A-Z]/g, "");
+                                val = "AC-" + digits.substring(0, 7);
                             }
                             setFormData({ ...formData, num_act: val });
                             if (onDirty) onDirty();
@@ -560,16 +663,24 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     <label className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Costo Original ($)</label>
                     <div className="relative">
                         <input
-                            type={isCostFocused ? "number" : "text"}
-                            step="0.01"
+                            type={isCostFocused ? "text" : "text"}
                             className="input-field border-emerald-100 focus:ring-emerald-500 font-bold"
                             style={{ backgroundColor: '#66FF99' }}
                             value={isCostFocused
-                                ? (isNaN(formData.cost_original) ? "" : (formData.cost_original ?? ""))
+                                ? (formData.cost_original === 0 ? "" : formData.cost_original.toString())
                                 : formatCurrency(formData.cost_original)}
-                            onFocus={() => setIsCostFocused(true)}
-                            onBlur={() => setIsCostFocused(false)}
+                            onFocus={(e) => {
+                                setIsCostFocused(true);
+                                // Si el valor es 0, el value será "" por la condición de arriba
+                            }}
+                            onBlur={(e) => {
+                                setIsCostFocused(false);
+                                const val = parseFloat(e.target.value);
+                                handleChange('cost_original', isNaN(val) ? 0 : val);
+                            }}
                             onChange={(e) => {
+                                // Mantenemos el valor como número en el estado para consistencia, 
+                                // pero la visualización controlada arriba se encarga del "" si es 0
                                 const val = parseFloat(e.target.value);
                                 handleChange('cost_original', isNaN(val) ? 0 : val);
                             }}
@@ -597,15 +708,18 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Daños Líquidos Diarios ($)</label>
                     <input
-                        type={isDlqFocused ? "number" : "text"}
-                        step="0.01"
+                        type={isDlqFocused ? "text" : "text"}
                         className="input-field border-red-100 focus:ring-red-500 font-bold"
                         style={{ backgroundColor: '#66FF99' }}
                         value={isDlqFocused
-                            ? (isNaN(formData.liquidated_damages_amount) ? "" : (formData.liquidated_damages_amount ?? ""))
+                            ? (formData.liquidated_damages_amount === 0 ? "" : formData.liquidated_damages_amount.toString())
                             : formatCurrency(formData.liquidated_damages_amount)}
                         onFocus={() => setIsDlqFocused(true)}
-                        onBlur={() => setIsDlqFocused(false)}
+                        onBlur={(e) => {
+                            setIsDlqFocused(false);
+                            const val = parseFloat(e.target.value);
+                            handleChange('liquidated_damages_amount', isNaN(val) ? 0 : val);
+                        }}
                         onChange={(e) => {
                             const val = parseFloat(e.target.value);
                             handleChange('liquidated_damages_amount', isNaN(val) ? 0 : val);
@@ -725,8 +839,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 <div className="space-y-1 md:col-span-2 lg:col-span-3">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Alcance Proy. (SCOPE)</label>
                     <textarea
-                        rows={3}
-                        maxLength={500}
+                        rows={6}
+                        maxLength={50000}
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.scope || ""}
@@ -737,50 +851,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     ></textarea>
                 </div>
 
-                {/* Personal del Proyecto */}
-                <div className="md:col-span-2 lg:col-span-3 mt-2">
-                    <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4">Personal del Proyecto</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Administrador del Proyecto</label>
-                            <input
-                                type="text"
-                                maxLength={100}
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                placeholder="Nombre completo"
-                                value={(formData as any).admin_name || ""}
-                                onChange={(e) => handleChange('admin_name', e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contratista</label>
-                            <input
-                                type="text"
-                                maxLength={100}
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                placeholder="Nombre / Empresa"
-                                value={(formData as any).contractor_name || ""}
-                                onChange={(e) => handleChange('contractor_name', e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Liquidador</label>
-                            <input
-                                type="text"
-                                maxLength={100}
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                placeholder="Nombre completo"
-                                value={(formData as any).liquidador_name || ""}
-                                onChange={(e) => handleChange('liquidador_name', e.target.value)}
-                            />
-                        </div>
-                    </div>
-                </div>
 
-                {/* Seccion  de Fechas */}
                 <div className="md:col-span-2 lg:col-span-3 mt-4">
                     <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4">Fechas Relevantes</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -789,7 +860,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             <input
                                 type="date"
                                 className="input-field bg-slate-50 dark:bg-slate-800 text-slate-500 cursor-not-allowed"
-                                value={new Date().toISOString().split("T")[0]}
+                                value={todayDate}
                                 disabled
                             />
                         </div>

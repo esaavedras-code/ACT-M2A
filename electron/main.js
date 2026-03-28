@@ -36,6 +36,30 @@ function createWindow() {
         },
     });
 
+    win.webContents.on('context-menu', (event, params) => {
+        const { Menu, MenuItem } = require('electron');
+        const menu = new Menu();
+
+        if (params.isEditable) {
+            menu.append(new MenuItem({ label: 'Deshacer', role: 'undo' }));
+            menu.append(new MenuItem({ label: 'Rehacer', role: 'redo' }));
+            menu.append(new MenuItem({ type: 'separator' }));
+            menu.append(new MenuItem({ label: 'Cortar', role: 'cut' }));
+            menu.append(new MenuItem({ label: 'Copiar', role: 'copy' }));
+            menu.append(new MenuItem({ label: 'Pegar', role: 'paste' }));
+            menu.append(new MenuItem({ type: 'separator' }));
+            menu.append(new MenuItem({ label: 'Seleccionar todo', role: 'selectAll' }));
+        } else if (params.selectionText && params.selectionText.trim() !== '') {
+            menu.append(new MenuItem({ label: 'Copiar', role: 'copy' }));
+            menu.append(new MenuItem({ type: 'separator' }));
+            menu.append(new MenuItem({ label: 'Seleccionar todo', role: 'selectAll' }));
+        }
+
+        if (menu.items.length > 0) {
+            menu.popup({ window: win, x: params.x, y: params.y });
+        }
+    });
+
     ipcMain.handle('save-project-file', async (event, { filePath, content }) => {
         try {
             const dir = path.dirname(filePath);
@@ -46,6 +70,21 @@ function createWindow() {
             return { success: true };
         } catch (error) {
             log(`Error saving project file: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('save-file-binary', async (event, { filePath, base64Data }) => {
+        try {
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            const buffer = Buffer.from(base64Data, 'base64');
+            fs.writeFileSync(filePath, buffer);
+            return { success: true };
+        } catch (error) {
+            log(`Error saving binary file: ${error.message}`);
             return { success: false, error: error.message };
         }
     });
@@ -115,6 +154,16 @@ function createWindow() {
         }
     });
 
+    ipcMain.handle('read-file-binary', async (event, filePath) => {
+        try {
+            const content = fs.readFileSync(filePath);
+            return { success: true, data: content.toString('base64') };
+        } catch (error) {
+            log(`Error reading binary file: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('parse-pdf', async (event, filePath) => {
         try {
             const PDFParser = require("pdf2json");
@@ -133,6 +182,32 @@ function createWindow() {
             });
         } catch (error) {
             log(`Error parsing PDF: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('parse-pdf-base64', async (event, base64Data) => {
+        try {
+            const PDFParser = require("pdf2json");
+            const pdfParser = new PDFParser(null, 1);
+            
+            // Extraer el base64 limpio apartando el MIME si existe
+            const base64Clean = base64Data.includes('base64,') ? base64Data.split('base64,')[1] : base64Data;
+            const pdfBuffer = Buffer.from(base64Clean, 'base64');
+
+            return new Promise((resolve, reject) => {
+                pdfParser.on("pdfParser_dataError", errData => {
+                    log(`PDF Parser Base64 Error: ${errData.parserError}`);
+                    reject(errData.parserError);
+                });
+                pdfParser.on("pdfParser_dataReady", pdfData => {
+                    const text = pdfParser.getRawTextContent();
+                    resolve({ success: true, text });
+                });
+                pdfParser.parseBuffer(pdfBuffer);
+            });
+        } catch (error) {
+            log(`Error parsing PDF Base64: ${error.message}`);
             return { success: false, error: error.message };
         }
     });

@@ -1,0 +1,1436 @@
+[
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Ver: 11.29.2021"
+  ],
+  [
+    "Construction Contract Modification Log"
+  ],
+  [],
+  [
+    "General Information:",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Legend:",
+    null,
+    null,
+    "Contract Time Information:"
+  ],
+  [],
+  [
+    "Project Number:",
+    null,
+    null,
+    "AC-017630",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "White cells, project administrator will provide project information (input cells).",
+    null,
+    null,
+    "Contract Beginning Date:",
+    null,
+    null,
+    null,
+    44348
+  ],
+  [
+    "Federal Number:",
+    null,
+    null,
+    "ZP-176(3)",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Original Contract Time:",
+    null,
+    null,
+    null,
+    420
+  ],
+  [
+    "Oracle Number:",
+    null,
+    null,
+    "F000176030",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Color cells, the excel file will make calculations (formula cells).",
+    null,
+    null,
+    "Original Termination Date:"
+  ],
+  [
+    "Project Tittle:",
+    null,
+    null,
+    "Highway Safety Improvements Highway PR-176, km 0.00 to 4.00 San Juan, PR",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Total Time Extensions (Days):"
+  ],
+  [
+    "Contractor : ",
+    null,
+    null,
+    "Puerto Rico Asphalt, LLC",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Gray cells & Blue Font Color, attention is required (see comment in the cells).",
+    null,
+    null,
+    "Revised Termination Date:"
+  ],
+  [
+    "Project Manager:",
+    null,
+    null,
+    "Ing. Luis R. Pastor Reyes",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Change in Contract Time (%):"
+  ],
+  [
+    "Date:",
+    null,
+    null,
+    45428,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Red Cells, possible action by PRHTA (red flag).",
+    null,
+    null,
+    "Time Completed to Date (%):"
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Red Font Color are for negative numbers or quantities.",
+    null,
+    null,
+    "Change in Contract Amount (%):"
+  ],
+  [
+    "Has the project reached substantial completion?",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Y/N?",
+    "NO",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "% Work Performed to Date:",
+    null,
+    null,
+    null,
+    0.4
+  ],
+  [
+    "No. of CHO documents:",
+    null,
+    null,
+    4,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Estimated Completion Date:",
+    null,
+    null,
+    null,
+    44767
+  ],
+  [
+    "No. of EWO documents:",
+    null,
+    null,
+    6,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Administrative Date of Comptroller Office  (Contralor):",
+    null,
+    null,
+    null,
+    45542
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Project End Date (FMIS):",
+    null,
+    null,
+    null,
+    45145
+  ],
+  [],
+  [],
+  [
+    "Project Description:",
+    null,
+    null,
+    "This project is located on Highway PR-176 from kilometer 0.00 to 4.00 for total length of 4 km. The Pavement Rehabiltation and Safety Improvement Project for PR-176, commences at its intersection with PR-1 and continue along the exixting highway up to the intersection with PR-199 in the municipality of San Juan. The proposed works consist of the improvements to the exixting roadside safety elements at highway PR-176. The works to be performed also include: maintenance and protection of traffic, cold milling and placement of bituminous pavement, the aplication thermoplastic pavement marking, installation of traffic signs, removal, storage and delivered of exixting guard rail, furnishing and installation of Wbeam guard rail single face and double face, contruction of new transition  modules traffic signals and other miscellaneous works as shown on plans."
+  ],
+  [],
+  [],
+  [],
+  [],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "NOTES:"
+  ],
+  [
+    "Is this project eligible for toll credits?",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Y/N?",
+    "YES",
+    null,
+    "1- Examples of projects that are not eligible for toll credits (answer to the question is NO): ER Projects and Old Projects without Toll Credits."
+  ],
+  [
+    "Does the project have pay items with ER funds?",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Y/N?",
+    "NO"
+  ],
+  [],
+  [
+    "Original Project Funds Information"
+  ],
+  [
+    "Units",
+    "Federal Share                         %",
+    null,
+    "INPUT PROJECT AGREEMENT",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "FEDERAL FUNDS",
+    null,
+    null,
+    null,
+    "STATE FUNDS"
+  ],
+  [
+    null,
+    null,
+    null,
+    "Participating ",
+    null,
+    "Contingencies (Participating)",
+    null,
+    "Payroll, Mileage and Diets",
+    null,
+    "F.A. Funds Requested",
+    "Contingencies (Federal Funds)",
+    "Calculation of Toll Credits ",
+    "Contingencies (Toll Credits)",
+    "State Share of Federal Funds",
+    "Contingencies (State Share)",
+    "Not Participating (State Funds)",
+    "Contingencies \n(Not Participating)",
+    null,
+    "Payroll, Mileage and Diets"
+  ],
+  [],
+  [
+    "Unit 1",
+    null,
+    null,
+    1937696,
+    null,
+    193769.6,
+    null,
+    null,
+    null,
+    1710501.14,
+    null,
+    null,
+    null,
+    null,
+    null,
+    58670,
+    5867
+  ],
+  [
+    "Unit 2",
+    null,
+    null,
+    44161,
+    null,
+    4416.1,
+    null,
+    null,
+    null,
+    48577.1,
+    null,
+    null,
+    null,
+    null,
+    null,
+    0,
+    0
+  ],
+  [
+    "Unit 3",
+    null,
+    null,
+    218354,
+    null,
+    21835.4,
+    null,
+    null,
+    null,
+    240189.4,
+    null,
+    null,
+    null,
+    null,
+    null,
+    0,
+    0
+  ],
+  [
+    "Unit 4",
+    null,
+    null,
+    858618,
+    null,
+    85861.8,
+    null,
+    null,
+    null,
+    757945.03,
+    null,
+    null,
+    null,
+    null,
+    null,
+    20000,
+    2000
+  ],
+  [
+    "Unit 5"
+  ],
+  [
+    "Unit 6"
+  ],
+  [
+    "Unit 7"
+  ],
+  [
+    "Unit 8"
+  ],
+  [
+    "Unit 9"
+  ],
+  [
+    "Unit 10"
+  ],
+  [
+    "Unit 11"
+  ],
+  [
+    "Unit 12"
+  ],
+  [
+    "Unit 13"
+  ],
+  [
+    "Unit 14"
+  ],
+  [
+    "Unit 15"
+  ],
+  [
+    "Unit 16"
+  ],
+  [
+    "Unit 17"
+  ],
+  [
+    "Unit 18"
+  ],
+  [
+    "Unit 19"
+  ],
+  [
+    "Unit 20"
+  ],
+  [
+    "Unit 21"
+  ],
+  [
+    "Unit 22"
+  ],
+  [
+    "Unit 23"
+  ],
+  [
+    "Unit 24"
+  ],
+  [
+    "Unit 25"
+  ],
+  [
+    "Sub Totals"
+  ],
+  [
+    "Totals"
+  ],
+  [
+    "Eng. Contract Estimate:",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "This is the original cost of the project (bid process)."
+  ],
+  [
+    "Total Construction Cost:",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "This is the total budget for the project. Includes federal and state funds, contingencies, and payroll or expenses when applicable."
+  ],
+  [
+    "NOTE:"
+  ],
+  [
+    "1- IF THE FEDERAL SHARE % COLUMN HAS VALUES DIFFERENT THAN 80.25%, 90% AND 100%, VERIFY THE INFORMATION INCLUDED IN THE TABLE BEFORE CONTINUING WITH THE PROCESS."
+  ],
+  [],
+  [
+    "Project Modification Documents"
+  ],
+  [
+    "Document #",
+    null,
+    "Proposed Amount",
+    null,
+    null,
+    "Federal Share (%)",
+    "Federal Share Amount",
+    null,
+    null,
+    "Toll Credits Amount",
+    "Non Participating Amount                          (State Funds)",
+    "State Share of                           Federal Funds",
+    "Time Extension  (Days)",
+    "Federal Share for Project Modification Letter",
+    "Toll Credits for Project Modification Letter",
+    "Comments"
+  ],
+  [
+    "CHO",
+    "EWO",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Fed Share",
+    "Cumm Invertido",
+    "Add Funds - Cumm",
+    "Determine Funds",
+    null,
+    "Toll Credits",
+    "Cumm Invertido",
+    "Add Funds - Cumm",
+    "Determine Funds"
+  ],
+  [
+    null,
+    1,
+    6000,
+    null,
+    null,
+    0
+  ],
+  [
+    1,
+    null,
+    -73400,
+    null,
+    null,
+    0.8025
+  ],
+  [
+    1,
+    null,
+    108000,
+    null,
+    null,
+    0.8025
+  ],
+  [
+    null,
+    2,
+    450000,
+    null,
+    null,
+    0
+  ],
+  [
+    null,
+    3,
+    24044,
+    null,
+    null,
+    0.8025,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    25
+  ],
+  [
+    null,
+    3,
+    9248,
+    null,
+    null,
+    0
+  ],
+  [
+    2,
+    null,
+    366510,
+    null,
+    null,
+    0.8025,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    20
+  ],
+  [
+    3,
+    null,
+    48200,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    154
+  ],
+  [
+    null,
+    4,
+    1479970
+  ],
+  [
+    null,
+    5,
+    48473
+  ],
+  [
+    null,
+    6,
+    618332
+  ],
+  [
+    4,
+    null,
+    185100
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    0,
+    0,
+    null,
+    null,
+    null,
+    0,
+    0
+  ],
+  [],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Federal Share",
+    null,
+    null,
+    "Toll Credits",
+    "State Funds",
+    null,
+    "Time Extension",
+    "Federal Share for Project Modification Letter",
+    "Toll Credits for Project Modification Letter"
+  ],
+  [],
+  [],
+  [
+    "Modification Total Amount:",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Comparison of Modifications with Project Contingencies:",
+    null,
+    null,
+    null,
+    "Federal",
+    null,
+    null,
+    "Toll Credits",
+    null,
+    "State",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Federal",
+    "Toll Credits",
+    "State"
+  ],
+  [],
+  [
+    "Revised Contract Amount (all Funds):",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Does Contract Modification Exceed Contingencies?",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Federal Funds Needed:"
+  ],
+  [
+    "Amount of Federal Funds Needed (FMIS):",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "NOTE: PRHTA FEDERAL LIAISON OFFICE AND BUDGET OFFICE WILL VERIFY THE VALUES IN THE CELLS OF FEDERAL, TOLL CREDITS \nAND STATE FUNDS TO IDENTIFY THE NEED FOR ADDITIONAL FUNDS IN THE PROJECT."
+  ],
+  [
+    "Amount of State Funds Needed (FMIS):"
+  ],
+  [],
+  [
+    "AS INDICATED IN THE PROJECT MODIFICATION REQUEST LETTERS (THE LETTERS ARE DEVELOPED BY THE PRHTA FEDERAL LIAISON OFFICE AND EVALUATED/APPROVED BY THE FHWA PR/USVI DIVISION. \nFUNDS INFORMATION IN THE LETTERS WILL BE ACCESSED THROUGH A FOLDER IN A CLOUD PLATFORM):"
+  ],
+  [
+    "Obligations Amount (excludes Payroll, Mileage and Diets)",
+    null,
+    null,
+    null,
+    "Total Cost",
+    null,
+    null,
+    null,
+    "Federal Funds",
+    null,
+    "Federal Share",
+    null,
+    null,
+    "Toll Credits",
+    null,
+    "State Funds"
+  ],
+  [],
+  [
+    "Original Project Funds"
+  ],
+  [
+    "Modification #1",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    0,
+    null,
+    null,
+    0,
+    null,
+    448133
+  ],
+  [
+    "Modification #2"
+  ],
+  [
+    "Modification #3"
+  ],
+  [
+    "Modification #4"
+  ],
+  [
+    "Modification #5"
+  ],
+  [
+    "Modification #6"
+  ],
+  [
+    "Modification #7"
+  ],
+  [
+    "Modification #8"
+  ],
+  [
+    "Modification #9"
+  ],
+  [
+    "Modification #10"
+  ],
+  [
+    "Modification #11"
+  ],
+  [
+    "Modification #12"
+  ],
+  [
+    "Modification #13"
+  ],
+  [
+    "Modification #14"
+  ],
+  [
+    "Modification #15"
+  ],
+  [
+    "Modification #16"
+  ],
+  [
+    "Modification #17"
+  ],
+  [
+    "Modification #18"
+  ],
+  [
+    "Modification #19"
+  ],
+  [
+    "Modification #20"
+  ],
+  [
+    "Modification #21"
+  ],
+  [
+    "Modification #22"
+  ],
+  [
+    "Modification #23"
+  ],
+  [
+    "Modification #24"
+  ],
+  [
+    "Modification #25"
+  ],
+  [
+    "Modification #26"
+  ],
+  [
+    "Modification #27"
+  ],
+  [
+    "Modification #28"
+  ],
+  [
+    "Modification #29"
+  ],
+  [
+    "Modification #30"
+  ],
+  [
+    "Modification #31"
+  ],
+  [
+    "Modification #32"
+  ],
+  [
+    "Modification #33"
+  ],
+  [
+    "Modification #34"
+  ],
+  [
+    "Modification #35"
+  ],
+  [
+    "Modification #36"
+  ],
+  [
+    "Modification #37"
+  ],
+  [
+    "Modification #38"
+  ],
+  [
+    "Modification #39"
+  ],
+  [
+    "Modification #40"
+  ],
+  [
+    "Modification #41"
+  ],
+  [
+    "Modification #42"
+  ],
+  [
+    "Modification #43"
+  ],
+  [
+    "Modification #44"
+  ],
+  [
+    "Modification #45"
+  ],
+  [
+    "Modification #46"
+  ],
+  [
+    "Modification #47"
+  ],
+  [
+    "Modification #48"
+  ],
+  [
+    "Modification #49"
+  ],
+  [
+    "Modification #50"
+  ],
+  [
+    "Modification #51"
+  ],
+  [
+    "Modification #52"
+  ],
+  [
+    "Modification #53"
+  ],
+  [
+    "Modification #54"
+  ],
+  [
+    "Modification #55"
+  ],
+  [
+    "Modification #56"
+  ],
+  [
+    "Modification #57"
+  ],
+  [
+    "Modification #58"
+  ],
+  [
+    "Modification #59"
+  ],
+  [
+    "Modification #60"
+  ],
+  [
+    "Modification #61"
+  ],
+  [
+    "Modification #62"
+  ],
+  [
+    "Modification #63"
+  ],
+  [
+    "Modification #64"
+  ],
+  [
+    "Modification #65"
+  ],
+  [
+    "Modification #66"
+  ],
+  [
+    "Modification #67"
+  ],
+  [
+    "Modification #68"
+  ],
+  [
+    "Modification #69"
+  ],
+  [
+    "Modification #70"
+  ],
+  [
+    "Modification #71"
+  ],
+  [
+    "Modification #72"
+  ],
+  [
+    "Modification #73"
+  ],
+  [
+    "Modification #74"
+  ],
+  [
+    "Modification #75"
+  ],
+  [
+    "Modification #76"
+  ],
+  [
+    "Modification #77"
+  ],
+  [
+    "Modification #78"
+  ],
+  [
+    "Modification #79"
+  ],
+  [
+    "Modification #80"
+  ],
+  [
+    "Modification #81"
+  ],
+  [
+    "Modification #82"
+  ],
+  [
+    "Modification #83"
+  ],
+  [
+    "Modification #84"
+  ],
+  [
+    "Modification #85"
+  ],
+  [
+    "Modification #86"
+  ],
+  [
+    "Modification #87"
+  ],
+  [
+    "Modification #88"
+  ],
+  [
+    "Modification #89"
+  ],
+  [
+    "Modification #90"
+  ],
+  [
+    "Modification #91"
+  ],
+  [
+    "Modification #92"
+  ],
+  [
+    "Modification #93"
+  ],
+  [
+    "Modification #94"
+  ],
+  [
+    "Modification #95"
+  ],
+  [
+    "Modification #96"
+  ],
+  [
+    "Modification #97"
+  ],
+  [
+    "Modification #98"
+  ],
+  [
+    "Modification #99"
+  ],
+  [
+    "Modification #100"
+  ],
+  [
+    "Modification #101"
+  ],
+  [
+    "Modification #102"
+  ],
+  [
+    "Modification #103"
+  ],
+  [
+    "Modification #104"
+  ],
+  [
+    "Modification #105"
+  ],
+  [
+    "Modification #106"
+  ],
+  [
+    "Modification #107"
+  ],
+  [
+    "Modification #108"
+  ],
+  [
+    "Modification #109"
+  ],
+  [
+    "Modification #110"
+  ],
+  [
+    "Modification #111"
+  ],
+  [
+    "Modification #112"
+  ],
+  [
+    "Modification #113"
+  ],
+  [
+    "Modification #114"
+  ],
+  [
+    "Modification #115"
+  ],
+  [
+    "Modification #116"
+  ],
+  [
+    "Modification #117"
+  ],
+  [
+    "Modification #118"
+  ],
+  [
+    "Modification #119"
+  ],
+  [
+    "Modification #120"
+  ],
+  [
+    "Modification #121"
+  ],
+  [
+    "Modification #122"
+  ],
+  [
+    "Modification #123"
+  ],
+  [
+    "Modification #124"
+  ],
+  [
+    "Modification #125"
+  ],
+  [
+    "Modification #126"
+  ],
+  [
+    "Modification #127"
+  ],
+  [
+    "Modification #128"
+  ],
+  [
+    "Modification #129"
+  ],
+  [
+    "Modification #130"
+  ],
+  [
+    "Modification #131"
+  ],
+  [
+    "Modification #132"
+  ],
+  [
+    "Modification #133"
+  ],
+  [
+    "Modification #134"
+  ],
+  [
+    "Modification #135"
+  ],
+  [
+    "Modification #136"
+  ],
+  [
+    "Modification #137"
+  ],
+  [
+    "Modification #138"
+  ],
+  [
+    "Modification #139"
+  ],
+  [
+    "Modification #140"
+  ],
+  [
+    "Modification #141"
+  ],
+  [
+    "Modification #142"
+  ],
+  [
+    "Modification #143"
+  ],
+  [
+    "Modification #144"
+  ],
+  [
+    "Modification #145"
+  ],
+  [
+    "Modification #146"
+  ],
+  [
+    "Modification #147"
+  ],
+  [
+    "Modification #148"
+  ],
+  [
+    "Modification #149"
+  ],
+  [
+    "Modification #150"
+  ],
+  [
+    "Revised Amount"
+  ],
+  [],
+  []
+]

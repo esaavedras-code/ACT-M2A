@@ -34,9 +34,14 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
     useEffect(() => {
         setMounted(true);
         if (projectId) {
-            fetchItems();
-            fetchCerts();
-            fetchContractor();
+            const loadData = async () => {
+                await fetchContractor();
+                const cItems = await fetchItems();
+                if (cItems) {
+                    await fetchCerts(cItems);
+                }
+            };
+            loadData();
         }
     }, [projectId]);
 
@@ -47,32 +52,45 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
 
     const fetchItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
-        if (data) setContractItems(data);
+        if (data) {
+            setContractItems(data);
+            return data;
+        }
+        return null;
     };
 
-    const fetchCerts = async () => {
-        const { data, error } = await supabase.from("manufacturing_certificates").select("*").eq("project_id", projectId).order('created_at', { ascending: true });
+    const fetchCerts = async (cItems: any[]) => {
+        const { data, error } = await supabase.from("manufacturing_certificates").select("*").eq("project_id", projectId);
         if (error) {
             console.error("Error fetching mfg certs:", error.message);
             return;
         }
         if (data && data.length > 0) {
-            // Reconstruir el objeto de validación desde las columnas de la DB
-            const mapped = data.map(c => ({
-                ...c,
-                validation: {
-                    isSteel: c.is_steel,
-                    hasBuyAmerica: c.has_buy_america,
-                    hasRecords: c.has_records,
-                    hasFurnished: c.has_furnished,
-                    hasProject: true, // Si se guardó, asumimos que se validó el proyecto
-                    hasManufacturer: !!c.manufacturer_name,
-                    hasSpecificationMatch: c.validation_status === 'CUMPLE',
-                    isValid: c.validation_status === 'CUMPLE',
-                    hasFurnishedMatch: true, // Simplificación para carga
-                    hasItem: true
-                }
-            }));
+            const mapped = data.map(c => {
+                const matchItem = cItems.find((it: any) => it.id === c.item_id);
+                return {
+                    ...c,
+                    item_num: matchItem ? matchItem.item_num : null,
+                    validation: {
+                        isSteel: c.is_steel,
+                        hasBuyAmerica: c.has_buy_america,
+                        hasRecords: c.has_records,
+                        hasFurnished: c.has_furnished,
+                        hasProject: true,
+                        hasManufacturer: !!c.manufacturer_name,
+                        hasSpecificationMatch: c.validation_status === 'CUMPLE',
+                        isValid: c.validation_status === 'CUMPLE',
+                        hasFurnishedMatch: true,
+                        hasItem: true
+                    }
+                };
+            });
+            // Ordenar por item_num ascendente
+            mapped.sort((a, b) => {
+                if (!a.item_num) return 1;
+                if (!b.item_num) return -1;
+                return a.item_num.toString().localeCompare(b.item_num.toString(), undefined, { numeric: true });
+            });
             setCerts(mapped);
         } else {
             addCert();
@@ -97,31 +115,61 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         if (onDirty) onDirty();
     };
 
-    const removeCert = (idx: number) => {
-        setCerts(certs.filter((_, i) => i !== idx));
+    const removeCert = async (idx: number) => {
+        const cert = certs[idx];
+        
+        // Si ya tiene ID, es que está registrado en la base de datos
+        if (cert.id) {
+            const proceed = window.confirm("¿Estás seguro de que deseas eliminar este certificado permanentemente de la base de datos? Esta acción no se puede deshacer.");
+            if (!proceed) return;
+            
+            setLoading(true);
+            const { error } = await supabase.from("manufacturing_certificates").delete().eq("id", cert.id);
+            setLoading(false);
+            
+            if (error) {
+                alert("Error al eliminar el certificado: " + error.message);
+                return;
+            }
+        }
+        
+        const newList = certs.filter((_, i) => i !== idx);
+        setCerts(newList);
+        
+        if (newList.length === 0) {
+            addCert();
+        }
+        
         if (onDirty) onDirty();
     };
 
     const extractData = (text: string) => {
         // Expresiones regulares mejoradas para detectar Partida, Cantidad y Fecha
         const cleanText = text.replace(/\s+/g, ' ');
-        const itemMatch = text.match(/(?:Partida|Item|Renglón|Material|Code)\s*(?:#|No\.?|:)?\s*([A-Za-z0-9-]+)/i);
-        const qtyMatch = text.match(/(?:Cantidad|Cant\.?|Quantity|Qty|Total|Volumen)\s*(?::|=)?\s*([\d,.]+)/i);
-        const dateMatch = text.match(/(?:Fecha|Date|Emisión|Issue)\s*(?::|=)?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\d{4}-\d{2}-\d{2})/i);
+        const itemRegex = /(?:Partida|Item|Renglón|Material|Code)\s*(?:#|No\.?|:)?\s*([A-Za-z0-9-]+)/gi;
+        const itemMatches = [...text.matchAll(itemRegex)];
+        let itemIds: string[] = [];
 
-        let itemId = "";
-        let quantity = 0;
-        let certDate = new Date().toISOString().split('T')[0];
-
-        if (itemMatch) {
-            const itemNumRaw = itemMatch[1].trim();
+        itemMatches.forEach(m => {
+            const itemNumRaw = m[1].trim();
             const match = contractItems.find(it =>
                 it.item_num === itemNumRaw ||
                 it.item_num === itemNumRaw.padStart(3, '0') ||
                 (it.specification && it.specification.includes(itemNumRaw))
             );
-            if (match) itemId = match.id;
-        }
+            if (match && !itemIds.includes(match.id)) {
+                itemIds.push(match.id);
+            }
+        });
+
+        let itemId = itemIds.length > 0 ? itemIds[0] : "";
+        let isMultiple = itemIds.length > 1;
+
+        const qtyMatch = text.match(/(?:Cantidad|Cant\.?|Quantity|Qty|Total|Volumen)\s*(?::|=)?\s*([\d,.]+)/i);
+        const dateMatch = text.match(/(?:Fecha|Date|Emisión|Issue)\s*(?::|=)?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\d{4}-\d{2}-\d{2})/i);
+
+        let quantity = 0;
+        let certDate = new Date().toISOString().split('T')[0];
 
         if (qtyMatch) {
             quantity = parseFloat(qtyMatch[1].replace(/,/g, ''));
@@ -170,11 +218,20 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         // Nueva lógica para verificar que la especificación extraída coincida con los 3 primeros dígitos de la partida
         let hasSpecificationMatch = false;
         const materialSpec = descMatch ? descMatch[1].trim() : "";
-        if (itemId && materialSpec) {
+        
+        // Buscar la línea "conforms to" y números de 3 dígitos
+        const conformsToLines = text.split(/\r?\n/).filter(line => /conforms\s*to/i.test(line));
+        const all3DigitNumbers: string[] = [];
+        conformsToLines.forEach(line => {
+            const matches = line.match(/\b\d{3}\b/g);
+            if (matches) all3DigitNumbers.push(...matches);
+        });
+
+        if (itemId && all3DigitNumbers.length > 0) {
             const itemMatch = contractItems.find(it => it.id === itemId);
             if (itemMatch && itemMatch.specification) {
                 const itemSpecPrefix = itemMatch.specification.substring(0, 3);
-                if (materialSpec.includes(itemSpecPrefix)) {
+                if (all3DigitNumbers.includes(itemSpecPrefix)) {
                     hasSpecificationMatch = true;
                 }
             }
@@ -208,7 +265,9 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             cert_date: certDate,
             validation,
             manufacturer_name: manufacturerName,
-            material_description: materialDescription
+            material_description: materialDescription,
+            is_multiple: isMultiple,
+            item_ids: itemIds
         };
     };
 
@@ -270,8 +329,21 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
 
             const updates = [];
             const inserts = [];
-            for (const c of validCerts) {
-                const { id, created_at, validation, ...rest } = c;
+            
+            // Expand multiples
+            const expandedCerts = [];
+            for (const c of certs) {
+                if (c.is_multiple && c.item_ids && c.item_ids.length > 0) {
+                    for (const iId of c.item_ids) {
+                        expandedCerts.push({ ...c, item_id: iId, item_ids: undefined, is_multiple: false });
+                    }
+                } else if (c.item_id) {
+                    expandedCerts.push(c);
+                }
+            }
+
+            for (const c of expandedCerts) {
+                const { id, created_at, validation, file_name, _unit, item_num, specification, item_ids, is_multiple, ...rest } = c;
                 const payload = {
                     ...rest,
                     project_id: projectId,
@@ -307,7 +379,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                 if (insertError) throw insertError;
             }
             if (!silent) alert("Certificados de Manufactura actualizados");
-            await fetchCerts();
+            await fetchCerts(contractItems);
             if (onSaved) onSaved();
         } catch (error: any) {
             console.error("Save error:", error);
@@ -328,23 +400,16 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
     if (!mounted) return null;
 
     return (
-        <div suppressHydrationWarning className="max-w-5xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+        <div suppressHydrationWarning className="w-full px-4 flex flex-col space-y-6">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Factory className="text-primary" />
                     7. Certificados de Manufactura
                 </h2>
                 <div className="flex gap-2">
-                    <button
-                        onClick={handleFileUpload}
-                        disabled={parsing || loading}
-                        className="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 hover:bg-blue-100 transition-colors border border-blue-100"
-                    >
-                        {parsing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                        {parsing ? "Leyendo certificados..." : "Cargar certificados"}
-                    </button>
-                    <button onClick={addCert} className="bg-slate-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 text-slate-700 hover:bg-slate-200 transition-colors">
-                        <Plus size={16} /> Nuevo Certificado
+                    <button onClick={handleFileUpload} disabled={loading || parsing} className="bg-emerald-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 text-emerald-700 hover:bg-emerald-200 transition-colors">
+                        {parsing ? <Loader2 size={16} className="animate-spin" /> : <FileSearch size={16} />} 
+                        {parsing ? "Leyendo..." : "Subir y Evaluar PDFs"}
                     </button>
                     <button onClick={handleSubmit} disabled={loading || parsing} className="btn-primary flex items-center gap-2">
                         <Save size={18} />
@@ -363,16 +428,18 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             )}
 
             <div className="card overflow-x-auto p-0 border-none shadow-sm">
-                <table suppressHydrationWarning className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
+                <table suppressHydrationWarning className="w-full text-left border-collapse min-w-full lg:table-fixed">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[9px] font-extrabold border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                            <th className="px-2 py-2 w-10 text-center">#</th>
-                            <th className="px-2 py-2">Partida Vinculada</th>
-                            <th className="px-2 py-2">Fabricante / Planta</th>
-                            <th className="px-2 py-2 w-32 text-center">Cantidad</th>
-                            <th className="px-2 py-2 w-48 text-center">Fecha del Certificado</th>
-                            <th className="px-2 py-2 w-24 text-center">Estado PRHTA</th>
-                            <th className="px-2 py-2 w-16"></th>
+                            <th className="px-2 py-1.5 w-8 text-center">#</th>
+                            <th className="px-2 py-1.5 w-[22%]">Partida</th>
+                            <th className="px-2 py-1.5 w-16 text-center">Unidad</th>
+                            <th className="px-2 py-1.5 w-[20%]">Fabricante / Planta</th>
+                            <th className="px-2 py-1.5 w-24 text-center">Cantidad</th>
+                            <th className="px-2 py-1.5 w-32 text-center">Fecha Cert.</th>
+                            <th className="px-2 py-1.5 w-20 text-center">Archivo</th>
+                            <th className="px-2 py-1.5 w-24 text-center">Estado</th>
+                             <th className="px-2 py-1.5 w-24 text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -381,33 +448,85 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                 <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                                     <td className="px-2 py-1 text-center text-xs font-bold text-slate-400 w-10">{idx + 1}</td>
                                     <td className="px-2 py-1">
-                                        <select
-                                            className="input-field text-xs font-bold h-9 text-black"
-                                            style={{ backgroundColor: '#66FF99' }}
-                                            value={c.item_id || ""}
-                                            onChange={(e) => {
-                                                const selectedId = e.target.value;
-                                                const match = contractItems.find(it => it.id === selectedId);
-                                                const newList = [...certs];
-                                                newList[idx].item_id = selectedId;
-                                                if (match) {
-                                                    newList[idx].item_num = match.item_num;
-                                                    newList[idx].specification = match.specification;
-                                                }
-                                                setCerts(newList);
-                                                if (onDirty) onDirty();
-                                            }}
-                                        >
-                                            <option value="">Seleccionar Partida...</option>
-                                            {contractItems.filter(item => item.requires_mfg_cert).map(item => (
-                                                <option key={item.id} value={item.id}>Partida {item.item_num}: {item.description}</option>
-                                            ))}
-                                        </select>
+                                        <div className="flex flex-col gap-1 w-full relative">
+                                            {c.is_multiple ? (
+                                                <div className="relative group/multi">
+                                                    <div className="input-field text-[10px] font-bold !py-1 min-h-[32px] text-black cursor-pointer flex items-center" style={{ backgroundColor: '#66FF99' }}>
+                                                        {c.item_ids && c.item_ids.length > 0 ? `${c.item_ids.length} partidas seleccionadas` : "Elegir partidas..."}
+                                                    </div>
+                                                    <div className="absolute top-full left-0 w-64 max-h-48 overflow-y-auto bg-white border border-slate-200 shadow-xl rounded-xl z-50 hidden group-hover/multi:block p-2">
+                                                        {contractItems.filter(item => item.requires_mfg_cert).map(item => (
+                                                            <label key={item.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 cursor-pointer text-[10px] font-bold">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={c.item_ids?.includes(item.id) || false} 
+                                                                    onChange={(e) => {
+                                                                        const newList = [...certs];
+                                                                        if (!newList[idx].item_ids) newList[idx].item_ids = [];
+                                                                        if (e.target.checked) {
+                                                                            newList[idx].item_ids.push(item.id);
+                                                                        } else {
+                                                                            newList[idx].item_ids = newList[idx].item_ids.filter((id: string) => id !== item.id);
+                                                                        }
+                                                                        setCerts(newList);
+                                                                        if (onDirty) onDirty();
+                                                                    }}
+                                                                />
+                                                                Pt. {item.item_num}: {item.description}
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    className="input-field text-[10px] font-bold !py-1 min-h-[32px] text-black w-full"
+                                                    style={{ backgroundColor: '#66FF99' }}
+                                                    value={c.item_id || ""}
+                                                    onChange={(e) => {
+                                                        const selectedId = e.target.value;
+                                                        const match = contractItems.find(it => it.id === selectedId);
+                                                        const newList = [...certs];
+                                                        newList[idx].item_id = selectedId;
+                                                        if (match) {
+                                                            newList[idx].item_num = match.item_num;
+                                                            newList[idx].specification = match.specification;
+                                                            newList[idx]._unit = match.unit || "";
+                                                        }
+                                                        setCerts(newList);
+                                                        if (onDirty) onDirty();
+                                                    }}
+                                                >
+                                                    <option value="">Elegir...</option>
+                                                    {contractItems.filter(item => item.requires_mfg_cert).map(item => (
+                                                        <option key={item.id} value={item.id}>Pt. {item.item_num}: {item.description}{item.additional_description ? ` - ${item.additional_description}` : ''}</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            <label className="flex items-center gap-1 text-[9px] font-bold text-slate-500 cursor-pointer">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={!!c.is_multiple} 
+                                                    onChange={(e) => {
+                                                        const newList = [...certs];
+                                                        newList[idx].is_multiple = e.target.checked;
+                                                        newList[idx].item_ids = newList[idx].item_id ? [newList[idx].item_id] : [];
+                                                        setCerts(newList);
+                                                    }} 
+                                                    className="w-3 h-3 text-primary border-slate-300 rounded" 
+                                                />
+                                                Múltiples Ítems
+                                            </label>
+                                        </div>
+                                    </td>
+                                    <td className="px-2 py-1 text-center">
+                                        <span className="text-xs font-black text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                                            {c._unit || contractItems.find(it => it.id === c.item_id)?.unit || "—"}
+                                        </span>
                                     </td>
                                     <td className="px-2 py-1">
                                         <input
                                             type="text"
-                                            className="input-field text-xs h-9"
+                                            className="input-field text-[10px] !py-1 min-h-[32px]"
                                             value={c.manufacturer_name || ""}
                                             onChange={(e) => updateCert(idx, 'manufacturer_name', e.target.value)}
                                             placeholder="Nombre del Fabricante"
@@ -416,7 +535,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     <td className="px-2 py-1">
                                         <input
                                             type="number"
-                                            className="input-field text-xs text-center h-9 font-bold text-black"
+                                            className="input-field text-[10px] text-center !py-1 min-h-[32px] font-bold text-black"
                                             style={{ backgroundColor: '#66FF99' }}
                                             value={isNaN(c.quantity) ? "" : c.quantity}
                                             onChange={(e) => updateCert(idx, 'quantity', e.target.value === "" ? NaN : parseFloat(e.target.value))}
@@ -425,7 +544,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     <td className="px-2 py-1">
                                         <input
                                             type="date"
-                                            className="input-field text-xs font-bold h-9 text-center text-black"
+                                            className="input-field text-[10px] font-black !py-1 min-h-[32px] text-center text-black"
                                             style={{ backgroundColor: '#66FF99' }}
                                             value={c.cert_date || ""}
                                             onChange={(e) => updateCert(idx, 'cert_date', e.target.value)}
@@ -435,6 +554,93 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                                 }
                                             }}
                                         />
+                                    </td>
+                                    <td className="px-2 py-1 text-center">
+                                        <div className="flex flex-col items-center justify-center gap-1">
+                                            {!c.file_name ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const input = document.createElement('input');
+                                                        input.type = 'file';
+                                                        input.accept = 'application/pdf';
+                                                        input.onchange = (ev: any) => {
+                                                            const file = ev.target.files?.[0];
+                                                            if (file) {
+                                                                const newList = [...certs];
+                                                                newList[idx].file_name = file.name;
+                                                                setCerts(newList);
+                                                                if (onDirty) onDirty();
+                                                            }
+                                                        };
+                                                        input.click();
+                                                    }}
+                                                    className="p-1.5 rounded-lg flex items-center justify-center bg-white hover:bg-slate-100 text-slate-400 border border-slate-200 shadow-sm transition-colors"
+                                                    title="Asignar archivo PDF manual (Sin evaluar)"
+                                                >
+                                                    <Upload size={16} />
+                                                </button>
+                                            ) : (
+                                                <div className="flex gap-1 items-center bg-emerald-50 p-1 rounded-lg border border-emerald-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                        const input = document.createElement('input');
+                                                        input.type = 'file';
+                                                        input.accept = 'application/pdf';
+                                                        input.onchange = async (ev: any) => {
+                                                            const file = ev.target.files?.[0];
+                                                            if (file) {
+                                                                const win = window as any;
+                                                                if (win.electronAPI && win.electronAPI.parsePdf) {
+                                                                    setParsing(true);
+                                                                    try {
+                                                                        const res = await win.electronAPI.parsePdf(file);
+                                                                        if (res.success && res.text) {
+                                                                            const extracted = extractData(res.text);
+                                                                            const newList = [...certs];
+                                                                            // Actualizar datos de la fila con lo extraído
+                                                                            newList[idx] = { ...newList[idx], ...extracted, file_name: file.name, item_id: newList[idx].item_id || extracted.item_id };
+                                                                            setCerts(newList);
+                                                                            if (onDirty) onDirty();
+                                                                            alert("Documento leído exitosamente. Validaciones actualizadas.");
+                                                                        }
+                                                                    } catch (err) {
+                                                                        alert("Error leyendo el PDF.");
+                                                                    } finally {
+                                                                        setParsing(false);
+                                                                    }
+                                                                } else {
+                                                                    alert("Esta función sólo está disponible en la versión de escritorio.");
+                                                                }
+                                                            }
+                                                        };
+                                                        input.click();
+                                                        }}
+                                                        className="p-1.5 rounded-md flex items-center justify-center bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                                                        title="Leer Documento con Inteligencia/Reglas para identificar las 4 condiciones"
+                                                    >
+                                                        <FileSearch size={16} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newList = [...certs];
+                                                            newList[idx].file_name = undefined;
+                                                            // Opcionalmente podemos resetear el status de validación aquí si queremos,
+                                                            // pero lo dejaremos para que el usuario pueda borrar solo el fileName si se equivocó
+                                                            setCerts(newList);
+                                                            if (onDirty) onDirty();
+                                                        }}
+                                                        className="p-1.5 rounded-md flex items-center justify-center bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                                        title="Borrar Documento"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {c.file_name && <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest max-w-[80px] truncate cursor-help block mt-0.5" title={c.file_name}>CARGADO</span>}
+                                        </div>
                                     </td>
                                     <td className="px-2 py-1 text-center">
                                         {(c.validation || c.validation_status) ? (
@@ -454,19 +660,20 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                         )}
                                     </td>
                                     <td className="px-2 py-1 text-center">
-                                        <button
-                                            type="button"
-                                            onClick={() => removeCert(idx)}
-                                            className="text-slate-300 hover:text-red-500 transition-colors"
-                                            title="Eliminar certificado"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </td>
+                                         <button
+                                             type="button"
+                                             onClick={() => removeCert(idx)}
+                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 transition-all font-black text-[10px] uppercase tracking-wider shadow-sm"
+                                             title="Eliminar certificado permanentemente"
+                                         >
+                                             <Trash2 size={13} />
+                                             Borrar
+                                         </button>
+                                     </td>
                                 </tr>
                                 {showValidationIdx === idx && c.validation && (
                                     <tr className="bg-slate-50 dark:bg-slate-900/50">
-                                        <td colSpan={6} className="px-4 py-4">
+                                        <td colSpan={9} className="px-2 py-2">
                                             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                                                 <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 p-2 px-4 flex justify-between items-center">
                                                     <span className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
@@ -519,7 +726,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                             </React.Fragment>
                         ))}
                         <tr>
-                            <td colSpan={7} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                            <td colSpan={9} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
                                 <button
                                     type="button"
                                     onClick={addCert}

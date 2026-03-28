@@ -1,0 +1,60 @@
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26Fecha en que ocurre la actividad.Instrucciones para Completar el Formulario ACT-96 "Informe Diario de Inspección"
+Número de Proyecto según aparece en el contrato (código ACT).
+Nombre de Proyecto según aparece en el contrato.
+Municipio donde está ubicado el proyecto.  Si el proyecto cubre más de un Municipio se indicará el Municipio donde está ubicada la 
+actividad inspeccionada.
+Nombre del contratista según aparece en el contrato.
+Nombre y firma de las personas que visitan el proyecto durante el día.Día de la semana en que ocurre la actividad.
+Número de páginas del informe.  Cada Informe Diario de Actividades que se genera en el día debe ser anejado al Informe Diario de 
+Inspección.  
+Número secuencial que se le asigna a los informes.  Se comienza con el #1 el día que comienza el proyecto y sigue de forma 
+secuencial hasta el último día que se generen informes (cuando se acabe la liquidación).
+Descripción del clima.  Indicar si es soleado, nublado, lluvioso, etc.  De haber actividad de lluvia hay que indicar la hora de 
+comienzo y terminación de la misma.
+Tiempo que el contratista no utiliza efectivamente en el proyecto.
+Razones para no utilizar efectivamente el tiempo en el proyecto (ej. lluvia, tiempo para cambiar cheques, etc.).
+Tiempo que el Contratista estuvo activo en la actividad.  No necesariamente el horario de los empleados, ya que la actividad puede 
+comenzar en cualquier momento durante el día.
+Numero que el Ingeniero de Proyecto le asigna a cada Informe Diario de Actividades (IDA) que realizan los inspectores ese día.
+Nombre del Inspector que realiza el informe.
+Trabajo asignado a inspeccionar y por el cual genera el Informe Diario de Actividades.
+Compañía que está realizando la actividad inspeccionada.
+Nombre de la persona encargada del proyecto y que genera este documento.
+Puesto que ocupa en la Agencia.
+Firma de la persona que genera este documento.Reuniones que se realizan durante el día.  Se deben anotar los asuntos discutidos
+En este renglón se anotan todas las visitas a otras oficinas (ej. AEE, AAA), todos los  escritos realizados, así como las llamadas 
+telefónicas o mensajes por correo electrónico que se generaron durante el día.  Se debe incluir el asunto de cada cosa que se 
+mencione.
+Este renglón es para anotar todas las instrucciones o discusiones realizadas con el Contratista, dentro o fuera de la oficina.
+Se enumeran aquí aquellas actividades que el Contratista, a juicio del Ingeniero Residente, puede llevar a cabo, simultáneo con las 
+actividades activas en el momento.
+Cualquier comentario u observación en torno a seguridad. 
+Cualquier comentario u observación en torno al proyecto. 
+
+
+

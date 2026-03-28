@@ -10,7 +10,7 @@ export default function RegistrationModal() {
 
     useEffect(() => {
         setMounted(true);
-        if (pathname === '/login') return;
+        if (pathname === '/login' || pathname === '/acerca-de') return;
 
         const checkAuth = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -24,7 +24,7 @@ export default function RegistrationModal() {
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (!session && pathname !== '/login') {
+            if (!session && pathname !== '/login' && pathname !== '/acerca-de') {
                 window.location.href = "/login";
             }
         });

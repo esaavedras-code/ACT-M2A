@@ -1,0 +1,33 @@
+{
+    "numero_proyecto": "AC-200023",
+    "nombre_proyecto": "Rehabilitación del Sistema Video Detección de las Carreteras PR-8, PR-23, PR-25 & PR-35",
+    "municipio": "San Juan",
+    "contratista": "Unique Builders",
+    "fecha": "23-Aug-24",
+    "clima": "",
+    "actividades": [
+        "Fernández Juncos con Cerra (2 limpiezas, ok)",
+        "Fernández Juncos con San Juan (2 limpiezas, ok)",
+        "Fernández Juncos con Miramar (limpieza y desganche, ok)",
+        "Fernández Juncos con Ohare (ok)",
+        "Fernández Juncos con Hipodromo (ok)",
+        "Fernández Juncos con Avelino Vicente ( 1 limpieza, falta una cámara, ok)",
+        "Fernández Juncos con Labra (3 limpiezas, ok)",
+        "Fernández Juncos con Figueroa (ok)",
+        "Fernández Juncos con Pavia (limpieza y ajuste del rótulo, ok)",
+        "Fernández Juncos con Del Parque (2 limpiezas de cámara, dañada tarjeta fase C, ok lo demás)"
+    ],
+    "equipos": [
+        "Truck canasto H-55017",
+        "PickUp F150 866-721",
+        "Flashing Arrow"
+    ],
+    "personal": [
+        "Heriberto Sánchez --Foreman",
+        "Esteban López --Labor",
+        "Juan Cabrera --Chofer",
+        "Josué Clemente --Tecnico"
+    ],
+    "administrador": "",
+    "puesto": ""
+}

@@ -5,6 +5,15 @@ import { supabase } from "@/lib/supabase";
 import { UserCheck, UserX, Clock, Mail, Hash, Shield, ArrowLeft, Pencil, Check, X as XIcon, Users, ChevronDown } from "lucide-react";
 import Link from "next/link";
 
+interface UserProfile {
+    id: string;
+    email: string;
+    name: string | null;
+    role_global: string;
+    created_at: string;
+    is_active?: boolean;
+}
+
 interface AccessRequest {
     id: string;
     full_name: string;
@@ -18,19 +27,28 @@ interface AccessRequest {
 export default function AdminRequestsPage() {
     const [requests, setRequests] = useState<AccessRequest[]>([]);
     const [availableProjects, setAvailableProjects] = useState<{id: string, num_act: string, name: string}[]>([]);
+    const [viewMode, setViewMode] = useState<'requests' | 'users'>('requests');
+    const [activeUsers, setActiveUsers] = useState<UserProfile[]>([]);
+    
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editRole, setEditRole] = useState("");
     const [selectedEditProjects, setSelectedEditProjects] = useState<string[]>([]);
+    
     const [isCreatingDirectly, setIsCreatingDirectly] = useState(false);
     const [directEmail, setDirectEmail] = useState("");
     const [directName, setDirectName] = useState("");
     const [directRole, setDirectRole] = useState("C");
     const [selectedDirectProjects, setSelectedDirectProjects] = useState<string[]>([]);
     const [directLoading, setDirectLoading] = useState(false);
+    
     const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
     const [isEditProjectDropdownOpen, setIsEditProjectDropdownOpen] = useState(false);
+    const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+    const [restrictedProjects, setRestrictedProjects] = useState<string[]>([]);
 
     useEffect(() => {
         const checkAdmin = async () => {
@@ -46,91 +64,250 @@ export default function AdminRequestsPage() {
                 .eq("id", session.user.id)
                 .single();
 
-            if (user?.role_global !== 'A') {
-                alert("Acceso denegado. Se requiere rol de Administrador Global.");
-                window.location.href = "/";
-                return;
+            let isGlobal = user?.role_global === 'A';
+            let limitations: string[] = [];
+
+            if (!isGlobal) {
+                const { data: mems } = await supabase
+                    .from("memberships")
+                    .select("project_id, role, projects(num_act)")
+                    .eq("user_id", session.user.id);
+                const bMems = mems?.filter(m => m.role === 'B') || [];
+                if (bMems.length > 0) {
+                    limitations = bMems.map((m: any) => {
+                        const proj = Array.isArray(m.projects) ? m.projects[0] : m.projects;
+                        return proj?.num_act;
+                    }).filter(Boolean);
+                } else {
+                    alert("Acceso denegado. Se requiere rol de Administrador de Proyecto o Global.");
+                    window.location.href = "/";
+                    return;
+                }
             }
 
+            setIsGlobalAdmin(isGlobal);
+            setRestrictedProjects(limitations);
             setIsAdmin(true);
-            fetchInitialData();
+            fetchInitialData(isGlobal, limitations);
         };
 
         checkAdmin();
     }, []);
 
-    const fetchInitialData = async () => {
+    const fetchInitialData = async (isGlobal: boolean = isGlobalAdmin, limitations: string[] = restrictedProjects) => {
         setLoading(true);
         await Promise.all([
-            fetchRequests(),
-            fetchProjects()
+            fetchRequests(isGlobal, limitations),
+            fetchProjects(isGlobal, limitations),
+            fetchActiveUsers()
         ]);
         setLoading(false);
     };
 
-    const fetchRequests = async () => {
+    const fetchActiveUsers = async () => {
+        const { data } = await supabase
+            .from("users")
+            .select("*")
+            .order("created_at", { ascending: false });
+        if (data) setActiveUsers(data);
+    };
+
+    const fetchRequests = async (isGlobal: boolean = isGlobalAdmin, limitations: string[] = restrictedProjects) => {
         const { data, error } = await supabase
             .from("access_requests")
             .select("*")
             .order("created_at", { ascending: false });
 
-        if (data) setRequests(data);
+        if (data) {
+            if (!isGlobal && limitations.length > 0) {
+                const filtered = data.filter(r => {
+                    if (!r.project_number) return false;
+                    const reqProjects = r.project_number.split(',').map((p: string) => p.trim());
+                    return reqProjects.some((p: string) => limitations.includes(p));
+                });
+                setRequests(filtered);
+            } else {
+                setRequests(data);
+            }
+        }
     };
 
-    const fetchProjects = async () => {
+    const fetchProjects = async (isGlobal: boolean = isGlobalAdmin, limitations: string[] = restrictedProjects) => {
         const { data, error } = await supabase
             .from("projects")
             .select("id, num_act, name")
             .order("num_act", { ascending: true });
 
-        if (data) setAvailableProjects(data.filter(p => p.num_act));
+        if (data) {
+            let fp = data.filter(p => p.num_act);
+            if (!isGlobal && limitations.length > 0) {
+                fp = fp.filter(p => limitations.includes(p.num_act));
+            }
+            setAvailableProjects(fp);
+        }
     };
 
     const handleUpdateStatus = async (id: string, newStatus: string) => {
         const req = requests.find(r => r.id === id);
         if (!req) return;
 
-        const { error } = await supabase
-            .from("access_requests")
-            .update({ status: newStatus })
-            .eq("id", id);
-
-        if (!error) {
-            setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+        if (newStatus === 'approved') {
+            const tempPwd = Math.random().toString(36).slice(-10).toUpperCase();
             
-            if (newStatus === 'approved') {
-                // Notificar al usuario que su solicitud fue aprobada
-                try {
-                    // @ts-ignore
-                    const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
-                    if (api?.sendEmail) {
-                        await api.sendEmail({
-                            to: req.email,
-                            subject: "✅ Solicitud de Acceso PACT Aprobada",
-                            html: `
-                                <div style="font-family: sans-serif; padding: 30px; border: 1px solid #eee; border-radius: 20px; max-width: 600px; margin: 0 auto;">
-                                    <h2 style="color: #2563eb;">¡Hola ${req.full_name}!</h2>
-                                    <p>Tu solicitud de acceso al sistema PACT ha sido <strong>aprobada</strong> por el administrador.</p>
-                                    <p>Ya puedes iniciar sesión o completar tu registro usando tu correo electrónico registrado.</p>
-                                    <div style="margin: 30px 0;">
-                                        <a href="https://pact.m2a-group.com/login" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">
-                                            Ir al Sistema PACT
-                                        </a>
-                                    </div>
-                                    <p style="font-size: 12px; color: #999;">Si tienes problemas, contacta al administrador del proyecto.</p>
+            // 1. Crear el usuario en Supabase Auth vía Edge Function primero
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-auth-v2`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session?.access_token}`,
+                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+                    },
+                    body: JSON.stringify({
+                        action: 'create_user',
+                        email: req.email.toLowerCase(),
+                        password: tempPwd,
+                        name: req.full_name,
+                        role: req.desired_role,
+                        projects: req.project_number ? req.project_number.split(",").map(p => p.trim()) : []
+                    })
+                });
+
+                const result = await response.json();
+                if (result.error) throw new Error(result.error);
+
+                // 2. Si la función fue exitosa, entonces actualizar el estado en BD
+                const { error: DBerror } = await supabase
+                    .from("access_requests")
+                    .update({ status: newStatus })
+                    .eq("id", id);
+                
+                if (DBerror) throw DBerror;
+
+                setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+
+                // 2. Enviar email informativo
+                // @ts-ignore
+                const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
+                if (api?.sendEmail) {
+                    await api.sendEmail({
+                        to: req.email,
+                        subject: "🔐 Tus Credenciales de Acceso PACT",
+                        html: `
+                            <div style="font-family: sans-serif; padding: 30px; border: 1px solid #eee; border-radius: 20px; max-width: 600px; margin: 0 auto;">
+                                <h2 style="color: #2563eb;">¡Hola ${req.full_name}!</h2>
+                                <p>Tu solicitud de acceso al sistema PACT ha sido <strong>aprobada</strong> por el administrador.</p>
+                                <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #e2e8f0;">
+                                    <p style="margin: 0 0 10px 0;"><strong>Usuario:</strong> ${req.email}</p>
+                                    <p style="margin: 0;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
                                 </div>
-                            `
-                        });
-                    }
-                } catch (emailErr) {
-                    console.error("Error enviando email de aprobación:", emailErr);
+                                <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes entrar si ya tienes el programa instalado. Si no lo tienes, solicítalo al administrador.</p>
+                                <p style="font-size: 12px; color: #94a3b8; margin-top: 30px; border-top: 1px solid #f1f5f9; pt: 20px;">Este es un mensaje automático del sistema de administración PACT.</p>
+                            </div>
+                        `
+                    });
                 }
-                alert("✓ Solicitud aprobada y usuario notificado.");
-            } else {
-                alert("Solicitud rechazada.");
+                alert("✓ Solicitud aprobada y usuario creado correctamente.");
+                fetchActiveUsers();
+            } catch (err: any) {
+                console.error("Error en aprobación:", err);
+                alert("Error al crear usuario: " + err.message);
+                return;
             }
         } else {
-            alert("Error al actualizar estado: " + error.message);
+            // Caso de Rechazo u otros estados
+            const { error: DBerror } = await supabase
+                .from("access_requests")
+                .update({ status: newStatus })
+                .eq("id", id);
+
+            if (DBerror) {
+                alert("Error al actualizar estado: " + DBerror.message);
+            } else {
+                setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+                alert("Solicitud actualizada a: " + newStatus);
+            }
+        }
+    };
+
+    const handleToggleUserStatus = async (userId: string, currentStatus: boolean, email?: string) => {
+        const newStatus = !currentStatus;
+        const confirmMsg = newStatus
+            ? `¿Estás seguro de que deseas ACTIVAR a ${email}? Podrá acceder al sistema nuevamente.`
+            : `¿Estás seguro de que deseas DESACTIVAR a ${email}? Ya no podrá acceder al sistema, pero sus datos se mantendrán.`;
+            
+        if (!confirm(confirmMsg)) return;
+
+        setIsDeletingId(userId); // Reusing this state to show loading on the row
+        try {
+            const { error } = await supabase
+                .from("users")
+                .update({ is_active: newStatus })
+                .eq("id", userId);
+
+            if (error) throw error;
+            
+            alert(`✓ Usuario ${newStatus ? 'activado' : 'desactivado'} correctamente.`);
+            // Update local state directly instead of refetching
+            setActiveUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: newStatus } : u));
+        } catch (err: any) {
+            alert("Error al cambiar estado del usuario: " + err.message);
+        } finally {
+            setIsDeletingId(null);
+        }
+    };
+
+    const handleDeleteUser = async (userId: string, email?: string) => {
+        const confirmMsg = email 
+            ? `¿Estás seguro de que deseas borrar el acceso de ${email}? Se eliminará de la base de datos y de la autenticación.`
+            : "¿Estás seguro de que deseas borrar el acceso de este usuario?";
+            
+        if (!confirm(confirmMsg)) return;
+
+        setIsDeletingId(userId);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            // 1. Borrar de Auth vía Edge Function
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-auth-v2`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`,
+                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+                },
+                body: JSON.stringify({
+                    action: 'delete_user',
+                    userId: userId
+                })
+            });
+
+            const result = await response.json();
+            if (result.error) throw new Error(result.error);
+
+            // 2. Si tenemos el email, también limpiar sus solicitudes de acceso para que pueda volver a solicitar si lo desea
+            if (email) {
+                await supabase.from("access_requests").delete().eq("email", email);
+            }
+
+            alert("✓ Acceso borrado correctamente.");
+            await fetchInitialData();
+        } catch (err: any) {
+            alert("Error al borrar usuario: " + err.message);
+        } finally {
+            setIsDeletingId(null);
+        }
+    };
+
+    const handleDeleteRequest = async (id: string) => {
+        if (!confirm("¿Deseas eliminar este registro de solicitud? (Esto no borra al usuario si ya fue aprobado)")) return;
+        
+        const { error } = await supabase.from("access_requests").delete().eq("id", id);
+        if (!error) {
+            setRequests(prev => prev.filter(r => r.id !== id));
+        } else {
+            alert("Error al eliminar registro: " + error.message);
         }
     };
 
@@ -150,11 +327,34 @@ export default function AdminRequestsPage() {
 
             if (insertError) throw insertError;
 
-            // Enviar invitación
+            // Crear usuario en Auth
+            const tempPwd = Math.random().toString(36).slice(-10).toUpperCase();
+            
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-auth-v2`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`,
+                    'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+                },
+                body: JSON.stringify({
+                    action: 'create_user',
+                    email: directEmail.toLowerCase(),
+                    password: tempPwd,
+                    name: directName,
+                    role: directRole,
+                    projects: selectedDirectProjects
+                })
+            });
+
+            const result = await response.json();
+            if (result.error) throw new Error(result.error);
+
+            // Enviar invitación personalizada as requested
             // @ts-ignore
             const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
             if (api?.sendEmail) {
-                const tempPwd = Math.random().toString(36).slice(-8).toUpperCase();
                 await api.sendEmail({
                     to: directEmail,
                     subject: "🚀 Acceso Directo a PACT",
@@ -162,13 +362,11 @@ export default function AdminRequestsPage() {
                         <div style="font-family: sans-serif; padding: 30px; border: 1px solid #eee; border-radius: 20px; max-width: 600px; margin: 0 auto;">
                             <h2 style="color: #2563eb;">Acceso concedido a PACT</h2>
                             <p>El administrador te ha dado de alta directamente en el sistema.</p>
-                            <div style="background: #f8fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                                <p><strong>Email:</strong> ${directEmail}</p>
-                                <p><strong>Password Temporal:</strong> <code>${tempPwd}</code></p>
+                            <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #e2e8f0;">
+                                <p style="margin: 0 0 10px 0;"><strong>Usuario/Email:</strong> ${directEmail}</p>
+                                <p style="margin: 0;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
                             </div>
-                            <a href="https://pact.m2a-group.com/login" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block;">
-                                Iniciar Sesión Ahora
-                            </a>
+                            <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes entrar si ya tienes el programa instalado. Si no lo tienes, solicítalo al administrador.</p>
                         </div>
                     `
                 });
@@ -188,10 +386,30 @@ export default function AdminRequestsPage() {
         }
     };
 
-    const startEditing = (req: AccessRequest) => {
+    const startEditing = async (req: AccessRequest) => {
         setEditingId(req.id);
         setEditRole(req.desired_role);
-        const projects = req.project_number ? req.project_number.split(",").map(p => p.trim()) : [];
+        
+        let projects = req.project_number ? req.project_number.split(",").map(p => p.trim()) : [];
+        
+        // Verificar si el usuario ya existe para cargar sus proyectos actuales
+        const existingUser = activeUsers.find(u => u.email.toLowerCase() === req.email.toLowerCase());
+        if (existingUser) {
+            const { data: mems } = await supabase
+                .from("memberships")
+                .select("projects(num_act)")
+                .eq("user_id", existingUser.id);
+            
+            if (mems && mems.length > 0) {
+                const currentProjects = mems
+                    .map((m: any) => m.projects?.num_act)
+                    .filter(Boolean);
+                
+                // Combinar proyectos solicitados con actuales (sin duplicados)
+                projects = Array.from(new Set([...projects, ...currentProjects]));
+            }
+        }
+        
         setSelectedEditProjects(projects);
     };
 
@@ -201,6 +419,9 @@ export default function AdminRequestsPage() {
     };
 
     const saveChanges = async (id: string) => {
+        const req = requests.find(r => r.id === id);
+        if (!req) return;
+
         const projectsString = selectedEditProjects.join(", ");
         const { error } = await supabase
             .from("access_requests")
@@ -211,6 +432,38 @@ export default function AdminRequestsPage() {
             .eq("id", id);
 
         if (!error) {
+            // Si ya estaba aprobado, necesitamos sincronizar sus permisos reales en la tabla memberships
+            if (req.status === 'approved') {
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-auth-v2`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session?.access_token}`,
+                            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+                        },
+                        body: JSON.stringify({
+                            action: 'create_user',
+                            email: req.email.toLowerCase(),
+                            name: req.full_name,
+                            role: editRole,
+                            projects: selectedEditProjects
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (result.error) throw new Error(result.error);
+                    
+                    alert("✓ Cambios guardados y permisos sincronizados correctamente.");
+                } catch (err: any) {
+                    console.error("Error sincronizando permisos:", err);
+                    alert("⚠️ Registro actualizado, pero hubo un problema sincronizando permisos reales: " + err.message);
+                }
+            } else {
+                alert("✓ Registro actualizado exitosamente.");
+            }
+
             setRequests(prev => prev.map(r => r.id === id ? { ...r, desired_role: editRole, project_number: projectsString || null } : r));
             setEditingId(null);
             setSelectedEditProjects([]);
@@ -220,7 +473,14 @@ export default function AdminRequestsPage() {
         }
     };
 
-    if (!isAdmin) return null;
+    if (!isAdmin) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-slate-500 font-medium animate-pulse">Verificando credenciales de administrador...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-6xl mx-auto py-10 px-4 space-y-8 animate-in fade-in duration-500">
@@ -230,9 +490,9 @@ export default function AdminRequestsPage() {
                         <ArrowLeft size={16} /> Volver al Dashboard
                     </Link>
                     <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                        <Users className="text-primary" size={36} /> Solicitudes de Acceso
+                        <Users className="text-primary" size={36} /> Gestión de Acceso
                     </h1>
-                    <p className="text-slate-500 font-medium">Gestiona las peticiones de nuevos usuarios al sistema PACT.</p>
+                    <p className="text-slate-500 font-medium">Administra solicitudes y usuarios del sistema PACT.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button 
@@ -253,11 +513,25 @@ export default function AdminRequestsPage() {
                     <form onSubmit={handleCreateDirect} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <div className="space-y-1 md:col-span-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Nombre</label>
-                            <input type="text" required value={directName} onChange={e => setDirectName(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-2 px-4 text-sm" placeholder="Nombre" />
+                            <input 
+                                type="text" 
+                                required 
+                                value={directName} 
+                                onChange={e => setDirectName(e.target.value)} 
+                                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none relative z-20" 
+                                placeholder="Nombre" 
+                            />
                         </div>
                         <div className="space-y-1 md:col-span-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Email</label>
-                            <input type="email" required value={directEmail} onChange={e => setDirectEmail(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-2 px-4 text-sm" placeholder="correo@ejemplo.com" />
+                            <input 
+                                type="email" 
+                                required 
+                                value={directEmail} 
+                                onChange={e => setDirectEmail(e.target.value)} 
+                                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none relative z-20" 
+                                placeholder="correo@ejemplo.com" 
+                            />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Proyecto(s)</label>
@@ -274,9 +548,10 @@ export default function AdminRequestsPage() {
                             <div className="flex-1 space-y-1">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Rol</label>
                                 <select value={directRole} onChange={e => setDirectRole(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-2 px-4 text-sm">
-                                    <option value="B">Admin Proyecto</option>
+                                    {isGlobalAdmin && <option value="B">Admin Proyecto</option>}
                                     <option value="C">Data Entry</option>
                                     <option value="D">Lectura</option>
+                                    <option value="E">Inspector</option>
                                 </select>
                             </div>
                             <button disabled={directLoading} type="submit" className="bg-primary text-white p-3 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95">
@@ -287,151 +562,276 @@ export default function AdminRequestsPage() {
                 </div>
             )}
 
-                <AccessRequestLegend />
+            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white/50 backdrop-blur-md sticky top-0 z-10 rounded-t-2xl">
+                <button 
+                    onClick={() => setViewMode('requests')}
+                    className={`flex-1 px-8 py-5 font-black text-xs uppercase tracking-widest transition-all border-b-4 flex items-center justify-center gap-2 ${viewMode === 'requests' ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    <Clock size={16} /> Solicitudes {requests.filter(r => r.status === 'pending').length > 0 && <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[8px]">{requests.filter(r => r.status === 'pending').length}</span>}
+                </button>
+                {isGlobalAdmin && (
+                    <button 
+                        onClick={() => setViewMode('users')}
+                        className={`flex-1 px-8 py-5 font-black text-xs uppercase tracking-widest transition-all border-b-4 flex items-center justify-center gap-2 ${viewMode === 'users' ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Users size={16} /> Usuarios Activos <span className="opacity-50 font-normal">({activeUsers.length})</span>
+                    </button>
+                )}
+            </div>
 
-            <div className="card overflow-hidden border-none shadow-2xl shadow-slate-200 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem]">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitante</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Proyecto</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Deseado</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {loading ? (
-                                [1, 2, 3].map(i => (
-                                    <tr key={i} className="animate-pulse">
-                                        <td colSpan={5} className="px-8 py-10"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-full"></div></td>
+            {viewMode === 'users' && (
+                <div className="relative z-20">
+                    <input 
+                        type="text"
+                        placeholder="Buscar por nombre o email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl py-4 px-12 text-sm focus:border-primary/30 focus:ring-0 transition-all shadow-sm relative z-20"
+                    />
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 z-30" size={20} />
+                </div>
+            )}
+
+            {viewMode === 'requests' ? (
+                <>
+                    <AccessRequestLegend />
+                    <div className="card overflow-hidden border-none shadow-2xl shadow-slate-200 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem]">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitante</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Proyecto</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Deseado</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
                                     </tr>
-                                ))
-                            ) : requests.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-8 py-20 text-center text-slate-400 italic">No hay solicitudes pendientes.</td>
-                                </tr>
-                            ) : requests.map(req => (
-                                <tr key={req.id} className={`group transition-all ${editingId === req.id ? 'bg-blue-50/50 ring-2 ring-primary/20 ring-inset' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}>
-                                    <td className="px-8 py-6">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="font-bold text-slate-900 dark:text-white text-lg">{req.full_name}</span>
-                                            <span className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
-                                                <Mail size={14} className="text-slate-300" /> {req.email}
-                                            </span>
-                                            <span className="text-[10px] text-slate-400 font-mono mt-1 uppercase tracking-tighter">
-                                                Recibida: {new Date(req.created_at).toLocaleString()}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        {editingId === req.id ? (
-                                            <MultiProjectDropdown 
-                                                availableProjects={availableProjects}
-                                                selectedProjects={selectedEditProjects}
-                                                setSelectedProjects={setSelectedEditProjects}
-                                                isOpen={isEditProjectDropdownOpen}
-                                                setIsOpen={setIsEditProjectDropdownOpen}
-                                                placeholder="Elegir..."
-                                            />
-                                        ) : req.project_number ? (
-                                            <div className="flex flex-wrap gap-1">
-                                                {req.project_number.split(",").map((p, idx) => (
-                                                    <span key={idx} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-black rounded-md border border-blue-100 dark:border-blue-800">
-                                                        {p.trim()}
+                                </thead>
+                                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                                    {loading ? (
+                                        [1, 2, 3].map(i => (
+                                            <tr key={i} className="animate-pulse">
+                                                <td colSpan={5} className="px-8 py-10"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-full"></div></td>
+                                            </tr>
+                                        ))
+                                    ) : requests.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-8 py-20 text-center text-slate-400 italic">No hay solicitudes registradas.</td>
+                                        </tr>
+                                    ) : requests.map(req => (
+                                        <tr key={req.id} className={`group transition-all ${editingId === req.id ? 'bg-blue-50/50 ring-2 ring-primary/20 ring-inset' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}>
+                                            <td className="px-8 py-6">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="font-bold text-slate-900 dark:text-white text-lg">{req.full_name}</span>
+                                                    <span className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
+                                                        <Mail size={14} className="text-slate-300" /> {req.email}
                                                     </span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <span className="text-slate-300 text-xs italic">N/A</span>
-                                        )}
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        {editingId === req.id ? (
-                                            <select
-                                                value={editRole}
-                                                onChange={(e) => setEditRole(e.target.value)}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold"
-                                            >
-                                                <option value="B">Nivel B (Admin Proyecto)</option>
-                                                <option value="C">Nivel C (Data Entry)</option>
-                                                <option value="D">Nivel D (Solo Lectura)</option>
-                                            </select>
-                                        ) : (
-                                            <span className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl w-fit border border-slate-200 dark:border-slate-700">
-                                                <Shield size={14} className="text-slate-400" /> Nivel {req.desired_role}
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                                            req.status === 'approved' 
-                                                ? 'bg-green-50 border-green-100 text-green-600' 
-                                                : req.status === 'rejected' 
-                                                ? 'bg-red-50 border-red-100 text-red-600' 
-                                                : 'bg-amber-50 border-amber-100 text-amber-600 animate-pulse'
-                                        }`}>
-                                            {req.status === 'approved' ? 'Aprobada' : req.status === 'rejected' ? 'Rechazada' : 'Pendiente'}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            {editingId === req.id ? (
-                                                <div className="flex items-center gap-1 bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
-                                                    <button 
-                                                        onClick={cancelEditing}
-                                                        className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                                        title="Cancelar"
-                                                    >
-                                                        <XIcon size={18} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => saveChanges(req.id)}
-                                                        className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-                                                    >
-                                                        <Check size={16} /> Guardar
-                                                    </button>
+                                                    <span className="text-[10px] text-slate-400 font-mono mt-1 uppercase tracking-tighter">
+                                                        Recibida: {new Date(req.created_at).toLocaleString()}
+                                                    </span>
                                                 </div>
-                                            ) : (
-                                                <div className="flex items-center gap-1">
-                                                    <button 
-                                                        onClick={() => startEditing(req)}
-                                                        className="flex items-center gap-2 px-4 py-2 border-2 border-slate-100 text-slate-500 hover:text-primary hover:border-primary/30 hover:bg-primary/5 rounded-2xl transition-all group/btn"
-                                                        title="Corregir Proyecto o Rol"
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                {editingId === req.id ? (
+                                                    <MultiProjectDropdown 
+                                                        availableProjects={availableProjects}
+                                                        selectedProjects={selectedEditProjects}
+                                                        setSelectedProjects={setSelectedEditProjects}
+                                                        isOpen={isEditProjectDropdownOpen}
+                                                        setIsOpen={setIsEditProjectDropdownOpen}
+                                                        placeholder="Elegir..."
+                                                    />
+                                                ) : req.project_number ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {req.project_number.split(",").map((p, idx) => (
+                                                            <span key={idx} className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-black rounded-md border border-blue-100 dark:border-blue-800">
+                                                                {p.trim()}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-300 text-xs italic">N/A</span>
+                                                )}
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                {editingId === req.id ? (
+                                                    <select
+                                                        value={editRole}
+                                                        onChange={(e) => setEditRole(e.target.value)}
+                                                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold"
                                                     >
-                                                        <Pencil size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest">Corregir</span>
-                                                    </button>
-                                                    {req.status === 'pending' && (
-                                                        <>
-                                                            <div className="h-8 w-[1px] bg-slate-100 mx-1"></div>
+                                                        {isGlobalAdmin && <option value="B">Nivel B (Admin Proyecto)</option>}
+                                                        <option value="C">Nivel C (Data Entry)</option>
+                                                        <option value="D">Nivel D (Solo Lectura)</option>
+                                                        <option value="E">Nivel E (Inspector)</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl w-fit border border-slate-200 dark:border-slate-700">
+                                                        <Shield size={14} className="text-slate-400" /> Nivel {req.desired_role}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-8 py-6 text-center">
+                                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                                    req.status === 'approved' 
+                                                        ? 'bg-green-50 border-green-100 text-green-600' 
+                                                        : req.status === 'rejected' 
+                                                        ? 'bg-red-50 border-red-100 text-red-600' 
+                                                        : 'bg-amber-50 border-amber-100 text-amber-600 animate-pulse'
+                                                }`}>
+                                                    {req.status === 'approved' ? 'Aprobada' : req.status === 'rejected' ? 'Rechazada' : 'Pendiente'}
+                                                </span>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    {editingId === req.id ? (
+                                                        <div className="flex items-center gap-1 bg-white p-1 rounded-2xl shadow-sm border border-slate-100">
                                                             <button 
-                                                                onClick={() => handleUpdateStatus(req.id, 'rejected')}
-                                                                className="p-3 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                                                                title="Rechazar"
+                                                                onClick={cancelEditing}
+                                                                className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                                title="Cancelar"
                                                             >
-                                                                <UserX size={20} />
+                                                                <XIcon size={18} />
                                                             </button>
                                                             <button 
-                                                                onClick={() => handleUpdateStatus(req.id, 'approved')}
-                                                                className="p-3 text-green-500 hover:text-green-600 hover:bg-green-50 rounded-2xl transition-all"
-                                                                title="Aprobar"
+                                                                onClick={() => saveChanges(req.id)}
+                                                                className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
                                                             >
-                                                                <UserCheck size={20} />
+                                                                <Check size={16} /> Guardar
                                                             </button>
-                                                        </>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1">
+                                                            <button 
+                                                                onClick={() => startEditing(req)}
+                                                                className="flex items-center gap-2 px-4 py-2 border-2 border-slate-100 text-slate-500 hover:text-primary hover:border-primary/30 hover:bg-primary/5 rounded-2xl transition-all group/btn"
+                                                                title="Corregir Proyecto o Rol"
+                                                            >
+                                                                <Pencil size={18} className="group-hover/btn:scale-110 transition-transform" />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">Corregir</span>
+                                                            </button>
+                                                            {req.status === 'pending' ? (
+                                                                <>
+                                                                    <div className="h-8 w-[1px] bg-slate-100 mx-1"></div>
+                                                                    <button 
+                                                                        onClick={() => handleUpdateStatus(req.id, 'rejected')}
+                                                                        className="p-3 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                                                                        title="Rechazar"
+                                                                    >
+                                                                        <UserX size={20} />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleUpdateStatus(req.id, 'approved')}
+                                                                        className="p-3 text-green-500 hover:text-green-600 hover:bg-green-50 rounded-2xl transition-all"
+                                                                        title="Aprobar"
+                                                                    >
+                                                                        <UserCheck size={20} />
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                <button 
+                                                                    onClick={() => handleDeleteRequest(req.id)}
+                                                                    className="p-3 text-slate-300 hover:text-red-400 hover:bg-red-50 rounded-2xl transition-all"
+                                                                    title="Eliminar Registro Histórico"
+                                                                >
+                                                                    <XIcon size={20} />
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </td>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="card overflow-hidden border-none shadow-2xl shadow-slate-200 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem]">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Global</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Miembro desde</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                                {activeUsers.filter(u => 
+                                    u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    (u.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+                                ).length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-8 py-20 text-center text-slate-400 italic">No se encontraron usuarios activos que coincidan.</td>
+                                    </tr>
+                                ) : activeUsers
+                                    .filter(u => 
+                                        u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        (u.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+                                    )
+                                    .map(user => (
+                                    <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
+                                                    {user.name || 'Sin nombre'}
+                                                    {user.is_active === false && (
+                                                        <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border border-rose-200">
+                                                            Inactivo
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
+                                                    <Mail size={14} className="text-slate-300" /> {user.email}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${user.role_global === 'A' ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+                                                {user.role_global === 'A' ? 'Súper Admin' : 'Estándar'}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-6 text-sm text-slate-500">
+                                            {new Date(user.created_at).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {/* Toggle Status Button */}
+                                                {(user.role_global !== 'A' || isGlobalAdmin) && (
+                                                    <button 
+                                                        disabled={isDeletingId === user.id || user.role_global === 'A'}
+                                                        onClick={() => handleToggleUserStatus(user.id, user.is_active !== false, user.email)}
+                                                        className={`p-3 rounded-2xl transition-all disabled:opacity-30 group flex-1 max-w-[40px] ${
+                                                            user.is_active === false 
+                                                                ? 'text-green-500 hover:bg-green-50' 
+                                                                : 'text-amber-500 hover:bg-amber-50'
+                                                        }`}
+                                                        title={user.is_active === false ? "Activar Usuario" : "Desactivar Usuario"}
+                                                    >
+                                                        {user.is_active === false ? <Check size={20} className="group-hover:scale-110 transition-transform" /> : <XIcon size={20} className="group-hover:scale-110 transition-transform" />}
+                                                    </button>
+                                                )}
+                                                <button 
+                                                    disabled={isDeletingId === user.id || user.role_global === 'A'}
+                                                    onClick={() => handleDeleteUser(user.id, user.email)}
+                                                    className="p-3 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all disabled:opacity-30 group"
+                                                    title="Eliminar Acceso de Usuario"
+                                                >
+                                                    <UserX size={20} className="group-hover:scale-110 transition-transform" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

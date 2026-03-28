@@ -7,27 +7,33 @@
   --foreground: #0f172a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f172a;
-    --foreground: #f8fafc;
-  }
-}
-
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: inherit;
+  font-family: 'Inter', sans-serif;
 }
 
 .card {
-  @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6;
+  @apply bg-white rounded-3xl shadow-sm border border-slate-100 p-8 transition-all hover:shadow-md;
 }
 
 .btn-primary {
-  @apply bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg transition-colors font-medium;
+  @apply bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50;
 }
 
 .input-field {
-  @apply w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none transition-all;
+  @apply w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm font-medium;
+}
+
+.label-field {
+  @apply block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 ml-1;
+}
+
+/* Ocultar barra de desplazamiento */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -1,22 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { X, Send, CheckCircle2, AlertCircle, User, Mail, Hash, Shield } from "lucide-react";
 
 interface AccessRequestModalProps {
     isOpen: boolean;
     onClose: () => void;
+    initialData?: {
+        fullName?: string;
+        email?: string;
+        projectNumber?: string;
+    }
 }
 
-export default function AccessRequestModal({ isOpen, onClose }: AccessRequestModalProps) {
-    const [fullName, setFullName] = useState("");
-    const [email, setEmail] = useState("");
-    const [projectNumber, setProjectNumber] = useState("");
+export default function AccessRequestModal({ isOpen, onClose, initialData }: AccessRequestModalProps) {
+    const [fullName, setFullName] = useState(initialData?.fullName || "");
+    const [email, setEmail] = useState(initialData?.email || "");
+    const [projectNumber, setProjectNumber] = useState(initialData?.projectNumber || "");
     const [desiredRole, setDesiredRole] = useState("D");
     const [loading, setLoading] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Actualizar estados si initialData cambia y el modal se abre
+    useEffect(() => {
+        if (isOpen && initialData) {
+            if (initialData.fullName) setFullName(initialData.fullName);
+            if (initialData.email) setEmail(initialData.email);
+            if (initialData.projectNumber) setProjectNumber(initialData.projectNumber);
+        }
+    }, [isOpen, initialData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -185,19 +199,22 @@ export default function AccessRequestModal({ isOpen, onClose }: AccessRequestMod
                                 </div>
                             </div>
 
-                            {/* Número de Proyecto (Opcional) */}
+                            {/* Número de Proyecto (Opcional o Requerido) */}
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Número de Proyecto (Si aplica)</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">
+                                    {desiredRole === 'B' ? 'Números de Proyecto (REQUERIDO)' : 'Número de Proyecto (Si aplica)'}
+                                </label>
                                 <div className="relative group">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
                                         <Hash size={18} />
                                     </div>
                                     <input
                                         type="text"
+                                        required={desiredRole === 'B'}
                                         value={projectNumber}
                                         onChange={(e) => setProjectNumber(e.target.value)}
                                         className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:text-white"
-                                        placeholder="Ej: AC-123456"
+                                        placeholder={desiredRole === 'B' ? "Ej: AC-123456, AC-987654" : "Ej: AC-123456"}
                                     />
                                 </div>
                             </div>

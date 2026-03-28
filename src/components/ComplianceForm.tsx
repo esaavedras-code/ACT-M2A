@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, ShieldCheck, Plus, Trash2 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getLocalStorageItem } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
 const COMPLIANCE_DOCS = [
@@ -53,7 +53,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             return;
         }
 
-        const registrationStr = localStorage.getItem("pact_registration");
+        const registrationStr = getLocalStorageItem("pact_registration");
         if (!registrationStr) return;
         let user = null;
         try {
@@ -276,19 +276,13 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     };
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="w-full space-y-6">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <ShieldCheck className="text-primary" />
                     9. Cumplimiento Laboral
                 </h2>
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => addRecord()}
-                        className="bg-slate-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 text-slate-700 hover:bg-slate-200 transition-colors"
-                    >
-                        <Plus size={16} /> Nuevo Registro
-                    </button>
                     <button onClick={handleSubmit} disabled={loading} className="btn-primary flex items-center gap-2">
                         <Save size={18} />
                         {loading ? "Sincronizando..." : "Guardar Cumplimiento"}
@@ -554,6 +548,18 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                     </Fragment>
                                 );
                             })}
+                            <tr>
+                                <td colSpan={8} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                                    <button
+                                        type="button"
+                                        onClick={() => addRecord()}
+                                        className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                                    >
+                                        <Plus size={14} />
+                                        Nuevo Registro
+                                    </button>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>

@@ -1,10 +1,18 @@
-import { Info, ShieldCheck, Mail, Globe, Code2, Users, Building2 } from "lucide-react";
+"use client";
+
+import { Info, ShieldCheck, Mail, Globe, Code2, Users, Building2, Award, Cpu, CalendarDays } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 export default function AboutPage() {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+    if (!mounted) return null;
+
     return (
         <div className="max-w-4xl mx-auto py-12 px-6">
+            {/* Header */}
             <div className="text-center mb-16">
                 <div className="flex justify-center mb-6">
                     <div className="relative w-32 h-32 bg-white rounded-3xl shadow-xl overflow-hidden p-4 border border-slate-100">
@@ -18,14 +26,36 @@ export default function AboutPage() {
                 </div>
                 <h1 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">Proyectos ACT (PACT)</h1>
                 <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                    La plataforma definitiva para el control de ingeniería y gestión de proyectos v2.0
+                    La plataforma definitiva para el control de ingeniería y gestión de proyectos v3.1
                 </p>
                 <div className="mt-8 inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full font-bold text-sm border border-blue-100">
                     <ShieldCheck size={18} />
-                    Versión del Sistema: 2.0.0
+                    Versión del Sistema: 3.1
                 </div>
             </div>
 
+            {/* Autor del Programa */}
+            <div className="mb-10">
+                <div className="relative bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900 rounded-3xl p-10 text-white overflow-hidden shadow-2xl">
+                    {/* Decorative blobs */}
+                    <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/20 rounded-full blur-2xl -ml-24 -mb-24 pointer-events-none" />
+
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20">
+                                <Award size={22} className="text-amber-300" />
+                            </div>
+                            <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-200">Diseñador del Programa</span>
+                        </div>
+
+                        <h2 className="text-3xl font-black mb-1 tracking-tight">Ing. Enrique Saavedra Sada, PE</h2>
+                        <p className="text-blue-200 font-semibold mb-6 text-lg">Professional Engineer · M2A Group</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Company + Contact */}
             <div className="grid md:grid-cols-2 gap-8 mb-16">
                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
                     <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white mb-6">
@@ -53,33 +83,27 @@ export default function AboutPage() {
                 </div>
 
                 <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl">
-                    <h2 className="text-2xl font-bold mb-6">Contáctanos</h2>
-                    <p className="text-slate-400 mb-8">
-                        ¿Tienes sugerencias o necesitas soporte técnico? Estamos aquí para ayudarte a mantener tus proyectos en curso.
-                    </p>
+                    <h2 className="text-2xl font-bold mb-4">Contáctanos</h2>
+                    <div className="mb-8">
+                        <p className="text-blue-400 font-black uppercase tracking-widest text-[10px] mb-1">Professional Engineer</p>
+                        <p className="text-slate-300 font-bold text-sm">Autoridad de Carreteras y Transportación</p>
+                    </div>
+                    
                     <div className="space-y-6">
-                        <a href="mailto:info@m2agroup.pr" className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
+                        <a href="mailto:esaavedra@m2a-group.com" className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
                             <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
                                 <Mail size={20} />
                             </div>
                             <div>
                                 <div className="text-xs text-slate-400 uppercase font-bold tracking-wider">Email</div>
-                                <div className="font-medium">info@m2agroup.pr</div>
-                            </div>
-                        </a>
-                        <a href="https://www.m2agroup.pr" target="_blank" className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
-                            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
-                                <Globe size={20} />
-                            </div>
-                            <div>
-                                <div className="text-xs text-slate-400 uppercase font-bold tracking-wider">Sitio Web</div>
-                                <div className="font-medium">www.m2agroup.pr</div>
+                                <div className="font-medium">esaavedra@m2a-group.com</div>
                             </div>
                         </a>
                     </div>
                 </div>
             </div>
 
+            {/* CTA Banner */}
             <div className="bg-blue-600 rounded-3xl p-10 text-white relative overflow-hidden">
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
                     <div className="flex-1">
@@ -95,7 +119,7 @@ export default function AboutPage() {
             </div>
 
             <footer className="mt-16 text-center text-slate-400 text-xs py-8 border-t border-slate-100">
-                <p>© {new Date().getFullYear()} M2A Group. Puerto Rico. Todos los derechos reservados.</p>
+                <p>© {new Date().getFullYear()} M2A Group · Ing. Enrique Saavedra Sada, PE · Todos los derechos reservados.</p>
                 <div className="flex justify-center gap-4 mt-4">
                     <span className="hover:text-slate-600 cursor-help">Términos de Uso</span>
                     <span>•</span>

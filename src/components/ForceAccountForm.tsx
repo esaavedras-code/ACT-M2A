@@ -126,7 +126,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
     if (activeSubTab === "list") {
         return (
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
+                <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <Calculator className="text-primary" />
                         11. Force Accounts
@@ -161,7 +161,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
 
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <button onClick={() => setActiveSubTab("list")} className="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold text-sm">
                     <ChevronLeft size={18} /> Volver a la lista
                 </button>

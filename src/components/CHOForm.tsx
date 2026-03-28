@@ -2,9 +2,11 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer } from "lucide-react";
+import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare } from "lucide-react";
 import { formatCurrency, roundedAmt } from "@/lib/utils";
+import { generateCCMLReportLogic } from "@/lib/reportLogic";
 import specsData from "@/data/specifications.json";
+
 import type { FormRef } from "./ProjectForm";
 
 const specs = specsData as Record<string, { unit: string; description: string }>;
@@ -12,6 +14,22 @@ const specs = specsData as Record<string, { unit: string; description: string }>
 const DOC_STATUSES = ["Borrador", "En trámite", "Aprobado"];
 const TIME_EXT_STATUSES = ["Aprobada", "Pendiente"];
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
+
+const calculateChoBreakdown = (items: any[]) => {
+    let fed = 0, act = 0;
+    (items || []).forEach((it: any) => {
+        const total = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
+        if (it.fund_source === "ACT:100%") act = roundedAmt(act + total, 2);
+        else if (it.fund_source === "FHWA:80.25") {
+            const fShare = roundedAmt(total * 0.8025, 2);
+            fed = roundedAmt(fed + fShare, 2);
+            act = roundedAmt(act + roundedAmt(total - fShare, 2), 2);
+        }
+        else if (it.fund_source === "FHWA:100%") fed = roundedAmt(fed + total, 2);
+        else act = roundedAmt(act + total, 2);
+    });
+    return { fed, act };
+};
 
 const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function CHOForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [chos, setChos] = useState<any[]>([]);
@@ -96,6 +114,28 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             is_new: false,
             specification: "",
             description: "",
+            additional_description: "",
+            quantity: 0,
+            unit_price: 0,
+            fund_source: FUND_SOURCES[0]
+        });
+        setChos(newList);
+        if (onDirty) onDirty();
+    };
+
+    const insertCHOItem = (choIdx: number, itemIdx: number) => {
+        const newList = [...chos];
+        if (!newList[choIdx].items) newList[choIdx].items = [];
+        
+        const currentItemNum = parseInt(newList[choIdx].items[itemIdx]?.item_num);
+        const nextNum = !isNaN(currentItemNum) ? (currentItemNum + 1).toString().padStart(3, '0') : "";
+
+        newList[choIdx].items.splice(itemIdx + 1, 0, {
+            item_num: nextNum,
+            is_new: false,
+            specification: "",
+            description: "",
+            additional_description: "",
             quantity: 0,
             unit_price: 0,
             fund_source: FUND_SOURCES[0]
@@ -129,6 +169,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             if (match) {
                 newList[choIdx].items[itemIdx]['specification'] = match.specification;
                 newList[choIdx].items[itemIdx]['description'] = match.description;
+                newList[choIdx].items[itemIdx]['additional_description'] = match.additional_description || "";
                 newList[choIdx].items[itemIdx]['unit'] = match.unit;
                 newList[choIdx].items[itemIdx]['unit_price'] = match.unit_price;
                 newList[choIdx].items[itemIdx]['fund_source'] = match.fund_source;
@@ -169,6 +210,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             item_num: item.item_num,
                             specification: item.specification || "",
                             description: item.description || "",
+                            additional_description: item.additional_description || "",
                             quantity: 0, // Original quantity is 0 since it comes from CHO
                             unit: item.unit || "",
                             unit_price: item.unit_price || 0,
@@ -258,8 +300,8 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
     if (!mounted) return null;
 
     return (
-        <div suppressHydrationWarning className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+        <div suppressHydrationWarning className="w-full space-y-6">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <div>
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <FileEdit className="text-primary" />
@@ -300,6 +342,20 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                     .filter(c => c.doc_status === "Aprobado")
                     .reduce((sum, c) => sum + (c.time_extension_days || 0), 0);
 
+                let approvedFed = 0, approvedAct = 0;
+                chos.filter(c => c.doc_status === "Aprobado").forEach(c => {
+                    const b = calculateChoBreakdown(c.items);
+                    approvedFed = roundedAmt(approvedFed + b.fed, 2);
+                    approvedAct = roundedAmt(approvedAct + b.act, 2);
+                });
+
+                let pendingFed = 0, pendingAct = 0;
+                chos.filter(c => c.doc_status === "En trámite").forEach(c => {
+                    const b = calculateChoBreakdown(c.items);
+                    pendingFed = roundedAmt(pendingFed + b.fed, 2);
+                    pendingAct = roundedAmt(pendingAct + b.act, 2);
+                });
+
                 return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                         <SummaryItem
@@ -308,6 +364,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             icon={<DollarSign size={16} />}
                             color="text-emerald-600"
                             bgColor="bg-emerald-50 dark:bg-emerald-900/20"
+                            breakdown={{ fed: approvedFed, act: approvedAct }}
                         />
                         <SummaryItem
                             label="Total en Trámite ($)"
@@ -315,6 +372,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             icon={<DollarSign size={16} />}
                             color="text-amber-600"
                             bgColor="bg-amber-50 dark:bg-amber-900/20"
+                            breakdown={{ fed: pendingFed, act: pendingAct }}
                         />
                         <SummaryItem
                             label="Impacto Económico"
@@ -323,6 +381,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             color="text-primary"
                             bgColor="bg-blue-50 dark:bg-blue-900/20"
                             isCurrency={true}
+                            breakdown={{ fed: approvedFed, act: approvedAct }}
                         />
                         <SummaryItem
                             label="Días de Extensión"
@@ -366,6 +425,23 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                             return roundedAmt(acc + roundedAmt(q * p, 2), 2);
                                         }, 0))}
                                     </div>
+                                    <div className="flex gap-1 justify-end mt-1">
+                                        {(() => {
+                                            const b = calculateChoBreakdown(cho.items);
+                                            return (
+                                                <>
+                                                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50/50 dark:bg-emerald-900/10 rounded border border-emerald-100 dark:border-emerald-800/50">
+                                                        <span className="text-[8px] font-bold text-emerald-600 uppercase">Fed:</span>
+                                                        <span className="text-[9px] font-extrabold text-emerald-700">{formatCurrency(b.fed)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50/50 dark:bg-amber-900/10 rounded border border-amber-100 dark:border-amber-800/50">
+                                                        <span className="text-[8px] font-bold text-amber-600 uppercase">ACT:</span>
+                                                        <span className="text-[9px] font-extrabold text-amber-700">{formatCurrency(b.act)}</span>
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Estatus Doc.</label>
@@ -380,6 +456,21 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     className="bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                                 >
                                     {expandedCHO === cho.id ? "Cerrar Partidas" : "Ver / Añadir Partidas"}
+                                  </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        if (projectId && cho.id) {
+                                            generateCCMLReportLogic(projectId, cho.id);
+                                        } else {
+                                            alert("La Orden de Cambio debe estar guardada para generar el reporte CCML.");
+                                        }
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
+                                    title="Descargar CCML (Plantilla Oficial con Fórmulas) hasta esta CHO"
+                                >
+                                    <Files size={14} /> CCML
                                 </button>
                                 <button type="button" onClick={() => removeCHO(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
                                     <Trash2 size={18} />
@@ -408,11 +499,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                         <Plus size={14} className="text-primary" />
                                         Partidas de esta Enmienda
                                     </h4>
-                                    <div className="flex gap-4">
-                                        <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline">
-                                            + Añadir item
-                                        </button>
-                                    </div>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -471,7 +557,19 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                         <div className="space-y-0.5">
-                                                            <input suppressHydrationWarning type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
+                                                            <input suppressHydrationWarning type="text" className="input-field text-xs p-1 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : '' }} value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
+                                                            {(item.additional_description || item.is_new) && (
+                                                                <input 
+                                                                    suppressHydrationWarning 
+                                                                    type="text" 
+                                                                    className="input-field text-[10px] p-1 h-6 opacity-80" 
+                                                                    style={{ backgroundColor: item.is_new ? '#66FF99' : '' }}
+                                                                    placeholder="Descripción adicional..."
+                                                                    value={item.additional_description || ""} 
+                                                                    onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} 
+                                                                    readOnly={!item.is_new}
+                                                                />
+                                                            )}
                                                             {(() => {
                                                                 const match = contractItems.find(it => it.item_num === item.item_num);
                                                                 if (match) {
@@ -500,7 +598,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                             type="number"
                                                             step="0.0001"
                                                             className="input-field text-xs text-right p-1 h-7 transition-colors"
-                                                            style={{ backgroundColor: item.is_new ? '#66FF99' : '' }}
+                                                            style={{ backgroundColor: '#66FF99' }}
                                                             value={isNaN(parseFloat(item.unit_price)) ? "" : (item.unit_price ?? "")}
                                                             onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)}
                                                         />
@@ -525,19 +623,36 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         </select>
                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-center">
-                                                        <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500">
-                                                            <Trash2 size={12} />
-                                                        </button>
+                                                        <div className="flex flex-col gap-1 items-center">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => insertCHOItem(idx, itIdx)}
+                                                                className="text-emerald-500 hover:text-emerald-600 transition-colors"
+                                                                title="Insertar item debajo"
+                                                            >
+                                                                <PlusSquare size={12} />
+                                                            </button>
+                                                            <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500" title="Eliminar partida">
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
                                             {(cho.items || []).length === 0 && (
                                                 <tr>
                                                     <td colSpan={10} className="py-8 text-center text-xs text-slate-400 font-medium italic">
-                                                        No hay partidas añadidas a esta enmienda. Haz clic en "+ Añadir item".
+                                                        No hay partidas añadidas a esta enmienda. Haz clic en "Añadir item".
                                                     </td>
                                                 </tr>
                                             )}
+                                            <tr>
+                                                <td colSpan={10} className="py-2 px-1 border-t border-slate-100 dark:border-slate-800">
+                                                    <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                                                        <Plus size={14} /> Añadir item
+                                                    </button>
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -583,38 +698,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     </div>
                                 </div>
 
-                                {/* CCML Details */}
-                                <div className="mt-8 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-6">
-                                    <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                                        <Activity size={14} /> Detalle para CCML (Contract Modification Log)
-                                    </h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Federal Share %</label>
-                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.federal_share_pct ?? 80.25} onChange={(e) => updateCHO(idx, 'federal_share_pct', parseFloat(e.target.value))} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Toll Credits Amt ($)</label>
-                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.toll_credits_amt ?? 0} onChange={(e) => updateCHO(idx, 'toll_credits_amt', parseFloat(e.target.value))} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Not Part. State ($)</label>
-                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.non_participating_state_amt ?? 0} onChange={(e) => updateCHO(idx, 'non_participating_state_amt', parseFloat(e.target.value))} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">State Share Fed Funds ($)</label>
-                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.state_share_federal_funds ?? 0} onChange={(e) => updateCHO(idx, 'state_share_federal_funds', parseFloat(e.target.value))} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fed Share Mod Letter ($)</label>
-                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.fed_share_mod_letter ?? 0} onChange={(e) => updateCHO(idx, 'fed_share_mod_letter', parseFloat(e.target.value))} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Toll Credits Mod ($)</label>
-                                            <input type="number" step="0.01" className="input-field text-xs h-8" style={{ backgroundColor: '#66FF99' }} value={cho.toll_credits_mod ?? 0} onChange={(e) => updateCHO(idx, 'toll_credits_mod', parseFloat(e.target.value))} />
-                                        </div>
-                                    </div>
-                                </div>
+
                             </div>
                         )}
                     </div>
@@ -631,17 +715,29 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
 
 export default CHOForm;
 
-function SummaryItem({ label, value, icon, color, bgColor, isCurrency = true }: { label: string, value: number, icon: React.ReactNode, color: string, bgColor: string, isCurrency?: boolean }) {
+function SummaryItem({ label, value, icon, color, bgColor, isCurrency = true, breakdown }: { label: string, value: number, icon: React.ReactNode, color: string, bgColor: string, isCurrency?: boolean, breakdown?: { fed: number, act: number } }) {
     return (
         <div className={`${bgColor} rounded-xl p-3 border border-slate-100 dark:border-slate-800 flex items-start gap-3`}>
             <div className={`${color} p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm`}>
                 {icon}
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</div>
-                <div className={`text-sm font-black ${color}`}>
+                <div className={`text-sm font-black ${color} truncate`}>
                     {isCurrency ? formatCurrency(value) : `${value} días`}
                 </div>
+                {breakdown && (
+                    <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+                        <div className="flex flex-col">
+                            <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">Fed</span>
+                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400">{formatCurrency(breakdown.fed)}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">Act</span>
+                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400">{formatCurrency(breakdown.act)}</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

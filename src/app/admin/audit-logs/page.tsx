@@ -18,10 +18,12 @@ interface AuditLog {
 
 export default function AuditLogsPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
+    const [users, setUsers] = useState<{email: string, name: string | null}[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedTable, setSelectedTable] = useState("all");
+    const [selectedUser, setSelectedUser] = useState("all");
 
     useEffect(() => {
         const checkAdmin = async () => {
@@ -44,32 +46,44 @@ export default function AuditLogsPage() {
             }
 
             setIsAdmin(true);
-            fetchLogs();
+            fetchInitialData();
         };
 
         checkAdmin();
     }, []);
 
-    const fetchLogs = async () => {
+    const fetchInitialData = async () => {
         setLoading(true);
+        await Promise.all([
+            fetchLogs(),
+            fetchUsers()
+        ]);
+        setLoading(false);
+    };
+
+    const fetchUsers = async () => {
+        const { data } = await supabase.from("users").select("email, name").order("name");
+        if (data) setUsers(data);
+    };
+
+    const fetchLogs = async () => {
         let query = supabase
             .from("audit_log")
             .select("*")
             .order("timestamp_utc", { ascending: false })
             .limit(200);
 
-        const { data, error } = await query;
+        const { data } = await query;
         if (data) setLogs(data);
-        setLoading(false);
     };
 
     const filteredLogs = logs.filter(log => {
         const matchesSearch = 
-            log.usuario_db?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             log.fila_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             log.evento?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesTable = selectedTable === "all" || log.tabla === selectedTable;
-        return matchesSearch && matchesTable;
+        const matchesUser = selectedUser === "all" || log.usuario_db === selectedUser;
+        return matchesSearch && matchesTable && matchesUser;
     });
 
     const tables = Array.from(new Set(logs.map(l => l.tabla))).sort();
@@ -94,11 +108,27 @@ export default function AuditLogsPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={18} />
                         <input 
                             type="text" 
-                            placeholder="Buscar usuario o ID..." 
+                            placeholder="Buscar por ID o Evento..." 
                             className="pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2">
+                        <User size={16} className="text-slate-400" />
+                        <select 
+                            className="bg-transparent outline-none font-bold text-xs uppercase tracking-wider pr-4 cursor-pointer max-w-[150px]"
+                            value={selectedUser}
+                            onChange={(e) => setSelectedUser(e.target.value)}
+                        >
+                            <option value="all">Cualquier Usuario</option>
+                            {users.map(u => (
+                                <option key={u.email} value={u.email}>
+                                    {u.name || u.email}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     
                     <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2">

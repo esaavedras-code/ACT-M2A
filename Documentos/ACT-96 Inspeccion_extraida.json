@@ -1,0 +1,63 @@
+{
+    "proyecto_num": "6. DIA DE SEMANA:",
+    "proyecto_nombre": "",
+    "municipio": "4. CONTRATISTA Y/O",
+    "contratista": "Unique Builders",
+    "fecha": "1. NÚM. DE PROYECTO:",
+    "clima": "",
+    "actividades": [
+        {
+            "descripcion": "Fernández Juncos con Cerra (2 limpiezas, ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con San Juan (2 limpiezas, ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Miramar (limpieza y desganche, ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Ohare (ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Hipodromo (ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Avelino Vicente ( 1 limpieza, falta una cámara, ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Labra (3 limpiezas, ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Figueroa (ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Pavia (limpieza y ajuste del rótulo, ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Del Parque (2 limpiezas de cámara, dañada tarjeta fase C, ok lo demás)"
+        },
+        {
+            "descripcion": "Fernández Juncos con San Juan (2 limpiezas, ok)Fernández Juncos con Miramar (limpieza y desganche, ok)"
+        },
+        {
+            "descripcion": "Fernández Juncos con Avelino Vicente ( 1 limpieza, falta una cámara, ok)Fernández Juncos con Labra (3 limpiezas, ok)"
+        },
+        {
+            "descripcion": "17.  VISITASFernández Juncos con Pavia (limpieza y ajuste del rótulo, ok)"
+        }
+    ],
+    "equipo": [
+        "Truck canasto       H-55017",
+        "PickUp F150            866-721",
+        "Heriberto Sánchez   --Foreman"
+    ],
+    "personal": [
+        "Esteban López    --Labor",
+        "Juan Cabrera      --Chofer",
+        "Josué Clemente  --Tecnico",
+        "Heriberto Sánchez   --Foreman",
+        "Esteban López    --Labor",
+        "Juan Cabrera      --Chofer",
+        "Josué Clemente  --Tecnico"
+    ]
+}

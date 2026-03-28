@@ -11,12 +11,18 @@ export default function ReportesLink() {
 
     return (
         <Link
-            href={projectId ? `/reportes?id=${projectId}` : "/reportes"}
+            href={projectId ? `/reportes?id=${projectId}` : "#"}
+            onClick={(e) => {
+                if (!projectId) {
+                    e.preventDefault();
+                    alert("No hay ningún proyecto seleccionado");
+                }
+            }}
             className="flex items-center gap-1.5 hover:text-blue-200 transition-colors py-2 font-medium"
             suppressHydrationWarning
         >
             <FileBarChart size={18} />
-            Reportes
+            Central de reportes
         </Link>
     );
 }

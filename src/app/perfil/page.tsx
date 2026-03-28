@@ -2,18 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { User, Key, Shield, Save, ArrowLeft, Building, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Key, Shield, Save, ArrowLeft, Building, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 export default function ProfilePage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [savingPassword, setSavingPassword] = useState(false);
     const [projects, setProjects] = useState<any[]>([]);
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -26,7 +30,6 @@ export default function ProfilePage() {
             setEmail(session.user.email || "");
             setName(session.user.user_metadata?.name || "");
 
-            // Load allowed projects
             const { data: userProjects } = await supabase
                 .from("memberships")
                 .select("projects(id, name, num_act)")
@@ -43,39 +46,54 @@ export default function ProfilePage() {
         loadProfile();
     }, []);
 
+    // ── Formulario de Nombre ──────────────────────────────────────────────────
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSaving(true);
-        setMessage(null);
+        setSavingProfile(true);
+        setProfileMsg(null);
 
         try {
-            // Update metadata (name)
-            const { error: metaError } = await supabase.auth.updateUser({
-                data: { name }
-            });
-
+            const { error: metaError } = await supabase.auth.updateUser({ data: { name } });
             if (metaError) throw metaError;
 
-            // Update user in public users table if exists
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 await supabase.from("users").update({ name }).eq("id", user.id);
             }
 
-            // Update password if provided
-            if (newPassword) {
-                const { error: pwdError } = await supabase.auth.updateUser({
-                    password: newPassword
-                });
-                if (pwdError) throw pwdError;
-                setNewPassword("");
-            }
-
-            setMessage({ type: 'success', text: "perfil actualizado correctamente." });
+            setProfileMsg({ type: 'success', text: "✓ Nombre actualizado correctamente." });
         } catch (err: any) {
-            setMessage({ type: 'error', text: err.message || "Error al actualizar perfil" });
+            setProfileMsg({ type: 'error', text: err.message || "Error al actualizar perfil" });
         } finally {
-            setSaving(false);
+            setSavingProfile(false);
+        }
+    };
+
+    // ── Formulario de Contraseña ──────────────────────────────────────────────
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordMsg(null);
+
+        if (!newPassword || newPassword.length < 6) {
+            setPasswordMsg({ type: 'error', text: "La contraseña debe tener al menos 6 caracteres." });
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setPasswordMsg({ type: 'error', text: "Las contraseñas no coinciden." });
+            return;
+        }
+
+        setSavingPassword(true);
+        try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            setNewPassword("");
+            setConfirmPassword("");
+            setPasswordMsg({ type: 'success', text: "✓ Contraseña actualizada correctamente." });
+        } catch (err: any) {
+            setPasswordMsg({ type: 'error', text: err.message || "Error al cambiar la contraseña." });
+        } finally {
+            setSavingPassword(false);
         }
     };
 
@@ -84,6 +102,8 @@ export default function ProfilePage() {
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
         </div>
     );
+
+    const passwordHasContent = newPassword.length > 0;
 
     return (
         <div className="max-w-4xl mx-auto py-10 px-4 space-y-8 animate-in fade-in duration-500">
@@ -100,19 +120,22 @@ export default function ProfilePage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* User Settings Form */}
                 <div className="lg:col-span-2 space-y-6">
+
+                    {/* ── Formulario de Nombre ── */}
                     <form onSubmit={handleUpdateProfile} className="card p-8 bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl space-y-6">
                         <div className="space-y-4">
                             <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2 border-b pb-2">
                                 <Shield className="text-primary" size={20} /> Información Personal
                             </h2>
 
-                            {message && (
+                            {profileMsg && (
                                 <div className={`p-4 rounded-xl text-sm font-bold border ${
-                                    message.type === 'success' ? 'bg-green-50 border-green-200 text-green-600' : 'bg-red-50 border-red-200 text-red-600'
+                                    profileMsg.type === 'success'
+                                        ? 'bg-green-50 border-green-200 text-green-700'
+                                        : 'bg-red-50 border-red-200 text-red-600'
                                 }`}>
-                                    {message.text}
+                                    {profileMsg.text}
                                 </div>
                             )}
 
@@ -147,19 +170,75 @@ export default function ProfilePage() {
                                     />
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="space-y-2 pt-4">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Nueva Contraseña (Dejar en blanco para no cambiar)</label>
+                        <button
+                            type="submit"
+                            disabled={savingProfile}
+                            className="w-full bg-primary hover:bg-blue-700 text-white rounded-2xl py-4 font-black flex items-center justify-center gap-3 transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
+                        >
+                            {savingProfile ? (
+                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                                <>Guardar Nombre <Save size={20} /></>
+                            )}
+                        </button>
+                    </form>
+
+                    {/* ── Formulario de Contraseña ── */}
+                    <form onSubmit={handleUpdatePassword} className={`card p-8 rounded-[2rem] shadow-xl space-y-6 transition-all duration-300 ${
+                        passwordHasContent
+                            ? 'bg-amber-50 border-2 border-amber-300 ring-4 ring-amber-100'
+                            : 'bg-white dark:bg-slate-900 border border-slate-200'
+                    }`}>
+                        <div className="space-y-4">
+                            <h2 className={`text-lg font-bold flex items-center gap-2 border-b pb-2 transition-colors ${
+                                passwordHasContent ? 'text-amber-800 border-amber-200' : 'text-slate-800 dark:text-white'
+                            }`}>
+                                <Key className={passwordHasContent ? 'text-amber-600' : 'text-primary'} size={20} />
+                                Cambiar Contraseña
+                                {passwordHasContent && (
+                                    <span className="ml-auto text-xs font-black px-2 py-0.5 bg-amber-500 text-white rounded-full uppercase tracking-wider">
+                                        Activo
+                                    </span>
+                                )}
+                            </h2>
+
+                            {passwordHasContent && (
+                                <div className="flex items-start gap-2 p-3 bg-amber-100 border border-amber-200 rounded-xl text-amber-800 text-xs font-bold">
+                                    <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-amber-600" />
+                                    <span>Se actualizará tu contraseña al guardar. Asegúrate de recordarla.</span>
+                                </div>
+                            )}
+
+                            {passwordMsg && (
+                                <div className={`p-4 rounded-xl text-sm font-bold border ${
+                                    passwordMsg.type === 'success'
+                                        ? 'bg-green-50 border-green-200 text-green-700'
+                                        : 'bg-red-50 border-red-200 text-red-600'
+                                }`}>
+                                    {passwordMsg.text}
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                <label className={`text-[10px] font-bold uppercase tracking-widest pl-1 ${passwordHasContent ? 'text-amber-700' : 'text-slate-400'}`}>
+                                    Nueva Contraseña
+                                </label>
                                 <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                                    <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${passwordHasContent ? 'text-amber-500' : 'text-slate-400 group-focus-within:text-primary'}`}>
                                         <Key size={18} />
                                     </div>
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         value={newPassword}
                                         onChange={(e) => setNewPassword(e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all"
-                                        placeholder="••••••••"
+                                        className={`w-full rounded-xl py-3 pl-12 pr-12 outline-none transition-all ${
+                                            passwordHasContent
+                                                ? 'bg-white border-2 border-amber-400 focus:ring-4 focus:ring-amber-200 text-amber-900 placeholder-amber-300'
+                                                : 'bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-primary/10 focus:border-primary'
+                                        }`}
+                                        placeholder="Mínimo 6 caracteres"
                                     />
                                     <button
                                         type="button"
@@ -170,25 +249,57 @@ export default function ProfilePage() {
                                     </button>
                                 </div>
                             </div>
+
+                            <div className="space-y-2">
+                                <label className={`text-[10px] font-bold uppercase tracking-widest pl-1 ${passwordHasContent ? 'text-amber-700' : 'text-slate-400'}`}>
+                                    Confirmar Nueva Contraseña
+                                </label>
+                                <div className="relative group">
+                                    <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${passwordHasContent ? 'text-amber-500' : 'text-slate-400 group-focus-within:text-primary'}`}>
+                                        <Key size={18} />
+                                    </div>
+                                    <input
+                                        type={showConfirm ? "text" : "password"}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className={`w-full rounded-xl py-3 pl-12 pr-12 outline-none transition-all ${
+                                            passwordHasContent
+                                                ? 'bg-white border-2 border-amber-400 focus:ring-4 focus:ring-amber-200 text-amber-900 placeholder-amber-300'
+                                                : 'bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-primary/10 focus:border-primary'
+                                        }`}
+                                        placeholder="Repite la contraseña"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirm(!showConfirm)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+                                    >
+                                        {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <button
                             type="submit"
-                            disabled={saving}
-                            className="w-full bg-primary hover:bg-blue-700 text-white rounded-2xl py-4 font-black flex items-center justify-center gap-3 transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
+                            disabled={savingPassword || !passwordHasContent}
+                            className={`w-full rounded-2xl py-4 font-black flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50 ${
+                                passwordHasContent
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xl shadow-amber-500/25'
+                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            }`}
                         >
-                            {saving ? (
-                                <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            {savingPassword ? (
+                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             ) : (
-                                <>
-                                    Guardar Cambios <Save size={20} />
-                                </>
+                                <><Key size={20} /> Cambiar Contraseña</>
                             )}
                         </button>
                     </form>
+
                 </div>
 
-                {/* Account Info / Projects Badge */}
+                {/* Sidebar */}
                 <div className="space-y-6">
                     <div className="card p-6 bg-slate-900 border-none rounded-[2rem] text-white shadow-2xl">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
@@ -212,6 +323,13 @@ export default function ProfilePage() {
                         <h4 className="text-amber-800 font-bold text-sm mb-2">💡 Nota Importante</h4>
                         <p className="text-amber-700 text-xs leading-relaxed">
                             Cualquier cambio en tu nombre será visible para otros miembros del equipo en los logs de actividad y reportes.
+                        </p>
+                    </div>
+
+                    <div className="p-6 bg-blue-50 border border-blue-100 rounded-[2rem]">
+                        <h4 className="text-blue-800 font-bold text-sm mb-2">🔐 Cambio de Contraseña</h4>
+                        <p className="text-blue-700 text-xs leading-relaxed">
+                            El cambio de contraseña es independiente del nombre. Al escribir una nueva contraseña, el formulario cambia de color para confirmar que está activo.
                         </p>
                     </div>
                 </div>

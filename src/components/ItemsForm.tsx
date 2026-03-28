@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ListChecks, Plus, Trash2, Info, PlusSquare } from "lucide-react";
-import { formatCurrency, roundedAmt } from "@/lib/utils";
+import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileSearch } from "lucide-react";
+import { formatCurrency, formatNumber, roundedAmt } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
+import mfgItemsData from "@/lib/mfgItems.json";
 
 import specsData from "@/data/specifications.json";
 
@@ -21,6 +22,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
     const [items, setItems] = useState<any[]>([]);
     const [chos, setChos] = useState<any[]>([]);
     const [certs, setCerts] = useState<any[]>([]);
+    const [priceSuggestions, setPriceSuggestions] = useState<Record<string, number[]>>({});
     const [expandedItem, setExpandedItem] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -29,15 +31,32 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
             fetchItems();
             fetchCHOs();
             fetchCerts();
+            fetchPriceHistory();
         } else {
-            setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false }]);
+            setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1 }]);
         }
     }, [projectId]);
+
+    const fetchPriceHistory = async () => {
+        const { data } = await supabase.from("contract_items").select("specification, unit_price");
+        if (data) {
+            const suggestions: Record<string, number[]> = {};
+            data.forEach(item => {
+                if (!item.specification) return;
+                const spec = item.specification.trim();
+                if (!suggestions[spec]) suggestions[spec] = [];
+                if (!suggestions[spec].includes(item.unit_price)) {
+                    suggestions[spec].push(item.unit_price);
+                }
+            });
+            setPriceSuggestions(suggestions);
+        }
+    };
 
     const fetchItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId).order('item_num', { ascending: true });
         if (data && data.length > 0) setItems(data);
-        else setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false }]);
+        else setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1 }]);
     };
 
     const fetchCHOs = async () => {
@@ -70,7 +89,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
             return isNaN(num) ? max : Math.max(max, num);
         }, 0);
         const nextNum = (maxNum + 1).toString().padStart(3, '0');
-        setItems([...items, { item_num: nextNum, specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false }]);
+        setItems([...items, { item_num: nextNum, specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1 }]);
         if (onDirty) onDirty();
     };
 
@@ -93,7 +112,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
             unit: "",
             unit_price: 0,
             fund_source: FUND_SOURCES[0],
-            requires_mfg_cert: false
+            requires_mfg_cert: false,
+            mfg_cert_qty: 1
         });
         setItems(newItems);
         if (onDirty) onDirty();
@@ -115,10 +135,16 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
         // Autofill logic for specification (global catalog)
         if (field === 'specification') {
-            const specInfo = specs[finalValue.toString().trim()];
+            const specCode = finalValue.toString().trim();
+            const specInfo = specs[specCode];
             if (specInfo) {
                 newItems[index]['description'] = specInfo.description;
                 newItems[index]['unit'] = specInfo.unit;
+            }
+            if ((mfgItemsData as Record<string, boolean>)[specCode] === true) {
+                newItems[index]['requires_mfg_cert'] = true;
+            } else if ((mfgItemsData as Record<string, boolean>)[specCode] === false) {
+                newItems[index]['requires_mfg_cert'] = false;
             }
         }
 
@@ -194,7 +220,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <div className="space-y-1">
                     <h2 className="text-2xl font-bold flex items-center gap-2 font-geist tracking-tight">
                         <ListChecks className="text-primary" />
@@ -212,6 +238,60 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                     </div>
                 </div>
                 <div className="flex gap-3">
+                    {projectId && (
+                        <button 
+                            type="button"
+                            disabled={loading}
+                            onClick={async () => {
+                                setLoading(true);
+                                try {
+                                    const win = window as any;
+                                    if (!win.electronAPI?.parsePdfBase64) { alert("Usa la versión EXE."); setLoading(false); return; }
+                                    const { data: files } = await supabase.storage.from("project-documents").list(projectId);
+                                    if (!files?.length) { alert("Sube documentos (Proposal, Contrato) en la pestaña 'Datos Proyecto' primero."); setLoading(false); return; }
+                                    
+                                    let itemsCount = 0;
+                                    const itemsToInsert: any[] = [];
+                                    const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
+                                        const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
+                                    });
+
+                                    for (const f of files) {
+                                        if (!f.name.toLowerCase().endsWith('.pdf')) continue;
+                                        const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
+                                        if (!blob) continue;
+                                        const res = await win.electronAPI.parsePdfBase64(await blobToBase64(blob));
+                                        if (res.success && res.text) {
+                                            const lines = res.text.split("\n");
+                                            const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
+                                            for (const l of lines) {
+                                                const m = pat.exec(l);
+                                                if (m) {
+                                                    const n = m[1].padStart(3, '0');
+                                                    if (!itemsToInsert.some(it => it.item_num === n)) {
+                                                        const spec = m[2].trim();
+                                                        itemsToInsert.push({ project_id: projectId, item_num: n, specification: spec, description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[spec], mfg_cert_qty: 1 });
+                                                        itemsCount++;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (itemsToInsert.length) {
+                                        await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
+                                        await fetchItems();
+                                        alert(`Análisis Finalizado: Se importaron ${itemsCount} partidas.`);
+                                    } else {
+                                        alert("No se detectaron partidas en los documentos actuales.");
+                                    }
+                                } catch (e) { console.error(e); }
+                                setLoading(false);
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-all font-bold text-sm flex items-center gap-2 shadow-lg shadow-indigo-100"
+                        >
+                            <FileSearch size={18} /> {loading ? "Procesando..." : "Cargar desde PDFs"}
+                        </button>
+                    )}
                     <button onClick={addItem} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition-colors font-bold text-sm flex items-center gap-2">
                         <Plus size={18} /> Añadir Item
                     </button>
@@ -235,22 +315,24 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                            <th className="px-1 py-2 w-16 text-center">#</th>
-                            <th className="px-1 py-2 w-32 text-center">Espec.</th>
-                            <th className="px-1 py-2">Descripción</th>
-                            <th className="px-1 py-2 w-20 text-right">Cant. Orig.</th>
-                            <th className="px-1 py-2 w-20 text-right text-blue-600">Cant. CHO</th>
-                            <th className="px-1 py-2 w-20 text-right font-black">Cant. Total</th>
-                            <th className="px-1 py-2 w-20 text-center">Unid.</th>
-                            <th className="px-1 py-2 w-24 text-right">U.P. ($)</th>
-                            <th className="px-1 py-2 w-32 text-right">Amount Final ($)</th>
-                            <th className="px-1 py-2 w-32 text-center">Fondos</th>
-                            <th className="px-1 py-2 w-12 text-center" title="Requiere Cert. Manufactura">Mfg</th>
-                            <th className="px-1 py-2 w-10"></th>
+                            <th className="px-1 py-2 min-w-[64px] text-center">#</th>
+                            <th className="px-1 py-2 min-w-[96px] text-center">Espec.</th>
+                            <th className="px-1 py-2 min-w-[200px]">Descripción</th>
+                            <th className="px-1 py-2 min-w-[80px] text-right">Cant. Orig.</th>
+                            <th className="px-1 py-2 min-w-[80px] text-right text-blue-600">Cant. CHO</th>
+                            <th className="px-1 py-2 min-w-[80px] text-right font-black">Cant. Total</th>
+                            <th className="px-1 py-2 min-w-[80px] text-center">Unid.</th>
+                            <th className="px-1 py-2 min-w-[96px] text-right">U.P. ($)</th>
+                            <th className="px-1 py-2 min-w-[120px] text-right">Amount Final ($)</th>
+                            <th className="px-1 py-2 min-w-[110px] text-center">Fondos</th>
+                            <th className="px-1 py-2 min-w-[48px] text-center" title="Requiere Cert. Manufactura">CM</th>
+                            <th className="px-1 py-2 min-w-[64px]"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                        {items.map((item, idx) => {
+                        {items.map((item, originalIndex) => ({ item, originalIndex }))
+                                .sort((a, b) => (parseInt(a.item.item_num) || 0) - (parseInt(b.item.item_num) || 0))
+                                .map(({ item, originalIndex: idx }) => {
                             const choQty = getCHOQty(item.item_num);
                             const totalQty = (parseFloat(item.quantity) || 0) + choQty;
                             const amountFinal = roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2);
@@ -291,7 +373,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             <input
                                                 type="text"
                                                 maxLength={3}
-                                                className="input-field text-xs text-center font-bold h-8"
+                                                className="input-field text-xs text-center font-bold h-8 !py-1"
                                                 style={{ backgroundColor: '#66FF99' }}
                                                 value={item.item_num || ""}
                                                 onChange={(e) => updateItem(idx, 'item_num', e.target.value)}
@@ -304,35 +386,48 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             />
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="text" className="input-field text-xs text-center h-8" value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
+                                            <input type="text" className="input-field text-xs text-center h-8 !py-1" value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <div className="space-y-1">
-                                                <input type="text" className="input-field text-xs h-8" value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
-                                                <input type="text" className="input-field text-[10px] h-6 opacity-70" style={{ backgroundColor: '#66FF99' }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                <input type="text" className="input-field text-xs h-8 !py-1" value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
+                                                <input type="text" className="input-field text-[10px] h-6 !py-0.5 opacity-70" style={{ backgroundColor: '#66FF99' }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="number" className="input-field text-xs text-right h-8" style={{ backgroundColor: '#66FF99' }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
+                                            <input type="number" className="input-field text-xs text-right h-8 !py-1" style={{ backgroundColor: '#66FF99' }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
                                         </td>
                                         <td className="px-1 py-1.5 text-right text-xs font-bold text-blue-600 pr-4">
-                                            {choQty !== 0 ? choQty : "-"}
+                                            {choQty !== 0 ? formatNumber(choQty) : "-"}
                                         </td>
                                         <td className="px-1 py-1.5 text-right text-xs font-black pr-4">
-                                            {totalQty}
+                                            {formatNumber(totalQty)}
                                         </td>
                                         <td className="px-1 py-1.5 text-center">
-                                            <input type="text" className="input-field text-xs uppercase h-8 text-center px-1" value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
+                                            <input type="text" className="input-field text-xs uppercase h-8 !py-1 text-center px-1" value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="number" step="0.0001" className="input-field text-xs text-right font-medium h-8" style={{ backgroundColor: '#66FF99' }} value={isNaN(item.unit_price) ? "" : item.unit_price} onChange={(e) => updateItem(idx, 'unit_price', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
+                                            <input 
+                                                type="number" 
+                                                step="0.0001" 
+                                                className="input-field text-xs text-right font-medium h-8 !py-1" 
+                                                style={{ backgroundColor: '#66FF99' }} 
+                                                list={`prices-${idx}`}
+                                                value={isNaN(item.unit_price) ? "" : item.unit_price} 
+                                                onChange={(e) => updateItem(idx, 'unit_price', e.target.value === "" ? 0 : parseFloat(e.target.value))} 
+                                            />
+                                            <datalist id={`prices-${idx}`}>
+                                                {(priceSuggestions[item.specification?.trim()] || []).map(p => (
+                                                    <option key={p} value={p} />
+                                                ))}
+                                            </datalist>
                                         </td>
                                         <td className="px-1 py-1.5 text-right font-black text-xs text-primary pr-4">
                                             {formatCurrency(amountFinal)}
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <select
-                                                className="input-field text-[10px] font-bold h-8"
+                                                className="input-field text-[10px] font-bold h-8 !py-1"
                                                 style={{ backgroundColor: '#66FF99' }}
                                                 value={item.fund_source || ""}
                                                 onChange={(e) => updateItem(idx, 'fund_source', e.target.value)}
@@ -366,6 +461,15 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                     </svg>
                                                 )}
                                             </label>
+                                            {item.requires_mfg_cert && (item.unit === 'LS' || item.unit === 'LUMP SUM') && (
+                                                <input
+                                                    type="number"
+                                                    title="Cantidad de Certificados de Manufactura Requeridos"
+                                                    className="w-10 h-5 mt-1 text-[10px] text-center font-bold border border-amber-300 rounded mx-auto block"
+                                                    value={item.mfg_cert_qty || 1}
+                                                    onChange={(e) => updateItem(idx, 'mfg_cert_qty', parseInt(e.target.value) || 1)}
+                                                />
+                                            )}
                                         </td>
                                         <td className="px-1 py-1.5 text-center">
                                             <div className="flex flex-col gap-1.5 items-center">
@@ -403,18 +507,18 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                         <div className="flex gap-6 items-center">
                                                             <div className="text-right">
                                                                 <div className="text-[10px] uppercase font-bold text-slate-400">Cant. Total</div>
-                                                                <div className="text-sm font-black text-slate-700">{totalQty % 1 !== 0 ? totalQty.toFixed(2) : totalQty}</div>
+                                                                <div className="text-sm font-black text-slate-700">{formatNumber(totalQty)}</div>
                                                             </div>
                                                             <div className="text-right">
                                                                 <div className="text-[10px] uppercase font-bold text-slate-400">Sumatoria Pagada</div>
                                                                 <div className="text-sm font-black text-emerald-600">
-                                                                    {paidQty % 1 !== 0 ? paidQty.toFixed(2) : paidQty}
+                                                                    {formatNumber(paidQty)}
                                                                     <span className="text-xs text-slate-400 font-normal ml-1">({totalQty ? ((paidQty / totalQty) * 100).toFixed(0) : 0}%)</span>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">
                                                                 <div className="text-[10px] uppercase font-bold text-slate-400">Balance Disponible</div>
-                                                                <div className="text-sm font-black text-blue-600">{remainingQty % 1 !== 0 ? remainingQty.toFixed(2) : remainingQty}</div>
+                                                                <div className="text-sm font-black text-blue-600">{formatNumber(remainingQty)}</div>
                                                             </div>
                                                             <div className="text-right pl-6 border-l border-slate-100 dark:border-slate-700 ml-2">
                                                                 <div className="text-[10px] uppercase font-bold text-primary tracking-wider">Resultado Económico</div>
@@ -446,7 +550,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                             <div key={`cho-${i}`} className="flex flex-col items-center min-w-[70px]">
                                                                                 <span className="text-[11px] font-bold text-blue-600 mb-2 whitespace-nowrap">CHO #{b?.choNum}{b?.amendmentLetter}</span>
                                                                                 <span className={`text-sm font-black ${b?.qty && b.qty > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                                                                                    {b?.qty && b.qty > 0 ? `+${b.qty}` : b?.qty}
+                                                                                    {b?.qty && b.qty > 0 ? `+${formatNumber(b.qty)}` : formatNumber(b?.qty)}
                                                                                 </span>
                                                                                 <span className="text-[10px] font-medium text-slate-400 mt-1">{b?.amount ? formatCurrency(b.amount) : formatCurrency(0)}</span>
                                                                             </div>
@@ -455,7 +559,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                         <div className="flex flex-col items-center min-w-[70px]">
                                                                             <span className="text-[11px] font-bold text-blue-600 mb-2 whitespace-nowrap">TOTAL CHO</span>
                                                                             <span className={`text-sm font-black ${choQty > 0 ? 'text-emerald-600' : (choQty < 0 ? 'text-red-500' : 'text-slate-700')}`}>
-                                                                                {choQty > 0 ? `+${choQty}` : choQty}
+                                                                                {choQty > 0 ? `+${formatNumber(choQty)}` : formatNumber(choQty)}
                                                                             </span>
                                                                             <span className="text-[10px] font-bold text-slate-400 mt-1">{formatCurrency(roundedAmt(choQty * (parseFloat(item.unit_price) || 0), 2))}</span>
                                                                         </div>
@@ -477,14 +581,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                         {paidBreakdown.map((b, i) => (
                                                                             <div key={`cert-${i}`} className="flex flex-col items-center min-w-[70px]">
                                                                                 <span className="text-[11px] font-bold text-emerald-600 mb-2 whitespace-nowrap">CERT #{b?.certNum}</span>
-                                                                                <span className="text-sm font-black text-slate-700">{b?.qty}</span>
+                                                                                <span className="text-sm font-black text-slate-700">{formatNumber(b?.qty)}</span>
                                                                                 <span className="text-[10px] font-medium text-slate-400 mt-1">{b?.amount ? formatCurrency(b.amount) : formatCurrency(0)}</span>
                                                                             </div>
                                                                         ))}
                                                                         <div className="border-l-2 border-slate-100 dark:border-slate-700 h-10 mx-2"></div>
                                                                         <div className="flex flex-col items-center min-w-[70px]">
                                                                             <span className="text-[11px] font-bold text-emerald-600 mb-2 whitespace-nowrap">PAGADO</span>
-                                                                            <span className="text-sm font-black text-emerald-600">{paidQty % 1 !== 0 ? paidQty.toFixed(2) : paidQty}</span>
+                                                                            <span className="text-sm font-black text-emerald-600">{formatNumber(paidQty)}</span>
                                                                             <span className="text-[10px] font-bold text-emerald-600 mt-1">{formatCurrency(roundedAmt(paidQty * (parseFloat(item.unit_price) || 0), 2))}</span>
                                                                         </div>
                                                                     </>
@@ -501,6 +605,18 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 </React.Fragment>
                             );
                         })}
+                        <tr>
+                            <td colSpan={12} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                                <button
+                                    type="button"
+                                    onClick={addItem}
+                                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                                >
+                                    <Plus size={14} />
+                                    Añadir Item
+                                </button>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

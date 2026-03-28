@@ -5,7 +5,9 @@ import { supabase } from "@/lib/supabase";
 import { NextPage } from "next";
 import { LogIn, Lock, Mail, ArrowRight, ShieldCheck, UserPlus, Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import AccessRequestModal from "@/components/AccessRequestModal";
+import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
 
 const LoginPage: NextPage = () => {
     const [email, setEmail] = useState("");
@@ -14,8 +16,24 @@ const LoginPage: NextPage = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+    const [keepConnected, setKeepConnected] = useState(false);
+
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmNewPassword, setConfirmNewPassword] = useState("");
+    const [oldPassword, setOldPassword] = useState("");
+    const [requirePasswordChange, setRequirePasswordChange] = useState(false);
+    const [tempSessionUser, setTempSessionUser] = useState<any>(null);
 
     useEffect(() => {
+        try {
+            const storedPref = getLocalStorageItem("pact_keep_connected");
+            if (storedPref !== null) {
+                setKeepConnected(storedPref === "true");
+            }
+        } catch (e) {
+            console.warn("Storage access denied:", e);
+        }
+
         // Redirigir si ya está autenticado
         const checkAuth = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -26,37 +44,99 @@ const LoginPage: NextPage = () => {
         checkAuth();
     }, []);
 
+    const completeLogin = async (user: any) => {
+        // Sync with local memory if the old logic still checks for pact_registration temporarily
+        const { data: userRecord } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", user.id)
+            .single();
+            
+        if (userRecord && userRecord.is_active === false) {
+            setError("Su cuenta se encuentra desactivada. Contacte al administrador.");
+            await supabase.auth.signOut();
+            setLoading(false);
+            return;
+        }
+
+        const registrationData = {
+            name: userRecord?.name || user.email,
+            email: user.email,
+            role_global: userRecord?.role_global,
+            allowedProjectIds: ["ALL"], // Para saltarse el modulo viejo
+        };
+
+        const registrationStr = getLocalStorageItem("pact_registration");
+        setLocalStorageItem("pact_registration", JSON.stringify(registrationData));
+
+        window.location.href = "/";
+    };
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
 
         try {
+            try {
+                localStorage.setItem("pact_keep_connected", keepConnected.toString());
+            } catch (e) {
+                console.warn("Storage access denied for preference:", e);
+            }
+
+            const normalizedEmail = email.trim().toLowerCase();
             const { data, error: authError } = await supabase.auth.signInWithPassword({
-                email,
+                email: normalizedEmail,
                 password,
             });
 
             if (authError) throw authError;
 
-            // Sync with local memory if the old logic still checks for pact_registration temporarily
-            const { data: userRecord } = await supabase
-                .from("users")
-                .select("*")
-                .eq("id", data.user.id)
-                .single();
-                
-            localStorage.setItem("pact_registration", JSON.stringify({
-                name: userRecord?.name || data.user.email,
-                email: data.user.email,
-                role_global: userRecord?.role_global,
-                allowedProjectIds: ["ALL"], // Para saltarse el modulo viejo
-            }));
+            // Detectar si la contraseña es temporal (10 caracteres, alfanuméricos mayúsculas)
+            const isTempPassword = /^[A-Z0-9]{10}$/.test(password);
+            
+            if (isTempPassword) {
+                setTempSessionUser(data.user);
+                setRequirePasswordChange(true);
+                return; // Detenemos el flujo aquí
+            }
 
-            window.location.href = "/";
+            await completeLogin(data.user);
         } catch (err: any) {
             setError(err.message || "Error al iniciar sesión");
-        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (oldPassword !== password) {
+            setError("La contraseña actual ingresada no coincide con su contraseña temporal.");
+            return;
+        }
+        if (newPassword !== confirmNewPassword) {
+            setError("Las contraseñas no coinciden. Verifique nuevamente.");
+            return;
+        }
+        if (newPassword.length < 6) {
+            setError("La nueva contraseña debe tener al menos 6 caracteres.");
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            const { error: updateError } = await supabase.auth.updateUser({
+                password: newPassword
+            });
+
+            if (updateError) throw updateError;
+            
+            // Si el cambio fue exitoso, completamos el login
+            await completeLogin(tempSessionUser);
+        } catch (err: any) {
+            setError(err.message || "Error al actualizar contraseña.");
             setLoading(false);
         }
     };
@@ -83,69 +163,172 @@ const LoginPage: NextPage = () => {
                     </div>
 
                     <div className="p-8">
-                        <form onSubmit={handleLogin} className="space-y-6">
-                            {error && (
-                                <div className="bg-red-50 text-red-600 border border-red-200 rounded-xl p-4 text-sm font-bold flex items-center gap-2">
+                        {requirePasswordChange ? (
+                            <form onSubmit={handlePasswordChange} className="space-y-6">
+                                <div className="bg-amber-50 text-amber-700 border border-amber-200 rounded-xl p-4 text-sm font-bold flex items-center gap-2">
                                     <ShieldCheck className="shrink-0" size={18} />
-                                    <p>{error}</p>
+                                    <p>Por seguridad, debes cambiar tu contraseña temporal antes de continuar.</p>
                                 </div>
-                            )}
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Correo Electrónico</label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
-                                        <Mail size={18} />
+                                {error && (
+                                    <div className="bg-red-50 text-red-600 border border-red-200 rounded-xl p-4 text-sm font-bold flex items-center gap-2">
+                                        <ShieldCheck className="shrink-0" size={18} />
+                                        <p>{error}</p>
                                     </div>
-                                    <input
-                                        type="email"
-                                        required
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400"
-                                        placeholder="tu@correo.com"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Contraseña</label>
-                                <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
-                                        <Lock size={18} />
-                                    </div>
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        required
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400"
-                                        placeholder="••••••••"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
-                                    >
-                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button
-                                disabled={loading}
-                                type="submit"
-                                className="w-full bg-primary hover:bg-blue-700 text-white rounded-xl py-4 font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
-                            >
-                                {loading ? (
-                                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                ) : (
-                                    <>
-                                        Iniciar Sesión <LogIn size={18} />
-                                    </>
                                 )}
-                            </button>
-                        </form>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Contraseña Temporal Actual</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                                            <Lock size={18} />
+                                        </div>
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            value={oldPassword}
+                                            onChange={(e) => setOldPassword(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                                            placeholder="••••••••"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Nueva Contraseña</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                                            <Lock size={18} />
+                                        </div>
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                                            placeholder="••••••••"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Confirmar Nueva Contraseña</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                                            <Lock size={18} />
+                                        </div>
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            value={confirmNewPassword}
+                                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    disabled={loading}
+                                    type="submit"
+                                    className="w-full bg-primary hover:bg-blue-700 text-white rounded-xl py-4 font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
+                                >
+                                    {loading ? (
+                                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    ) : (
+                                        <>
+                                            Actualizar Contraseña <ArrowRight size={18} />
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleLogin} className="space-y-6">
+                                {error && (
+                                    <div className="bg-red-50 text-red-600 border border-red-200 rounded-xl p-4 text-sm font-bold flex items-center gap-2">
+                                        <ShieldCheck className="shrink-0" size={18} />
+                                        <p>{error}</p>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Correo Electrónico</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                                            <Mail size={18} />
+                                        </div>
+                                        <input
+                                            type="email"
+                                            required
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                                            placeholder="tu@correo.com"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Contraseña</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                                            <Lock size={18} />
+                                        </div>
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400"
+                                            placeholder="••••••••"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 px-1">
+                                    <input 
+                                        type="checkbox" 
+                                        id="keepConnected" 
+                                        checked={keepConnected}
+                                        onChange={(e) => setKeepConnected(e.target.checked)}
+                                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                    />
+                                    <label htmlFor="keepConnected" className="text-xs font-bold text-slate-500 cursor-pointer select-none">
+                                        Mantener sesión iniciada
+                                    </label>
+                                </div>
+
+                                <button
+                                    disabled={loading}
+                                    type="submit"
+                                    className="w-full bg-primary hover:bg-blue-700 text-white rounded-xl py-4 font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
+                                >
+                                    {loading ? (
+                                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    ) : (
+                                        <>
+                                            Iniciar Sesión <LogIn size={18} />
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        )}
                     </div>
                 </div>
                             <div className="mt-6 flex flex-col gap-4">
@@ -156,6 +339,14 @@ const LoginPage: NextPage = () => {
                         <UserPlus size={16} className="text-slate-400 group-hover:text-primary transition-colors" />
                         ¿No tienes cuenta? <span className="underline decoration-slate-300 group-hover:decoration-primary/50 underline-offset-4">Solicitar Acceso</span>
                     </button>
+
+                    <Link
+                        href="/acerca-de"
+                        className="w-full flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors py-2 group"
+                    >
+                        <ShieldCheck size={12} className="opacity-50 group-hover:opacity-100" />
+                        Acerca del Sistema PACT
+                    </Link>
 
                     <p className="text-center text-slate-400 text-[10px] sm:text-xs font-medium uppercase tracking-widest opacity-60">
                         Plataforma Administrativa M2A Group

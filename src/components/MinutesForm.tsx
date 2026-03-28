@@ -9,123 +9,174 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { FormRef } from "./ProjectForm";
+import { generateMinutesReport } from "@/lib/generateMinutesReport";
+import { downloadBlob } from "@/lib/reportLogic";
 
-const MinutesForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(function MinutesForm({ projectId, onDirty, onSaved }, ref) {
+const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function MinutesForm({ projectId, projectName, numAct, onDirty, onSaved }, ref) {
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
-    
+    const [recording, setRecording] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const [recordTime, setRecordTime] = useState(0);
+    const timerRef = useRef<any>(null);
+
     // Config
     const [language, setLanguage] = useState("Español");
     const [config, setConfig] = useState({
         diarization: true,
         timestamps: true,
         extractActions: true,
-        detectItems: true,
-        generateJson: true
+        detectItems: true
     });
 
     // Results
     const [activeTab, setActiveTab] = useState<"upload" | "result">("upload");
     const [result, setResult] = useState<{
+        id?: string;
         summary: string;
         minutes: string;
         json: string;
+        audio_url?: string;
     } | null>(null);
 
     useImperativeHandle(ref, () => ({
         save: async () => {
-            // Logic to save the generated minutes to database if needed
+            if (result) await handleSaveToDB();
         },
-        isDirty: () => false
+        isDirty: () => !!selectedFile || !!result
     }));
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
-        // Validation
-        const validFormats = ["audio/mpeg", "audio/wav", "audio/m4a", "audio/x-m4a", "audio/mp3"];
+        const validFormats = ["audio/mpeg", "audio/wav", "audio/m4a", "audio/x-m4a", "audio/mp3", "audio/webm"];
         if (!validFormats.includes(file.type) && !file.name.endsWith(".m4a")) {
             alert("Formato no válido. Use MP3, WAV o M4A.");
             return;
         }
-
-        // 2 hours limit (approximate size check or just show message)
-        // Max size for Supabase storage is usually 50MB-100MB, 2 hours of compressed audio could be more.
-        
         setSelectedFile(file);
         setAudioUrl(URL.createObjectURL(file));
         if (onDirty) onDirty();
     };
 
-    const handleProcessAudio = async () => {
-        if (!selectedFile) return;
-        setLoading(true);
-        setUploadProgress(0);
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            const chunks: Blob[] = [];
+            recorder.ondataavailable = (e) => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                const file = new File([blob], `Grabacion_${new Date().getTime()}.webm`, { type: 'audio/webm' });
+                setSelectedFile(file);
+                setAudioUrl(URL.createObjectURL(file));
+                stream.getTracks().forEach(track => track.stop());
+            };
+            recorder.start();
+            mediaRecorderRef.current = recorder;
+            setRecording(true);
+            setRecordTime(0);
+            timerRef.current = setInterval(() => setRecordTime(t => t + 1), 1000);
+        } catch (err) {
+            console.error("Error al grabar:", err);
+            alert("No se pudo acceder al micrófono.");
+        }
+    };
 
-        // Simulate upload and processing
-        const interval = setInterval(() => {
-            setUploadProgress(prev => {
-                if (prev >= 95) {
-                    clearInterval(interval);
-                    return 95;
-                }
-                return prev + 5;
-            });
-        }, 300);
+    const stopRecording = () => {
+        if (mediaRecorderRef.current) {
+            mediaRecorderRef.current.stop();
+            setRecording(false);
+            clearInterval(timerRef.current);
+        }
+    };
+
+    const formatTime = (s: number) => {
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return `${m}:${sec.toString().padStart(2, '0')}`;
+    };
+
+    const handleSaveToDB = async (finalResult?: any) => {
+        const dataToSave = finalResult || result;
+        if (!dataToSave || !projectId) return;
 
         try {
-            // In a real implementation, we would upload to Supabase Storage and call an Edge Function or AI API
-            // For now, we simulate the result based on the project data if available
-            
-            setTimeout(() => {
-                clearInterval(interval);
+            const { error } = await supabase.from("meeting_minutes").upsert({
+                id: dataToSave.id,
+                project_id: projectId,
+                meeting_date: new Date().toISOString().split('T')[0],
+                content: dataToSave.minutes,
+                participants: { summary: dataToSave.summary, json: dataToSave.json },
+                audio_url: dataToSave.audio_url
+            });
+            if (error) throw error;
+        } catch (err) {
+            console.error("Error saving to DB:", err);
+        }
+    };
+
+    const handleProcessAudio = async () => {
+        if (!selectedFile || !projectId) return;
+        setLoading(true);
+        setUploadProgress(10);
+
+        try {
+            // Upload to Supabase Storage
+            const fileName = `${projectId}/${Date.now()}_${selectedFile.name}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from("meeting-audios")
+                .upload(fileName, selectedFile);
+
+            if (uploadError && uploadError.message !== "Bucket not found") {
+                console.warn("Storage upload failed, continuing without audio link:", uploadError);
+            }
+
+            let uploadedUrl = "";
+            if (uploadData) {
+                const { data: urlData } = supabase.storage.from("meeting-audios").getPublicUrl(fileName);
+                uploadedUrl = urlData.publicUrl;
+            }
+
+            setUploadProgress(50);
+
+            // Simulation of AI processing
+            setTimeout(async () => {
                 setUploadProgress(100);
+                const mockResult = {
+                    summary: `### RESUMEN EJECUTIVO\n- **Proyecto:** ${projectName || 'Proyecto ACT'}\n- **Estado:** ${numAct || 'ACT-XXXXXX'}\n- **Avance:** 45% aproximado\n- **Hitos:** Revisión de drenajes y pavimentación completada.`,
+                    minutes: `### 1. Actas anteriores: Aprobadas.\n### 2. Construction permit: El permiso está vigente hasta el 2026.\n### 3. Owner Controlled Insurance Program (OCIP) Claims: No hay reclamos pendientes.\n### 4. Construction Progress Tracking: Según el Earned Value, el proyecto está en un 45%.\n### 5. Main Critical Activities: Vaciado de asfalto en el km 5.\n### 11. Administration (AD): Pendiente aprobación de CHO #3.\n### 13. Substantial Completion: Proyectada para julio 2026.`,
+                    json: JSON.stringify({ sections: 13, status: "complete" }, null, 2),
+                    audio_url: uploadedUrl
+                };
                 
-                setResult({
-                    summary: `### RESUMEN EJECUTIVO
-- **Proyecto:** Rehabilitación de Carretera PR-123
-- **Ubicación:** Ponce, Puerto Rico
-- **Estado:** 45% de avance
-- **Hitos:** Finalización de pavimentación Sector A (Próxima semana)
-- **Riesgos:** Retraso en entrega de materiales de drenaje
-- **Decisiones:** Se aprueba el cambio de subcontratista para señalización`,
-                    minutes: `### MINUTA DE REUNIÓN DE PROGRESO
-**Fecha:** ${new Date().toLocaleDateString()}
-**Asistentes:** Ing. Juan Pérez (PM), Arq. María Ruiz (Inspección), Sr. Carlos Sosa (Contratista)
-
-#### 1. Objetivos
-Revisión de avance semanal y discusión de órdenes de cambio pendientes.
-
-#### 2. Disciplinas
-- **Estructuras (05:12):** Se completó el vaciado de las zapatas en el km 4.2.
-- **Logística (12:45):** El equipo pesado se moverá al Sector B el lunes.
-
-#### 3. Acciones y Compromisos
-| Acción | Responsable | Fecha |
-|--------|-------------|-------|
-| Entrega de planos revisados | Arq. Ruiz | 20 Mar |
-| Cotización de materiales extra | C. Sosa | 18 Mar |`,
-                    json: JSON.stringify({
-                        project: "REHAB PR-123",
-                        progress: 0.45,
-                        actions: [
-                            { task: "Planos revisados", owner: "Ruiz", due: "2026-03-20" }
-                        ],
-                        items: { rfi: 2, co: 1 }
-                    }, null, 2)
-                });
+                setResult(mockResult);
+                await handleSaveToDB(mockResult);
                 
                 setActiveTab("result");
                 setLoading(false);
                 if (onSaved) onSaved();
-            }, 5000);
+            }, 2000);
 
         } catch (error) {
             console.error("Error processing audio:", error);
             alert("Error al procesar el audio.");
+            setLoading(false);
+        }
+    };
+
+    const handleDownloadPdf = async () => {
+        if (!result || !projectId) return;
+        setLoading(true);
+        try {
+            const blob = await generateMinutesReport(projectId, result);
+            downloadBlob(blob, `Minuta_Semanal_${new Date().toISOString().split('T')[0]}.pdf`);
+        } catch (err) {
+            console.error(err);
+            alert("Error al generar PDF");
+        } finally {
             setLoading(false);
         }
     };
@@ -137,6 +188,19 @@ Revisión de avance semanal y discusión de órdenes de cambio pendientes.
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Mic className="text-primary" />
+                    9. Minutas de Reunión
+                </h2>
+                {result && (
+                    <button onClick={handleDownloadPdf} disabled={loading} className="btn-primary flex items-center gap-2">
+                        {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                        Descargar PDF
+                    </button>
+                )}
+            </div>
             {/* Header Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="card p-6 border-l-4 border-l-primary flex items-center gap-4">
@@ -146,36 +210,71 @@ Revisión de avance semanal y discusión de órdenes de cambio pendientes.
                     <div>
                         <h3 className="text-sm font-bold text-slate-500 uppercase">Estado</h3>
                         <p className="text-lg font-black text-slate-900 dark:text-white">
-                            {result ? "Procesado" : (selectedFile ? "Listo para procesar" : "Sin audio")}
+                            {result ? "Procesado" : (selectedFile ? "Listo para procesar" : (recording ? "Grabando..." : "Sin audio"))}
                         </p>
                     </div>
                 </div>
+                {recording && (
+                    <div className="card p-6 border-l-4 border-l-red-500 flex items-center gap-4 animate-pulse">
+                        <div className="p-3 bg-red-100 rounded-2xl text-red-600">
+                            <Clock size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-500 uppercase">Tiempo</h3>
+                            <p className="text-lg font-black text-red-600">{formatTime(recordTime)}</p>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {activeTab === "upload" && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Upload Section */}
+                    {/* Upload/Record Section */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="card p-10 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-primary/50 transition-all flex flex-col items-center justify-center text-center group cursor-pointer relative">
-                            <input 
-                                type="file" 
-                                className="absolute inset-0 opacity-0 cursor-pointer" 
-                                accept=".mp3,.wav,.m4a"
-                                onChange={handleFileChange}
-                            />
-                            <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-3xl flex items-center justify-center text-slate-400 group-hover:text-primary group-hover:scale-110 transition-all mb-4">
-                                {selectedFile ? <FileAudio size={40} /> : <Upload size={40} />}
+                        {!recording ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="card p-10 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-primary/50 transition-all flex flex-col items-center justify-center text-center group cursor-pointer relative">
+                                    <input 
+                                        type="file" 
+                                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                                        accept=".mp3,.wav,.m4a,.webm"
+                                        onChange={handleFileChange}
+                                    />
+                                    <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-primary transition-all mb-4">
+                                        {selectedFile ? <FileAudio size={32} /> : <Upload size={32} />}
+                                    </div>
+                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                                        {selectedFile ? selectedFile.name : "Subir archivo"}
+                                    </h3>
+                                </div>
+                                
+                                <button 
+                                    onClick={startRecording}
+                                    className="card p-10 border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-red-500/50 transition-all flex flex-col items-center justify-center text-center group"
+                                >
+                                    <div className="w-16 h-16 bg-red-50 dark:bg-red-900/10 rounded-2xl flex items-center justify-center text-red-400 group-hover:text-red-600 transition-all mb-4">
+                                        <Mic size={32} />
+                                    </div>
+                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Grabar reunión</h3>
+                                </button>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                                {selectedFile ? selectedFile.name : "Subir audio (MP3/WAV/M4A)"}
-                            </h3>
-                            <p className="text-slate-500 text-sm mt-2 max-w-sm">
-                                {selectedFile 
-                                    ? `Tamaño: ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`
-                                    : "Arrastra el archivo de la reunión o haz clic aquí. Soporta hasta 2 horas de duración."
-                                }
-                            </p>
-                        </div>
+                        ) : (
+                            <div className="card p-12 flex flex-col items-center justify-center text-center space-y-6 bg-red-50/50 border-red-200 border-2 border-dashed">
+                                <div className="w-24 h-24 bg-red-500 rounded-full flex items-center justify-center text-white scale-110 animate-pulse shadow-xl shadow-red-200">
+                                    <Mic size={40} />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl font-black text-red-600">Grabando...</h3>
+                                    <p className="text-slate-500 font-bold">{formatTime(recordTime)}</p>
+                                </div>
+                                <button 
+                                    onClick={stopRecording}
+                                    className="px-8 py-3 bg-red-600 text-white rounded-2xl font-black shadow-lg hover:bg-red-700 transition-all"
+                                >
+                                    Detener y Usar
+                                </button>
+                            </div>
+                        )}
 
                         {loading && (
                             <div className="space-y-2">
@@ -189,7 +288,6 @@ Revisión de avance semanal y discusión de órdenes de cambio pendientes.
                                         style={{ width: `${uploadProgress}%` }}
                                     ></div>
                                 </div>
-                                <p className="text-[10px] text-slate-400 italic">Trascendiendo, identificando hablantes y extrayendo metadatos...</p>
                             </div>
                         )}
 
@@ -214,7 +312,7 @@ Revisión de avance semanal y discusión de órdenes de cambio pendientes.
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Idioma de la reunión</label>
+                                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Idioma</label>
                                     <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
                                         <Languages size={18} className="text-slate-400" />
                                         <select 
@@ -229,41 +327,8 @@ Revisión de avance semanal y discusión de órdenes de cambio pendientes.
                                 </div>
 
                                 <div className="space-y-3 pt-2">
-                                    <ConfigSwitch 
-                                        label="Diarización" 
-                                        icon={<Speaker size={14} />} 
-                                        active={config.diarization} 
-                                        toggle={() => setConfig({...config, diarization: !config.diarization})} 
-                                        desc="Identificar participantes (Hablante 1, 2...)"
-                                    />
-                                    <ConfigSwitch 
-                                        label="Marcas de tiempo" 
-                                        icon={<Clock size={14} />} 
-                                        active={config.timestamps} 
-                                        toggle={() => setConfig({...config, timestamps: !config.timestamps})}
-                                        desc="mm:ss por intervención relevante"
-                                    />
-                                    <ConfigSwitch 
-                                        label="Acciones/Responsables" 
-                                        icon={<CheckCircle2 size={14} />} 
-                                        active={config.extractActions} 
-                                        toggle={() => setConfig({...config, extractActions: !config.extractActions})}
-                                        desc="Extraer compromisos y fechas"
-                                    />
-                                    <ConfigSwitch 
-                                        label="Detección de Obra" 
-                                        icon={<Activity size={14} />} 
-                                        active={config.detectItems} 
-                                        toggle={() => setConfig({...config, detectItems: !config.detectItems})}
-                                        desc="RFIs, Submittals, CO, Seguridad"
-                                    />
-                                    <ConfigSwitch 
-                                        label="JSON Estructurado" 
-                                        icon={<FileJson size={14} />} 
-                                        active={config.generateJson} 
-                                        toggle={() => setConfig({...config, generateJson: !config.generateJson})}
-                                        desc="Generar datos para integración"
-                                    />
+                                    <ConfigSwitch label="Hablantes" icon={<Speaker size={14} />} active={config.diarization} toggle={() => setConfig({...config, diarization: !config.diarization})} desc="Identificar participantes" />
+                                    <ConfigSwitch label="Acciones" icon={<CheckCircle2 size={14} />} active={config.extractActions} toggle={() => setConfig({...config, extractActions: !config.extractActions})} desc="Extraer compromisos" />
                                 </div>
                             </div>
                         </div>
@@ -273,58 +338,43 @@ Revisión de avance semanal y discusión de órdenes de cambio pendientes.
 
             {activeTab === "result" && result && (
                 <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <button 
-                            onClick={() => setActiveTab("upload")}
-                            className="text-primary font-bold text-sm flex items-center gap-2 hover:underline"
-                        >
-                            <Upload size={16} /> Subir otro audio
+                    <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-4 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-4">
+                        <button onClick={() => setActiveTab("upload")} className="text-primary font-bold text-sm flex items-center gap-2 hover:underline">
+                            <Upload size={16} /> Subir/Grabar otro
                         </button>
                         <div className="flex gap-2">
-                            <button className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 transition-colors" title="Descargar PDF">
-                                <Download size={18} />
-                            </button>
-                            <button className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 transition-colors" title="Exportar JSON">
-                                <FileJson size={18} />
+                            {result.audio_url && (
+                                <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <audio src={result.audio_url} controls className="h-8 w-[200px]" />
+                                    <a href={result.audio_url} download className="text-primary hover:text-primary/80 transition-colors" title="Descargar Audio">
+                                        <Download size={18} />
+                                    </a>
+                                </div>
+                            )}
+                            <button onClick={handleDownloadPdf} disabled={loading} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 transition-colors">
+                                {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
                             </button>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Summary */}
                         <div className="card p-8 border-t-4 border-t-blue-500 bg-blue-50/30 dark:bg-blue-900/10">
                             <div className="flex justify-between items-start mb-4">
                                 <h3 className="text-lg font-black text-blue-700 dark:text-blue-400">1. Resumen Ejecutivo</h3>
                                 <button onClick={() => handleCopy(result.summary)} className="text-slate-400 hover:text-blue-500"><Copy size={16} /></button>
                             </div>
-                            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-line font-medium text-slate-700 dark:text-slate-300">
-                                {result.summary}
-                            </div>
+                            <textarea className="w-full bg-transparent border-none focus:ring-0 text-sm font-medium text-slate-700 dark:text-slate-300 h-[200px]" value={result.summary} onChange={(e) => setResult({...result, summary: e.target.value})}/>
                         </div>
 
-                        {/* JSON */}
-                        <div className="card p-8 border-t-4 border-t-amber-500 bg-amber-50/30 dark:bg-amber-900/10 h-fit">
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-lg font-black text-amber-700 dark:text-amber-400">3. JSON Estructurado</h3>
-                                <button onClick={() => handleCopy(result.json)} className="text-slate-400 hover:text-amber-500"><Copy size={16} /></button>
-                            </div>
-                            <pre className="text-[10px] bg-slate-900 text-amber-200 p-4 rounded-2xl overflow-x-auto font-mono">
-                                {result.json}
-                            </pre>
-                        </div>
-
-                        {/* Full Minutes */}
                         <div className="lg:col-span-2 card p-10 border-t-4 border-t-emerald-500">
                             <div className="flex justify-between items-start mb-8">
                                 <div className="space-y-1">
                                     <h3 className="text-2xl font-black text-slate-900 dark:text-white">2. Minuta de Reunión</h3>
-                                    <p className="text-sm text-slate-500 font-medium">Documento generado automáticamente a partir de audio</p>
+                                    <p className="text-sm text-slate-500 font-medium">Documento generado por IA</p>
                                 </div>
                                 <button onClick={() => handleCopy(result.minutes)} className="p-2 hover:bg-emerald-50 text-slate-400 hover:text-emerald-500 rounded-full transition-colors"><Copy size={20} /></button>
                             </div>
-                            <div className="prose prose-slate dark:prose-invert max-w-none whitespace-pre-line">
-                                {result.minutes}
-                            </div>
+                            <textarea className="w-full bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 focus:ring-primary text-sm min-h-[500px]" value={result.minutes} onChange={(e) => setResult({...result, minutes: e.target.value})}/>
                         </div>
                     </div>
                 </div>
@@ -345,10 +395,7 @@ function ConfigSwitch({ label, icon, active, toggle, desc }: any) {
                     <p className="text-[10px] text-slate-500 leading-tight">{desc}</p>
                 </div>
             </div>
-            <button 
-                onClick={toggle}
-                className={`w-10 h-5 rounded-full relative transition-colors ${active ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-800'}`}
-            >
+            <button onClick={toggle} className={`w-10 h-5 rounded-full relative transition-colors ${active ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-800'}`}>
                 <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${active ? 'right-1' : 'left-1'}`}></div>
             </button>
         </div>

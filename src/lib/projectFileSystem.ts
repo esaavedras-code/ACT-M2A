@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { getLocalStorageItem, setLocalStorageItem } from "./utils";
 
 /**
  * Recolecta toda la información de un proyecto desde Supabase 
@@ -112,12 +113,12 @@ export const importProjectData = async (fullData: any) => {
         if (firstError) throw new Error("Error en datos relacionados: " + firstError.error?.message);
 
         // 3. Asegurar que el ID esté en allowedProjectIds de este usuario localmente
-        const registrationStr = localStorage.getItem("pact_registration");
+        const registrationStr = getLocalStorageItem("pact_registration");
         if (registrationStr) {
             const reg = JSON.parse(registrationStr);
             if (!reg.allowedProjectIds.includes(project.id)) {
                 reg.allowedProjectIds.push(project.id);
-                localStorage.setItem("pact_registration", JSON.stringify(reg));
+                setLocalStorageItem("pact_registration", JSON.stringify(reg));
             }
         }
 

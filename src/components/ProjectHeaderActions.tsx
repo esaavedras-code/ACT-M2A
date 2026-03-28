@@ -45,17 +45,14 @@ export default function ProjectHeaderActions() {
         }
     };
 
-    // Show button if:
-    // 1. We are in a project detail (and have a role there)
-    // 2. We are a global admin (A) on any page (except login)
-    const shouldShow = (!isLoginPage && (isGlobalAdmin || (isProjectDetail && projectId)));
+    // Show button ONLY for global admins (not for regular project members)
+    const shouldShow = (!isLoginPage && isGlobalAdmin);
 
     if (!shouldShow) return null;
 
     return (
         <>
-            {isGlobalAdmin ? (
-                <Link 
+            <Link 
                     href="/admin/requests"
                     className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-2xl transition-all text-white font-black text-[11px] uppercase tracking-widest border border-white/20 backdrop-blur-md"
                     suppressHydrationWarning
@@ -63,16 +60,6 @@ export default function ProjectHeaderActions() {
                     <Users size={16} className="text-blue-200" />
                     <span>Usuarios</span>
                 </Link>
-            ) : (
-                <button 
-                    onClick={() => setIsOpen(true)}
-                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-2xl transition-all text-white font-black text-[11px] uppercase tracking-widest border border-white/20 backdrop-blur-md"
-                    suppressHydrationWarning
-                >
-                    <Users size={16} className="text-blue-200" />
-                    <span>Usuarios</span>
-                </button>
-            )}
 
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">

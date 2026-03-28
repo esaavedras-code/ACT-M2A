@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase";
 import { Clock, DollarSign, PieChart, Activity, AlertCircle, Download, Layers, ShieldAlert, Info } from "lucide-react";
 import { formatCurrency, roundedAmt, formatDate } from "@/lib/utils";
 import Link from "next/link";
-import PriceComparison from "./PriceComparison";
 
 export default function SummaryDashboard({ projectId, numAct }: { projectId?: string, numAct?: string }) {
     const [metrics, setMetrics] = useState({
@@ -46,12 +45,39 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     const [fmisAlert, setFmisAlert] = useState<{ status: 'warning' | 'expired'; daysLeft: number } | null>(null);
     const [mounted, setMounted] = useState(false);
 
+    const [liveIndicator, setLiveIndicator] = useState(false);
+
     useEffect(() => {
         setMounted(true);
     }, []);
 
     useEffect(() => {
-        if (projectId && mounted) fetchAllData();
+        if (!projectId || !mounted) return;
+
+        fetchAllData();
+
+        // ── Supabase Realtime: actualizar cuando cambien los datos del proyecto ──
+        let liveTimer: ReturnType<typeof setTimeout>;
+        const handleRealtimeEvent = () => {
+            setLiveIndicator(true);
+            clearTimeout(liveTimer);
+            liveTimer = setTimeout(() => setLiveIndicator(false), 3000);
+            fetchAllData();
+        };
+
+        const channel = supabase
+            .channel(`dashboard:${projectId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `id=eq.${projectId}` }, handleRealtimeEvent)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_items', filter: `project_id=eq.${projectId}` }, handleRealtimeEvent)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chos', filter: `project_id=eq.${projectId}` }, handleRealtimeEvent)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_certifications', filter: `project_id=eq.${projectId}` }, handleRealtimeEvent)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'labor_compliance', filter: `project_id=eq.${projectId}` }, handleRealtimeEvent)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+            clearTimeout(liveTimer);
+        };
     }, [projectId, mounted]);
 
     const fetchAllData = async () => {
@@ -216,9 +242,13 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const retNet = roundedAmt(ret5 - totalRetentionReturned + extraRetention, 2); // Balance neto actual
 
         // Time calculations - Standardize with T00:00:00 or T23:59:59 to avoid timezone shifting
-        const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : new Date();
-        const origEndDate = proj?.date_orig_completion ? new Date(proj.date_orig_completion + "T23:59:59") : new Date();
-        const totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : null;
+        const origEndDate = proj?.date_orig_completion ? new Date(proj.date_orig_completion + "T23:59:59") : null;
+        
+        let totalDays = 0;
+        if (startDate && origEndDate && !isNaN(startDate.getTime()) && !isNaN(origEndDate.getTime())) {
+            totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        }
 
         // El tiempo usado se detiene en la fecha de terminación sustancial (si existe); si no, usa hoy
         let timeEndDate = new Date();
@@ -228,79 +258,84 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             timeEndDate = new Date(proj.date_real_completion + "T23:59:59");
         }
 
-        let usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        let usedDays = 0;
+        if (startDate && !isNaN(startDate.getTime()) && !isNaN(timeEndDate.getTime())) {
+            usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        }
         if (usedDays < 0) usedDays = 0;
-        const revisedDays = (totalDays || 0) + approvedDays;
+        
+        const revisedDays = (totalDays || 0) + (approvedDays || 0);
 
         let adminDateStr = "";
-        if (proj?.date_rev_completion) {
-            const revEnd = new Date(proj.date_rev_completion + "T23:59:59");
-            revEnd.setFullYear(revEnd.getFullYear() + 2);
-            adminDateStr = revEnd.toISOString().split("T")[0];
+        const baseAdminDate = proj?.date_rev_completion || proj?.date_orig_completion;
+        if (baseAdminDate) {
+            const revDate = new Date(baseAdminDate + "T23:59:59");
+            if (!isNaN(revDate.getTime())) {
+                revDate.setFullYear(revDate.getFullYear() + 2);
+                adminDateStr = revDate.toISOString().split("T")[0];
+            }
         }
 
-        const damAmt = parseFloat(proj?.liquidated_damages_amount) ?? 500.00;
-        const liqDamages = Math.max(0, (usedDays - revisedDays) * damAmt);
-
-
+        const damAmt = parseFloat(proj?.liquidated_damages_amount || "500");
+        const liqDamages = Math.max(0, ((usedDays || 0) - (revisedDays || 0)) * damAmt);
 
         setMetrics({
             time: {
-                total: totalDays,
-                used: usedDays > 0 ? usedDays : 0,
-                revised: revisedDays,
-                balance: revisedDays - usedDays,
+                total: totalDays || 0,
+                used: usedDays || 0,
+                revised: revisedDays || 0,
+                balance: (revisedDays || 0) - (usedDays || 0),
                 percent: revisedDays > 0 ? roundedAmt((usedDays / revisedDays) * 100, 2) : 0
             },
             dates: {
-                start: formatDate(proj?.date_project_start),
-                original: formatDate(proj?.date_orig_completion),
-                revised: formatDate(proj?.date_rev_completion),
-                substantial: formatDate(proj?.date_substantial_completion),
-                administrative: formatDate(adminDateStr),
-                fmis: formatDate(proj?.fmis_end_date)
+                start: proj?.date_project_start || "",
+                original: proj?.date_orig_completion || "",
+                revised: proj?.date_rev_completion || "",
+                substantial: proj?.date_substantial_completion || "",
+                administrative: adminDateStr || "",
+                fmis: proj?.fmis_end_date || ""
             },
             cost: {
-                original: originalCost,
-                certTotal: certified,
-                lastCertAmount,
-                lastCertNum,
-                balance: roundedAmt((originalCost + approvedCHO) - certified, 2),
-                percentObra: (originalCost + approvedCHO) > 0 ? roundedAmt((certified / (originalCost + approvedCHO)) * 100, 2) : 0,
-                actTotal,
-                fhwaTotal,
-                actProjected,
-                fhwaProjected,
-                materialOnSite: Math.max(mosBalance, 0),
+                original: originalCost || 0,
+                certTotal: certified || 0,
+                lastCertAmount: lastCertAmount || 0,
+                lastCertNum: lastCertNum || 0,
+                balance: roundedAmt(((originalCost || 0) + (approvedCHO || 0)) - (certified || 0), 2),
+                percentObra: ((originalCost || 0) + (approvedCHO || 0)) > 0 ? roundedAmt(((certified || 0) / ((originalCost || 0) + (approvedCHO || 0))) * 100, 2) : 0,
+                actTotal: actTotal || 0,
+                fhwaTotal: fhwaTotal || 0,
+                actProjected: actProjected || 0,
+                fhwaProjected: fhwaProjected || 0,
+                materialOnSite: Math.max(mosBalance || 0, 0),
                 priceAdjustment: 0,
             },
             chos: {
-                approvedTotal: approvedCHO,
-                approvedCount: approvedCHOs.length,
-                approvedDays,
-                pendingTotal: pendingCHO,
-                pendingCount: pendingCHOs.length,
-                pendingDays,
-                total: roundedAmt(approvedCHO + pendingCHO, 2),
-                totalDays: approvedDays + pendingDays,
-                percentChange: originalCost > 0 ? Math.round((approvedCHO / originalCost) * 100) : 0,
-                percentDays: totalDays > 0 ? Math.round((approvedDays / totalDays) * 100) : 0,
+                approvedTotal: approvedCHO || 0,
+                approvedCount: approvedCHOs?.length || 0,
+                approvedDays: approvedDays || 0,
+                pendingTotal: pendingCHO || 0,
+                pendingCount: pendingCHOs?.length || 0,
+                pendingDays: pendingDays || 0,
+                total: roundedAmt((approvedCHO || 0) + (pendingCHO || 0), 2),
+                totalDays: (approvedDays || 0) + (pendingDays || 0),
+                percentChange: (originalCost || 0) > 0 ? Math.round(((approvedCHO || 0) / (originalCost || 0)) * 100) : 0,
+                percentDays: (totalDays || 0) > 0 ? Math.round(((approvedDays || 0) / (totalDays || 0)) * 100) : 0,
             },
             penalties: {
-                liquidated: liqDamages,
+                liquidated: liqDamages || 0,
                 dlqReimbursement: 0,
                 security: 0,
                 others: 0,
-                total: liqDamages
+                total: liqDamages || 0
             },
             retention: {
-                fivePercent: ret5,
-                extra: extraRetention,
-                returned: totalRetentionReturned,
-                total: retNet
+                fivePercent: ret5 || 0,
+                extra: extraRetention || 0,
+                returned: totalRetentionReturned || 0,
+                total: retNet || 0
             },
             liquidation: {
-                totalItems: totalItemsCount,
+                totalItems: totalItemsCount || 0,
                 adminSigned: proj?.liquidation_data?.admin_signed_count || 0,
                 contractorSigned: proj?.liquidation_data?.contractor_signed_count || 0,
                 liquidatorSigned: proj?.liquidation_data?.liquidator_signed_count || 0,
@@ -322,14 +357,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     <Activity className="text-primary" />
                     Interfaz Resumen de Información Principal
                 </h2>
-                <Link
-                    href="/acerca-de"
-                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-primary rounded-xl border border-slate-200 transition-all text-xs font-bold uppercase tracking-wider"
-                    title="Acerca del Programa"
-                >
-                    <Info size={14} />
-                    Acerca de
-                </Link>
             </div>
 
             {numAct && (
@@ -572,11 +599,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
             </div>
 
-            <div className="mt-6">
-                <div className="card bg-white dark:bg-slate-900 border-none shadow-sm p-8 rounded-[2rem]">
-                    <PriceComparison projectId={projectId} />
-                </div>
-            </div>
+
         </div>
     );
 }

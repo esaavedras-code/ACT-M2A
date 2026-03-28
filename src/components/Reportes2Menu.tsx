@@ -14,6 +14,7 @@ import {
     generateMfgReportLogic,
     generateMissingMfgReportLogic
 } from "@/lib/reportLogic";
+
 import Link from "next/link";
 
 export default function Reportes2Menu() {
@@ -60,7 +61,9 @@ export default function Reportes2Menu() {
                 case "detail": await generateDetailReportLogic(projectId); break;
                 case "mfg": await generateMfgReportLogic(projectId); break;
                 case "missing": await generateMissingMfgReportLogic(projectId); break;
+                // ccml2 was moved to Central de reportes and CHO tab since it requires specific CHO ID selection
             }
+
         } catch (error) {
             console.error(error);
             alert("Error al generar el reporte.");
@@ -83,7 +86,7 @@ export default function Reportes2Menu() {
                     }`}
             >
                 <FileBarChart size={18} className={isOpen ? "animate-pulse" : ""} />
-                Reportes2
+                Central de reportes
                 <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
@@ -109,7 +112,7 @@ export default function Reportes2Menu() {
                             />
                             <ReportItem
                                 icon={<FileText size={18} className="text-purple-500" />}
-                                label="Detalle de Ejecución"
+                                label="Detalle de cada partida"
                                 description="Historial de CHO y certificaciones."
                                 onClick={() => handleGenerate("detail")}
                                 disabled={!projectId}
@@ -124,17 +127,25 @@ export default function Reportes2Menu() {
                             />
                             <ReportItem
                                 icon={<AlertCircle size={18} className="text-red-500" />}
-                                label="Materiales Faltantes"
+                                label="Certificaciones pendientes"
                                 description="Pendientes de certificación MFG."
                                 onClick={() => handleGenerate("missing")}
                                 disabled={!projectId}
                             />
+
                         </div>
 
+
                         <Link
-                            href={projectId ? `/reportes?id=${projectId}` : "/reportes"}
+                            href={projectId ? `/reportes?id=${projectId}` : "#"}
                             className="bg-slate-50 dark:bg-slate-800/50 hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2 py-3.5 text-xs font-bold text-slate-600 dark:text-slate-300 border-t border-slate-100 dark:border-slate-800 group"
-                            onClick={() => setIsOpen(false)}
+                            onClick={(e) => {
+                                setIsOpen(false);
+                                if (!projectId) {
+                                    e.preventDefault();
+                                    setTimeout(() => alert("No hay ningún proyecto seleccionado"), 100);
+                                }
+                            }}
                         >
                             <span>CENTRO DE REPORTES COMPLETO</span>
                             <ExternalLink size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -151,7 +162,7 @@ export default function Reportes2Menu() {
                             <Loader2 className="animate-spin text-primary relative" size={48} />
                         </div>
                         <div className="text-center">
-                            <p className="font-black text-xl text-slate-900 dark:text-white mb-1">PROCESANDO PDF</p>
+                            <p className="font-black text-xl text-slate-900 dark:text-white mb-1">PROCESANDO REPORTE</p>
                             <p className="text-sm font-medium text-slate-500">Esto tomará solo unos segundos...</p>
                         </div>
                     </div>

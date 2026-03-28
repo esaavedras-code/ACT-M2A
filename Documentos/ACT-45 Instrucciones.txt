@@ -1,0 +1,110 @@
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37Fecha en que ocurre la actividad.Instrucciones para Completar el Formulario ACT-45 "Informe Diario de Actividades"
+Número de Proyecto según aparece en el contrato (código ACT).
+Nombre del Proyecto según aparece en el contrato.Municipio donde está ubicado el proyecto.  Si el proyecto cubre más de un Municipio, se indicará el Municipio donde está ubicada la 
+actividad inspeccionada.
+Nombre del contratista según aparece en el contrato.
+Unidad de la partida medida.  Ej. LnM, CuM, etc.Día de la semana en que ocurre la actividad.
+Persona designada a inspeccionar la actividad.
+Número de páginas del informe.
+Número de Informe Diario de Actividades (IDA).  Este número será asignado por el Ingeniero o Administrador de Proyecto.
+Descripción del clima.  Indicar si es soleado, nublado, lluvioso, etc. 
+Periodo de tiempo que comprendió la lluvia, si aplica, indicando la hora de comienzo y terminación. Horario que el contratista estuvo activo en la actividad.  No necesariamente es el horario de los empleados, ya que la actividad 
+puede comenzar en cualquier momento durante el día.
+Número de partida en el contrato relacionada a las actividades que se inspeccionaron
+Número de especificación relacionada a la actividad o partida que se inspeccionó.
+Descripción de la Partida de contrato relacionada a la actividad inspeccionada.
+Medidas tomadas con respecto a la partida.
+Indicar si alguno de los equipos fue removido del área de trabajo, a que hora y hacia donde.  Además, se indica que materiales 
+relacionados a esta actividad fueron incorporados al proyecto e incluir las cantidades del mismo (ej. 2 quintales de varilla #4).Identificar, con la mayor información posible, el área del proyecto donde se realiza la actividad.  En ocasiones los proyectos cuentan 
+con varias líneas y es por esto que hay que saber cual se usa de referencia.  Además, identificar el lado de la carretera (izq. ó A cumplimentar por el Administrador.   Cantidad que el Ingeniero o Inspector de Proyecto entiende se acepta como correcta con 
+respecto a las medidas tomadas por el Inspector.  Esta cantidad se utilizará en la certificación correspondiente.Anotar lo ocurrido durante el día en la actividad.  Una descripción del método de trabajo así como detalles de la localización de la 
+actividad.  Se anotarán los señalamientos al contratista o sus preguntas.  Se incluye además comentarios con respecto a la 
+Muestras de suelos, agregados, hormigones, etc., si aplica.  Se incluye información de donde se tomó la muestra.
+Nombre de todas las personas del contratista que están en la actividad. 
+Clasificación por la cual fueron contratados los empleados (ej. carpintero, obrero, etc.).
+El horario del empleado durante el día de la actividad.
+Cualquier comentario con respecto al empleado (ej. lo removieron para otra actividad a la 12:00pm.).
+Tipo de equipo (ej. excavadora, dozer, etc.).
+Descripción del equipo, incluyendo
+Horas activas o inactivas que estuvo el equipo en la actividad.  
+Firma de la persona que revisa el informe.
+Fecha en la que se realiza la revisión.Área para realizar cualquier tipo de cómputos o dibujos que ilustren o sustenten los números que se indicaron en la tabla del 
+Trabajo Ejecutado.
+Indicar cualquier situación adicional, incluyendo aspectos de seguridad.
+Nombre de la persona que cumplimenta el informe.
+Firma de la persona que cumplimenta el informe.
+Fecha en la que se cumplimenta el informe.Nombre de la persona que revisa la información anotada por el inspector.  Este puede ser el Ingeniero del Proyecto, el ingeniero 
+residente o la persona designada para ello.
+Fecha en que ocurre la actividad.Instrucciones para Completar el Formulario ACT-45 "Informe Diario de Actividades"
+Número de Proyecto según aparece en el contrato (código ACT).
+Nombre del Proyecto según aparece en el contrato.Municipio donde está ubicado el proyecto.  Si el proyecto cubre más de un Municipio, se indicará el Municipio donde está ubicada la 
+actividad inspeccionada.
+Nombre del contratista según aparece en el contrato.
+Unidad de la partida medida.  Ej. LnM, CuM, etc.Día de la semana en que ocurre la actividad.
+Persona designada a inspeccionar la actividad.
+Número de páginas del informe.
+Número de Informe Diario de Actividades (IDA).  Este número será asignado por el Ingeniero o Administrador de Proyecto.
+Descripción del clima.  Indicar si es soleado, nublado, lluvioso, etc. 
+Periodo de tiempo que comprendió la lluvia, si aplica, indicando la hora de comienzo y terminación. Horario que el contratista estuvo activo en la actividad.  No necesariamente es el horario de los empleados, ya que la actividad 
+puede comenzar en cualquier momento durante el día.
+Número de partida en el contrato relacionada a las actividades que se inspeccionaron
+Número de especificación relacionada a la actividad o partida que se inspeccionó.
+Descripción de la Partida de contrato relacionada a la actividad inspeccionada.
+Medidas tomadas con respecto a la partida.
+Indicar si alguno de los equipos fue removido del área de trabajo, a que hora y hacia donde.  Además, se indica que materiales 
+relacionados a esta actividad fueron incorporados al proyecto e incluir las cantidades del mismo (ej. 2 quintales de varilla #4).Identificar, con la mayor información posible, el área del proyecto donde se realiza la actividad.  En ocasiones los proyectos cuentan 
+con varias líneas y es por esto que hay que saber cual se usa de referencia.  Además, identificar el lado de la carretera (izq. ó A cumplimentar por el Administrador.   Cantidad que el Ingeniero o Inspector de Proyecto entiende se acepta como correcta con 
+respecto a las medidas tomadas por el Inspector.  Esta cantidad se utilizará en la certificación correspondiente.Anotar lo ocurrido durante el día en la actividad.  Una descripción del método de trabajo así como detalles de la localización de la 
+actividad.  Se anotarán los señalamientos al contratista o sus preguntas.  Se incluye además comentarios con respecto a la 
+Muestras de suelos, agregados, hormigones, etc., si aplica.  Se incluye información de donde se tomó la muestra.
+Nombre de todas las personas del contratista que están en la actividad. 
+Clasificación por la cual fueron contratados los empleados (ej. carpintero, obrero, etc.).
+El horario del empleado durante el día de la actividad.
+Cualquier comentario con respecto al empleado (ej. lo removieron para otra actividad a la 12:00pm.).
+Tipo de equipo (ej. excavadora, dozer, etc.).
+Descripción del equipo, incluyendo
+Horas activas o inactivas que estuvo el equipo en la actividad.  
+Firma de la persona que revisa el informe.
+Fecha en la que se realiza la revisión.Área para realizar cualquier tipo de cómputos o dibujos que ilustren o sustenten los números que se indicaron en la tabla del 
+Trabajo Ejecutado.
+Indicar cualquier situación adicional, incluyendo aspectos de seguridad.
+Nombre de la persona que cumplimenta el informe.
+Firma de la persona que cumplimenta el informe.
+Fecha en la que se cumplimenta el informe.Nombre de la persona que revisa la información anotada por el inspector.  Este puede ser el Ingeniero del Proyecto, el ingeniero 
+residente o la persona designada para ello.

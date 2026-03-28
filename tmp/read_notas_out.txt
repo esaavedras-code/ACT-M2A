@@ -1,0 +1,242 @@
+[
+  [
+    "CML Report",
+    "T8",
+    "Contract Beginning Date:",
+    "Nota:\nIncluir la fecha de comienzo del contrato en el siguiente formato: MM/DD/YYYY."
+  ],
+  [
+    "CML Report",
+    "T9",
+    "Original Contract Time:",
+    "Nota: \nIncluir el n+¦mero original de d+¡as para completar el proyecto."
+  ],
+  [
+    "CML Report",
+    "T13",
+    "Change in Contract Time (%):",
+    "Nota:\nSi el fondo del encasillado es rojo, la modificaci+¦n es considerada un cambio mayor (SOP)."
+  ],
+  [
+    "CML Report",
+    "E14",
+    "Date:",
+    "Nota:\nFecha del informe mensual o del documento (CHO o EWO) donde se incluye el Modification Log. Incluir en el siguiente formato: MM/DD/YYYY"
+  ],
+  [
+    "CML Report",
+    "T14",
+    "Time Completed to Date (%):",
+    "Nota:\nEste % del proyecto es a la fecha del informe."
+  ],
+  [
+    "CML Report",
+    "T15",
+    "Change in Contract Amount (%):",
+    "Nota:\nSi el fondo del encasillado es rojo, la modificaci+¦n es considerada un cambio mayor (SOP)."
+  ],
+  [
+    "CML Report",
+    "T16",
+    "% Work Performed to Date:",
+    "Nota:\nEl % de trabajo realizado en el campo."
+  ],
+  [
+    "CML Report",
+    "E17",
+    "No. of CHO documents:",
+    "Nota:\nN+¦mero de CHOs en el proyecto incluyendo el documento a ser incluido en este informe."
+  ],
+  [
+    "CML Report",
+    "T17",
+    "Estimated Completion Date:",
+    "Nota:\nTerminaci+¦n real del proyecto.  Fecha que el administrador estima terminar+í el proyecto. Entre en el siguiente formato: MM/DD/YYYY"
+  ],
+  [
+    "CML Report",
+    "E18",
+    "No. of EWO documents:",
+    "Nota:\nN+¦mero de EWOs en el proyecto incluyendo el documento a ser incluido en este informe."
+  ],
+  [
+    "CML Report",
+    "T18",
+    "Administrative Date of Comptroller Office (Contralor):",
+    "Nota:\nIncluir fecha de terminaci+¦n administrativa del contrato en la Oficina del Contralor. \nCelda con fondo rojo representa que la fecha es menor a la fecha actual."
+  ],
+  [
+    "CML Report",
+    "T19",
+    "Project End Date (FMIS):",
+    "Nota:\nIncluir fecha de terminaci+¦n administrativa del contrato en el sistema financiero de FHWA, conocido como FMIS (Financial Management Information System). \nCelda con fondo rojo representa que la fecha es menor a la fecha actual."
+  ],
+  [
+    "CML Report",
+    "E22",
+    "Project Description:",
+    "Nota:\nDescripci+¦n general de los trabajos o \"scope\" del proyecto."
+  ],
+  [
+    "CML Report",
+    "B31",
+    "Does the project have pay items with ER funds?",
+    "Nota:\nPara completar esta tabla se utiliza el \"Project Agreement\".  La informaci+¦n se escribe directamente, no hay que hacer ning+¦n c+¦mputo.\n\nSi el proyecto es estatal, solamente se llenan las columnas de State Funds."
+  ],
+  [
+    "CML Report",
+    "E33",
+    "INPUT PROJECT AGREEMENT",
+    "Nota:\nEntre el valor de fondos federales participativos que se encuentra en el documento \"Project Agreement\" al final de cada unidad. Este valor representa todas las partidas elegibles para fondos federales."
+  ],
+  [
+    "CML Report",
+    "G33",
+    "Participating",
+    "Nota:\nEntre el valor de la contigencia que se encuentra en el documento \"Project Agreement\" al final de cada unidad."
+  ],
+  [
+    "CML Report",
+    "I33",
+    "Contingencies (Participating)",
+    "Nota:\nEntre el valor de fondos para \"payroll, mileage and diets\" que se encuentra en el documento \"Project Agreement\"al final de cada unidad. Los proyectos mas recientes no tienen este valor."
+  ],
+  [
+    "CML Report",
+    "K33",
+    "Payroll, Mileage and Diets",
+    "Nota:\nEn el \"Project Agreement\", la pen+¦ltima p+ígina tiene una tabla de \"SUMMARY OF COST\".  La informaci+¦n viene de esa tabla, en la columna que lleva el mismo nombre."
+  ],
+  [
+    "CML Report",
+    "L33",
+    "F.A. Funds Requested",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "M33",
+    "Contingencies (Federal Funds)",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "N33",
+    "Calculation of Toll Credits",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "O33",
+    "Contingencies (Toll Credits)",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "P33",
+    "State Share of Federal Funds",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "Q33",
+    "Contingencies (State Share)",
+    "Nota:\nEntre el valor de fondos estateles (no participativos) que se encuentra en el documento \"Project Agreement\" al final de cada unidad."
+  ],
+  [
+    "CML Report",
+    "R33",
+    "Not Participating (State Funds)",
+    "Nota:\nEntre el valor de la contigencia para los fondos estatales (no participativos) que se encuentra en el documento \"Project Agreement\" al final de cada unidad."
+  ],
+  [
+    "CML Report",
+    "T33",
+    "Contingencies (Not Participating)",
+    "Nota:\nEntre el valor de fondos para \"payroll, mileage and diets\" que se encuentra en el documento \"Project Agreement\"al final de cada unidad, respecto a los fondos estatales (no participativos). Los proyectos mas recientes no tienen este valor."
+  ],
+  [
+    "CML Report",
+    "G68",
+    "Proposed Amount",
+    "Nota:\nIncluir el % de participaci+¦n federal, seg+¦n las partidas de pago en la modificaci+¦n."
+  ],
+  [
+    "CML Report",
+    "H68",
+    "Federal Share (%)",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "K68",
+    "Federal Share Amount",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "L68",
+    "Toll Credits Amount",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "M68",
+    "Non Participating Amount (State Funds)",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores."
+  ],
+  [
+    "CML Report",
+    "O68",
+    "Time Extension (Days)",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores. Para uso de la Oficina de Enlace Federal y Presupuesto."
+  ],
+  [
+    "CML Report",
+    "P68",
+    "Federal Share for Project Modification Letter",
+    "Nota:\nEste campo se calcula autom+íticamente con la informaci+¦n incluida en las columnas anteriores. Para uso de la Oficina de Enlace Federal y Presupuesto."
+  ],
+  [
+    "CML Report",
+    "Q68",
+    "Toll Credits for Project Modification Letter",
+    "Nota:\nIncluir comentarios sobre las modificaciones al proyecto."
+  ],
+  [
+    "CML Report",
+    "L226",
+    "Federal",
+    "Nota:\nEsta es la cantidad que excede la contingencia federal."
+  ],
+  [
+    "CML Report",
+    "O226",
+    "Toll Credits",
+    "Nota:\nEsta es la cantidad que excede la contingencia para toll credits."
+  ],
+  [
+    "CML Report",
+    "Q226",
+    "State",
+    "Nota:\nEsta es la cantidad que excede la contingencia estatal, es necesario a+¦adir fondos estatales."
+  ],
+  [
+    "CML Report",
+    "E227",
+    "Revised Contract Amount (all Funds):",
+    "Nota:\nSi el encasillado est+í en rojo, el proyecto requiere de fondos adicionales."
+  ],
+  [
+    "CML Report",
+    "E228",
+    "Amount of Federal Funds Needed (FMIS):",
+    "Nota:\nSi el encasillado est+í en rojo, el proyecto requiere de fondos adicionales."
+  ],
+  [
+    "CML Report",
+    "E229",
+    "Amount of State Funds Needed (FMIS):",
+    "Nota:\nSi el encasillado est+í en rojo, el proyecto requiere de fondos adicionales."
+  ]
+]

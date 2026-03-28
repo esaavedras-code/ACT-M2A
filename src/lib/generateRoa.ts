@@ -72,34 +72,69 @@ export async function generateRoa(projectId: string, choId: string) {
         
         // Traducir justificación al inglés
         let justificationText = choData.justification || "";
-        if (justificationText.trim()) {
-            try {
-                const encoded = encodeURIComponent(justificationText.substring(0, 5000));
-                // Add timeout to fetch to avoid hanging the UI
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
-                
-                const transRes = await fetch(`https://api.mymemory.translated.net/get?q=${encoded}&langpair=es|en`, {
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                
-                if (transRes.ok) {
-                    const transData = await transRes.json();
-                    if (transData?.responseStatus === 200 && transData?.responseData?.translatedText) {
-                        justificationText = transData.responseData.translatedText;
-                    }
+        // Traducir justificación al inglés usando fragmentos (chunks) para textos largos
+        const translateText = async (txt: string) => {
+            if (!txt || !txt.trim()) return txt;
+            
+            // Dividir el texto en fragmentos de ~500 caracteres para evitar límites de la API
+            const chunkSize = 500;
+            const words = txt.split(/\s+/);
+            const chunks: string[] = [];
+            let currentChunk = "";
+
+            for (const word of words) {
+                if ((currentChunk + " " + word).length > chunkSize) {
+                    chunks.push(currentChunk);
+                    currentChunk = word;
+                } else {
+                    currentChunk += (currentChunk ? " " : "") + word;
                 }
-            } catch (te) {
-                console.warn("Translation failed or timed out, using original text:", te);
             }
+            if (currentChunk) chunks.push(currentChunk);
+
+            try {
+                const translatedChunks = await Promise.all(chunks.map(async (chunk) => {
+                    const encoded = encodeURIComponent(chunk);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+                    const transRes = await fetch(`https://api.mymemory.translated.net/get?q=${encoded}&langpair=es|en`, {
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    if (transRes.ok) {
+                        const transData = await transRes.json();
+                        if (transData?.responseStatus === 200 && transData?.responseData?.translatedText) {
+                            return transData.responseData.translatedText;
+                        }
+                    }
+                    return chunk; // Fallback al original si falla este chunk
+                }));
+                return translatedChunks.join(" ");
+            } catch (e) {
+                console.warn("Translation failed:", e);
+                return txt;
+            }
+        };
+
+        if (justificationText) {
+            justificationText = await translateText(justificationText);
         }
+
+        // Traducir descripciones de items
+        const translatedContractItems = await Promise.all((contractChoItems || []).map(async (it: any) => ({
+            ...it,
+            description: await translateText(it.description)
+        })));
+        const translatedNewItems = await Promise.all((newChoItems || []).map(async (it: any) => ({
+            ...it,
+            description: await translateText(it.description)
+        })));
+
         const justWords = justificationText.split(/\s+/).filter((w: string) => w.length > 0);
         const maxLineWidth = PW - 70;
         const lineHeight = 10;
-        const boxMaxY = 145; // altura disponible en el box de la primera página
+        const boxMaxY = 145; 
 
-        // Pre-calcular cuántas líneas necesita la justificación
         let testLine = "", testLineCount = 0;
         for (const w of justWords) {
             const testL = testLine + (testLine ? " " : "") + w;
@@ -277,22 +312,12 @@ export async function generateRoa(projectId: string, choId: string) {
             drawText(page, "NATURE AND REASON FOR PROPOSED REVISION (if additional space is required, use reverse side)", 23, yPos + 10, fontBold, 7.5);
             drawText(page, "Please, include the information related to the Project Administrator/Resident Engineer or the person requesting the change:", 35, yPos + 22, font, 9);
             yPos += 30;
-            // Telephone y Email con datos del administrador del proyecto
-            // Lines stay at original position
-            drawLine(page, 110, yPos + 11, 280, yPos + 11, 0.4);
-            drawLine(page, 385, yPos + 11, PW - 40, yPos + 11, 0.4);
-            // Labels and values moved down ~0.5cm (14pts)
-            drawText(page, "Telephone:", 45, yPos + 14, font, 10);
-            drawText(page, adminPhone, 112, yPos + 14, font, 9);
-            drawText(page, "Email:", 340, yPos + 14, font, 10);
-            drawText(page, adminEmail, 387, yPos + 14, font, 9);
 
-            yPos += 25;
-            // Título "Modification" con la LETRA del documento (amendment_letter)
+            // Título con número de CHO
             const docLetter = choData.amendment_letter || choData.cho_num || "";
-            drawText(page, `Modification ${docLetter} - CHANGE CONCEPT DESCRIPTION`, 23, yPos + 10, fontBold, 10.5);
+            drawText(page, `Contract Modification No. ${docLetter} - CHANGE CONCEPT DESCRIPTION`, 23, yPos + 10, fontBold, 10.5);
             drawLine(page, 23, yPos + 12, PW - 23, yPos + 12, 1.2);
-            drawRect(page, 20, yPos + 15, PW - 40, 150);
+            drawRect(page, 20, yPos + 15, PW - 40, 155);
 
             // Dibujar texto de justificación dentro del rect
             let currentLine = "", curLineY = yPos + 28;
@@ -458,8 +483,8 @@ export async function generateRoa(projectId: string, choId: string) {
                 return curRowY + 25;
             };
 
-            tyPos = drawSection("Contract Items", contractChoItems, tyPos);
-            tyPos = drawSection("New Items (Extra Work)", newChoItems, tyPos);
+            tyPos = drawSection("Contract Items", translatedContractItems, tyPos);
+            tyPos = drawSection("New Items (Extra Work)", translatedNewItems, tyPos);
             
             if (pIdx === totalTablePages - 1) {
                 const grand = allChoItems.reduce((acc: number, it: any) => acc + (parseFloat(it.quantity || it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0), 0);

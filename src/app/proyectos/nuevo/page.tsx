@@ -18,6 +18,7 @@ import {
     LayoutDashboard, FileCheck, Factory, PackageSearch, ShieldCheck,
     FileCheck2
 } from "lucide-react";
+import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
 
 export default function NewProjectPage() {
     const router = useRouter();
@@ -44,14 +45,14 @@ export default function NewProjectPage() {
     ];
 
     const handleAuthorizeProject = (newId: string) => {
-        const registrationStr = localStorage.getItem("pact_registration");
+        const registrationStr = getLocalStorageItem("pact_registration");
         if (registrationStr) {
             try {
                 const registration = JSON.parse(registrationStr);
                 const allowedIds = registration?.allowedProjectIds || [];
                 if (!allowedIds.includes(newId)) {
                     registration.allowedProjectIds = [...allowedIds, newId];
-                    localStorage.setItem("pact_registration", JSON.stringify(registration));
+                    setLocalStorageItem("pact_registration", JSON.stringify(registration));
                     // Avisar al sistema que la autorización cambió
                     window.dispatchEvent(new Event("pact_registration_updated"));
                 }

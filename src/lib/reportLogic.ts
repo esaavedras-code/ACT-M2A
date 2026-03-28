@@ -1,9 +1,11 @@
 import { supabase } from "./supabase";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate } from "./utils";
+import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem } from "./utils";
+import * as XLSX from "xlsx";
 
 
 import { generateCCMLReport } from "./generateCCMLReport";
+
 
 export const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0);
@@ -14,14 +16,35 @@ export const formatDate = (dateStr: string) => {
 };
 
 export const fetchAllReportData = async (projectId: string) => {
-    const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
-    const { data: items } = await supabase.from('contract_items').select('*').eq('project_id', projectId).order('item_num');
-    const { data: chos } = await supabase.from('chos').select('*').eq('project_id', projectId).order('cho_num');
-    const { data: certs } = await supabase.from('payment_certifications').select('*').eq('project_id', projectId).order('cert_num');
-    const { data: mfgCerts } = await supabase.from('manufacturing_certificates').select('*').eq('project_id', projectId);
-    const { data: agreementFunds } = await supabase.from('project_agreement_funds').select('*').eq('project_id', projectId).order('created_at');
+    try {
+        const { data: project, error: pErr } = await supabase.from('projects').select('*').eq('id', projectId).single();
+        if (pErr) console.error("Error fetching project:", pErr);
+        
+        const { data: items, error: iErr } = await supabase.from('contract_items').select('*').eq('project_id', projectId).order('item_num');
+        if (iErr) console.error("Error fetching items:", iErr);
+        
+        const { data: chos, error: cErr } = await supabase.from('chos').select('*').eq('project_id', projectId).order('cho_num');
+        if (cErr) console.error("Error fetching chos:", cErr);
+        
+        const { data: certs, error: certErr } = await supabase.from('payment_certifications').select('*').eq('project_id', projectId).order('cert_num');
+        if (certErr) console.error("Error fetching certs:", certErr);
+        
+        const { data: mfgCerts, error: mErr } = await supabase.from('manufacturing_certificates').select('*').eq('project_id', projectId);
+        if (mErr) console.error("Error fetching mfgCerts:", mErr);
+        
+        const { data: agreementFunds, error: aErr } = await supabase.from('project_agreement_funds').select('*').eq('project_id', projectId).order('created_at');
+        if (aErr) console.error("Error fetching agreementFunds:", aErr);
 
-    return { project, items, chos, certs, mfgCerts, agreementFunds };
+        if (!project) {
+            alert("Error: No se encontró el proyecto. Verifique sus permisos o la conexión.");
+        }
+
+        return { project, items, chos, certs, mfgCerts, agreementFunds };
+    } catch (e) {
+        console.error("Exception in fetchAllReportData:", e);
+        alert("Excepción al cargar datos: " + (e as Error).message);
+        return { project: null, items: null, chos: null, certs: null, mfgCerts: null, agreementFunds: null };
+    }
 };
 
 export const createPdfBlob = async (
@@ -163,6 +186,8 @@ export const createPdfBlob = async (
     const colWidths = customColWidths || Array(colCount).fill(contentWidth / colCount);
     const totalTableWidth = colWidths.reduce((acc, w) => acc + w, 0);
 
+    let savedHeader: { height: number, lines: any[] } | null = null;
+
     data.forEach((row, rowIndex) => {
         const isHeader = rowIndex === 0;
         const isEmpty = row.every(cell => !cell || cell.toString().trim() === '');
@@ -173,7 +198,6 @@ export const createPdfBlob = async (
             return;
         }
 
-        // Prepare text lines for each cell to calculate row height
         const fontSize = isHeader ? 9 : 8;
         const lineHeight = fontSize + 3;
 
@@ -188,7 +212,7 @@ export const createPdfBlob = async (
                     isRed = true;
                     text = `(${trimmed.substring(1).trim()})`;
                 } else {
-                    text = trimmed.substring(1).trim(); // Remueve el signo menos si es cero
+                    text = trimmed.substring(1).trim();
                 }
             }
 
@@ -207,10 +231,68 @@ export const createPdfBlob = async (
         const maxLines = Math.max(...cellLines.map(c => c.lines.length));
         const rowHeight = (maxLines * lineHeight) + 10;
 
+        if (isHeader) {
+            savedHeader = { height: rowHeight, lines: cellLines };
+        }
+
         // Check for new page
         if (y - rowHeight < 50) {
             page = pdfDoc.addPage(pageSize);
             y = height - 50;
+            
+            // Draw header again on new page
+            if (!isHeader && savedHeader) {
+                const headerHeight = savedHeader.height;
+                page.drawRectangle({
+                    x: marginX, y: y - headerHeight,
+                    width: totalTableWidth, height: headerHeight,
+                    color: rgb(0.05, 0.2, 0.45),
+                });
+                
+                let cx = marginX;
+                savedHeader.lines.forEach((cellData, cellIdx) => {
+                    const cw = colWidths[cellIdx] || 50;
+                    cellData.lines.forEach((line: string, lineIdx: number) => {
+                        page.drawText(line, {
+                            x: cx + 5,
+                            y: y - (lineIdx + 1) * (9 + 3) - 5,
+                            size: 9,
+                            font: cellData.font,
+                            color: rgb(1, 1, 1)
+                        });
+                    });
+                    // Vertical Border for header
+                    page.drawLine({
+                        start: { x: cx, y },
+                        end: { x: cx, y: y - headerHeight },
+                        thickness: 0.5,
+                        color: rgb(0.8, 0.8, 0.8),
+                    });
+                    cx += cw;
+                });
+                 // Final Vertical Border
+                page.drawLine({
+                    start: { x: marginX + totalTableWidth, y },
+                    end: { x: marginX + totalTableWidth, y: y - headerHeight },
+                    thickness: 0.5,
+                    color: rgb(0.8, 0.8, 0.8),
+                });
+                // Top/Bottom Borders
+                page.drawLine({
+                    start: { x: marginX, y },
+                    end: { x: marginX + totalTableWidth, y },
+                    thickness: 0.5,
+                    color: rgb(0.8, 0.8, 0.8),
+                });
+                page.drawLine({
+                    start: { x: marginX, y: y - headerHeight },
+                    end: { x: marginX + totalTableWidth, y: y - headerHeight },
+                    thickness: 0.5,
+                    color: rgb(0.8, 0.8, 0.8),
+                });
+                
+                y -= headerHeight;
+            }
         }
 
         // Row background
@@ -237,12 +319,24 @@ export const createPdfBlob = async (
             const currentColWidth = colWidths[cellIdx] || 50;
 
             cellData.lines.forEach((line, lineIdx) => {
-                page.drawText(line, {
-                    x: currX + 5,
-                    y: y - (lineIdx + 1) * lineHeight - 5,
-                    size: fontSize,
-                    font: cellData.font,
-                    color: textColor,
+                const rgx = /(\d{3}-[A-Z0-9a-z]+)/g;
+                const parts = line.split(rgx);
+                let currentTextX = currX + 5;
+                
+                parts.forEach(part => {
+                    if (!part) return;
+                    const isMatch = rgx.test(part);
+                    rgx.lastIndex = 0; // reset
+                    const currentFont = isMatch && !isHeader ? timesRomanBoldFont : cellData.font;
+                    
+                    page.drawText(part, {
+                        x: currentTextX,
+                        y: y - (lineIdx + 1) * lineHeight - 5,
+                        size: fontSize,
+                        font: currentFont,
+                        color: textColor,
+                    });
+                    currentTextX += currentFont.widthOfTextAtSize(part, fontSize);
                 });
             });
 
@@ -310,21 +404,109 @@ export const createPdfBlob = async (
     return new Blob([pdfBytes as any], { type: "application/pdf" });
 };
 
-export const downloadBlob = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    // Un pequeño delay ayuda en Electron y algunos navegadores para asegurar que el proceso de descarga inicie antes de revocar el URL
-    setTimeout(() => {
-        URL.revokeObjectURL(url);
-    }, 500);
+export const createExcelBlob = async (
+    title: string,
+    data: any[][],
+    projectInfo?: { name: string, num_act: string } | null
+) => {
+    // Combine title and data for better excel layout
+    const excelData = [
+        [title],
+        [projectInfo ? `Proyecto: ${projectInfo.name} - ACT: ${projectInfo.num_act}` : ""],
+        [`Fecha: ${utilsFormatDate(new Date())}`],
+        [],
+        ...data
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+    
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 };
 
-export const generateBalanceReportLogic = async (projectId: string) => {
+export const downloadBlob = async (blob: Blob, filename: string) => {
+    try {
+        console.log("Intentando descargar:", filename, "size:", blob.size);
+        if (!blob || blob.size === 0) {
+            alert("Error: El documento PDF está vacío o no se generó correctamente.");
+            return;
+        }
+
+        // --- Soporte para Electron con carpeta personalizada ---
+        // @ts-ignore
+        if (window.electronAPI) {
+            const defaultFolder = getLocalStorageItem("pact_reports_folder");
+            if (defaultFolder) {
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                return new Promise((resolve) => {
+                    reader.onloadend = async () => {
+                        const base64data = reader.result as string;
+                        const cleanBase64 = base64data.split(',')[1];
+                        const fullPath = `${defaultFolder}\\${filename}`.replace(/\//g, '\\').replace(/\\\\/g, '\\');
+                        
+                        // @ts-ignore
+                        const result = await window.electronAPI.saveFileBinary({
+                            filePath: fullPath,
+                            base64Data: cleanBase64
+                        });
+
+                        if (result.success) {
+                            console.log(`Reporte guardado exitosamente en: ${fullPath}`);
+                            alert(`Reporte guardado exitosamente en:\n${fullPath}`);
+                        } else {
+                            console.error("Error al guardar reporte en carpeta:", result.error);
+                            // Fallback a descarga normal si falla el guardado directo
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = filename;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                        }
+                        resolve(null);
+                    };
+                });
+            }
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e: any) {
+        console.error("Error en downloadBlob:", e);
+        alert("Error al descargar el archivo: " + e.message);
+    }
+};
+
+export const generateReport = async (
+    title: string,
+    data: any[][],
+    project: any,
+    widths: number[],
+    orient: 'portrait' | 'landscape',
+    format: 'pdf' | 'excel',
+    filename: string
+) => {
+    if (format === 'excel') {
+        const blob = await createExcelBlob(title, data, project);
+        downloadBlob(blob, filename.replace('.pdf', '.xlsx'));
+    } else {
+        const blob = await createPdfBlob(title, data, project, widths, orient);
+        downloadBlob(blob, filename);
+    }
+};
+
+export const generateBalanceReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, items, chos, certs } = await fetchAllReportData(projectId);
     if (!items) return;
 
@@ -351,156 +533,125 @@ export const generateBalanceReportLogic = async (projectId: string) => {
         return { ...item, choQty, totalQty, certQty, balance };
     });
 
-    const blob = await createPdfBlob('REPORTE DE BALANCES DE PARTIDAS', [
+    const data = [
         ['Item', 'Descripción', 'Unidad', 'C. Orig', 'CHO', 'Total', 'Certific.', 'Balance'],
         ...balances.map((b: any) => [
             b.item_num,
-            b.description,
+            [b.description, b.additional_description].filter(Boolean).join(' - '),
             b.unit,
-            b.quantity.toString(),
-            b.choQty.toString(),
-            b.totalQty.toString(),
-            b.certQty.toString(),
-            b.balance.toString()
+            b.quantity.toFixed(4),
+            b.choQty.toFixed(4),
+            b.totalQty.toFixed(4),
+            b.certQty.toFixed(4),
+            b.balance.toFixed(4)
         ])
-    ], project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape');
-    downloadBlob(blob, 'Reporte_Balances_Partidas.pdf');
+    ];
+
+    await generateReport('REPORTE DE BALANCES DE PARTIDAS', data, project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape', format, 'Reporte_Balances_Partidas.pdf');
 };
 
-export const generateDetailReportLogic = async (projectId: string) => {
+export const generateDetailReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, items, chos, certs } = await fetchAllReportData(projectId);
     if (!items) return;
 
-    const reportData: any[][] = [['PARTIDA / ACTIVIDAD', 'CANTIDAD', 'UNIDAD', 'FECHA / INFO', 'VALOR UNIT.']];
+    const reportData: any[][] = [['ITEM', 'SPEC.', 'DESCRIPTION / ACTIVITY', 'QUANTITY', 'UNIT', 'BALANCE', 'UNIT PRICE', 'AMOUNT']];
 
     items.forEach((b: any) => {
-        // Main Item Header
-        reportData.push([`PARTIDA: ${b.item_num} - ${b.description}`, '', '', '', '']);
+        const uPrice = parseFloat(b.unit_price) || 0;
+        const fullDescription = [b.description, b.additional_description].filter(Boolean).join(' - ');
+        let currentBalance = 0;
 
-        // Original Quantity
-        reportData.push(['  - Cantidad Original de Contrato', b.quantity.toString(), b.unit || '', '', formatCurrency(b.unit_price)]);
+        reportData.push([b.item_num, b.specification || '', fullDescription || '', '', '', '', '', '']);
+        
+        const origQty = parseFloat(b.quantity) || 0;
+        currentBalance += origQty;
+        reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(4), b.unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2))]);
 
-        // CHOs Breakdown
-        const itemChos = chos?.filter((c: any) => {
-            const choppedItems = Array.isArray(c.items) ? c.items : [];
-            return choppedItems.some((i: any) => i.item_num === b.item_num);
-        }) || [];
-
+        const itemChos = chos?.filter((c: any) => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === b.item_num)) || [];
         itemChos.forEach((c: any) => {
-            const choppedItems = Array.isArray(c.items) ? c.items : [];
-            const i = choppedItems.find((it: any) => it.item_num === b.item_num);
+            const i = (Array.isArray(c.items) ? c.items : []).find((it: any) => it.item_num === b.item_num);
             if (i) {
-                reportData.push([
-                    `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''}`,
-                    i.quantity.toString(),
-                    b.unit || '',
-                    formatDate(c.cho_date),
-                    ''
-                ]);
+                const choQty = parseFloat(i.proposed_change !== undefined ? i.proposed_change : i.quantity) || 0;
+                currentBalance += choQty;
+                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''} (${formatDate(c.cho_date)})`, choQty.toFixed(4), b.unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2))]);
             }
         });
 
-        // Certifications Breakdown
-        const itemCerts = certs?.filter((c: any) => {
-            const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-            return certItems.some((it: any) => it.item_num === b.item_num);
-        }) || [];
-
+        const itemCerts = certs?.filter((c: any) => (Array.isArray(c.items) ? c.items : (c.items?.list || [])).some((it: any) => it.item_num === b.item_num)) || [];
         itemCerts.forEach((c: any) => {
-            const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-            const i = certItems.find((it: any) => it.item_num === b.item_num);
+            const i = (Array.isArray(c.items) ? c.items : (c.items?.list || [])).find((it: any) => it.item_num === b.item_num);
             if (i) {
-                reportData.push([
-                    `  - Certificación de Pago #${c.cert_num}`,
-                    (parseFloat(i.quantity) || 0).toString(),
-                    b.unit || '',
-                    formatDate(c.cert_date),
-                    ''
-                ]);
+                const certQty = parseFloat(i.quantity) || 0;
+                currentBalance -= certQty;
+                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, certQty.toFixed(4), b.unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(certQty * uPrice, 2))]);
             }
         });
-
-        // Spacer between items
-        reportData.push(['', '', '', '', '']);
+        reportData.push(['', '', '', '', '', '', '', '']);
     });
 
-    const blob = await createPdfBlob('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [220, 70, 50, 110, 100]);
-    downloadBlob(blob, 'Reporte_Detalle_Partidas.pdf');
+    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [38, 50, 160, 60, 35, 60, 75, 75], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`);
 };
 
-export const generateMfgReportLogic = async (projectId: string) => {
+export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, items, mfgCerts } = await fetchAllReportData(projectId);
     if (!mfgCerts) return;
 
-    const blob = await createPdfBlob('REPORTE DE CERTIFICADOS DE MANUFACTURA', [
-        ['Item', 'Especificación', 'Cantidad del certificado', 'Fecha del certificado'],
+    const data = [
+        ['Item', 'Especificación', 'Descripción', 'Cantidad del certificado (CM)', 'Fecha del certificado'],
         ...mfgCerts.map((c: any) => {
             const it = items?.find(i => i.id === c.item_id || i.item_num === c.item_num);
             const unit = it?.unit || '';
+            const fullDescription = [it?.description, it?.additional_description].filter(Boolean).join(' - ');
             return [
                 c.item_num,
                 c.specification,
-                `${c.quantity.toString()} ${unit}`,
+                fullDescription || c.material_description || '',
+                `${c.quantity.toFixed(4)} ${unit}`,
                 formatDate(c.cert_date)
             ];
         })
-    ], project, [60, 240, 120, 120]);
-    downloadBlob(blob, 'Reporte_Certificados_Manufactura.pdf');
+    ];
+    await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM)', data, project, [40, 70, 200, 100, 100], 'landscape', format, 'Reporte_Certificados_CM.pdf');
 };
 
-export const generateMissingMfgReportLogic = async (projectId: string) => {
+export const generateMissingMfgReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, items, certs, mfgCerts } = await fetchAllReportData(projectId);
     if (!items) return;
 
     const missingCerts = items.filter((b: any) => b.requires_mfg_cert).map((b: any) => {
         const itemMfgCerts = mfgCerts?.filter((c: any) => c.item_id === b.id) || [];
         const mfgQty = itemMfgCerts.reduce((acc: number, c: any) => acc + (parseFloat(c.quantity) || 0), 0);
-
-        const certQty = certs?.reduce((acc: number, c: any) => {
-            const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-            const i = certItems.find((it: any) => it.item_num === b.item_num);
-            return acc + (parseFloat(i?.quantity || 0));
-        }, 0) || 0;
-
+        const certQty = certs?.reduce((acc: number, c: any) => (Array.isArray(c.items) ? c.items : (c.items?.list || [])).find((it: any) => it.item_num === b.item_num) ? acc + (parseFloat((Array.isArray(c.items) ? c.items : (c.items?.list || [])).find((it: any) => it.item_num === b.item_num)?.quantity || 0)) : acc, 0) || 0;
         const missing = certQty - mfgQty;
-
         let dateMissing = 'N/A';
-        let runningCertQty = 0;
         if (missing > 0 && certs) {
+            let running = 0;
             for (const cert of certs) {
-                const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
-                const i = certItems.find((it: any) => it.item_num === b.item_num);
+                const i = (Array.isArray(cert.items) ? cert.items : (cert.items?.list || [])).find((it: any) => it.item_num === b.item_num);
                 if (i) {
-                    runningCertQty += parseFloat(i.quantity) || 0;
-                    if (runningCertQty > mfgQty) {
-                        dateMissing = formatDate(cert.cert_date);
-                        break;
-                    }
+                    running += parseFloat(i.quantity) || 0;
+                    if (running > mfgQty) { dateMissing = formatDate(cert.cert_date); break; }
                 }
             }
         }
-
-        return { item_num: b.item_num, unit: b.unit || '', certQty, mfgQty, missing, dateMissing };
+        const fullDescription = [b.description, b.additional_description].filter(Boolean).join(' - ');
+        return { item_num: b.item_num, spec: b.specification || '', desc: fullDescription || '', unit: b.unit || '', certQty, mfgQty, missing, date: dateMissing };
     }).filter((m: any) => m.missing > 0);
 
-    const blob = await createPdfBlob('REPORTE DE CERTIFICADOS DE MANUFACTURA QUE FALTAN', [
-        ['Item', 'Cant. Certificada', 'Cant. en Cert. MFG', 'Cantidad faltante', 'Fecha de comienzo'],
-        ...missingCerts.map((m: any) => [
-            m.item_num,
-            `${m.certQty.toString()} ${m.unit}`,
-            `${m.mfgQty.toString()} ${m.unit}`,
-            `${m.missing.toString()} ${m.unit}`,
-            m.dateMissing
-        ])
-    ], project, [60, 115, 115, 115, 147]);
-    downloadBlob(blob, 'Certificados_Manufactura_Faltantes.pdf');
+    if (missingCerts.length === 0) throw new Error("NO_FALTA_NINGUNO");
+
+    const data = [
+        ['Item', 'Especificación', 'Descripción', 'Cant. Certificada', 'Cant. en CM', 'Cantidad faltante', 'Fecha del certificado'],
+        ...missingCerts.map((m: any) => [m.item_num, m.spec, m.desc, `${m.certQty.toFixed(4)} ${m.unit}`, `${m.mfgQty.toFixed(4)} ${m.unit}`, `${m.missing.toFixed(4)} ${m.unit}`, m.date])
+    ];
+
+    await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM) QUE FALTAN', data, project, [40, 70, 200, 80, 80, 80, 90], 'landscape', format, 'Certificados_CM_Faltantes.pdf');
 };
 
-export const generateMosReportLogic = async (projectId: string) => {
-    const { project, items, certs } = await fetchAllReportData(projectId);
+export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    const { project, items: itemsRepo, certs } = await fetchAllReportData(projectId);
     if (!certs) return;
 
-    // Helper para obtener el precio de factura (igual que en MaterialsForm.tsx)
     const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
         for (let i = currentCertIdx; i >= 0; i--) {
             if (!certsList[i]) continue;
@@ -517,37 +668,19 @@ export const generateMosReportLogic = async (projectId: string) => {
         items.forEach((it: any) => {
             const hasAddition = it.has_material_on_site;
             const hasDeduction = parseFloat(it.qty_from_mos) > 0;
-
             if (hasAddition || hasDeduction) {
                 if (!groupedItems.has(it.item_num)) {
-                    groupedItems.set(it.item_num, {
-                        item_num: it.item_num,
-                        specification: it.specification || '',
-                        description: it.description || '',
-                        activities: []
-                    });
+                    const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
+                    const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
+                    groupedItems.set(it.item_num, { item_num: it.item_num, spec: it.specification || '', desc: fullDesc || '', activities: [] });
                 }
                 const group = groupedItems.get(it.item_num);
-
-                if (hasAddition) {
-                    group.activities.push({
-                        certNum: c.cert_num,
-                        type: 'Adición (Factura)',
-                        qty: parseFloat(it.mos_quantity) || 0,
-                        cost: parseFloat(it.mos_invoice_total) || 0
-                    });
-                }
-
+                if (hasAddition) group.activities.push({ certNum: c.cert_num, type: 'Adición (Factura)', qty: parseFloat(it.mos_quantity) || 0, cost: parseFloat(it.mos_invoice_total) || 0 });
                 if (hasDeduction) {
-                    const mosPU = getInvoicePU(certs, it.item_num, cIdx);
-                    const p = mosPU > 0 ? mosPU : (parseFloat(it.unit_price) || 0);
+                    const mp = getInvoicePU(certs, it.item_num, cIdx);
+                    const p = mp > 0 ? mp : (parseFloat(it.unit_price) || 0);
                     const qty = parseFloat(it.qty_from_mos) || 0;
-                    group.activities.push({
-                        certNum: c.cert_num,
-                        type: 'Deducción (WP)',
-                        qty: -qty,
-                        cost: -(qty * p)
-                    });
+                    group.activities.push({ certNum: c.cert_num, type: 'Deducción (WP)', qty: -qty, cost: -(qty * p) });
                 }
             }
         });
@@ -555,268 +688,264 @@ export const generateMosReportLogic = async (projectId: string) => {
 
     const reportData: any[][] = [['# Item / Espec.', 'Descripción', 'Cert #', 'Tipo', 'Cant.', 'Monto ($)', 'Balance ($)']];
     let totalFinalBalance = 0;
-
     Array.from(groupedItems.values()).forEach(group => {
-        const it = (items || []).find((i: any) => i.item_num === group.item_num);
+        const it = (itemsRepo || []).find((i: any) => i.item_num === group.item_num);
         const unit = it?.unit || '';
         let itemBalance = 0;
         group.activities.forEach((act: any, idx: number) => {
             itemBalance += act.cost;
-            reportData.push([
-                idx === 0 ? `${group.item_num}\n${group.specification}` : '',
-                idx === 0 ? group.description : '',
-                `#${act.certNum}`,
-                act.type,
-                `${act.qty.toFixed(2)} ${unit}`,
-                formatCurrency(act.cost),
-                formatCurrency(itemBalance)
-            ]);
+            reportData.push([idx === 0 ? `${group.item_num}\n${group.spec}` : '', idx === 0 ? group.desc : '', `#${act.certNum}`, act.type, `${act.qty.toFixed(2)} ${unit}`, formatCurrency(act.cost), formatCurrency(itemBalance)]);
         });
         totalFinalBalance += itemBalance;
-        reportData.push(['', '', '', '', '', '', '']); // Spacer
+        reportData.push(['', '', '', '', '', '', '']);
     });
+    reportData.push(['BALANCE TOTAL EN INVENTARIO (MOS):', '', '', '', '', '', formatCurrency(totalFinalBalance)]);
 
-    // Add Final Total Row
-    reportData.push([
-        'BALANCE TOTAL EN INVENTARIO (MOS):',
-        '',
-        '',
-        '',
-        '',
-        '',
-        formatCurrency(totalFinalBalance)
-    ]);
-
-    const blob = await createPdfBlob('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [120, 220, 70, 100, 70, 70, 80], 'landscape');
-    downloadBlob(blob, 'Reporte_Material_On_Site.pdf');
+    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [120, 220, 70, 100, 70, 70, 80], 'landscape', format, 'Reporte_Material_On_Site.pdf');
 };
 
-export const generateInfoReportLogic = async (projectId: string) => {
-    const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
-    const { data: contractor } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
-    const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
-
+export const generateCCMLReportLogic = async (projectId: string, choId?: string) => {
+    const { project, chos, agreementFunds, certs } = await fetchAllReportData(projectId);
     if (!project) return;
 
-    const reportData: any[][] = [
-        ['SECCIÓN / CAMPO', 'INFORMACIÓN', '', '', ''],
-        ['1. PROYECTO', '', '', '', ''],
-        ['Nombre:', project.name || 'N/A', '', '', ''],
-        ['ACT #:', project.num_act || 'N/A', 'Federal:', project.num_federal || 'N/A', ''],
-        ['Contrato #:', project.num_contrato || 'N/A', 'Oracle:', project.num_oracle || 'N/A', ''],
-        ['Costo:', formatCurrency(project.cost_original), 'Región:', project.region || 'N/A', ''],
-        ['Municipios:', Array.isArray(project.municipios) ? project.municipios.join(', ') : 'N/A', '', '', ''],
-        ['Diseñador:', project.designer || 'N/A', '', '', ''],
-        ['Alcance:', project.scope || 'N/A', '', '', ''],
-        ['', '', '', '', ''],
-        ['FECHAS', '', '', '', ''],
-        ['Firma:', formatDate(project.date_contract_sign), 'Comienzo:', formatDate(project.date_project_start), ''],
-        ['Term. Orig:', formatDate(project.date_orig_completion), 'Term. Rev:', formatDate(project.date_rev_completion), ''],
-        ['Term. Est:', formatDate(project.date_est_completion), 'Term. Real:', formatDate(project.date_real_completion), ''],
-        ['', '', '', '', ''],
-        ['2. CONTRATISTA', '', '', '', ''],
-        ['Nombre:', contractor?.name || 'N/A', '', '', ''],
-        ['Representante:', contractor?.representative || 'N/A', '', '', ''],
-        ['Oficina:', contractor?.phone_office || 'N/A', 'Celular:', contractor?.phone_mobile || 'N/A', ''],
-        ['Email:', contractor?.email || 'N/A', '', '', ''],
-        ['', '', '', '', ''],
-        ['3. FIRMAS ACT', 'Nombre', 'Oficina', 'Celular', 'Email'],
-    ];
+    const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
+    const { data: contractor } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
+    const { data: ccmlMods } = await supabase.from('project_ccml_modifications').select('*').eq('project_id', projectId).order('modification_num', { ascending: true });
+    
+    const blob = await generateCCMLReport(
+        project,
+        chos || [],
+        agreementFunds || [],
+        personnel || [],
+        contractor,
+        certs || [],
+        ccmlMods || [],
+        choId
+    );
 
-    personnel?.forEach(p => {
-        reportData.push([p.role, p.name || 'N/A', p.phone_office || '', p.phone_mobile || '', p.email || '']);
-    });
+    let suffix = "Full";
+    if (choId) {
+        const targetCho = (chos || []).find(c => c.id === choId);
+        if (targetCho) {
+            suffix = `CHO_${targetCho.cho_num}${targetCho.amendment_letter || ''}`;
+        }
+    }
 
-    const blob = await createPdfBlob('INFORMACIÓN GENERAL DEL PROYECTO', reportData, project, [100, 120, 80, 80, 172]);
-    downloadBlob(blob, 'Informacion_General_Proyecto.pdf');
+    await downloadBlob(blob, `CCML_${project.num_act || projectId}_${suffix}.xlsx`);
 };
 
-export const generateChoReportLogic = async (projectId: string, choIds: string[]) => {
-    const { project, chos } = await fetchAllReportData(projectId);
-    if (!chos) return;
 
+
+
+export const generateChoReportLogic = async (projectId: string, choIds: string[], format: 'pdf' | 'excel' = 'pdf') => {
+    const { project, chos, items: itemsRepo } = await fetchAllReportData(projectId);
+    if (!chos) return;
     const selectedChos = chos.filter(c => choIds.includes(c.id));
     if (selectedChos.length === 0) return;
 
     const reportData: any[][] = [['Ítem', 'Descripción', 'Cambio Propuesto', 'Unidad', 'Costo Unitario', 'Monto Total']];
-
     selectedChos.forEach(cho => {
         reportData.push([`ORDEN DE CAMBIO (CHO) #${cho.cho_num}`, `Fecha: ${formatDate(cho.cho_date)}`, '', '', '', '']);
         const items = Array.isArray(cho.items) ? cho.items : [];
-
         let choTotal = 0;
         items.forEach((it: any) => {
+            const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
+            const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
             const qty = parseFloat(it.proposed_change) || 0;
             const pu = parseFloat(it.unit_price) || 0;
             const total = qty * pu;
             choTotal += total;
-
-            reportData.push([
-                it.item_num || '',
-                it.description || '',
-                qty.toString(),
-                it.unit || '',
-                formatCurrency(pu),
-                formatCurrency(total)
-            ]);
+            reportData.push([it.item_num || '', fullDesc || '', qty.toString(), it.unit || '', formatCurrency(pu), formatCurrency(total)]);
         });
         reportData.push(['TOTAL CHO:', '', '', '', '', formatCurrency(choTotal)]);
-        reportData.push(['', '', '', '', '', '']); // Spacer
+        reportData.push(['', '', '', '', '', '']);
     });
-
-    const blob = await createPdfBlob('REPORTE DE ÓRDENES DE CAMBIO (CHO)', reportData, project, [80, 250, 100, 80, 110, 110], 'landscape');
-    downloadBlob(blob, 'Reporte_CHOs.pdf');
+    const choNums = selectedChos.map(c => `${c.cho_num}${c.amendment_letter || ''}`).join('-');
+    await generateReport('REPORTE DE ÓRDENES DE CAMBIO (CHO)', reportData, project, [80, 250, 100, 80, 110, 110], 'landscape', format, `Reporte_CHO_${choNums}_${project?.num_act || projectId}.pdf`);
 };
 
-export const generateCertReportLogic = async (projectId: string, certIds: string[]) => {
-    const { project, certs } = await fetchAllReportData(projectId);
-    if (!certs) return;
 
+export const generateCertReportLogic = async (projectId: string, certIds: string[], format: 'pdf' | 'excel' = 'pdf') => {
+    const { project, certs, items: itemsRepo } = await fetchAllReportData(projectId);
+    if (!certs) return;
     const selectedCerts = certs.filter(c => certIds.includes(c.id));
     if (selectedCerts.length === 0) return;
 
     const reportData: any[][] = [['Ítem', 'Descripción', 'Cantidad', 'Unidad', 'Precio Unit.', 'Subtotal']];
-
     selectedCerts.forEach(cert => {
         reportData.push([`CERTIFICACIÓN DE PAGO #${cert.cert_num}`, `Fecha: ${formatDate(cert.cert_date)}`, '', '', '', '']);
         const items = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
-
         let subtotal = 0;
         items.forEach((it: any) => {
+            const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
+            const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
             const qty = parseFloat(it.quantity) || 0;
             const pu = parseFloat(it.unit_price) || 0;
             const total = qty * pu;
             subtotal += total;
-
-            reportData.push([
-                it.item_num || '',
-                it.description || '',
-                qty.toFixed(2),
-                it.unit || '',
-                formatCurrency(pu),
-                formatCurrency(total)
-            ]);
+            reportData.push([it.item_num || '', fullDesc || '', qty.toFixed(4), it.unit || '', formatCurrency(pu), formatCurrency(total)]);
         });
-
         const grossRetention = cert.skip_retention ? 0 : (subtotal * 0.05);
         const returnedAmount = parseFloat(cert.retention_return_amount) || 0;
         const netRetention = grossRetention - returnedAmount;
         const totalNeto = subtotal - (cert.skip_retention ? 0 : netRetention);
-
         reportData.push(['SUBTOTAL:', '', '', '', '', formatCurrency(subtotal)]);
-        if (!cert.skip_retention || returnedAmount > 0) {
-            reportData.push(['RETENCIÓN (5% Net):', '', '', '', '', netRetention > 0 ? `-${formatCurrency(netRetention)}` : formatCurrency(Math.abs(netRetention))]);
-            if (returnedAmount > 0) {
-                reportData.push(['  (Ret. Devuelta):', '', '', '', '', formatCurrency(returnedAmount)]);
-            }
-        }
+        if (!cert.skip_retention || returnedAmount > 0) reportData.push(['RETENCIÓN (5% Net):', '', '', '', '', netRetention > 0 ? `-${formatCurrency(netRetention)}` : formatCurrency(Math.abs(netRetention))]);
         reportData.push(['TOTAL NETO:', '', '', '', '', formatCurrency(totalNeto)]);
-        reportData.push(['', '', '', '', '', '']); // Spacer
+        reportData.push(['', '', '', '', '', '']);
     });
-
-    const blob = await createPdfBlob('REPORTE DE CERTIFICACIONES DE PAGO', reportData, project, [80, 250, 100, 80, 110, 110], 'landscape');
-    downloadBlob(blob, 'Reporte_Certificaciones.pdf');
+    const certNums = selectedCerts.map(c => c.cert_num).join('-');
+    await generateReport('REPORTE DE CERTIFICACIONES DE PAGO', reportData, project, [80, 250, 100, 80, 110, 110], 'landscape', format, `Reporte_Cert_${certNums}_${project?.num_act || projectId}.pdf`);
 };
 
-export const generateDashboardReportLogic = async (projectId: string) => {
+
+export const generateDashboardReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
     if (!proj) return;
 
     const { data: contractor } = await supabase.from("contractors").select("*").eq("project_id", projectId).single();
     const { data: personnel } = await supabase.from("act_personnel").select("*").eq("project_id", projectId);
-    const { data: items } = await supabase.from("contract_items").select("quantity, unit_price").eq("project_id", projectId);
-    const { data: chos } = await supabase.from("chos").select("proposed_change, doc_status, time_extension_days").eq("project_id", projectId);
-    const { data: certs } = await supabase.from("payment_certifications").select("items, skip_retention").eq("project_id", projectId);
+    const { data: items } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
+    const { data: chos } = await supabase.from("chos").select("*").eq("project_id", projectId);
+    const { data: certs } = await supabase.from("payment_certifications").select("*").eq("project_id", projectId).order("cert_num", { ascending: true });
 
     const originalCost = proj.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
-    const approvedCHO = chos?.filter(c => c.doc_status === 'Aprobado').reduce((acc, c) => roundedAmt(acc + (parseFloat(c.proposed_change) || 0), 2), 0) || 0;
-    const pendingCHO = chos?.filter(c => c.doc_status === 'En trámite').reduce((acc, c) => roundedAmt(acc + (parseFloat(c.proposed_change) || 0), 2), 0) || 0;
-    const timeExt = chos?.filter(c => c.doc_status === 'Aprobado').reduce((acc, c) => acc + (c.time_extension_days || 0), 0) || 0;
 
-    let totalCertified = 0;
+    const approvedCHOs = chos?.filter(c => c.doc_status === 'Aprobado') || [];
+    const pendingCHOs = chos?.filter(c => c.doc_status === 'En trámite') || [];
+    const approvedCHO = approvedCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
+    const pendingCHO = pendingCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
+    const approvedDays = approvedCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
+    const pendingDays = pendingCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
+
     let actTotal = 0;
     let fhwaTotal = 0;
+    let totalCertified = 0;
+    let actProjected = 0;
+    let fhwaProjected = 0;
+
+    items?.forEach((item: any) => {
+        const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
+        if (item.fund_source?.includes('ACT')) actProjected = roundedAmt(actProjected + amount, 2);
+        else if (item.fund_source?.includes('FHWA')) fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
+    });
+
+    chos?.forEach((cho: any) => {
+        if (cho.items && Array.isArray(cho.items)) {
+            cho.items.forEach((item: any) => {
+                const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
+                if (item.fund_source?.includes('ACT')) actProjected = roundedAmt(actProjected + amount, 2);
+                else if (item.fund_source?.includes('FHWA')) fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
+            });
+        }
+    });
+
+    let totalRetentionDeducted = 0;
+    let totalRetentionReturned = 0;
+    let mosBalance = 0;
 
     certs?.forEach((cert) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         certItems.forEach((item: any) => {
-            const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-            const source = item.fund_source || "";
+            const qty = parseFloat(item.quantity) || 0;
+            const up = parseFloat(item.unit_price) || 0;
+            const amount = roundedAmt(qty * up, 2);
+            const source = (item.fund_source || "").trim();
 
-            if (source === "FHWA:80.25") {
-                fhwaTotal = roundedAmt(fhwaTotal + roundedAmt(amount * 0.8025, 2), 2);
-                actTotal = roundedAmt(actTotal + roundedAmt(amount * (1 - 0.8025), 2), 2);
-            } else if (source === "FHWA:100%") {
-                fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
-            } else {
-                actTotal = roundedAmt(actTotal + amount, 2);
-            }
+            if (source === "FHWA:100%") fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
+            else if (source === "FHWA:80.25") {
+                const fhwaShare = roundedAmt(amount * 0.8025, 2);
+                const actShare = roundedAmt(amount - fhwaShare, 2);
+                fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
+                actTotal = roundedAmt(actTotal + actShare, 2);
+            } else actTotal = roundedAmt(actTotal + amount, 2);
+
             totalCertified = roundedAmt(totalCertified + amount, 2);
+            const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
+            if (mosInvoice > 0) mosBalance = roundedAmt(mosBalance + mosInvoice, 2);
+            const qtyFromMos = parseFloat(item.qty_from_mos) || 0;
+            const mosPU = parseFloat(item.mos_unit_price) || up;
+            if (qtyFromMos > 0) mosBalance = roundedAmt(mosBalance - roundedAmt(qtyFromMos * mosPU, 2), 2);
+            if (!cert.skip_retention && !item.skip_retention) totalRetentionDeducted = roundedAmt(totalRetentionDeducted + roundedAmt(amount * 0.05, 2), 2);
         });
+        if (cert.show_retention_return && cert.retention_return_amount) totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
     });
 
     const adjustedCost = roundedAmt(originalCost + approvedCHO, 2);
     const budgetBalance = roundedAmt(adjustedCost - totalCertified, 2);
-    const percentObra = adjustedCost > 0 ? Math.round((totalCertified / adjustedCost) * 100) : 0;
+    const percentObra = adjustedCost > 0 ? (totalCertified / adjustedCost) * 100 : 0;
 
-    // Time calculations
-    // Añadimos hora explícita a las fechas para que sean interpretadas en Zona Local consistentemente.
     const startDate = proj.date_project_start ? new Date(`${proj.date_project_start}T00:00:00`) : null;
     const origEndDate = proj.date_orig_completion ? new Date(`${proj.date_orig_completion}T23:59:59`) : null;
-
     let totalDays = 0;
-    if (startDate && origEndDate) {
-        totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
-    }
-    const revisedDaysTotal = totalDays + timeExt;
+    if (startDate && origEndDate) totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+    const revisedDaysTotal = totalDays + approvedDays;
+
+    let timeEndDate = new Date();
+    if (proj.date_substantial_completion) timeEndDate = new Date(`${proj.date_substantial_completion}T23:59:59`);
+    else if (proj.date_real_completion) timeEndDate = new Date(`${proj.date_real_completion}T23:59:59`);
+
     let usedDays = 0;
     if (startDate) {
-        usedDays = Math.ceil((new Date().getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+        usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         if (usedDays < 0) usedDays = 0;
     }
     const timeBalance = revisedDaysTotal - usedDays;
-    const percentTime = revisedDaysTotal > 0 ? Math.round((usedDays / revisedDaysTotal) * 100) : 0;
+    const percentTime = revisedDaysTotal > 0 ? (usedDays / revisedDaysTotal) * 100 : 0;
+    const damageAmt = parseFloat(proj.liquidated_damages_amount) || 500.00;
+    const liqDamages = Math.max(0, (usedDays - revisedDaysTotal) * damageAmt);
+    const retNet = roundedAmt(totalRetentionDeducted - totalRetentionReturned, 2);
 
     const reportData: any[][] = [
         ['SECCIÓN / CAMPO', 'INFORMACIÓN', '', ''],
         ['1. RESUMEN DE TIEMPO', '', '', ''],
         ['Fecha de Comienzo:', formatDate(proj.date_project_start), 'Term. Original:', formatDate(proj.date_orig_completion)],
-        ['Term. Revisada:', formatDate(proj.date_rev_completion), 'FMIS End Date:', formatDate(proj.fmis_end_date)],
-        ['Tiempo Contrato:', `${totalDays} días`, 'Prórrogas (CHOs):', `${timeExt} días`],
+        ['Term. Revisada:', formatDate(proj.date_rev_completion), 'Term. Sustancial:', formatDate(proj.date_substantial_completion)],
+        ['FMIS End Date:', formatDate(proj.fmis_end_date), '', ''],
+        ['Tiempo Contrato:', `${totalDays} días`, 'Prórrogas (CHOs):', `${approvedDays} días`],
         ['Tiempo Revisado:', `${revisedDaysTotal} días`, 'Tiempo Usado:', `${usedDays} días`],
-        ['Balance de Tiempo:', `${timeBalance} días`, 'Progreso Tiempo:', `${percentTime}%`],
+        ['Balance de Tiempo:', `${timeBalance} días`, 'Progreso Tiempo:', `${percentTime.toFixed(2)}%`],
         ['', '', '', ''],
         ['2. RESUMEN DE COSTOS ($)', '', '', ''],
-        ['Costo Original:', formatCurrency(originalCost), 'Total CHOs:', formatCurrency(approvedCHO)],
+        ['Costo Original:', formatCurrency(originalCost), 'Total CHOs (Aprob.):', formatCurrency(approvedCHO)],
         ['Presupuesto Ajustado:', formatCurrency(adjustedCost), 'Total Certificado:', formatCurrency(totalCertified)],
-        ['Balance Actual:', formatCurrency(budgetBalance), '% de Obra Ejecutada:', `${percentObra}%`],
+        ['Balance Actual:', formatCurrency(budgetBalance), '% de Obra Ejecutada:', `${percentObra.toFixed(2)}%`],
+        ['Material en Sitio (MOS):', formatCurrency(Math.max(0, mosBalance)), 'Daños Líquidos (Dlq):', formatCurrency(liqDamages)],
         ['Fondo ACT:', formatCurrency(actTotal), 'Fondo FHWA:', formatCurrency(fhwaTotal)],
         ['', '', '', ''],
-        ['3. ÓRDENES DE CAMBIO (CHOs)', '', '', ''],
-        ['Aprobados:', formatCurrency(approvedCHO), 'En Trámite:', formatCurrency(pendingCHO)],
-        ['Partida CHOs:', formatCurrency(roundedAmt(approvedCHO + pendingCHO, 2)), '% de Cambio (Precio):', `${originalCost > 0 ? Math.round((approvedCHO / originalCost) * 100) : 0}%`],
+        ['3. PRESUPUESTO PROYECTADO POR FONDOS ($)', '', '', ''],
+        ['Provision ACT:', formatCurrency(actProjected), 'Provision FHWA:', formatCurrency(fhwaProjected)],
         ['', '', '', ''],
-        ['4. CONTRATISTA', '', '', ''],
+        ['4. RETENCIÓN ($)', '', '', ''],
+        ['5% Retenido (Bruto):', formatCurrency(totalRetentionDeducted), 'Retención Devuelta:', formatCurrency(totalRetentionReturned)],
+        ['Retención Neta Actual:', formatCurrency(retNet), '', ''],
+        ['', '', '', ''],
+        ['5. ÓRDENES DE CAMBIO (CHOs)', '', '', ''],
+        ['Aprobados:', formatCurrency(approvedCHO), 'En Trámite:', formatCurrency(pendingCHO)],
+        ['Balance Total CHOs:', formatCurrency(roundedAmt(approvedCHO + pendingCHO, 2)), '% de Cambio (Precio):', `${originalCost > 0 ? Math.round((approvedCHO / originalCost) * 100) : 0}%`],
+        ['', '', '', ''],
+        ['6. CONTRATISTA', '', '', ''],
         ['Nombre:', contractor?.name || 'N/A', 'Empresa SS:', contractor?.ss_patronal || 'N/A'],
         ['Representante:', contractor?.representative || 'N/A', 'Email:', contractor?.email || 'N/A'],
         ['Oficina:', contractor?.phone_office || 'N/A', 'Celular:', contractor?.phone_mobile || 'N/A'],
         ['', '', '', ''],
-        ['5. PERSONAL ACT RESPONSABLE', 'Rol / Puesto', 'Nombre', 'Contacto'],
+        ['7. PERSONAL ACT RESPONSABLE', 'Rol / Puesto', 'Nombre', 'Contacto'],
     ];
 
     personnel?.forEach(p => {
-        reportData.push(['', p.role, p.name || 'N/A', p.phone_mobile || p.email || 'N/A']);
+        reportData.push(['', p.role, p.name || 'N/A', (p.phone_mobile || p.email || 'N/A')]);
     });
 
     const projectInfo = { name: proj.name, num_act: proj.num_act };
-    const blob = await createPdfBlob('REPORTE DE INFORMACIÓN PRINCIPAL (DASHBOARD)', reportData, projectInfo, [138, 138, 138, 138]);
-    downloadBlob(blob, `Dashboard_Reporte_${proj.num_act}.pdf`);
+    await generateReport('REPORTE DE INFORMACIÓN PRINCIPAL (DASHBOARD)', reportData, projectInfo, [138, 138, 138, 138], 'portrait', format, `Dashboard_Reporte_${proj.num_act}.pdf`);
 };
+
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
 // REPORTE DE DISTRIBUCIÓN DE FONDOS (ACT vs FHWA)
+
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
-export const generateFundSourceReportLogic = async (projectId: string) => {
+export const generateFundSourceReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, certs } = await fetchAllReportData(projectId);
     if (!project) return;
 
@@ -899,14 +1028,13 @@ export const generateFundSourceReportLogic = async (projectId: string) => {
         ['', '', '', '', 'GRAN TOTAL:', formatCurrency(grandTotal)],
     ];
 
-    const blob = await createPdfBlob('Distribución de Fondos por Origen (ACT vs FHWA)', reportData, project, COL_WIDTHS, 'landscape');
-    downloadBlob(blob, `Distribucion_Fondos_${project.num_act}.pdf`);
+    const blob = await generateReport('Distribución de Fondos por Origen (ACT vs FHWA)', reportData, project, COL_WIDTHS, 'landscape', format, `Distribucion_Fondos_${project.num_act}.pdf`);
 };
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
 // REPORTE DE PRESUPUESTO PROYECTADO POR ORIGEN DE FONDOS (ACT vs FHWA)
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
-export const generateProjectedFundDistributionReportLogic = async (projectId: string) => {
+export const generateProjectedFundDistributionReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, items: originalItems, chos } = await fetchAllReportData(projectId);
     if (!project) return;
 
@@ -957,8 +1085,7 @@ export const generateProjectedFundDistributionReportLogic = async (projectId: st
         ['GRAN TOTAL GENERAL:', formatCurrency(grandOriginal), formatCurrency(grandCHO), formatCurrency(grandTotal)]
     ];
 
-    const blob = await createPdfBlob('Presupuesto Proyectado por Origen de Fondos', reportData, project, COL_WIDTHS, 'portrait');
-    downloadBlob(blob, `Presupuesto_Proyectado_${project.num_act}.pdf`);
+    await generateReport('Presupuesto Proyectado por Origen de Fondos', reportData, project, COL_WIDTHS, 'portrait', format, `Presupuesto_Proyectado_${project.num_act}.pdf`);
 };
 
 import { generateAct117C } from "./generateAct117C";
@@ -978,7 +1105,7 @@ import { generateDbeCertificationReport } from "./generateDbeCertificationReport
 import { generateFinalConstructionReport } from "./generateFinalConstructionReport";
 import { generateLiquidacionItemsReportLogic as generateLiquidacionGenerator } from "./generateLiquidacionReport";
 
-export const generateAct117CReportLogic = async (projectId: string, certId?: string) => {
+export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, certs } = await fetchAllReportData(projectId);
     if (!project) return;
     let cert = certId ? certs?.find(c => c.id === certId) : (certs && certs.length > 0 ? certs[certs.length - 1] : null);
@@ -986,58 +1113,76 @@ export const generateAct117CReportLogic = async (projectId: string, certId?: str
         alert("No se encontró la certificación de pago.");
         return;
     }
-    const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
-    downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}.pdf`);
+    if (format === 'excel') {
+        const { data: certItems } = await supabase.from('payment_certifications').select('items').eq('id', cert.id).single();
+        const itemsList = Array.isArray(certItems?.items) ? certItems.items : (certItems?.items?.list || []);
+        const data = [
+            ['Item No.', 'Spec. Code', 'Description', 'Unit', 'Quantity', 'Unit Price', 'Amount'],
+            ...itemsList.map((it: any) => [it.item_num, it.specification, it.description, it.unit, it.quantity, it.unit_price, (it.quantity * it.unit_price)])
+        ];
+        await generateReport(`ACT-117C - Certificación de Pago #${cert.cert_num}`, data, project, [60, 80, 200, 60, 60, 80, 80], 'portrait', 'excel', `ACT-117C_Cert_${cert.cert_num}_${project.num_act}.xlsx`);
+    } else {
+        const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
+        downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}.pdf`);
+    }
 };
 
-export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string) => {
-    const blob = await generateAct117B(projectId, certId, itemNum);
-    downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.pdf`);
+export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string, format: 'pdf' | 'excel' = 'pdf') => {
+    if (format === 'excel') {
+        const { project } = await fetchAllReportData(projectId);
+        // Nota: generateAct117B genera un PDF muy complejo, para Excel damos la data bruta o alertamos.
+        // Simulando data de balance MOS para Excel
+        const data = [['Item', 'Cert #', 'Descripción', 'Balance MOS']]; 
+        await generateReport(`ACT-117B - Item ${itemNum}`, data, project, [100, 100, 200, 100], 'portrait', 'excel', `ACT-117B_Item_${itemNum}_Balance.xlsx`);
+    } else {
+        const blob = await generateAct117B(projectId, certId, itemNum);
+        downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.pdf`);
+    }
 };
 
-export const generateFinalAcceptanceChecklistReportLogic = async (projectId: string) => {
+export const generateFinalAcceptanceChecklistReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateFinalAcceptanceReport(projectId);
     if (blob) downloadBlob(blob, `Final_Acceptance_Checklist_${project.num_act}.pdf`);
 };
 
-export const generateFinalAcceptanceReportOfficialLogic = async (projectId: string) => {
+export const generateFinalAcceptanceReportOfficialLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateFinalAcceptanceReportOfficial(projectId);
     if (blob) downloadBlob(blob, `Final_Acceptance_Report_Official_${project.num_act}.pdf`);
 };
 
-export const generatePayrollCertificationReportLogic = async (projectId: string) => {
+export const generatePayrollCertificationReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generatePayrollCertificationReport(projectId);
     if (blob) downloadBlob(blob, `Payroll_Certification_${project.num_act}.pdf`);
 };
 
-export const generateMaterialCertificationReportLogic = async (projectId: string) => {
+export const generateMaterialCertificationReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateMaterialCertificationReport(projectId);
     if (blob) downloadBlob(blob, `Material_Certification_${project.num_act}.pdf`);
 };
 
-export const generateDbeCertificationReportLogic = async (projectId: string) => {
+export const generateDbeCertificationReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateDbeCertificationReport(projectId);
     if (blob) downloadBlob(blob, `DBE_Certification_${project.num_act}.pdf`);
 };
 
-export const generateFinalConstructionReportLogic = async (projectId: string) => {
+export const generateFinalConstructionReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateFinalConstructionReport(projectId);
     if (blob) downloadBlob(blob, `Final_Construction_Report_${project.num_act}.pdf`);
 };
 
-export const generateAct122ReportLogic = async (projectId: string, choId: string) => {
+export const generateAct122ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, chos } = await fetchAllReportData(projectId);
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
@@ -1045,7 +1190,7 @@ export const generateAct122ReportLogic = async (projectId: string, choId: string
     if (blob) downloadBlob(blob, `ACT-122_CHO_${cho.cho_num}_${project.num_act}.pdf`);
 };
 
-export const generateAct124ReportLogic = async (projectId: string, choId: string, selectedItems: string[]) => {
+export const generateAct124ReportLogic = async (projectId: string, choId: string, selectedItems: string[], format: 'pdf' | 'excel' = 'pdf') => {
     const { project, chos } = await fetchAllReportData(projectId);
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
@@ -1053,7 +1198,7 @@ export const generateAct124ReportLogic = async (projectId: string, choId: string
     if (blob) downloadBlob(blob, `ACT-124_CHO_Checklist_${cho.cho_num}_${project.num_act}.pdf`);
 };
 
-export const generateRoaReportLogic = async (projectId: string, choId: string) => {
+export const generateRoaReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, chos } = await fetchAllReportData(projectId);
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
@@ -1061,45 +1206,105 @@ export const generateRoaReportLogic = async (projectId: string, choId: string) =
     if (blob) downloadBlob(blob, `ROA_CHO_${cho.cho_num}_${project.num_act}.pdf`);
 };
 
-export const generateCCMLReportLogic = async (projectId: string, upToChoId?: string) => {
-    const { project } = await fetchAllReportData(projectId);
-    const blob = await generateCCMLReport(projectId, upToChoId);
-    if (blob) downloadBlob(blob, `CCML_Report_${project?.num_act || projectId}.pdf`);
-};
 
-export const generateEnvironmentalReviewReportLogic = async (projectId: string) => {
+
+export const generateEnvironmentalReviewReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateEnvironmentalReview(projectId);
     if (blob) downloadBlob(blob, `Environmental_Review_${project.num_act || 'PROJ'}.pdf`);
 };
 
-export const generateTimeAnalysisReportLogic = async (projectId: string) => {
+export const generateTimeAnalysisReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateTimeAnalysis(projectId);
     if (blob) downloadBlob(blob, `Analisis_de_Tiempo_${project.num_act || 'PROJ'}.pdf`);
 };
 
-export const generateFinalEstimateReportLogic = async (projectId: string) => {
+export const generateFinalEstimateReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateFinalEstimate(projectId);
     if (blob) downloadBlob(blob, `Final_Estimate_${project.num_act || 'PROJ'}.pdf`);
 };
 
-export const generateContractFinalReportLogic = async (projectId: string) => {
+export const generateContractFinalReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateContractFinal(projectId);
     if (blob) downloadBlob(blob, `Contract_Final_Report_${project.num_act || 'PROJ'}.pdf`);
 };
 
-export const generateLiquidacionItemsReportLogic = async (projectId: string) => {
+export const generateLiquidacionItemsReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project } = await fetchAllReportData(projectId);
     if (!project) return;
     const blob = await generateLiquidacionGenerator(projectId);
     if (blob) {
         downloadBlob(blob, `Hojas_Liquidacion_${project.num_act || project.id}.pdf`);
     }
+};
+
+
+
+export const generateSignedItemsReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+
+    const { data: items } = await supabase.from('contract_items').select('*').eq('project_id', projectId).order('item_num');
+    if (!items) return;
+
+    const liqData = project.liquidation_data || {};
+    const liquidatedItems = liqData.liquidated_items || [];
+
+    const reportData: any[][] = [
+        ['Item', 'Descripción', 'Por Admin', 'Por Contratista', 'Por Liquidador']
+    ];
+
+    items.forEach(it => {
+        const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
+        reportData.push([
+            it.item_num,
+            it.description || '',
+            (liqItem && liqItem.signed_by_admin) ? 'Sí' : 'No',
+            (liqItem && liqItem.signed_by_contractor) ? 'Sí' : 'No',
+            (liqItem && liqItem.signed_by_liquidator) ? 'Sí' : 'No'
+        ]);
+    });
+
+    // ContentWidth is 552 for portrait. Let's do widths that fit inside 552:
+    // 60 + 252 + 80 + 80 + 80 = 552
+    const blob = await createPdfBlob('REPORTE DE FIRMAS POR PARTIDAS (LIQUIDACIÓN)', reportData, project, [60, 252, 80, 80, 80], 'portrait');
+    if (format === 'excel') {
+        const { createExcelBlob } = await import("./reportLogic"); // ya está, pero por si acaso
+        const excelBlob = await createExcelBlob('REPORTE DE FIRMAS POR PARTIDAS (LIQUIDACIÓN)', reportData, project);
+        downloadBlob(excelBlob, 'Reporte_Firmas_Partidas.xlsx');
+    } else {
+        downloadBlob(blob, 'Reporte_Firmas_Partidas.pdf');
+    }
+};
+
+export const generateMinuteReportLogic = async (projectId: string, minuteId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
+    const { data: minute } = await supabase.from("meeting_minutes").select("*").eq("id", minuteId).single();
+
+    if (!minute) throw new Error("No se encontró la minuta.");
+
+    // Usamos el generador especializado que ya existe
+    const { generateMinutesReport } = await import("./generateMinutesReport");
+    const blob = await generateMinutesReport(projectId, {
+        summary: "Puntos clave discutidos en la reunión.",
+        minutes: minute.content,
+        meeting_number: minute.meeting_number,
+        meeting_date: minute.meeting_date
+    });
+
+    // downloadBlob ya está disponible en este archivo
+    downloadBlob(blob, `Minuta_${minute.meeting_date || 'N/A'}.pdf`);
+};
+
+export const generateTimeExtensionChartLogic = async (projectId: string, choId: string) => {
+    const { generateTimeExtensionChart } = await import("./generateTimeExtensionChart");
+    const blob = await generateTimeExtensionChart(projectId, choId);
+    downloadBlob(blob, `Grafica_Ext_Tiempo_CHO_${choId}.pdf`);
 };

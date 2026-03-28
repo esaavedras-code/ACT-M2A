@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2 } from "lucide-react";
+import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2, PlusSquare } from "lucide-react";
 import { generateAct117C } from "@/lib/generateAct117C";
 import { downloadBlob } from "@/lib/reportLogic";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import specsData from "@/data/specifications.json";
 import type { FormRef } from "./ProjectForm";
 
@@ -293,6 +293,33 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         if (onDirty) onDirty();
     };
 
+    const insertCertItem = (certIdx: number, itemIdx: number) => {
+        const newList = [...certs];
+        const currentItemNum = parseInt(newList[certIdx].items[itemIdx]?.item_num);
+        const nextNum = !isNaN(currentItemNum) ? (currentItemNum + 1).toString().padStart(3, '0') : "";
+
+        newList[certIdx].items.splice(itemIdx + 1, 0, {
+            item_num: nextNum,
+            specification: "",
+            description: "",
+            unit: "",
+            quantity: 0,
+            unit_price: 0,
+            fund_source: FUND_SOURCES[0],
+            has_material_on_site: false,
+            mos_quantity: 0,
+            mos_unit_price: 0,
+            mos_invoice_total: 0,
+            mos_invoice_num: "",
+            mos_provider: "",
+            mos_lot_num: "1",
+            qty_from_mos: 0,
+            skip_retention: false,
+        });
+        setCerts(newList);
+        if (onDirty) onDirty();
+    };
+
     const updateCertItem = (certIdx: number, itemIdx: number, field: string, value: any) => {
         const newList = [...certs];
         let finalValue = value;
@@ -308,8 +335,8 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             finalValue = val.substring(0, 3) + '-' + val.substring(3);
         }
 
-        // Truncate price fields to 4 decimal places
-        if (field === 'unit_price' || field === 'mos_unit_price') {
+        // Truncate price fields and qty_from_mos to 4 decimal places
+        if (field === 'unit_price' || field === 'mos_unit_price' || field === 'qty_from_mos') {
             const strVal = value.toString();
             if (strVal.includes('.')) {
                 const [intPart, decPart] = strVal.split('.');
@@ -365,7 +392,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
             if (match) {
                 newList[certIdx].items[itemIdx]['specification'] = match.specification;
-                newList[certIdx].items[itemIdx]['description'] = match.description;
+                newList[certIdx].items[itemIdx]['description'] = [match.description, match.additional_description].filter(Boolean).join(' - ');
                 newList[certIdx].items[itemIdx]['unit'] = match.unit;
                 newList[certIdx].items[itemIdx]['unit_price'] = match.unit_price ? parseFloat(match.unit_price.toString().split('.')[0] + '.' + (match.unit_price.toString().split('.')[1] || '').substring(0, 4)) : 0;
                 newList[certIdx].items[itemIdx]['fund_source'] = match.fund_source;
@@ -400,7 +427,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         const itemsToImport = contractItems.map(it => ({
             item_num: it.item_num,
             specification: it.specification,
-            description: it.description,
+            description: [it.description, it.additional_description].filter(Boolean).join(' - '),
             unit: it.unit,
             quantity: 0, // In certification, quantity is what's done in this period
             unit_price: it.unit_price ? parseFloat(it.unit_price.toString().split('.')[0] + '.' + (it.unit_price.toString().split('.')[1] || '').substring(0, 4)) : 0,
@@ -465,8 +492,8 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     if (!mounted) return null;
 
     return (
-        <div suppressHydrationWarning className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+        <div suppressHydrationWarning className="w-full space-y-6">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <FileCheck className="text-primary" />
                     6. Certificaciones de Pago
@@ -688,6 +715,20 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                 </div>
                             </div>
 
+                            {/* Notas de la Certificación */}
+                            <div className="px-4 py-2 bg-amber-50/30 dark:bg-amber-900/5 border-b border-amber-100 dark:border-amber-900/30">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Notas / Observaciones de esta Certificación</span>
+                                </div>
+                                <textarea
+                                    rows={2}
+                                    className="w-full text-xs rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none font-medium text-slate-700 dark:text-slate-300 placeholder:text-slate-300"
+                                    placeholder="Ej: Se incluye trabajos de drenaje aprobados en CH-04, retención reducida por acuerdo..."
+                                    value={c.notes || ""}
+                                    onChange={(e) => updateCert(certIdx, 'notes', e.target.value)}
+                                />
+                            </div>
+
                             {/* Detalle de Partidas (Acordeón) */}
                             {expandedCert === c.cert_num && (
                                 <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
@@ -699,33 +740,35 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                             Partidas de esta Certificación
                                         </h4>
                                         <div className="flex gap-4">
-                                            <button onClick={() => addCertItem(certIdx)} className="text-xs font-bold text-primary hover:underline">
-                                                + Añadir item
+                                            <button onClick={() => importContractItems(certIdx)} className="text-xs font-bold text-blue-600 hover:underline">
+                                                Importar Partidas Activas
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="overflow-x-auto">
-                                        <table suppressHydrationWarning className="w-full text-left border-collapse">
+                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+                                        <table suppressHydrationWarning className="min-w-[1300px] w-full text-left border-collapse">
                                             <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                                 <tr>
-                                                    <th className="py-2 px-1 w-16 text-center"># Item</th>
-                                                    <th className="py-2 px-1 w-24">Espec.</th>
-                                                    <th className="py-2 px-1">Descripción</th>
-                                                    <th className="py-2 px-1 w-20 text-center">Unit</th>
-                                                    <th className="py-2 px-1 w-24 text-right">Qty WP</th>
-                                                    <th className="py-2 px-1 w-20 text-center text-blue-600" title="Balance disponible para pagar en esta partida">Bal. Qty</th>
-                                                    <th className="py-2 px-1 w-24 text-right">Deduc. MOS</th>
-                                                    <th className="py-2 px-1 w-28 text-right">Unit Price</th>
-                                                    <th className="py-2 px-1 w-32 text-right">Amount</th>
-                                                    <th className="py-2 px-1 w-32">Fondos</th>
-                                                    <th className="py-2 px-1 w-10 text-center" title="Material on Site">MOS</th>
-                                                    <th className="py-2 px-1 w-20 text-right" title="Balance acumulado de Material on Site">MOS Bal.</th>
-                                                    <th className="py-2 px-1 w-12 text-center" title="No aplicar retenido a este item">No Ret.</th>
-                                                    <th className="py-2 px-1 w-8"></th>
+                                                    <th className="py-2 px-1 min-w-[64px] text-center"># Item</th>
+                                                    <th className="py-2 px-1 min-w-[96px]">Espec.</th>
+                                                    <th className="py-2 px-1 min-w-[200px]">Descripción</th>
+                                                    <th className="py-2 px-1 min-w-[64px] text-center">Unit</th>
+                                                    <th className="py-2 px-1 min-w-[80px] text-right">Qty WP</th>
+                                                    <th className="py-2 px-1 min-w-[80px] text-center text-blue-600" title="Balance disponible para pagar en esta partida">Bal. Qty</th>
+                                                    <th className="py-2 px-1 min-w-[80px] text-right text-[#8B4513]">Deduc. MOS</th>
+                                                    <th className="py-2 px-1 min-w-[100px] text-right">Unit Price</th>
+                                                    <th className="py-2 px-1 min-w-[120px] text-right">Amount</th>
+                                                    <th className="py-2 px-1 min-w-[110px]">Fondos</th>
+                                                    <th className="py-2 px-1 min-w-[48px] text-center" title="Material on Site">MOS</th>
+                                                    <th className="py-2 px-1 min-w-[100px] text-right" title="Balance acumulado de Material on Site">MOS Bal.</th>
+                                                    <th className="py-2 px-1 min-w-[48px] text-center" title="No aplicar retenido a este item">No Ret.</th>
+                                                    <th className="py-2 px-1 min-w-[64px]"></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                                {(c.items || []).map((item: any, itIdx: number) => {
+                                                {(c.items || []).map((item: any, originalItIdx: number) => ({ item, originalItIdx }))
+                                                    .sort((a: any, b: any) => (parseInt(a.item.item_num) || 0) - (parseInt(b.item.item_num) || 0))
+                                                    .map(({ item, originalItIdx: itIdx }: { item: any; originalItIdx: number }) => {
                                                     const mosAmount = item.has_material_on_site
                                                         ? (parseFloat(item.mos_quantity) || 0) * (parseFloat(item.mos_unit_price) || 0)
                                                         : 0;
@@ -763,10 +806,12 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                         autoQtyFromMOS = availableMOSQty;
                                                     }
 
-                                                    item.qty_from_mos = autoQtyFromMOS;
+                                                    const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "") ? parseFloat(item.qty_from_mos) : autoQtyFromMOS;
+                                                    
+                                                    item.qty_from_mos = finalQtyFromMOS;
 
                                                     const workAmount = workQty * (parseFloat(item.unit_price) || 0);
-                                                    const autoDeductionAmount = autoQtyFromMOS * currentDeductionPU;
+                                                    const autoDeductionAmount = finalQtyFromMOS * currentDeductionPU;
                                                     const itemPayout = workAmount - autoDeductionAmount;
 
                                                     const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
@@ -836,21 +881,21 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                 </td>
                                                                 <td className="py-1 px-1 text-center">
                                                                     <span className={`text-[10px] font-bold ${isExceeded || isMfgExceeded ? 'text-red-500 underline' : 'text-blue-600'}`}>
-                                                                        {availableBalance % 1 !== 0 ? availableBalance.toFixed(2) : availableBalance}
+                                                                        {formatNumber(availableBalance)}
                                                                     </span>
                                                                     {requiresMfgCert && (
                                                                         <div className={`text-[8px] font-black ${isMfgExceeded ? 'text-red-600' : 'text-slate-400'} mt-0.5`} title="Balance de Certificado de Manufactura">
-                                                                            CM: {mfgCertBalance! % 1 !== 0 ? mfgCertBalance!.toFixed(2) : mfgCertBalance}
+                                                                            CM: {formatNumber(mfgCertBalance)}
                                                                         </div>
                                                                     )}
                                                                 </td>
                                                                 <td className="py-1 px-1">
                                                                     <input
                                                                         type="text"
-                                                                        className="input-field text-xs text-right p-1 h-7 bg-amber-50/50 border-amber-100 text-amber-700 font-bold cursor-not-allowed"
-                                                                        title="Deducción automática basada en el balance de Material on Site"
-                                                                        value={autoQtyFromMOS > 0 ? autoQtyFromMOS.toFixed(2) : "0.00"}
-                                                                        readOnly
+                                                                        className="input-field text-xs text-right p-1 h-7 bg-white border-slate-200 text-[#8B4513] font-bold"
+                                                                        title="Deducción de Material on Site (Sugestión automática aplicada si está vacío)"
+                                                                        value={item.qty_from_mos ?? ""}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'qty_from_mos', e.target.value)}
                                                                     />
                                                                 </td>
                                                                 <td className="py-1 px-1">
@@ -937,9 +982,14 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                     </label>
                                                                 </td>
                                                                 <td className="py-1 px-1 text-center">
-                                                                    <button type="button" onClick={() => removeCertItem(certIdx, itIdx)} className="text-slate-300 hover:text-red-500">
-                                                                        <Trash2 size={12} />
-                                                                    </button>
+                                                                    <div className="flex flex-col gap-1.5 items-center">
+                                                                        <button type="button" onClick={() => insertCertItem(certIdx, itIdx)} className="bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all rounded-full p-1 shadow-sm transform hover:scale-110" title="Insertar item debajo">
+                                                                            <PlusSquare size={12} strokeWidth={2.5} />
+                                                                        </button>
+                                                                        <button type="button" onClick={() => removeCertItem(certIdx, itIdx)} className="text-slate-300 hover:text-red-500" title="Eliminar partida de la certificación">
+                                                                            <Trash2 size={12} />
+                                                                        </button>
+                                                                    </div>
                                                                 </td>
                                                             </tr>
                                                             {/* Fila MOS expandida */}
@@ -1028,10 +1078,17 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                 {(c.items || []).length === 0 && (
                                                     <tr>
                                                         <td colSpan={11} className="py-8 text-center text-xs text-slate-400 font-medium italic">
-                                                            No hay partidas añadidas a esta certificación. Haz clic en "+ Añadir Item Manual".
+                                                            No hay partidas añadidas a esta certificación. Haz clic en "Añadir Item Manual" o importa.
                                                         </td>
                                                     </tr>
                                                 )}
+                                                <tr>
+                                                    <td colSpan={11} className="py-2 px-1 border-t border-slate-100 dark:border-slate-800">
+                                                        <button onClick={() => addCertItem(certIdx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                                                            <Plus size={14} /> Añadir Item Manual
+                                                        </button>
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>

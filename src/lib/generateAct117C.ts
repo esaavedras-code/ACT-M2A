@@ -22,6 +22,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             .order('item_num', { ascending: true });
 
         const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
+        const { data: agreementFunds } = await supabase.from('project_agreement_funds').select('*').eq('project_id', projectId);
 
         const currentCertItemsRaw = Array.isArray(currentCert?.items) ? currentCert.items : (currentCert?.items?.list || []);
         const currentCertItems = [...currentCertItemsRaw].sort((a, b) => (parseInt(a.item_num) || 0) - (parseInt(b.item_num) || 0));
@@ -30,13 +31,14 @@ export async function generateAct117C(projectId: string, certId: string, certNum
         const totalCho = (chos || []).reduce((sum, c) => sum + (c.proposed_change || 0), 0);
 
         // 2. Calculations
-        const calcOriginalAmount = (items || []).reduce((acc: number, it: any) => acc + ((it.quantity || 0) * (it.unit_price || 0)), 0);
+        // El costo original se toma de projData.cost_original si existe, de lo contrario se calcula de los fondos del acuerdo, y como último recurso de los items.
+        const calcOriginalAmount = projData.cost_original || (agreementFunds || []).reduce((acc: number, f: any) => acc + (parseFloat(f.amount) || 0), 0) || (items || []).reduce((acc: number, it: any) => acc + ((it.quantity || 0) * (it.unit_price || 0)), 0);
         const totalProjectAmount = calcOriginalAmount + totalCho;
 
-        const fmt = (val: number, dec = 2) => {
-            if (val === 0) return "0.00";
+        const fmt = (val: number, dec = 2, isCur = false) => {
             const s = Math.abs(val).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
-            return val < 0 ? `(${s})` : s;
+            const out = isCur ? `$${s}` : s;
+            return val < 0 ? `(${out})` : out;
         };
 
         let wpPrevious = 0;
@@ -70,8 +72,23 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
         const wpTotalToDate = wpPrevious + wpCurrent;
         const percentWPValue = totalProjectAmount > 0 ? (wpTotalToDate / totalProjectAmount) * 100 : 0;
-        const retentionValue = currentCert?.skip_retention ? 0 : (wpTotalToDate * 0.05);
-        const subTotalValue = wpTotalToDate - retentionValue;
+        
+        // 5% Retained To Date (on Total to Date)
+        const totalRetentionToDate = currentCert?.skip_retention ? 0 : (wpTotalToDate * 0.05);
+
+        // Previous retention (from all previous certs)
+        let previousRetention = 0;
+        allCerts?.filter(c => c.cert_num < certNum).forEach(c => {
+            if (!c.skip_retention) {
+                const cItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+                let cWP = 0;
+                cItems.forEach((it: any) => { cWP += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0); });
+                previousRetention += cWP * 0.05;
+            }
+        });
+
+        const currentRetention = totalRetentionToDate - previousRetention;
+        const subTotalValue = wpCurrent - currentRetention;
         const netPaymentValue = subTotalValue + materialBalance;
 
         // 3. Document Setup
@@ -281,14 +298,14 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             field("8", "Municipality:", 40, ly + lh * 7, 290, projData.municipios?.join(", "));
 
             const rx = 330;
-            field("9", "Date:", rx, ry, width - 40, formatDate(new Date()));
+            field("9", "Date:", rx, ry, width - 40, certDate ? formatDate(certDate) : formatDate(new Date()));
             field("10", "Cert. Num.:", rx, ry + lh, width - 40, certNum.toString());
             field("11", "Work Performed up to:", rx, ry + lh * 2, width - 40, formatDate(currentCert?.wp_up_to || certDate));
             field("12", "Contract Beginning Date:", rx, ry + lh * 3, width - 40, formatDate(projData.date_project_start));
             field("13", "Contract Completion Date:", rx, ry + lh * 4, width - 40, formatDate(projData.date_orig_completion));
             field("14", "Revised Completion Date:", rx, ry + lh * 5, width - 40, formatDate(projData.date_rev_completion));
-            field("15", "Project Original Amount:", rx, ry + lh * 6, width - 40, fmt(calcOriginalAmount));
-            field("16", "Project Revised Amount:", rx, ry + lh * 7, width - 40, fmt(totalProjectAmount));
+            field("15", "Project Original Amount:", rx, ry + lh * 6, width - 40, fmt(calcOriginalAmount, 2, true));
+            field("16", "Project Revised Amount:", rx, ry + lh * 7, width - 40, fmt(totalProjectAmount, 2, true));
 
             // --- GRID 17-25 (Table Structure) ---
             const ty = 255; const th = 38;
@@ -308,7 +325,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             hdr("17", "Item No.", "", 57.5);
             hdr("", "Alt", "", 87.5);
             hdr("19", "Spec. Code", "", 117.5);
-            hdr("20", "% Federal", "Participation", 157.5);
+            hdr("20", "", "", 157.5);
             hdr("21", "Description", "", 262.5);
             hdr("22", "Unit", "", 365);
             hdr("23", "Quantity", "", 415);
@@ -321,13 +338,17 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 drawLine(40, rowY + 2, width - 40, rowY + 2, 0.1);
                 drawText(it.item_num, 57.5, rowY, 7, false, true);
                 drawText(it.specification, 117.5, rowY, 7, false, true);
-                const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('100%') ? '100%' : '0%');
-                drawText(fedP, 157.5, rowY, 7, false, true);
-                drawText(it.description?.substring(0, 48), 185, rowY, 6.5);
+                // const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('100%') ? '100%' : '0%');
+                // drawText(fedP, 157.5, rowY, 7, false, true);
+                
+                const matchCi = items?.find((i: any) => i.item_num === it.item_num);
+                const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
+                drawText(fullDesc.substring(0, 48), 185, rowY, 6.5);
+                
                 drawText(it.unit, 365, rowY, 7, false, true);
-                drawText(fmt(parseFloat(it.quantity) || 0), 415, rowY, 7, false, true);
-                drawText(fmt(parseFloat(it.unit_price) || 0, 4), 480, rowY, 7, false, true);
-                drawText(fmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)), 553.5, rowY, 7, false, true);
+                drawText(fmt(parseFloat(it.quantity) || 0, 4), 415, rowY, 7, false, true);
+                drawText(fmt(parseFloat(it.unit_price) || 0, 2, true), 480, rowY, 7, false, true);
+                drawText(fmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2, true), 553.5, rowY, 7, false, true);
             });
             // --- LEGAL BOX (Continuation of the table) ---
             const byTop = ty + tableHeight;
@@ -376,12 +397,12 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
             // Signature Sections (39-44)
             const sigDefs = [
-                { id: "39", lbl: "Prepared by:", role: "Representante del Contratista", sub: "Contractor" },
-                { id: "40", lbl: "Concurred by:", role: "Administrador del Proyecto", sub: "Project Administrator or Resident Engineer or Inspector" },
-                { id: "41", lbl: "Received for Review:", role: "Representante Designado", sub: "Regional Director's Designated Representative" },
-                { id: "42", lbl: "Submitted for Review:", role: "Supervisor de Área", sub: "Area Supervisor (Program Manager)" },
-                { id: "43", lbl: "Approved by:", role: "Director Regional", sub: "Regional Director" },
-                { id: "44", lbl: "Approved for Payment by:", role: "Director Finanzas", sub: "Finance Area Director" }
+                { id: "39", lbl: "Prepared by:", name: contrData?.representative || '', sub: "Contractor" },
+                { id: "40", lbl: "Concurred by:", name: personnelMap["Administrador del Proyecto"] || '', sub: "Project Administrator or Resident Engineer or Inspector" },
+                { id: "41", lbl: "Received for Review:", name: personnelMap["Supervisor de Área"] || '', sub: "Regional Director's Designated Representative" },
+                { id: "42", lbl: "Submitted for Review:", name: '', sub: "Area Supervisor (Program Manager)" },
+                { id: "43", lbl: "Approved by:", name: '', sub: "Regional Director" },
+                { id: "44", lbl: "Approved for Payment by:", name: personnelMap["Director Finanzas"] || '', sub: "Finance Area Director" }
             ];
 
             sigDefs.forEach((s, i) => {
@@ -389,7 +410,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 drawText(`${s.id}. ${s.lbl}`, 40, y, 7, true);
                 drawLine(135, y + 2, 290, y + 1.5, 0.5);
                 drawLine(295, y + 2, 355, y + 1.5, 0.5);
-                drawText(personnelMap[s.role] || '', 140, y, 7.5);
+                drawText(s.name, 140, y, 7.5);
                 drawText(s.sub, 135, y + 10, 5.5);
                 drawText("Date", 300, y + 10, 5.5);
             });
@@ -397,19 +418,19 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             // Financial Summary (26-38)
             const sx = 415; // Moved 1.5cm left from 455 as requested
             const sumDefs = [
-                ["26", "Work Performed (WP):", fmt(wpCurrent)],
-                ["27", "5% Retained (WP):", fmt(retentionValue)],
-                ["28", "Reimbursement (WP)(+/-):", "0.00"],
-                ["29", "Sub Total:", fmt(subTotalValue)],
-                ["30", "Material on Site (+/-):", fmt(materialBalance)],
-                ["31", "Liquidated Damages (LQD)(-):", "0.00"],
-                ["32", "Reimbursement (LqD)(+):", "0.00"],
-                ["33", "Extra Retainage (+/-):", "0.00"],
-                ["34", "Price Adjustment Clause (+/-):", "0.00"],
-                ["35", "Safety Penalties - Spec 638(-):", "0.00"],
-                ["36", "Other (+/-):", "0.00"],
-                ["37", "Net Payment:", fmt(netPaymentValue)],
-                ["38", "Total to Date (WP):", fmt(wpTotalToDate)]
+                ["26", "Work Performed (WP):", fmt(wpCurrent, 2, true)],
+                ["27", "5% Retained (WP):", fmt(-currentRetention, 2, true)],
+                ["28", "Reimbursement (WP)(+/-):", fmt(0, 2, true)],
+                ["29", "Sub Total:", fmt(subTotalValue, 2, true)],
+                ["30", "Material on Site (+/-):", fmt(materialBalance, 2, true)],
+                ["31", "Liquidated Damages (LQD)(-):", fmt(0, 2, true)],
+                ["32", "Reimbursement (LqD)(+):", fmt(0, 2, true)],
+                ["33", "Extra Retainage (+/-):", fmt(0, 2, true)],
+                ["34", "Price Adjustment Clause (+/-):", fmt(0, 2, true)],
+                ["35", "Safety Penalties - Spec 638(-):", fmt(0, 2, true)],
+                ["36", "Other (+/-):", fmt(0, 2, true)],
+                ["37", "Net Payment:", fmt(netPaymentValue, 2, true)],
+                ["38", "Total to Date (WP):", fmt(wpTotalToDate, 2, true)]
             ];
 
             sumDefs.forEach((sd, i) => {

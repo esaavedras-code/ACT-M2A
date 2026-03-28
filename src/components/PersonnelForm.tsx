@@ -119,15 +119,12 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
 
     return (
         <div suppressHydrationWarning className="w-full px-4 space-y-6">
-            <div className="flex items-center justify-between bg-slate-50/95 backdrop-blur-sm dark:bg-[#020617]/95 py-4 mb-6 border-b border-slate-200 dark:border-slate-800">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Users className="text-primary" />
                     3. Firmas ACT
                 </h2>
                 <div className="flex gap-2">
-                    <button onClick={addItem} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2">
-                        <Plus size={16} /> Añadir Persona
-                    </button>
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
@@ -149,15 +146,15 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             )}
 
             <div className="card overflow-x-auto p-0 border-none shadow-sm">
-                <table suppressHydrationWarning className="w-full text-left border-collapse min-w-[1250px]">
+                <table suppressHydrationWarning className="w-full text-left border-collapse min-w-[1500px]">
                     <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                            <th className="px-2 py-2 min-w-[260px] w-1/4">Rol / Puesto</th>
-                            <th className="px-2 py-2 min-w-[220px] w-1/4">Nombre Completo</th>
-                            <th className="px-2 py-2 min-w-[180px] text-center">Oficina</th>
-                            <th className="px-2 py-2 min-w-[180px] text-center">Celular</th>
-                            <th className="px-2 py-2 min-w-[280px]">Email</th>
-                            <th className="px-2 py-2 min-w-[60px] text-center"></th>
+                            <th className="px-4 py-3 min-w-[300px]">Rol / Puesto</th>
+                            <th className="px-4 py-3 min-w-[350px]">Nombre Completo</th>
+                            <th className="px-4 py-3 min-w-[220px] text-center">Oficina</th>
+                            <th className="px-4 py-3 min-w-[220px] text-center">Celular</th>
+                            <th className="px-4 py-3 min-w-[320px]">Email</th>
+                            <th className="px-4 py-3 min-w-[90px] text-center"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -167,7 +164,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                                     <td className="px-2 py-1.5">
                                         <select
-                                            className="input-field text-xs font-bold h-9 bg-white"
+                                            className="input-field text-xs font-bold min-h-[38px] !py-1.5 bg-white"
                                             style={{ backgroundColor: '#66FF99' }}
                                             value={p.role || STAFF_ROLES[0]}
                                             onChange={(e) => updateItem(idx, 'role', e.target.value)}
@@ -178,7 +175,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                     <td className="px-2 py-1.5">
                                         <input
                                             type="text"
-                                            className="input-field text-xs h-9"
+                                            className="input-field text-xs min-h-[38px] !py-1.5"
                                             style={{ backgroundColor: '#66FF99' }}
                                             value={p.name || ""}
                                             placeholder="Nombre del funcionario"
@@ -186,37 +183,40 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                         />
                                     </td>
                                     <td className="px-2 py-1.5">
-                                        <input
-                                            type="tel"
-                                            className={`input-field text-xs h-9 text-center ${isNoContact ? 'bg-slate-50/50 text-slate-300 cursor-not-allowed border-dashed' : 'bg-white'}`}
-                                            style={!isNoContact ? { backgroundColor: '#66FF99' } : {}}
-                                            placeholder={isNoContact ? "N/A" : "(000) 000-0000"}
-                                            value={p.phone_office || ""}
-                                            disabled={isNoContact}
-                                            onChange={(e) => updateItem(idx, 'phone_office', formatPhoneNumber(e.target.value))}
-                                        />
+                                        {!isNoContact && (
+                                            <input
+                                                type="tel"
+                                                className="input-field text-xs min-h-[38px] !py-1.5 text-center bg-white"
+                                                style={{ backgroundColor: '#66FF99' }}
+                                                placeholder="(000) 000-0000"
+                                                value={p.phone_office || ""}
+                                                onChange={(e) => updateItem(idx, 'phone_office', formatPhoneNumber(e.target.value))}
+                                            />
+                                        )}
                                     </td>
                                     <td className="px-2 py-1.5">
-                                        <input
-                                            type="tel"
-                                            className={`input-field text-xs h-9 text-center ${isNoContact ? 'bg-slate-50/50 text-slate-300 cursor-not-allowed border-dashed' : 'bg-white'}`}
-                                            style={!isNoContact ? { backgroundColor: '#66FF99' } : {}}
-                                            placeholder={isNoContact ? "N/A" : "(000) 000-0000"}
-                                            value={p.phone_mobile || ""}
-                                            disabled={isNoContact}
-                                            onChange={(e) => updateItem(idx, 'phone_mobile', formatPhoneNumber(e.target.value))}
-                                        />
+                                        {!isNoContact && (
+                                            <input
+                                                type="tel"
+                                                className="input-field text-xs min-h-[38px] !py-1.5 text-center bg-white"
+                                                style={{ backgroundColor: '#66FF99' }}
+                                                placeholder="(000) 000-0000"
+                                                value={p.phone_mobile || ""}
+                                                onChange={(e) => updateItem(idx, 'phone_mobile', formatPhoneNumber(e.target.value))}
+                                            />
+                                        )}
                                     </td>
                                     <td className="px-2 py-1.5">
-                                        <input
-                                            type="email"
-                                            className={`input-field text-xs h-9 ${isNoContact ? 'bg-slate-50/50 text-slate-300 cursor-not-allowed border-dashed' : 'bg-white'}`}
-                                            style={!isNoContact ? { backgroundColor: '#66FF99' } : {}}
-                                            placeholder={isNoContact ? "N/A" : "correo@ejemplo.com"}
-                                            value={p.email || ""}
-                                            disabled={isNoContact}
-                                            onChange={(e) => updateItem(idx, 'email', e.target.value)}
-                                        />
+                                        {!isNoContact && (
+                                            <input
+                                                type="email"
+                                                className="input-field text-xs min-h-[38px] !py-1.5 bg-white"
+                                                style={{ backgroundColor: '#66FF99' }}
+                                                placeholder="correo@ejemplo.com"
+                                                value={p.email || ""}
+                                                onChange={(e) => updateItem(idx, 'email', e.target.value)}
+                                            />
+                                        )}
                                     </td>
                                     <td className="px-2 py-1.5 text-center">
                                         <button
@@ -231,6 +231,18 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                 </tr>
                             );
                         })}
+                        <tr>
+                            <td colSpan={6} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                                <button
+                                    type="button"
+                                    onClick={addItem}
+                                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                                >
+                                    <Plus size={14} />
+                                    Añadir Persona
+                                </button>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
                 {personnel.length === 0 && (

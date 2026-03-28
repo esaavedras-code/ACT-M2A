@@ -3,21 +3,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Plus, ArrowRight, Clock, Percent, DollarSign, Activity, FileText, Download, FolderSearch, User, ShieldCheck, History, UserCheck } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import { exportProjectToFile, importProjectData } from "@/lib/projectFileSystem";
+import { Plus, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign } from "lucide-react";
+import { formatCurrency, getLocalStorageItem } from "@/lib/utils";
 
 export default function Dashboard() {
     const [mounted, setMounted] = useState(false);
-    const [stats, setStats] = useState({
+    const [stats, setStats] = useState<any>({
         totalProjects: 0,
         totalBudget: 0,
         totalCertified: 0,
-        totalPendingCHO: 0,
         avgProgress: 0,
-        actTotal: 0,
-        fhwaTotal: 0,
-        totalBalance: 0,
         recentProjects: [] as any[]
     });
     const [loading, setLoading] = useState(true);
@@ -26,369 +21,149 @@ export default function Dashboard() {
     useEffect(() => {
         setMounted(true);
         const checkRoles = () => {
-            const regStr = localStorage.getItem("pact_registration");
+            const regStr = getLocalStorageItem("pact_registration");
             if (regStr) {
                 try {
                     const reg = JSON.parse(regStr);
                     if (reg && reg.role_global === 'A') setIsAdmin(true);
-                } catch (e) {
-                    console.error("Error parsing registration", e);
-                }
+                } catch (e) { console.error(e); }
             }
         };
         checkRoles();
         fetchStats();
     }, []);
 
-
     const fetchStats = async () => {
         setLoading(true);
-
-        const registrationStr = localStorage.getItem("pact_registration");
-        let registration = null;
         try {
-            registration = registrationStr ? JSON.parse(registrationStr) : null;
-        } catch (e) {
-            console.error("Error parsing registration", e);
-        }
-        const allowedIds = registration?.allowedProjectIds || [];
+            const { data: { session } } = await supabase.auth.getSession();
+            let allowedIds: string[] = [];
 
-        if (allowedIds.length === 0) {
-            setStats({ ...stats, totalProjects: 0, recentProjects: [] });
-            setLoading(false);
-            return;
-        }
-
-        // 1. Projects
-        let projectsQuery = supabase
-            .from("projects")
-            .select("id, name, num_act, region, created_at, cost_original, date_project_start, date_rev_completion, folder_path")
-            .order("created_at", { ascending: false });
-        
-        if (!allowedIds.includes("ALL")) {
-            projectsQuery = projectsQuery.in("id", allowedIds);
-        }
-        
-        const { data: projectsData, error: projError } = await projectsQuery;
-        
-        if (projError) {
-             console.error("Dashboard error:", projError);
-             setLoading(false);
-             return;
-        }
-
-        // Obtener registros para encontrar el último usuario por proyecto
-        const { data: regsData } = await supabase
-            .from("app_registrations")
-            .select("name, project_ids, registered_at")
-            .order("registered_at", { ascending: false });
-
-        // 2. Items
-        let itemsQuery = supabase.from("contract_items").select("project_id, quantity, unit_price");
-        if (!allowedIds.includes("ALL")) itemsQuery = itemsQuery.in("project_id", allowedIds);
-        const { data: allItems } = await itemsQuery;
-
-        // 3. CHOs
-        let chosQuery = supabase.from("chos").select("project_id, proposed_change, doc_status, time_extension_days");
-        if (!allowedIds.includes("ALL")) chosQuery = chosQuery.in("project_id", allowedIds);
-        const { data: allChos = [] } = await chosQuery;
-
-        // 4. Certifications
-        let certsQuery = supabase.from("payment_certifications").select("project_id, items, cert_date");
-        if (!allowedIds.includes("ALL")) certsQuery = certsQuery.in("project_id", allowedIds);
-        const { data: allCerts = [] } = await certsQuery;
-
-        const projectSummaries = projectsData?.map(proj => {
-            const projectItems = (allItems || []).filter(i => i.project_id === proj.id);
-            const originalCost = proj.cost_original || projectItems.reduce((acc, i) => acc + (i.quantity * i.unit_price), 0) || 0;
-
-            const pChos = (allChos || []).filter(c => c.project_id === proj.id);
-            const approvedCHO = pChos.filter(c => c.doc_status === "Aprobado").reduce((acc, c) => acc + (parseFloat(c.proposed_change as any) || 0), 0) || 0;
-            const pendingCHO = pChos.filter(c => c.doc_status === "En trámite").reduce((acc, c) => acc + (parseFloat(c.proposed_change as any) || 0), 0) || 0;
-
-            const pCerts = (allCerts || []).filter(c => c.project_id === proj.id).sort((a, b) => new Date(b.cert_date).getTime() - new Date(a.cert_date).getTime());
-            let certified = 0;
-            let actF = 0;
-            let fhwaF = 0;
-
-            (allCerts || []).filter(c => c.project_id === proj.id).forEach(cert => {
-                const cItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
-                cItems.forEach((item: any) => {
-                    const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-                    if (item.fund_source?.includes("FHWA")) {
-                        const rate = item.fund_source === "FHWA:80.25" ? 0.8025 : 1.0;
-                        fhwaF += amount * rate;
-                        actF += amount * (1 - rate);
-                    } else {
-                        actF += amount;
-                    }
-                    certified += amount;
-                });
-            });
-
-            const adjustedCost = originalCost + approvedCHO;
-
-            // Time
-            const revEnd = proj.date_rev_completion ? new Date(proj.date_rev_completion) : null;
-            let daysLeft = 0;
-            if (revEnd) {
-                daysLeft = Math.ceil((revEnd.getTime() - new Date().getTime()) / (1000 * 3600 * 24)) + 1;
-            }
-
-            return {
-                ...proj,
-                originalCost,
-                approvedCHO,
-                pendingCHO,
-                adjustedCost,
-                certified,
-                actF,
-                fhwaF,
-                progress: adjustedCost > 0 ? Math.round((certified / adjustedCost) * 100) : 0,
-                daysLeft,
-                lastCertDate: pCerts[0]?.cert_date,
-                lastUser: regsData?.find(r => r.project_ids?.includes(proj.id))?.name || null
-            };
-        }) || [];
-
-        const globalCertified = projectSummaries.reduce((acc, p) => acc + p.certified, 0);
-        const globalAdjusted = projectSummaries.reduce((acc, p) => acc + p.adjustedCost, 0);
-
-        setStats({
-            totalProjects: projectSummaries.length,
-            totalBudget: globalAdjusted,
-            totalCertified: globalCertified,
-            totalPendingCHO: projectSummaries.reduce((acc, p) => acc + p.pendingCHO, 0),
-            avgProgress: globalAdjusted > 0 ? Math.round((globalCertified / globalAdjusted) * 100) : 0,
-            actTotal: projectSummaries.reduce((acc, p) => acc + p.actF, 0),
-            fhwaTotal: projectSummaries.reduce((acc, p) => acc + p.fhwaF, 0),
-            totalBalance: globalAdjusted - globalCertified,
-            recentProjects: projectSummaries
-        });
-        setLoading(false);
-    };
-
-    const handleExport = async (e: React.MouseEvent, proj: any) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const { data: project } = await supabase.from("projects").select("folder_path, name").eq("id", proj.id).single();
-        let path = null;
-
-        // Siempre preguntamos dónde guardar
-        // @ts-ignore
-        if (window.electronAPI && window.electronAPI.selectFolder) {
-            // @ts-ignore
-            path = await window.electronAPI.selectFolder();
-        } else if ('showDirectoryPicker' in window) {
-            try {
-                // @ts-ignore
-                const handle = await window.showDirectoryPicker();
-                path = handle.name;
-            } catch (err) {
-                return; // Cancelado
-            }
-        } else {
-            path = window.prompt("Seleccione carpeta de destino:", project?.folder_path || "");
-        }
-
-        if (!path) return;
-
-        // Si la ruta es nueva, preguntamos si quiere guardarla como predeterminada
-        if (path !== project?.folder_path) {
-            const confirmedUpdate = window.confirm(`¿Desea guardar "${path}" como la ruta predeterminada para este proyecto?`);
-            if (confirmedUpdate) {
-                await supabase.from("projects").update({ folder_path: path }).eq("id", proj.id);
-            }
-        }
-
-        const result = await exportProjectToFile(proj.id, path, project?.name || proj.name);
-        if (result.success) alert(`✓ Respaldo guardado exitosamente en:\n${path}`);
-        else alert(`Error al exportar: ${result.error}`);
-    };
-
-    const handleOpenFile = async () => {
-        // @ts-ignore
-        if (window.electronAPI && window.electronAPI.selectProjectFile) {
-            // @ts-ignore
-            const result = await window.electronAPI.selectProjectFile();
-            if (result && result.success) {
-                const importRes = await importProjectData(result.data);
-                if (importRes.success) {
-                    alert("✓ Proyecto cargado con éxito en el sistema.");
-                    fetchStats();
+            if (session) {
+                const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
+                if (userData?.role_global === "A") {
+                    allowedIds = ["ALL"];
                 } else {
-                    alert(`Error al importar: ${importRes.error}`);
+                    const { data: mems } = await supabase.from("memberships").select("project_id").eq("user_id", session.user.id);
+                    if (mems && mems.length > 0) {
+                        allowedIds = mems.map((m: any) => m.project_id);
+                    }
                 }
-            } else if (result && !result.success) {
-                alert(`Error al abrir archivo: ${result.error}`);
+            } else {
+                const registrationStr = getLocalStorageItem("pact_registration");
+                try {
+                    const reg = registrationStr ? JSON.parse(registrationStr) : null;
+                    allowedIds = reg?.allowedProjectIds || [];
+                } catch (e) {}
             }
-        } else {
-            alert("No se detectó la API de Electron para abrir archivos locales.");
-        }
+
+            if (allowedIds.length === 0) {
+                setStats((prev: any) => ({ ...prev, recentProjects: [] }));
+                setLoading(false);
+                return;
+            }
+
+            let projectsQuery = supabase
+                .from("projects")
+                .select("id, name, num_act, region, cost_original")
+                .order("created_at", { ascending: false });
+            
+            if (!allowedIds.includes("ALL")) {
+                projectsQuery = projectsQuery.in("id", allowedIds);
+            }
+            
+            const { data: projectsData } = await projectsQuery;
+            const { data: allItems } = await supabase.from("contract_items").select("project_id, quantity, unit_price");
+            const { data: allChos } = await supabase.from("chos").select("project_id, proposed_change, doc_status");
+            const { data: allCerts } = await supabase.from("payment_certifications").select("project_id, items");
+
+            const projectSummaries = projectsData?.map((proj: any) => {
+                const projectItems = (allItems || []).filter(i => i.project_id === proj.id);
+                const originalCost = proj.cost_original || projectItems.reduce((acc, i) => acc + (i.quantity * i.unit_price), 0) || 0;
+                const approvedCHO = (allChos || []).filter(c => c.project_id === proj.id && c.doc_status === "Aprobado")
+                    .reduce((acc, c) => acc + (parseFloat(c.proposed_change as any) || 0), 0);
+                
+                let certified = 0;
+                (allCerts || []).filter(c => c.project_id === proj.id).forEach(cert => {
+                    const cItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
+                    cItems.forEach((item: any) => {
+                        certified += (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+                    });
+                });
+
+                const adjustedCost = originalCost + approvedCHO;
+                return {
+                    ...proj,
+                    adjustedCost,
+                    certified,
+                    progress: adjustedCost > 0 ? Math.round((certified / adjustedCost) * 100) : 0
+                };
+            }) || [];
+
+            setStats({
+                totalProjects: projectSummaries.length,
+                totalBudget: projectSummaries.reduce((acc, p) => acc + p.adjustedCost, 0),
+                totalCertified: projectSummaries.reduce((acc, p) => acc + p.certified, 0),
+                avgProgress: projectSummaries.length > 0 ? Math.round(projectSummaries.reduce((acc, p) => acc + p.progress, 0) / projectSummaries.length) : 0,
+                recentProjects: projectSummaries
+            });
+        } catch (err) { console.error(err); } finally { setLoading(false); }
     };
 
     if (!mounted) return null;
 
     return (
         <div className="py-8 space-y-10">
-            {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Proyectos ACT (PACT)</h1>
+                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">Dashboard Proyectos</h1>
                     <p className="text-slate-500 mt-2 font-medium">Panel central de control y monitoreo de obras.</p>
                 </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={handleOpenFile}
-                        className="px-6 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-xl shadow-sm hover:border-primary/30 hover:bg-slate-50 dark:hover:bg-slate-750 transition-all flex items-center justify-center gap-2 font-bold"
-                    >
-                        <FolderSearch size={22} className="text-primary" />
-                        Abrir Proyecto
-                    </button>
-                    <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group">
-                        <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-                        Nuevo Proyecto
-                    </Link>
-                </div>
+                <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group">
+                    <Plus size={20} className="group-hover:rotate-90 transition-transform" />
+                    Nuevo Proyecto
+                </Link>
             </div>
 
-            {/* Admin Quick Links */}
-            {isAdmin && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 animate-in slide-in-from-bottom-4 duration-700">
-                    <Link href="/admin/requests" className="card group hover:border-primary/50 transition-all flex items-center justify-between p-6 bg-slate-900 text-white rounded-[2rem] shadow-2xl">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                <UserCheck size={24} />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-lg">Solicitudes de Acceso</h3>
-                                <p className="text-slate-400 text-sm font-medium">Gestionar nuevas cuentas y permisos</p>
-                            </div>
-                        </div>
-                        <ArrowRight className="text-slate-600 group-hover:text-primary transition-colors" />
-                    </Link>
-
-                    <Link href="/admin/audit-logs" className="card group hover:border-primary/50 transition-all flex items-center justify-between p-6 bg-slate-900 text-white rounded-[2rem] shadow-2xl">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-                                <History size={24} />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-lg">Logs de Auditoría</h3>
-                                <p className="text-slate-400 text-sm font-medium">Ver historial de cambios del sistema</p>
-                            </div>
-                        </div>
-                        <ArrowRight className="text-slate-600 group-hover:text-amber-500 transition-colors" />
-                    </Link>
-                </div>
-            )}
-
-            {/* Main Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                    icon={<FileText className="text-blue-600" />}
-                    title="Total Proyectos"
-                    value={loading ? "..." : stats.totalProjects.toString()}
-                    subtitle="Registrados en el programa"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <StatCard icon={<FileText className="text-blue-600" />} title="Proyectos" value={loading ? "..." : stats.totalProjects.toString()} subtitle="Obras registradas" />
             </div>
 
             <div className="space-y-6">
-                <div className="flex items-center justify-between px-2">
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <Activity className="text-primary" size={20} />
-                        Resumen General de Proyectos
-                    </h2>
-                    <Link href="/proyectos" className="text-sm font-semibold text-primary hover:underline flex items-center gap-1 group">
-                        Administrar todos
-                        <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                </div>
-
-                <div className="overflow-x-auto card p-0 border-none shadow-sm">
+                <h2 className="text-xl font-black flex items-center gap-2 uppercase tracking-tight">
+                    <Activity className="text-blue-600" size={20} />
+                    Resumen de Proyectos
+                </h2>
+                <div className="overflow-x-auto card p-0 border-none shadow-sm rounded-[2rem]">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Proyecto / ACT</th>
-                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right">Costo Orig.</th>
-                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right">Ajustado</th>
-                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right">Certificado</th>
-                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right">Balance</th>
-                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Progreso</th>
-                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-center">Exportar</th>
+                            <tr className="bg-slate-50 border-b border-slate-100">
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Proyecto / ACT</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ajustado</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Certificado</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Progreso</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {loading ? (
-                                [1, 2, 3].map(i => (
-                                    <tr key={i} className="animate-pulse">
-                                        <td colSpan={7} className="px-6 py-8"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-full"></div></td>
-                                    </tr>
-                                ))
-                            ) : (
-                                stats.recentProjects.map(proj => (
-                                    <tr 
-                                        key={proj.id} 
-                                        className="group hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors cursor-pointer"
-                                        onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}
-                                    >
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="font-bold text-slate-900 dark:text-white line-clamp-1">{proj.name}</span>
-                                                <span className="text-[10px] font-bold text-primary">{proj.num_act} • {proj.region}</span>
-                                                {proj.folder_path && (
-                                                    <span className="text-[9px] text-slate-400 italic truncate max-w-[200px]" title={proj.folder_path}>{proj.folder_path}</span>
-                                                )}
-                                                {proj.lastUser && (
-                                                    <span className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                                                        <User size={10} className="text-slate-300" />
-                                                        Último: {proj.lastUser}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-right text-sm font-medium text-slate-500">{formatCurrency(proj.originalCost)}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-700 dark:text-slate-200">{formatCurrency(proj.adjustedCost)}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-primary">{formatCurrency(proj.certified)}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-medium text-slate-500">{formatCurrency(proj.adjustedCost - proj.certified)}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 min-w-[60px]">
-                                                    <div className="bg-primary h-1.5 rounded-full" style={{ width: `${proj.progress}%` }}></div>
-                                                </div>
-                                                <span className="text-[10px] font-bold w-8">{proj.progress}%</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button
-                                                onClick={(e) => handleExport(e, proj)}
-                                                className="p-2 hover:bg-primary/10 text-slate-400 hover:text-primary rounded-lg transition-colors"
-                                                title="Exportar"
-                                            >
-                                                <Download size={16} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
+                        <tbody className="divide-y divide-slate-50">
+                            {!loading && stats.recentProjects.map((proj: any) => (
+                                <tr key={proj.id} className="group hover:bg-blue-50/30 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
+                                    <td className="px-8 py-6">
+                                        <span className="font-bold text-slate-900 group-hover:text-blue-600">{proj.name}</span><br/>
+                                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{proj.num_act} • {proj.region}</span>
+                                    </td>
+                                    <td className="px-8 py-6 text-right font-bold text-slate-700">{formatCurrency(proj.adjustedCost)}</td>
+                                    <td className="px-8 py-6 text-right font-bold text-blue-600">{formatCurrency(proj.certified)}</td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 bg-slate-100 rounded-full h-2 min-w-[100px]"><div className="bg-blue-600 h-2 rounded-full" style={{ width: `${proj.progress}%` }}></div></div>
+                                            <span className="text-[10px] font-black">{proj.progress}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
-                    {!loading && stats.recentProjects.length === 0 && (
-                        <div className="text-center py-12 text-slate-400 italic">No hay proyectos para mostrar.</div>
-                    )}
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    <div className="lg:col-span-3">
-                        {/* Quick Access or other content could go here */}
-                    </div>
-                </div>
-            </div>
-
-            {/* Quick Actions (Moved to bottom or kept as sidebar style) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {/* Existing Quick Actions if needed, but the table above is now the focus */}
             </div>
         </div>
     );
@@ -396,14 +171,12 @@ export default function Dashboard() {
 
 function StatCard({ icon, title, value, subtitle }: { icon: React.ReactNode, title: string, value: string, subtitle: string }) {
     return (
-        <div className="card flex items-start gap-4 hover:shadow-md transition-all">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/50">
-                {icon}
-            </div>
+        <div className="card flex items-start gap-4 hover:shadow-xl transition-all rounded-[2rem]">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">{icon}</div>
             <div>
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{title}</h3>
-                <p className="text-2xl font-extrabold text-slate-900 dark:text-white my-0.5">{value}</p>
-                <span className="text-[10px] text-slate-400 font-medium">{subtitle}</span>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</h3>
+                <p className="text-2xl font-black text-slate-900 my-0.5 tracking-tight">{value}</p>
+                <span className="text-[10px] text-slate-400 font-medium italic">{subtitle}</span>
             </div>
         </div>
     );
