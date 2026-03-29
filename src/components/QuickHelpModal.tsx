@@ -64,7 +64,7 @@ export default function QuickHelpModal() {
     const sections = [
         {
             title: "🟢 Ingreso de Datos",
-            text: "Los espacios pintados de verde son datos que, por lo general, se deben llenar.\n\nCuando se anota por primera vez la especificación de un ítem, se anota automáticamente la descripción y la unidad. Si ese ítem ya está en el proyecto, al escribir el número de ítem se escribe automáticamente."
+            text: "• Generalmente, se deben completar los campos marcados en verde..\n\n• Cuando se registra un ítem por primera vez, se completan automáticamente la descripción y la unidad. Si el ítem ya existe en el proyecto, basta con escribir su número y se carga automáticamente."
         },
         { title: "Navegación", text: "Dashboard (inicio), Proyectos (gestión) y Reportes (oficiales)." },
         { title: "Proyectos", text: "Gestiona contratista, personal ACT, partidas, materiales y cumplimiento." },
@@ -241,11 +241,23 @@ export default function QuickHelpModal() {
                                             </div>
                                             <div>
                                                 <h4 className={`font-black text-xs uppercase tracking-widest mb-1 ${isDataEntry ? "text-green-700 dark:text-green-400" : "text-slate-800 dark:text-white"}`}>{s.title}</h4>
-                                                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed whitespace-pre-line">{s.text}</p>
+                                                <p 
+                                                    className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed whitespace-pre-line"
+                                                    style={{ textAlign: 'justify' }}
+                                                >
+                                                    {s.text}
+                                                </p>
                                             </div>
                                         </div>
                                     );
                                 })}
+                                
+                                <div className="flex flex-col items-center justify-center gap-1 py-4 animate-bounce text-primary/40">
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Más información abajo</span>
+                                    <div className="bg-primary/5 p-1 rounded-full border border-primary/10">
+                                        <ChevronRight size={14} className="rotate-90" />
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="bg-amber-50 dark:bg-amber-900/10 border-2 border-dashed border-amber-200 dark:border-amber-800 p-6 rounded-3xl text-center">
