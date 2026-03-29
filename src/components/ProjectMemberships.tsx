@@ -142,16 +142,25 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
             if (api?.sendEmail) {
                 mailRes = await api.sendEmail(emailData);
             } else {
-                // Fallback para versión Web
+                // Fallback para versión Web - URL hardcodeada para garantizar funcionamiento
+                const SUPABASE_URL = 'https://dtpfhwxwodzpitzmrbqr.supabase.co';
                 try {
-                    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+                    console.log(`Llamando a Edge Function: ${SUPABASE_URL}/functions/v1/send-email`);
+                    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(emailData)
                     });
-                    mailRes = await res.json();
-                } catch (err) {
-                    mailRes = { success: false, error: "Error en la red al enviar email" };
+                    const responseText = await res.text();
+                    console.log(`Edge Function respuesta (${res.status}):`, responseText);
+                    try {
+                        mailRes = JSON.parse(responseText);
+                    } catch {
+                        mailRes = { success: res.ok, raw: responseText };
+                    }
+                } catch (err: any) {
+                    console.error('Error llamando Edge Function:', err);
+                    mailRes = { success: false, error: err.message || "Error en la red" };
                 }
             }
 

@@ -276,8 +276,8 @@ export default function AdminRequestsPage() {
                 if (api?.sendEmail) {
                     await api.sendEmail(emailData);
                 } else {
-                    // Fallback para versión Web
-                    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+                    // Fallback Web - URL hardcodeada
+                    await fetch('https://dtpfhwxwodzpitzmrbqr.supabase.co/functions/v1/send-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(emailData)
@@ -466,8 +466,8 @@ export default function AdminRequestsPage() {
             if (api?.sendEmail) {
                 await api.sendEmail(invitationData);
             } else {
-                // Fallback para versión Web
-                await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+                // Fallback Web - URL hardcodeada
+                await fetch('https://dtpfhwxwodzpitzmrbqr.supabase.co/functions/v1/send-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(invitationData)
