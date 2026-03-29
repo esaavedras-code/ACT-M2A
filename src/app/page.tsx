@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Plus, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign } from "lucide-react";
+import { Plus, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign, Download } from "lucide-react";
 import { formatCurrency, getLocalStorageItem } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -126,6 +126,51 @@ export default function Dashboard() {
         } catch (err) { console.error(err); } finally { setLoading(false); }
     };
 
+    const handleDownloadProjectJSON = async (e: React.MouseEvent, projId: string, projName: string) => {
+        e.stopPropagation(); // Evitar navegar al detalle
+        try {
+            const { data, error } = await supabase.rpc('get_full_project_data', { p_id: projId }); // Intentar usar RPC si existe
+            
+            // Si no hay RPC, hacemos fetch manual de todo
+            let fullData: any = {};
+            
+            const [proj, items, chos, certs, mems, docs, chp_items] = await Promise.all([
+                supabase.from("projects").select("*").eq("id", projId).single(),
+                supabase.from("contract_items").select("*").eq("project_id", projId),
+                supabase.from("chos").select("*").eq("project_id", projId),
+                supabase.from("payment_certifications").select("*").eq("project_id", projId),
+                supabase.from("memberships").select("*").eq("project_id", projId),
+                supabase.from("project_documents").select("*").eq("project_id", projId),
+                supabase.from("cho_items").select("*").eq("project_id", projId)
+            ]);
+
+            fullData = {
+                project: proj.data,
+                items: items.data,
+                chos: chos.data,
+                cho_items: chp_items.data,
+                certifications: certs.data,
+                memberships: mems.data,
+                documents_metadata: docs.data,
+                exported_at: new Date().toISOString()
+            };
+
+            const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Respaldo_PACT_${projName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert("✓ Información del proyecto descargada con éxito.");
+        } catch (err: any) {
+            alert("Error al descargar información: " + err.message);
+        }
+    };
+
     if (!mounted) return null;
 
     return (
@@ -158,6 +203,7 @@ export default function Dashboard() {
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ajustado</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Certificado</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Progreso</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -174,6 +220,15 @@ export default function Dashboard() {
                                             <div className="flex-1 bg-slate-100 rounded-full h-2 min-w-[100px]"><div className="bg-blue-600 h-2 rounded-full" style={{ width: `${proj.progress}%` }}></div></div>
                                             <span className="text-[10px] font-black">{proj.progress}%</span>
                                         </div>
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        <button 
+                                            onClick={(e) => handleDownloadProjectJSON(e, proj.id, proj.name)}
+                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                            title="Descargar Respaldo JSON"
+                                        >
+                                            <Download size={18} />
+                                        </button>
                                     </td>
                                 </tr>
                             ))}

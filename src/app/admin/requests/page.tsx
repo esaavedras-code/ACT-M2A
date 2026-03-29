@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { UserCheck, UserX, Clock, Mail, Hash, Shield, ArrowLeft, Pencil, Check, X as XIcon, Users, ChevronDown } from "lucide-react";
+import { UserCheck, UserX, Clock, Mail, Hash, Shield, ArrowLeft, Pencil, Check, X as XIcon, Users, ChevronDown, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 interface UserProfile {
@@ -612,12 +612,13 @@ export default function AdminRequestsPage() {
             <div className="flex items-center justify-between">
                 <div className="space-y-1">
                     <Link href="/" className="inline-flex items-center gap-1 text-slate-400 hover:text-primary text-sm font-bold mb-4 transition-colors">
-                        <ArrowLeft size={16} /> Volver al Dashboard
+                        <ArrowLeft size={16} /> Volver
                     </Link>
-                    <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                        <Users className="text-primary" size={36} /> Gestión de Acceso
+                    <h1 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tighter flex items-center gap-3">
+                        <ShieldCheck className="text-primary" size={32} />
+                        Gestión de Usuarios y Accesos
                     </h1>
-                    <p className="text-slate-500 font-medium">Administra solicitudes y usuarios del sistema PACT.</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic ml-1">Administración de solicitudes y permisos globales</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button 
@@ -823,7 +824,7 @@ export default function AdminRequestsPage() {
                                                                 onClick={() => saveChanges(req.id)}
                                                                 className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
                                                             >
-                                                                <Check size={16} /> Guardar
+                                                                <Check size={16} />
                                                             </button>
                                                         </div>
                                                     ) : (
@@ -834,7 +835,6 @@ export default function AdminRequestsPage() {
                                                                 title="Corregir Proyecto o Rol"
                                                             >
                                                                 <Pencil size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">Corregir</span>
                                                             </button>
                                                             {req.status === 'pending' ? (
                                                                 <>

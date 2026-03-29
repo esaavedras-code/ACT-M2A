@@ -41,6 +41,7 @@ export default function MobileMenu() {
         { name: "Dashboard", href: "/", icon: LayoutDashboard },
         { name: "Proyectos", href: "/proyectos", icon: Briefcase },
         { name: "Historial de precios", href: "/precios", icon: History },
+        { name: "Centro de Reportes", href: "/reportes", icon: TrendingUp },
         { name: "Mi Perfil", href: "/perfil", icon: FileText }, // Added Perfil
     ];
 

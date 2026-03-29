@@ -43,6 +43,13 @@ body {
   @apply block text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 mb-2 ml-1; /* Darker labels */
 }
 
+/* Corregir contraste en campos verdes obligatorios en móvil y desktop */
+.input-field[style*="background-color: #66FF99"],
+.input-field[style*="background-color:#66FF99"] {
+  color: #020617 !important;
+  font-weight: 800 !important;
+}
+
 /* Ocultar barra de desplazamiento manteniendo funcionalidad */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

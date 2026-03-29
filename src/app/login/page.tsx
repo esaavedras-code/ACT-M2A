@@ -12,6 +12,8 @@ import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
 const LoginPage: NextPage = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [isForgotLoading, setIsForgotLoading] = useState(false);
+    const [forgotSuccess, setForgotSuccess] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -92,8 +94,8 @@ const LoginPage: NextPage = () => {
 
             if (authError) throw authError;
 
-            // Detectar si la contraseña es temporal (comienza con PACT- o es el patrón antiguo de 8-10 chars mayúsculas)
-            const isTempPassword = password.startsWith("PACT-") || /^[A-Z0-9]{8,10}$/.test(password);
+            // Detectar si la contraseña es temporal (comienza con PACT- o es el patrón de 6-10 chars mayúsculas/números)
+            const isTempPassword = password.startsWith("PACT-") || /^[A-Z0-9]{6,10}$/.test(password);
             
             if (isTempPassword) {
                 setTempSessionUser(data.user);
@@ -148,6 +150,38 @@ const LoginPage: NextPage = () => {
             console.error("Excepción en handlePasswordChange:", err);
             setError(err.message || "Error al actualizar contraseña. Intente nuevamente.");
             setLoading(false);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        const normalizedEmail = email.trim().toLowerCase();
+        if (!normalizedEmail) {
+            setError("Por favor, introduce tu correo electrónico primero.");
+            return;
+        }
+        
+        if (!confirm(`¿Deseas solicitar una nueva contraseña temporal para ${normalizedEmail}? Se enviará a tu correo electrónico.`)) return;
+        
+        setIsForgotLoading(true);
+        setError(null);
+        setForgotSuccess(false);
+        
+        try {
+            const res = await fetch('/api/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: normalizedEmail })
+            });
+            
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error al solicitar recuperación");
+            
+            setForgotSuccess(true);
+            alert("✓ Se ha enviado una contraseña temporal a tu correo electrónico. Por favor, revísalo para iniciar sesión.");
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsForgotLoading(false);
         }
     };
 
@@ -312,6 +346,16 @@ const LoginPage: NextPage = () => {
                                             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
                                         >
                                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                    <div className="flex justify-end pr-1 mt-1">
+                                        <button 
+                                            type="button"
+                                            onClick={handleForgotPassword}
+                                            disabled={isForgotLoading}
+                                            className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors disabled:opacity-50"
+                                        >
+                                            {isForgotLoading ? "Solicitando..." : "¿Olvidaste tu contraseña?"}
                                         </button>
                                     </div>
                                 </div>

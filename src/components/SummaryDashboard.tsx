@@ -322,9 +322,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         </div>
                         <div className="flex flex-col">
                             <div className="flex items-center gap-3">
-                                <span className="text-slate-950 dark:text-white">0. Interfaz Resumen de Información Principal</span>
-                                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                                    (no hace falta meter ninguna información en esa sección)
+                                <span className="text-slate-950 dark:text-white">0. Resumen</span>
+                                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 shadow-sm animate-pulse uppercase tracking-wider">
+                                    AQUÍ SE ENCUENTRA LA PRINCIPAL INFORMACIÓN DEL PROYECTO
                                 </span>
                             </div>
                         </div>
