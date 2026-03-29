@@ -36,7 +36,7 @@ const abbreviations = [
     { sigla: "Rol B", significado: "Administrador de Proyecto — Gestión completa del proyecto asignado" },
     { sigla: "Rol C", significado: "Data Entry — Entrada de datos y edición de formularios" },
     { sigla: "Rol D", significado: "Solo Lectura — Visualización sin capacidad de editar" },
-    { sigla: "Rol E", significado: "Inspector — Acceso limitado a reportes específicos y archivos autorizados" },
+    { sigla: "Rol E", significado: "Inspector - Acceso a reportes autorizados de obra" },
     { sigla: "PI", significado: "Project Inspector — Inspector del Proyecto asignado a obra" },
     { sigla: "RE", significado: "Resident Engineer — Ingeniero Residente de la ACT" },
     { sigla: "PM", significado: "Project Manager — Gerente de Proyecto" },
@@ -62,16 +62,16 @@ export default function QuickHelpModal() {
     const [search, setSearch] = useState("");
 
     const sections = [
+        {
+            title: "🟢 Ingreso de Datos",
+            text: "Los espacios pintados de verde son datos que, por lo general, se deben llenar.\n\nCuando se anota por primera vez la especificación de un ítem, se anota automáticamente la descripción y la unidad. Si ese ítem ya está en el proyecto, al escribir el número de ítem se escribe automáticamente."
+        },
         { title: "Navegación", text: "Dashboard (inicio), Proyectos (gestión) y Reportes (oficiales)." },
         { title: "Proyectos", text: "Gestiona contratista, personal ACT, partidas, materiales y cumplimiento." },
         { title: "Control Diario", text: "Registra minutas, actividades e informes de inspección con voz o texto." },
         { title: "Reportes", text: "Genera ACT-117 (Pagos/MOS), ACT-122 (CHO) y balances en PDF/Excel." },
-        { title: "Archivos", text: "📂 Sube y descarga documentos por sección. El inspector no tiene acceso." },
+        { title: "Archivos", text: "📂 Sube y descarga documentos por sección para el respaldo del proyecto." },
         { title: "Administración", text: "Gestión de accesos y roles (A, B, C, D, E) con seguridad de doble paso." },
-        {
-            title: "🟢 Ingreso de Datos",
-            text: "Los espacios pintados de verde son datos que, por lo general, se deben llenar.\n\nCuando se anota por primera vez la especificación de un ítem, se anota automáticamente la descripción y la unidad. Si ese ítem ya está en el proyecto, al escribir el número de ítem se escribe automáticamente."
-        }
     ];
 
     const filteredAbbr = abbreviations.filter(a =>
@@ -250,13 +250,13 @@ export default function QuickHelpModal() {
 
                             <div className="bg-amber-50 dark:bg-amber-900/10 border-2 border-dashed border-amber-200 dark:border-amber-800 p-6 rounded-3xl text-center">
                                 <p className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
-                                    <ShieldCheck size={16} /> Seguridad y Soporte
+                                    <ShieldCheck size={16} /> Soporte Técnico
                                 </p>
                                 <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                                    El Inspector (Rol E) tiene acceso restringido a reportes y archivos sensibles.
+                                    Para dudas adicionales, capacitaciones o asistencia con el sistema, escriba a soporte.
                                 </p>
                                 <div className="mt-4 flex items-center justify-center gap-2 text-primary font-black text-[10px] uppercase tracking-widest">
-                                    <Mail size={14} /> administrador@m2agroup.pr
+                                    <Mail size={14} /> esaavedra@m2a-group.com
                                 </div>
                             </div>
                         </div>
