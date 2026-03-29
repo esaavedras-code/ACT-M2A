@@ -451,14 +451,34 @@ export default function AdminRequestsPage() {
                 to: directEmail,
                 subject: "🚀 Acceso Directo a PACT",
                 html: `
-                    <div style="font-family: sans-serif; padding: 30px; border: 1px solid #eee; border-radius: 20px; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #2563eb;">Acceso concedido a PACT</h2>
-                        <p>El administrador te ha dado de alta directamente en el sistema.</p>
-                        <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #e2e8f0;">
-                            <p style="margin: 0 0 10px 0;"><strong>Usuario/Email:</strong> ${directEmail}</p>
-                            <p style="margin: 0;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                        <div style="background-color: #2563eb; padding: 32px; text-align: center;">
+                            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 800;">📋 PACT</h1>
+                            <p style="color: #bfdbfe; margin: 8px 0 0 0; font-size: 14px;">Sistema de Gestión de Proyectos de Carreteras</p>
                         </div>
-                        <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes entrar si ya tienes el programa instalado. Si no lo tienes, solicítalo al administrador.</p>
+                        <div style="padding: 32px; background-color: white;">
+                            <h2 style="color: #1e293b; margin: 0 0 12px 0;">¡Acceso Concedido!</h2>
+                            <p style="color: #64748b; line-height: 1.6; margin: 0 0 24px 0;">
+                                El administrador te ha registrado directamente en el sistema PACT. Ya puedes acceder con las siguientes credenciales.
+                            </p>
+                            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; margin: 0 0 24px 0; border: 1px solid #e2e8f0;">
+                                <p style="margin: 0 0 12px 0; font-weight: 700; color: #374151; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">🔑 Tus Credenciales de Acceso</p>
+                                <p style="margin: 5px 0; font-size: 15px;"><strong>Usuario/Email:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${directEmail}</code></p>
+                                <p style="margin: 5px 0; font-size: 15px;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
+                            </div>
+                            <div style="text-align: center; margin: 28px 0 20px 0;">
+                                <a href="https://pact.m2a-group.com" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 16px;">
+                                    🌐 Entrar al Programa Web
+                                </a>
+                            </div>
+                            <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 20px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+                                Enlace directo: <a href="https://pact.m2a-group.com" style="color: #2563eb;">https://pact.m2a-group.com</a><br/>
+                                Se recomienda cambiar tu contraseña en tu primer acceso.
+                            </p>
+                        </div>
+                        <div style="background-color: #f8fafc; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
+                            Este es un correo automático del Sistema PACT — ACT Puerto Rico
+                        </div>
                     </div>
                 `
             };

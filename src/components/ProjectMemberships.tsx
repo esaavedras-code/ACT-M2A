@@ -115,25 +115,49 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                 to: email,
                 subject: `Invitación a Proyecto en PACT`,
                 html: `
-                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px;">
-                        <h2 style="color: #2563eb; margin-bottom: 20px;">Invitación a Colaborar en PACT</h2>
-                        <p>Has sido invitado a participar con el rol <strong>Nivel ${role}</strong> en un proyecto de construcción.</p>
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
                         
-                        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                            <p style="margin: 0 0 10px 0;"><strong>Tus credenciales de acceso:</strong></p>
-                            <p style="margin: 5px 0;">Usuario: <code>${email}</code></p>
-                            ${tempPassword ? `<p style="margin: 5px 0;">Password Temporal: <code>${tempPassword}</code></p>` : ''}
+                        <!-- Header -->
+                        <div style="background-color: #2563eb; padding: 32px; text-align: center;">
+                            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 800;">📋 PACT</h1>
+                            <p style="color: #bfdbfe; margin: 8px 0 0 0; font-size: 14px;">Sistema de Gestión de Proyectos de Carreteras</p>
                         </div>
 
-                        <p style="font-style: italic; color: #666; margin-bottom: 25px;">"${messageStr}"</p>
-                        
-                        <a href="${inviteLink}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                            Aceptar Invitación y Configurar Cuenta
-                        </a>
-                        
-                        <p style="font-size: 12px; color: #999; margin-top: 30px; border-top: 1px solid #eee; pt: 15px;">
-                            Nota: Si el botón no funciona, copia este enlace: ${inviteLink}
-                        </p>
+                        <!-- Body -->
+                        <div style="padding: 32px; background-color: white;">
+                            <h2 style="color: #1e293b; margin: 0 0 12px 0;">¡Has sido invitado a PACT!</h2>
+                            <p style="color: #64748b; line-height: 1.6; margin: 0 0 24px 0;">
+                                Has sido invitado a participar con el rol <strong style="color: #2563eb;">Nivel ${role}</strong> en un proyecto de construcción de la ACT.
+                            </p>
+
+                            <!-- Credenciales -->
+                            <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; margin: 0 0 24px 0; border: 1px solid #e2e8f0;">
+                                <p style="margin: 0 0 12px 0; font-weight: 700; color: #374151; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">🔑 Tus Credenciales de Acceso</p>
+                                <p style="margin: 5px 0; font-size: 15px;"><strong>Usuario:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${email}</code></p>
+                                ${tempPassword ? `<p style="margin: 5px 0; font-size: 15px;"><strong>Password Temporal:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPassword}</code></p>` : ''}
+                            </div>
+
+                            <!-- Botones -->
+                            <div style="text-align: center; margin: 28px 0 20px 0;">
+                                <a href="https://pact.m2a-group.com" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 16px; margin-bottom: 12px;">
+                                    🌐 Entrar al Programa Web
+                                </a>
+                                <br/>
+                                <a href="${inviteLink}" style="background-color: #f1f5f9; color: #2563eb; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: 600; display: inline-block; font-size: 14px; border: 1px solid #e2e8f0;">
+                                    ✅ Aceptar Invitación al Proyecto
+                                </a>
+                            </div>
+
+                            <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 20px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+                                Enlace web: <a href="https://pact.m2a-group.com" style="color: #2563eb;">https://pact.m2a-group.com</a><br/>
+                                Si el botón no funciona, copia: ${inviteLink}
+                            </p>
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="background-color: #f8fafc; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
+                            Este es un correo automático del Sistema PACT — ACT Puerto Rico
+                        </div>
                     </div>
                 `
             };
