@@ -11,6 +11,7 @@ import RoleIndicatorBar from "@/components/RoleIndicatorBar";
 import MobileMenu from "@/components/MobileMenu";
 import BottomNav from "@/components/BottomNav";
 import QuickHelpModal from "@/components/QuickHelpModal";
+import AIChat from "@/components/AIChat";
 import UserPresenceTracker from "@/components/UserPresenceTracker";
 import "./globals.css";
 
@@ -84,6 +85,7 @@ export default function RootLayout({
                         <Suspense fallback={null}>
                             <QuickHelpModal />
                             <BottomNav />
+                            <AIChat />
                         </Suspense>
                     </div>
                 </TranslationProvider>
