@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Menu, X, Home, Briefcase, History, FileText, LayoutDashboard } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { 
+    Menu, X, Home, Briefcase, History, FileText, LayoutDashboard, 
+    ListChecks, PackageSearch, ShieldCheck, FileEdit, FileCheck, Mic, 
+    Cloud, Calculator, TrendingUp, FolderOpen, ChevronRight, LayoutList
+} from "lucide-react";
 
 export default function MobileMenu() {
     const [isOpen, setIsOpen] = useState(false);
@@ -35,6 +39,30 @@ export default function MobileMenu() {
     }
 
     const toggleMenu = () => setIsOpen(!isOpen);
+
+    const searchParams = useSearchParams();
+    const isProjectDetail = pathname === "/proyectos/detalle";
+    const projectId = searchParams.get("id");
+    const activeTab = searchParams.get("tab") || "dashboard";
+
+    const projectTabs = [
+        { id: "dashboard",   label: "Resumen",        icon: LayoutDashboard },
+        { id: "files",       label: "Archivos",        icon: FolderOpen },
+        { id: "project",     label: "Datos Proyecto",       icon: FileText },
+        { id: "personnel",   label: "Firmas ACT",     icon: Home }, // Users -> Home fallback if needed, but I'll use Home for simplicity or import others
+        { id: "items",       label: "Partidas contrato",  icon: ListChecks },
+        { id: "materials",   label: "Mat. on Site",   icon: PackageSearch },
+        { id: "compliance",  label: "Cumplimiento",   icon: ShieldCheck },
+        { id: "cho",         label: "Change Orders",  icon: FileEdit },
+        { id: "payment",     label: "Pagos",          icon: FileCheck },
+        { id: "mfg",         label: "Cert. CM",       icon: FileText },
+        { id: "minutes",     label: "Minutas",        icon: Mic },
+        { id: "logs",        label: "Actividades",   icon: Cloud },
+        { id: "inspection",  label: "Inspección",    icon: FileCheck },
+        { id: "force",       label: "Force Account", icon: Calculator },
+        { id: "liquidation", label: "Liquidación",   icon: TrendingUp },
+        { id: "ccml",        label: "Cambios al CCML", icon: FileEdit },
+    ];
 
     return (
         <div className="lg:hidden">
@@ -89,6 +117,43 @@ export default function MobileMenu() {
                                 </Link>
                             );
                         })}
+
+                        {isProjectDetail && projectId && (
+                            <>
+                                <div className="mt-8 mb-4 flex items-center gap-2 px-4">
+                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Secciones del Proyecto</p>
+                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
+                                </div>
+                                
+                                <div className="space-y-1 pb-10">
+                                    {projectTabs.map((tab) => {
+                                        const TabIcon = tab.icon;
+                                        const isTabActive = activeTab === tab.id;
+                                        return (
+                                            <Link
+                                                key={tab.id}
+                                                href={`/proyectos/detalle?id=${projectId}&tab=${tab.id}`}
+                                                onClick={toggleMenu}
+                                                className={`flex items-center justify-between p-3 rounded-xl transition-all ${
+                                                    isTabActive
+                                                        ? "bg-primary/10 text-primary font-black"
+                                                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-2 rounded-lg ${isTabActive ? "bg-primary text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400"}`}>
+                                                        <TabIcon size={14} />
+                                                    </div>
+                                                    <span className="text-xs uppercase tracking-tight">{tab.label}</span>
+                                                </div>
+                                                {isTabActive && <ChevronRight size={14} />}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
                     </nav>
 
                     <div className="p-6 border-t border-slate-100 dark:border-slate-800">

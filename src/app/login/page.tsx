@@ -22,6 +22,7 @@ const LoginPage: NextPage = () => {
     const [confirmNewPassword, setConfirmNewPassword] = useState("");
     const [requirePasswordChange, setRequirePasswordChange] = useState(false);
     const [tempSessionUser, setTempSessionUser] = useState<any>(null);
+    const [originalTempPassword, setOriginalTempPassword] = useState("");
 
     useEffect(() => {
         try {
@@ -52,7 +53,7 @@ const LoginPage: NextPage = () => {
             .single();
             
         if (userRecord && userRecord.is_active === false) {
-            setError("Su cuenta se encuentra desactivada. Contacte al administrador.");
+            setError("Su cuenta se encuentra desactivada. Contacte al administrador en esaavedra@m2a-group.com.");
             await supabase.auth.signOut();
             setLoading(false);
             return;
@@ -91,11 +92,12 @@ const LoginPage: NextPage = () => {
 
             if (authError) throw authError;
 
-            // Detectar si la contraseña es temporal (8-10 caracteres, alfanuméricos mayúsculas)
-            const isTempPassword = /^[A-Z0-9]{8,10}$/.test(password);
+            // Detectar si la contraseña es temporal (comienza con PACT- o es el patrón antiguo de 8-10 chars mayúsculas)
+            const isTempPassword = password.startsWith("PACT-") || /^[A-Z0-9]{8,10}$/.test(password);
             
             if (isTempPassword) {
                 setTempSessionUser(data.user);
+                setOriginalTempPassword(password);
                 setRequirePasswordChange(true);
                 return; // Detenemos el flujo aquí
             }
@@ -138,7 +140,9 @@ const LoginPage: NextPage = () => {
             }
             
             console.log("Contraseña actualizada con éxito en login.");
-            // Si el cambio fue exitoso, completamos el login
+            // Si el cambio fue exitoso, limpiamos y completamos el login
+            setNewPassword("");
+            setConfirmNewPassword("");
             await completeLogin(tempSessionUser);
         } catch (err: any) {
             console.error("Excepción en handlePasswordChange:", err);
@@ -174,6 +178,22 @@ const LoginPage: NextPage = () => {
                                 <div className="bg-amber-50 text-amber-700 border border-amber-200 rounded-xl p-4 text-sm font-bold flex items-center gap-2">
                                     <ShieldCheck className="shrink-0" size={18} />
                                     <p>Por seguridad, debes cambiar tu contraseña temporal antes de continuar.</p>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Confirma tu Contraseña Actual</label>
+                                    <div className="relative group">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                                            <Lock size={18} />
+                                        </div>
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            value={originalTempPassword}
+                                            readOnly
+                                            className="w-full bg-slate-100 border border-slate-200 rounded-xl py-3 pl-12 pr-12 text-slate-500 opacity-60 cursor-not-allowed cursor-not-allowed"
+                                        />
+                                    </div>
                                 </div>
                                 {error && (
                                     <div className="bg-red-50 text-red-600 border border-red-200 rounded-xl p-4 text-sm font-bold flex items-center gap-2">

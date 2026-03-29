@@ -37,7 +37,7 @@ function ProjectDetailContent() {
     const [projectName, setProjectName] = useState("");
     const [numAct, setNumAct] = useState("");
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState("dashboard");
+    const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "dashboard");
     const [isDirty, setIsDirty] = useState(false);
     const [role, setRole] = useState("C");
     const [dirtyDialog, setDirtyDialog] = useState<{ show: boolean; targetTab: string }>({ show: false, targetTab: "" });
@@ -157,7 +157,7 @@ function ProjectDetailContent() {
                     return;
                 }
 
-                if (currentRole === 'E') {
+                if (currentRole === 'E' && !searchParams.get("tab")) {
                     setActiveTab('logs');
                 }
                 setRole(currentRole);

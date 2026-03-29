@@ -218,7 +218,7 @@ export default function AdminRequestsPage() {
                 if (!secondConfirm) return;
             }
 
-            const tempPwd = Math.random().toString(36).slice(-10).toUpperCase();
+            const tempPwd = "PACT-" + Math.random().toString(36).slice(-5).toUpperCase();
             
             // 1. Crear el usuario en Supabase Auth vía Edge Function primero
             try {
@@ -424,7 +424,7 @@ export default function AdminRequestsPage() {
             }
 
             // Crear usuario en Auth
-            const tempPwd = Math.random().toString(36).slice(-10).toUpperCase();
+            const tempPwd = "PACT-" + Math.random().toString(36).slice(-5).toUpperCase();
             
             const { data: { session } } = await supabase.auth.getSession();
             const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-auth-v2`, {

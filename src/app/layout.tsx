@@ -33,7 +33,9 @@ export default function RootLayout({
                         <header className="bg-blue-700 text-white shadow-xl px-0 fixed top-0 w-full z-50 h-16 transition-all duration-300" suppressHydrationWarning>
                             <div className="mx-auto flex justify-between items-center h-full px-4 md:px-6 max-w-[1600px]">
                                 <div className="flex items-center gap-2 md:gap-6 h-full">
-                                    <MobileMenu />
+                                    <Suspense fallback={<div className="w-6 h-6" />}>
+                                        <MobileMenu />
+                                    </Suspense>
                                     <Link href="/" className="flex items-center font-black text-xl md:text-2xl tracking-tighter hover:opacity-80 transition-opacity">
                                         <div className="h-6 w-6 md:h-8 md:w-8 relative overflow-hidden bg-white rounded-lg p-1 mr-2 shrink-0">
                                             <Image src="/icon.png" alt="Logo" fill className="object-contain" />
@@ -67,7 +69,9 @@ export default function RootLayout({
 
                         <main className="flex-grow pt-24 pb-12 sm:pt-24 md:pt-28">
                             <div className="max-w-[1600px] mx-auto px-4 md:px-8 relative overflow-x-hidden">
-                                {children}
+                                <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div></div>}>
+                                    {children}
+                                </Suspense>
                             </div>
                         </main>
 

@@ -26,6 +26,7 @@ import {
     generateAct117CReportLogic,
     generateAct117BReportLogic,
     generateAct122ReportLogic,
+    generateAct123ReportLogic,
     generateAct124ReportLogic,
     generateRoaReportLogic,
     generateCCMLReportLogic,
@@ -656,13 +657,38 @@ function ReportesContent() {
                         }}
                     />
 
+                    <SelectiveReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'act123-selective',
+                            label: '2. ACT-123 (Supplementary Form)',
+                            description: 'Seleccione las órdenes de cambio para generar el formulario suplementario ACT-123.',
+                            icon: <FileCheck size={18} className="text-purple-600" />,
+                            selectLabel: "Elegir CHO",
+                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
+                            onGenerate: async (ids) => {
+                                try {
+                                    for(const id of ids) {
+                                        await generateAct123ReportLogic(projectId, id, reportFormat);
+                                    }
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    />
+
                     {/* ACT-124 UI Block */}
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'act124',
-                            label: '2. ACT-124 (Checklist)',
+                            label: '3. ACT-124 (Checklist)',
                             description: 'Checklist para órdenes de cambio. Los campos son editables en el PDF.',
                             icon: <FileCheck size={18} className="text-purple-800" />,
                             action: async () => {
@@ -702,7 +728,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'roa',
-                            label: '3. ROA (Authorization)',
+                            label: '4. ROA (Authorization)',
                             description: 'Record of Authorization to Proceed with Contract Revision.',
                             icon: <FileDigit size={18} className="text-purple-800" />,
                             action: async () => {
@@ -742,7 +768,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'ccml',
-                            label: '4. CCML (Contract Mod. Log)',
+                            label: '5. CCML (Contract Mod. Log)',
                             description: 'Contract Modification Log usando la plantilla oficial con fórmulas integradas. Genera un Excel listo para abrir.',
                             icon: <Files size={18} className="text-green-600" />,
                             action: async () => {
@@ -779,7 +805,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'time-ext-chart',
-                            label: '5. Gráfica de Extensión de Tiempo',
+                            label: '6. Gráfica de Extensión de Tiempo',
                             description: 'Gráfica oficial de la línea de tiempo del proyecto y extensiones otorgadas.',
                             icon: <BarChart size={18} className="text-orange-500" />,
                             action: async () => {
@@ -1054,6 +1080,23 @@ function ReportesContent() {
                             description: 'Distribución de todo el presupuesto del contrato original más las Órdenes de Cambio, aunque no se hayan pagado.',
                             icon: <Package size={18} className="text-blue-600" />,
                             action: () => generateProjectedFundDistributionReportLogic(projectId, reportFormat)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => {
+                                    console.error(e);
+                                    setStatus(`Error: ${e.message}`);
+                                })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'fund-source-real',
+                            label: '2. Distribución Real — ACT vs FHWA (Pagos)',
+                            description: 'Distribución basada únicamente en las partidas certificadas y pagadas hasta la fecha de corte.',
+                            icon: <Activity size={18} className="text-green-600" />,
+                            action: () => generateFundSourceReportLogic(projectId, reportFormat, endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
                                     console.error(e);

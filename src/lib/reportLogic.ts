@@ -2,10 +2,7 @@ import { supabase } from "./supabase";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem } from "./utils";
 import * as XLSX from "xlsx";
-
-
 import { generateCCMLReport } from "./generateCCMLReport";
-
 
 export const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0);
@@ -52,7 +49,8 @@ export const createPdfBlob = async (
     data: any[][],
     projectInfo?: { name: string, num_act: string } | null,
     customColWidths?: number[],
-    orientation: 'portrait' | 'landscape' = 'portrait'
+    orientation: 'portrait' | 'landscape' = 'portrait',
+    cutOffDate?: string | Date
 ) => {
     const pdfDoc = await PDFDocument.create();
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
@@ -179,7 +177,20 @@ export const createPdfBlob = async (
     centerText(title, timesRomanBoldFont, 14, y);
     y -= 18;
     centerText(`Fecha de impresión del reporte: ${utilsFormatDate(new Date())}`, timesRomanFont, 9, y);
-    y -= 30;
+    y -= 12;
+    if (cutOffDate) {
+        const cutDate = new Date(cutOffDate);
+        const today = new Date();
+        const isToday = cutDate.getFullYear() === today.getFullYear() && 
+                        cutDate.getMonth() === today.getMonth() && 
+                        cutDate.getDate() === today.getDate();
+        
+        if (!isToday) {
+            centerText(`Fecha de Corte de Información: ${utilsFormatDate(cutDate)}`, timesRomanFont, 9, y);
+            y -= 12;
+        }
+    }
+    y -= 18;
 
     const colCount = data[0]?.length || 1;
     const colWidths = customColWidths || Array(colCount).fill(contentWidth / colCount);
@@ -406,13 +417,25 @@ export const createPdfBlob = async (
 export const createExcelBlob = async (
     title: string,
     data: any[][],
-    projectInfo?: { name: string, num_act: string } | null
+    projectInfo?: { name: string, num_act: string } | null,
+    cutOffDate?: string | Date
 ) => {
+    const cutStr = cutOffDate ? utilsFormatDate(new Date(cutOffDate)) : "";
+    const todayStr = utilsFormatDate(new Date());
+
+    const dateHeader = [
+        [`Fecha de Impresión: ${todayStr}`]
+    ];
+
+    if (cutStr && cutStr !== todayStr) {
+        dateHeader.push([`Fecha de Corte: ${cutStr}`]);
+    }
+
     // Combine title and data for better excel layout
     const excelData = [
         [title],
         [projectInfo ? `Proyecto: ${projectInfo.name} - ACT: ${projectInfo.num_act}` : ""],
-        [`Fecha: ${utilsFormatDate(new Date())}`],
+        ...dateHeader,
         [],
         ...data
     ];
@@ -494,13 +517,14 @@ export const generateReport = async (
     widths: number[],
     orient: 'portrait' | 'landscape',
     format: 'pdf' | 'excel',
-    filename: string
+    filename: string,
+    cutOffDate?: string | Date
 ) => {
     if (format === 'excel') {
-        const blob = await createExcelBlob(title, data, project);
+        const blob = await createExcelBlob(title, data, project, cutOffDate);
         downloadBlob(blob, filename.replace('.pdf', '.xlsx'));
     } else {
-        const blob = await createPdfBlob(title, data, project, widths, orient);
+        const blob = await createPdfBlob(title, data, project, widths, orient, cutOffDate);
         downloadBlob(blob, filename);
     }
 };
@@ -588,7 +612,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
         return;
     }
 
-    await generateReport('REPORTE DE BALANCES DE PARTIDAS', data, project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape', format, 'Reporte_Balances_Partidas.pdf');
+    await generateReport('REPORTE DE BALANCES DE PARTIDAS', data, project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape', format, 'Reporte_Balances_Partidas.pdf', endDate);
 };
 
 export const generateDetailReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
@@ -662,7 +686,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
         reportData.push(['', '', '', '', '', '', '', '']);
     });
 
-    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [38, 50, 160, 60, 35, 60, 75, 75], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`);
+    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [38, 50, 160, 60, 35, 60, 75, 75], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`, endDate);
 };
 
 export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -1033,7 +1057,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     });
 
     const projectInfo = { name: proj.name, num_act: proj.num_act };
-    await generateReport('REPORTE DE INFORMACIÓN PRINCIPAL (DASHBOARD)', reportData, projectInfo, [138, 138, 138, 138], 'portrait', format, `Dashboard_Reporte_${proj.num_act}.pdf`);
+    await generateReport('REPORTE DE INFORMACIÓN PRINCIPAL (DASHBOARD)', reportData, projectInfo, [138, 138, 138, 138], 'portrait', format, `Dashboard_Reporte_${proj.num_act}.pdf`, endDate);
 };
 
 
@@ -1041,9 +1065,12 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
 // REPORTE DE DISTRIBUCIÓN DE FONDOS (ACT vs FHWA)
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
-export const generateFundSourceReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateFundSourceReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
     const { project, certs } = await fetchAllReportData(projectId);
     if (!project) return;
+    
+    const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
+    const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff) || [];
 
     type ItemEntry = { item_num: string; description: string; unit: string; qty: number; unit_price: number; amount: number };
     const actMap = new Map<string, ItemEntry>();
@@ -1067,7 +1094,7 @@ export const generateFundSourceReportLogic = async (projectId: string, format: '
         }
     };
 
-    certs?.forEach((cert: any) => {
+    filteredCerts.forEach((cert: any) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         certItems.forEach((item: any) => {
             const qty = parseFloat(item.quantity) || 0;
@@ -1124,7 +1151,7 @@ export const generateFundSourceReportLogic = async (projectId: string, format: '
         ['', '', '', '', 'GRAN TOTAL:', formatCurrency(grandTotal)],
     ];
 
-    const blob = await generateReport('Distribución de Fondos por Origen (ACT vs FHWA)', reportData, project, COL_WIDTHS, 'landscape', format, `Distribucion_Fondos_${project.num_act}.pdf`);
+    const blob = await generateReport('Distribución de Fondos por Origen (ACT vs FHWA)', reportData, project, COL_WIDTHS, 'landscape', format, `Distribucion_Fondos_${project.num_act}.pdf`, endDate);
 };
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -1187,6 +1214,7 @@ export const generateProjectedFundDistributionReportLogic = async (projectId: st
 import { generateAct117C } from "./generateAct117C";
 import { generateAct117B } from "./generateAct117B";
 import { generateAct122 } from "./generateAct122";
+import { generateAct123 } from "./generateAct123";
 import { generateAct124 } from "./generateAct124";
 import { generateRoa } from "./generateRoa";
 import { generateTimeAnalysisReportLogic as generateTimeAnalysis } from "@/lib/generateTimeAnalysisReport";
@@ -1273,10 +1301,19 @@ export const generateAct122ReportLogic = async (projectId: string, choId: string
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
     const blob = await generateAct122(projectId, choId);
-    if (blob) downloadBlob(blob, `ACT-122_CHO_${cho.cho_num}_${project.num_act}.pdf`);
+    if (blob)    downloadBlob(blob, `ACT-122_CHO_${choId}.pdf`);
 };
 
-export const generateAct124ReportLogic = async (projectId: string, choId: string, selectedItems: string[], format: 'pdf' | 'excel' = 'pdf') => {
+export const generateAct123ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    if (format === 'excel') {
+        alert("Este reporte oficial solo está disponible en formato PDF.");
+        return;
+    }
+    const blob = await generateAct123(projectId, choId);
+    downloadBlob(blob, `ACT-123_Supplementary_Form_${choId}.pdf`);
+};
+
+export const generateAct124ReportLogic = async (projectId: string, choId: string, selectedItems: string[] = [], format: 'pdf' | 'excel' = 'pdf') => {
     if (format === 'excel') {
         alert("El reporte ACT-124 no está disponible en formato Excel por requerimiento.");
         return;

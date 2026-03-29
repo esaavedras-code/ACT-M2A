@@ -8,8 +8,10 @@ import Link from "next/link";
 export default function ProfilePage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [showCurrent, setShowCurrent] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -83,9 +85,25 @@ export default function ProfilePage() {
             return;
         }
 
+        if (!currentPassword) {
+            setPasswordMsg({ type: 'error', text: "Debes ingresar tu contraseña actual para realizar cambios." });
+            return;
+        }
+
         setSavingPassword(true);
         try {
-            console.log("Intentando actualizar contraseña en perfil...");
+            console.log("Verificando contraseña actual...");
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password: currentPassword
+            });
+
+            if (signInError) {
+                console.error("Error al verificar contraseña actual:", signInError);
+                throw new Error("La contraseña actual es incorrecta.");
+            }
+
+            console.log("Contraseña actual verificada. Procediendo con el cambio...");
             const { error } = await supabase.auth.updateUser({ password: newPassword });
             
             if (error) {
@@ -99,7 +117,8 @@ export default function ProfilePage() {
 
             setNewPassword("");
             setConfirmPassword("");
-            setPasswordMsg({ type: 'success', text: "✓ Contraseña actualizada correctamente. Tu sesión ha sido refrescada." });
+            setCurrentPassword("");
+            setPasswordMsg({ type: 'success', text: "✓ Contraseña actualizada correctamente." });
             
             console.log("Contraseña actualizada con éxito en perfil.");
 
@@ -234,6 +253,35 @@ export default function ProfilePage() {
                                     {passwordMsg.text}
                                 </div>
                             )}
+
+                            <div className="space-y-2">
+                                <label className={`text-[10px] font-bold uppercase tracking-widest pl-1 ${passwordHasContent ? 'text-amber-700' : 'text-slate-400'}`}>
+                                    Contraseña Actual
+                                </label>
+                                <div className="relative group">
+                                    <div className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${passwordHasContent ? 'text-amber-500' : 'text-slate-400 group-focus-within:text-primary'}`}>
+                                        <Lock size={18} />
+                                    </div>
+                                    <input
+                                        type={showCurrent ? "text" : "password"}
+                                        value={currentPassword}
+                                        onChange={(e) => setCurrentPassword(e.target.value)}
+                                        className={`w-full rounded-xl py-3 pl-12 pr-12 outline-none transition-all ${
+                                            passwordHasContent
+                                                ? 'bg-white border-2 border-amber-400 focus:ring-4 focus:ring-amber-200 text-amber-900 placeholder-amber-300'
+                                                : 'bg-slate-50 border border-slate-200 focus:ring-4 focus:ring-primary/10 focus:border-primary'
+                                        }`}
+                                        placeholder="Ingresa tu contraseña de acceso"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCurrent(!showCurrent)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+                                    >
+                                        {showCurrent ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
 
                             <div className="space-y-2">
                                 <label className={`text-[10px] font-bold uppercase tracking-widest pl-1 ${passwordHasContent ? 'text-amber-700' : 'text-slate-400'}`}>

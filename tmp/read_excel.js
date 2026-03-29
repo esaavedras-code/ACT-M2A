@@ -1,33 +1,10 @@
-const ExcelJS = require('exceljs');
-const path = require('path');
+const XLSX = require('xlsx');
 
-async function readExcel() {
-  const filePath = 'C:\\Users\\Enrique Saavedra\\Documents\\Programa ACT\\Documentos\\CML (New Contract Moficaction Log) - sin restriccion.xlsx';
-  const workbook = new ExcelJS.Workbook();
-  
-  try {
-    await workbook.xlsx.readFile(filePath);
-    console.log(`Workbook loaded. Number of worksheets: ${workbook.worksheets.length}`);
-    
-    workbook.worksheets.forEach(worksheet => {
-      console.log(`\nWorksheet: ${worksheet.name} (ID: ${worksheet.id})`);
-      console.log(`Actual row count: ${worksheet.actualRowCount}`);
-      console.log(`Actual column count: ${worksheet.actualColumnCount}`);
-      
-      // Read header row (assuming row 1 or 2 is header)
-      let headerRow = worksheet.getRow(1).values;
-      if (!headerRow || headerRow.length <= 1) {
-          headerRow = worksheet.getRow(2).values;
-      }
-      console.log(`Headers: ${JSON.stringify(headerRow)}`);
-      
-      // Read first data row
-      const dataRow = worksheet.getRow(3).values;
-      console.log(`Sample Data Row: ${JSON.stringify(dataRow)}`);
-    });
-  } catch (error) {
-    console.error('Error reading excel file:', error);
-  }
-}
+const workbook = XLSX.readFile('C:\\Users\\Enrique Saavedra\\Documents\\Programa ACT\\Documentos\\ACT-123 Supplementary Contract Form rev 12-2024.xlsx');
 
-readExcel();
+const first_sheet_name = workbook.SheetNames[0];
+const worksheet = workbook.Sheets[first_sheet_name];
+
+console.log("EXCEL CONTENT START");
+console.log(XLSX.utils.sheet_to_json(worksheet));
+console.log("EXCEL CONTENT END");

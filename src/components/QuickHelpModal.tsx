@@ -5,55 +5,55 @@ import { HelpCircle, X, ChevronRight, BookOpen, ShieldCheck, Mail, Search, BookM
 
 const abbreviations = [
     { sigla: "ACT", significado: "Autoridad de Carreteras y Transportación de Puerto Rico" },
-    { sigla: "PACT", significado: "Plataforma de Administración y Control de Obras (sistema interno ACT)" },
-    { sigla: "CHO", significado: "Change Order — Orden de Cambio de contrato" },
-    { sigla: "MOS", significado: "Monthly Overrun Summary — Resumen Mensual de Sobretiempo" },
-    { sigla: "CCML", significado: "Contractor's Certified Monthly Labor — Nómina Certificada del Contratista" },
-    { sigla: "ROA", significado: "Right of Way Acquisition — Adquisición de Derecho de Paso" },
     { sigla: "ACT-117", significado: "Formulario oficial de pagos al contratista por partidas completadas" },
     { sigla: "ACT-122", significado: "Formulario oficial de autorización de Órdenes de Cambio (CHO)" },
-    { sigla: "DBE", significado: "Disadvantaged Business Enterprise — Empresa de Negocio en Desventaja" },
-    { sigla: "FHWA", significado: "Federal Highway Administration — Administración Federal de Carreteras" },
-    { sigla: "PE", significado: "Preliminary Engineering — Ingeniería Preliminar" },
-    { sigla: "ROW", significado: "Right of Way — Derecho de Paso" },
-    { sigla: "CNI", significado: "Construction — Fase de Construcción del proyecto" },
-    { sigla: "STIP", significado: "Statewide Transportation Improvement Program — Programa de Mejoras de Transporte" },
+    { sigla: "ARRA", significado: "American Recovery and Reinvestment Act — Ley de Recuperación y Reinversión" },
+    { sigla: "CCML", significado: "Contractor's Certified Monthly Labor — Nómina Certificada del Contratista" },
     { sigla: "CE", significado: "Categorical Exclusion — Exclusión Categórica ambiental" },
+    { sigla: "CHO", significado: "Change Order — Orden de Cambio de contrato" },
+    { sigla: "CNI", significado: "Construction — Fase de Construcción del proyecto" },
+    { sigla: "CPM", significado: "Critical Path Method — Método de la Ruta Crítica (cronograma)" },
+    { sigla: "CY", significado: "Cubic Yards — Yardas Cúbicas (unidad de medida)" },
+    { sigla: "DBE", significado: "Disadvantaged Business Enterprise — Empresa de Negocio en Desventaja" },
     { sigla: "EA", significado: "Environmental Assessment — Evaluación Ambiental" },
+    { sigla: "EACH / EA", significado: "Each — Cada uno (unidad de cuenta individual)" },
     { sigla: "EIS", significado: "Environmental Impact Statement — Declaración de Impacto Ambiental" },
-    { sigla: "NTP", significado: "Notice to Proceed — Notificación de Inicio de Obra" },
-    { sigla: "NOI", significado: "Notice of Intent — Aviso de Intención" },
-    { sigla: "NTF", significado: "Notice to Finish — Notificación de Finalización" },
+    { sigla: "FHWA", significado: "Federal Highway Administration — Administración Federal de Carreteras" },
+    { sigla: "GAL", significado: "Galones (unidad de volumen para materiales líquidos)" },
+    { sigla: "ITS", significado: "Intelligent Transportation System — Sistema de Transporte Inteligente" },
+    { sigla: "LB", significado: "Lump Bid — Suma Global (tipo de partida de pago)" },
+    { sigla: "LF", significado: "Linear Feet — Pies Lineales" },
+    { sigla: "LS", significado: "Lump Sum — Suma Global de pago fija" },
+    { sigla: "M2A", significado: "M2A Group — Empresa consultora de gestión de proyectos ACT" },
+    { sigla: "MOS", significado: "Monthly Overrun Summary — Resumen Mensual de Sobretiempo" },
     { sigla: "MOT", significado: "Maintenance of Traffic — Plan de Mantenimiento de Tránsito" },
+    { sigla: "NEC", significado: "Numero de Expediente de Contrato" },
+    { sigla: "NOI", significado: "Notice of Intent — Aviso de Intención" },
     { sigla: "NPDES", significado: "National Pollutant Discharge Elimination System — Permiso de descarga de aguas" },
+    { sigla: "NTF", significado: "Notice to Finish — Notificación de Finalización" },
+    { sigla: "NTP", significado: "Notice to Proceed — Notificación de Inicio de Obra" },
+    { sigla: "Num ACT", significado: "Número de proyecto interno asignado por la Autoridad de Carreteras" },
+    { sigla: "OHE", significado: "Overhead — Gastos Generales del contratista" },
     { sigla: "OSHA", significado: "Occupational Safety and Health Administration — Agencia de Seguridad Ocupacional" },
+    { sigla: "PACT", significado: "Plataforma de Administración y Control de Obras (sistema interno ACT)" },
+    { sigla: "PE", significado: "Preliminary Engineering — Ingeniería Preliminar" },
+    { sigla: "PI", significado: "Project Inspector — Inspector del Proyecto asignado a obra" },
+    { sigla: "PM", significado: "Project Manager — Gerente de Proyecto" },
     { sigla: "QA", significado: "Quality Assurance — Aseguramiento de Calidad" },
     { sigla: "QC", significado: "Quality Control — Control de Calidad" },
-    { sigla: "CPM", significado: "Critical Path Method — Método de la Ruta Crítica (cronograma)" },
-    { sigla: "NEC", significado: "Numero de Expediente de Contrato" },
-    { sigla: "M2A", significado: "M2A Group — Empresa consultora de gestión de proyectos ACT" },
+    { sigla: "RE", significado: "Resident Engineer — Ingeniero Residente de la ACT" },
+    { sigla: "ROA", significado: "Right of Way Acquisition — Adquisición de Derecho de Paso" },
     { sigla: "Rol A", significado: "Administrador Global — Acceso total al sistema y gestión de usuarios" },
     { sigla: "Rol B", significado: "Administrador de Proyecto — Gestión completa del proyecto asignado" },
     { sigla: "Rol C", significado: "Data Entry — Entrada de datos y edición de formularios" },
     { sigla: "Rol D", significado: "Solo Lectura — Visualización sin capacidad de editar" },
     { sigla: "Rol E", significado: "Inspector - Acceso a reportes autorizados de obra" },
-    { sigla: "PI", significado: "Project Inspector — Inspector del Proyecto asignado a obra" },
-    { sigla: "RE", significado: "Resident Engineer — Ingeniero Residente de la ACT" },
-    { sigla: "PM", significado: "Project Manager — Gerente de Proyecto" },
-    { sigla: "Num ACT", significado: "Número de proyecto interno asignado por la Autoridad de Carreteras" },
-    { sigla: "STP", significado: "Surface Transportation Program — Programa de Transportación de Superficie" },
-    { sigla: "OHE", significado: "Overhead — Gastos Generales del contratista" },
-    { sigla: "LB", significado: "Lump Bid — Suma Global (tipo de partida de pago)" },
-    { sigla: "LS", significado: "Lump Sum — Suma Global de pago fija" },
-    { sigla: "CY", significado: "Cubic Yards — Yardas Cúbicas (unidad de medida)" },
-    { sigla: "SY", significado: "Square Yards — Yardas Cuadradas" },
-    { sigla: "LF", significado: "Linear Feet — Pies Lineales" },
-    { sigla: "TON", significado: "Tonelada métrica (unidad de medida en materiales)" },
-    { sigla: "GAL", significado: "Galones (unidad de volumen para materiales líquidos)" },
-    { sigla: "EACH / EA", significado: "Each — Cada uno (unidad de cuenta individual)" },
-    { sigla: "ITS", significado: "Intelligent Transportation System — Sistema de Transporte Inteligente" },
+    { sigla: "ROW", significado: "Right of Way — Derecho de Paso" },
     { sigla: "SSRP", significado: "Storm Sewer Rehabilitation Program — Programa de Rehabilitación de Alcantarillas" },
-    { sigla: "ARRA", significado: "American Recovery and Reinvestment Act — Ley de Recuperación y Reinversión" },
+    { sigla: "STIP", significado: "Statewide Transportation Improvement Program — Programa de Mejoras de Transporte" },
+    { sigla: "STP", significado: "Surface Transportation Program — Programa de Transportación de Superficie" },
+    { sigla: "SY", significado: "Square Yards — Yardas Cuadradas" },
+    { sigla: "TON", significado: "Tonelada métrica (unidad de medida en materiales)" },
 ];
 
 export default function QuickHelpModal() {
@@ -95,34 +95,53 @@ export default function QuickHelpModal() {
         }
     }, []);
 
+    useEffect(() => {
+        if (!isDragging) return;
+
+        const handleMove = (e: MouseEvent | TouchEvent) => {
+            const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+            const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+            
+            const newX = clientX - dragStart.x;
+            const newY = clientY - dragStart.y;
+            
+            if (Math.abs(newX - position.x) > 2 || Math.abs(newY - position.y) > 2) {
+                setHasMoved(true);
+            }
+            
+            setPosition({ x: newX, y: newY });
+        };
+
+        const handleEnd = () => {
+            setIsDragging(false);
+            localStorage.setItem("pact_help_pos", JSON.stringify(position));
+        };
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchend', handleEnd);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('mouseup', handleEnd);
+            window.removeEventListener('touchend', handleEnd);
+        };
+    }, [isDragging, dragStart, position]);
+
     const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        
         setIsDragging(true);
         setHasMoved(false);
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
         setDragStart({ x: clientX - position.x, y: clientY - position.y });
-    };
-
-    const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDragging) return;
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
         
-        const newX = clientX - dragStart.x;
-        const newY = clientY - dragStart.y;
-        
-        if (Math.abs(newX - position.x) > 2 || Math.abs(newY - position.y) > 2) {
-            setHasMoved(true);
+        // Prevent default only for mouse to avoid interfering with touch gestures
+        if (!('touches' in e)) {
+            e.preventDefault();
         }
-        
-        setPosition({ x: newX, y: newY });
-    };
-
-    const handleMouseUp = () => {
-        if (isDragging) {
-            localStorage.setItem("pact_help_pos", JSON.stringify(position));
-        }
-        setIsDragging(false);
     };
 
     if (!isOpen) {
@@ -130,10 +149,6 @@ export default function QuickHelpModal() {
             <button
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onTouchMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onTouchEnd={handleMouseUp}
                 onClick={(e) => {
                     if (!hasMoved) {
                         setIsOpen(true);
@@ -226,7 +241,7 @@ export default function QuickHelpModal() {
                 ) : (
                     <>
                         {/* Main Guide View */}
-                        <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto no-scrollbar">
+                        <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
                             <div className="grid grid-cols-1 gap-4">
                                 {sections.map((s, i) => {
                                     const isDataEntry = s.title.includes("Ingreso de Datos");
@@ -251,13 +266,6 @@ export default function QuickHelpModal() {
                                         </div>
                                     );
                                 })}
-                                
-                                <div className="flex flex-col items-center justify-center gap-1 py-4 animate-bounce text-primary/40">
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Más información abajo</span>
-                                    <div className="bg-primary/5 p-1 rounded-full border border-primary/10">
-                                        <ChevronRight size={14} className="rotate-90" />
-                                    </div>
-                                </div>
                             </div>
 
                             <div className="bg-amber-50 dark:bg-amber-900/10 border-2 border-dashed border-amber-200 dark:border-amber-800 p-6 rounded-3xl text-center">

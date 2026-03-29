@@ -162,7 +162,7 @@ export default function AccessRequestModal({ isOpen, onClose, initialData }: Acc
                             </div>
                             <h3 className="text-2xl font-black text-slate-900 dark:text-white">¡Solicitud Enviada!</h3>
                             <p className="text-slate-500 dark:text-slate-400 font-medium max-w-xs mx-auto">
-                                El administrador revisará tu información y recibirás una notificación por correo electrónico pronto.
+                                El administrador (esaavedra@m2a-group.com) revisará tu información y recibirás una notificación por correo electrónico pronto.
                             </p>
                         </div>
                     ) : (
