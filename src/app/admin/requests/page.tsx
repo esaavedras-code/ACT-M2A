@@ -256,22 +256,31 @@ export default function AdminRequestsPage() {
                 // 2. Enviar email informativo
                 // @ts-ignore
                 const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
-                if (api?.sendEmail) {
-                    await api.sendEmail({
-                        to: req.email,
-                        subject: "🔐 Tus Credenciales de Acceso PACT",
-                        html: `
-                            <div style="font-family: sans-serif; padding: 30px; border: 1px solid #eee; border-radius: 20px; max-width: 600px; margin: 0 auto;">
-                                <h2 style="color: #2563eb;">¡Hola ${req.full_name}!</h2>
-                                <p>Tu solicitud de acceso al sistema PACT ha sido <strong>aprobada</strong> por el administrador.</p>
-                                <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #e2e8f0;">
-                                    <p style="margin: 0 0 10px 0;"><strong>Usuario:</strong> ${req.email}</p>
-                                    <p style="margin: 0;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
-                                </div>
-                                <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes entrar si ya tienes el programa instalado. Si no lo tienes, solicítalo al administrador.</p>
-                                <p style="font-size: 12px; color: #94a3b8; margin-top: 30px; border-top: 1px solid #f1f5f9; pt: 20px;">Este es un mensaje automático del sistema de administración PACT.</p>
+                const emailData = {
+                    to: req.email,
+                    subject: "🔐 Tus Credenciales de Acceso PACT",
+                    html: `
+                        <div style="font-family: sans-serif; padding: 30px; border: 1px solid #eee; border-radius: 20px; max-width: 600px; margin: 0 auto;">
+                            <h2 style="color: #2563eb;">¡Hola ${req.full_name}!</h2>
+                            <p>Tu solicitud de acceso al sistema PACT ha sido <strong>aprobada</strong> por el administrador.</p>
+                            <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #e2e8f0;">
+                                <p style="margin: 0 0 10px 0;"><strong>Usuario:</strong> ${req.email}</p>
+                                <p style="margin: 0;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
                             </div>
-                        `
+                            <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes entrar si ya tienes el programa instalado. Si no lo tienes, solicítalo al administrador.</p>
+                            <p style="font-size: 12px; color: #94a3b8; margin-top: 30px; border-top: 1px solid #f1f5f9; pt: 20px;">Este es un mensaje automático del sistema de administración PACT.</p>
+                        </div>
+                    `
+                };
+
+                if (api?.sendEmail) {
+                    await api.sendEmail(emailData);
+                } else {
+                    // Fallback para versión Web
+                    await fetch('/api/send-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(emailData)
                     });
                 }
                 alert("✓ Solicitud aprobada y usuario creado correctamente.");
@@ -330,6 +339,10 @@ export default function AdminRequestsPage() {
             : "¿Estás seguro de que deseas borrar el acceso de este usuario?";
             
         if (!confirm(confirmMsg)) return;
+
+        // Doble confirmación para evitar errores accidentales
+        const secondConfirm = confirm("🛑 ATENCIÓN: Esta acción es IRREVERSIBLE. Se eliminarán permanentemente los permisos de acceso y el registro del usuario. ¿Confirmas definitivamente el borrado?");
+        if (!secondConfirm) return;
 
         setIsDeletingId(userId);
         try {
@@ -434,21 +447,30 @@ export default function AdminRequestsPage() {
             // Enviar invitación personalizada as requested
             // @ts-ignore
             const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
-            if (api?.sendEmail) {
-                await api.sendEmail({
-                    to: directEmail,
-                    subject: "🚀 Acceso Directo a PACT",
-                    html: `
-                        <div style="font-family: sans-serif; padding: 30px; border: 1px solid #eee; border-radius: 20px; max-width: 600px; margin: 0 auto;">
-                            <h2 style="color: #2563eb;">Acceso concedido a PACT</h2>
-                            <p>El administrador te ha dado de alta directamente en el sistema.</p>
-                            <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #e2e8f0;">
-                                <p style="margin: 0 0 10px 0;"><strong>Usuario/Email:</strong> ${directEmail}</p>
-                                <p style="margin: 0;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
-                            </div>
-                            <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes entrar si ya tienes el programa instalado. Si no lo tienes, solicítalo al administrador.</p>
+            const invitationData = {
+                to: directEmail,
+                subject: "🚀 Acceso Directo a PACT",
+                html: `
+                    <div style="font-family: sans-serif; padding: 30px; border: 1px solid #eee; border-radius: 20px; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #2563eb;">Acceso concedido a PACT</h2>
+                        <p>El administrador te ha dado de alta directamente en el sistema.</p>
+                        <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 25px 0; border: 1px solid #e2e8f0;">
+                            <p style="margin: 0 0 10px 0;"><strong>Usuario/Email:</strong> ${directEmail}</p>
+                            <p style="margin: 0;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
                         </div>
-                    `
+                        <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes entrar si ya tienes el programa instalado. Si no lo tienes, solicítalo al administrador.</p>
+                    </div>
+                `
+            };
+
+            if (api?.sendEmail) {
+                await api.sendEmail(invitationData);
+            } else {
+                // Fallback para versión Web
+                await fetch('/api/send-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(invitationData)
                 });
             }
 

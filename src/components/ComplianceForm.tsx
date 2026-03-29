@@ -48,11 +48,6 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     const lastRowRef = useRef<HTMLTableRowElement>(null);
 
     const checkUpcomingExpiries = async (docs: any[]) => {
-        // Verificar si estamos ejecutando en Electron
-        if (typeof window === 'undefined' || !(window as any).electronAPI || !(window as any).electronAPI.sendEmail) {
-            return;
-        }
-
         const registrationStr = getLocalStorageItem("pact_registration");
         if (!registrationStr) return;
         let user = null;
@@ -79,7 +74,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                 const docName = doc.subcontractor_name ? `${doc.doc_type} (${doc.subcontractor_name})` : doc.doc_type;
 
                 try {
-                    const response = await (window as any).electronAPI.sendEmail({
+                    const emailData = {
                         to: user.email,
                         subject: `🚨 AVISO DE VENCIMIENTO (14 DÍAS): ${docName}`,
                         text: `Hola ${user.name},\n\nEste es un recordatorio automático del Programa ACT.\n\nEl documento de cumplimiento laboral "${docName}" vencerá en menos de 2 semanas (Fecha: ${formatDate(doc.date_expiry)}).\n\nPor favor, actualice el documento en el sistema lo antes posible para evitar penalidades o retrasos.\n\nSaludos,\nSistema PACT`,
@@ -100,9 +95,25 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                 </div>
                             </div>
                         `,
-                    });
+                    };
 
-                    if (response && response.success) {
+                    // @ts-ignore
+                    const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
+                    let response;
+
+                    if (api?.sendEmail) {
+                        response = await api.sendEmail(emailData);
+                    } else {
+                        // Fallback para versión Web
+                        const res = await fetch('/api/send-email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(emailData)
+                        });
+                        response = await res.json();
+                    }
+
+                    if (response && (response.success || response.messageId)) {
                         // Marcar en DB que ya se envió el email de 14 días
                         const { error } = await supabase
                             .from("labor_compliance")
@@ -110,12 +121,11 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                             .eq("id", doc.id);
 
                         if (!error) {
-                            // Update local state implicitly (we only check once on load anyway)
                             console.log(`Email de vencimiento (14 días) enviado a ${user.email} para el documento ${doc.doc_type}`);
                         }
                     }
                 } catch (err) {
-                    console.error("Fallo al enviar correo mediante Electron IPC:", err);
+                    console.error("Fallo al enviar correo de aviso:", err);
                 }
             }
         }

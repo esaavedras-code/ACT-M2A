@@ -108,46 +108,58 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
             const inviteLink = `https://pact.m2a-group.com/login?invite_token=${token}`;
             const messageStr = "Únete a este proyecto en la PACT";
 
-            // 4. Enviar correo vía Electron IPC o mostrar error descriptivo
+            // 4. Enviar correo vía Electron IPC o fallback de API Web
             // @ts-ignore
             const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
-            if (api?.sendEmail) {
-                const mailRes = await api.sendEmail({
-                    to: email,
-                    subject: `Invitación a Proyecto en PACT`,
-                    html: `
-                        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px;">
-                            <h2 style="color: #2563eb; margin-bottom: 20px;">Invitación a Colaborar en PACT</h2>
-                            <p>Has sido invitado a participar con el rol <strong>Nivel ${role}</strong> en un proyecto de construcción.</p>
-                            
-                            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                <p style="margin: 0 0 10px 0;"><strong>Tus credenciales de acceso:</strong></p>
-                                <p style="margin: 5px 0;">Usuario: <code>${email}</code></p>
-                                ${tempPassword ? `<p style="margin: 5px 0;">Password Temporal: <code>${tempPassword}</code></p>` : ''}
-                            </div>
-
-                            <p style="font-style: italic; color: #666; margin-bottom: 25px;">"${messageStr}"</p>
-                            
-                            <a href="${inviteLink}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                                Aceptar Invitación y Configurar Cuenta
-                            </a>
-                            
-                            <p style="font-size: 12px; color: #999; margin-top: 30px; border-top: 1px solid #eee; pt: 15px;">
-                                Nota: Si el botón no funciona, copia este enlace: ${inviteLink}
-                            </p>
+            const emailData = {
+                to: email,
+                subject: `Invitación a Proyecto en PACT`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px;">
+                        <h2 style="color: #2563eb; margin-bottom: 20px;">Invitación a Colaborar en PACT</h2>
+                        <p>Has sido invitado a participar con el rol <strong>Nivel ${role}</strong> en un proyecto de construcción.</p>
+                        
+                        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <p style="margin: 0 0 10px 0;"><strong>Tus credenciales de acceso:</strong></p>
+                            <p style="margin: 5px 0;">Usuario: <code>${email}</code></p>
+                            ${tempPassword ? `<p style="margin: 5px 0;">Password Temporal: <code>${tempPassword}</code></p>` : ''}
                         </div>
-                    `
-                });
-                if (!mailRes?.success) {
-                    alert(`⚠️ Invitación guardada, pero el correo NO se envió.\n\nError: ${mailRes?.error || 'SMTP_PASS no configurado'}\n\nCopia este enlace y compártelo manualmente:\n${inviteLink}`);
-                    copyToClipboard(inviteLink);
-                } else {
-                    alert(`✅ Invitación enviada correctamente al correo: ${email}`);
-                }
+
+                        <p style="font-style: italic; color: #666; margin-bottom: 25px;">"${messageStr}"</p>
+                        
+                        <a href="${inviteLink}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                            Aceptar Invitación y Configurar Cuenta
+                        </a>
+                        
+                        <p style="font-size: 12px; color: #999; margin-top: 30px; border-top: 1px solid #eee; pt: 15px;">
+                            Nota: Si el botón no funciona, copia este enlace: ${inviteLink}
+                        </p>
+                    </div>
+                `
+            };
+
+            let mailRes;
+            if (api?.sendEmail) {
+                mailRes = await api.sendEmail(emailData);
             } else {
-                // Entorno web/dev: sin Electron, copiar enlace al clipboard
+                // Fallback para versión Web
+                try {
+                    const res = await fetch('/api/send-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(emailData)
+                    });
+                    mailRes = await res.json();
+                } catch (err) {
+                    mailRes = { success: false, error: "Error en la red al enviar email" };
+                }
+            }
+
+            if (!mailRes?.success && !mailRes?.messageId) {
+                alert(`⚠️ Invitación guardada, pero el correo NO se pudo enviar.\n\nError: ${mailRes?.error || 'Servicio de correo no disponible'}\n\nCopia este enlace y compártelo manualmente:\n${inviteLink}`);
                 copyToClipboard(inviteLink);
-                alert(`✅ Invitación guardada en la base de datos.\n\n⚠️ El envío de correo requiere la aplicación de escritorio (.exe).\n\nEl enlace de invitación fue copiado al portapapeles:\n${inviteLink}`);
+            } else {
+                alert(`✅ Invitación enviada correctamente al correo: ${email}`);
             }
 
             setEmail("");
@@ -213,7 +225,10 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
     };
 
     const handleRevoke = async (id: string) => {
-        if (!confirm("¿Revocar este acceso?")) return;
+        if (!confirm("¿Estás seguro de que deseas revocar este acceso?")) return;
+        
+        const secondConfirm = confirm("🛑 AVISO: Una vez revocado el acceso, el usuario ya no podrá ver ni editar información en este proyecto. ¿Confirmas la revocación?");
+        if (!secondConfirm) return;
         const { error } = await supabase.from("memberships")
             .update({ revoked_at: new Date().toISOString() })
             .eq("id", id);

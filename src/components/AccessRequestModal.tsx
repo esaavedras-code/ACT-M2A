@@ -55,7 +55,7 @@ export default function AccessRequestModal({ isOpen, onClose, initialData }: Acc
                 // @ts-ignore
                 const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
                 
-                if (admins && admins.length > 0 && api?.sendEmail) {
+                if (admins && admins.length > 0) {
                     const roleLabel = {
                         'A': 'Administrador Global',
                         'B': 'Administrador de Proyecto',
@@ -64,7 +64,7 @@ export default function AccessRequestModal({ isOpen, onClose, initialData }: Acc
                     }[desiredRole] || desiredRole;
 
                     for (const admin of admins) {
-                        await api.sendEmail({
+                        const emailData = {
                             to: admin.email,
                             subject: `🚨 Nueva Solicitud de Acceso PACT: ${fullName}`,
                             html: `
@@ -95,7 +95,18 @@ export default function AccessRequestModal({ isOpen, onClose, initialData }: Acc
                                     </div>
                                 </div>
                             `
-                        });
+                        };
+
+                        if (api?.sendEmail) {
+                            await api.sendEmail(emailData);
+                        } else {
+                            // Fallback para versión Web
+                            await fetch('/api/send-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(emailData)
+                            });
+                        }
                     }
                 }
             } catch (emailErr) {
