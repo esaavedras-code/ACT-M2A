@@ -7,7 +7,7 @@ import Link from "next/link";
 import { 
     Menu, X, Home, Briefcase, History, FileText, LayoutDashboard, 
     ListChecks, PackageSearch, ShieldCheck, FileEdit, FileCheck, Mic, 
-    Cloud, Calculator, TrendingUp, FolderOpen, ChevronRight, LayoutList
+    Cloud, Calculator, TrendingUp, FolderOpen, ChevronRight, LayoutList, User
 } from "lucide-react";
 
 export default function MobileMenu() {
@@ -15,16 +15,26 @@ export default function MobileMenu() {
     const pathname = usePathname();
 
     const [isAdmin, setIsAdmin] = useState(false);
+    const [userName, setUserName] = useState<string | null>(null);
+    const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     
     useEffect(() => {
-        const checkAdmin = async () => {
+        const loadUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
-                if (userData?.role_global === "A") setIsAdmin(true);
+                const { data: userData } = await supabase.from("users").select("name, avatar_url, role_global").eq("id", session.user.id).maybeSingle();
+                if (userData) {
+                    setIsAdmin(userData.role_global === "A");
+                    setUserName(userData.name || session.user.user_metadata?.name || "Usuario");
+                    setAvatarUrl(userData.avatar_url);
+                } else {
+                    setUserName(session.user.user_metadata?.name || "Usuario");
+                }
+                setUserEmail(session.user.email || "");
             }
         };
-        checkAdmin();
+        loadUser();
     }, []);
 
     const menuItems = [
@@ -108,8 +118,8 @@ export default function MobileMenu() {
                                     onClick={toggleMenu}
                                     className={`flex items-center gap-4 p-4 rounded-2xl font-black text-sm transition-all shadow-sm ${
                                         isActive
-                                            ? "bg-primary text-white shadow-primary/20 scale-[1.02]"
-                                            : "bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800"
+                                            ? "bg-primary text-white shadow-primary/40 scale-[1.02]"
+                                            : "bg-white dark:bg-slate-900 text-slate-950 dark:text-slate-50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800"
                                     }`}
                                 >
                                     <Icon size={20} className={isActive ? "text-white" : "text-primary"} />
@@ -121,9 +131,9 @@ export default function MobileMenu() {
                         {isProjectDetail && projectId && (
                             <>
                                 <div className="mt-8 mb-4 flex items-center gap-2 px-4">
-                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Secciones del Proyecto</p>
-                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800"></div>
+                                    <div className="h-px flex-1 bg-slate-300 dark:bg-slate-800"></div>
+                                    <p className="text-[10px] font-black text-slate-800 dark:text-slate-300 uppercase tracking-widest whitespace-nowrap">Secciones del Proyecto</p>
+                                    <div className="h-px flex-1 bg-slate-300 dark:bg-slate-800"></div>
                                 </div>
                                 
                                 <div className="space-y-1 pb-10">
@@ -137,8 +147,8 @@ export default function MobileMenu() {
                                                 onClick={toggleMenu}
                                                 className={`flex items-center justify-between p-3 rounded-xl transition-all ${
                                                     isTabActive
-                                                        ? "bg-primary/10 text-primary font-black"
-                                                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                        ? "bg-primary/20 text-primary font-black shadow-inner"
+                                                        : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                                                 }`}
                                             >
                                                 <div className="flex items-center gap-3">
@@ -156,10 +166,31 @@ export default function MobileMenu() {
                         )}
                     </nav>
 
-                    <div className="p-6 border-t border-slate-100 dark:border-slate-800">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-center">
-                            M2A Group - PACT v3.2
-                        </p>
+                    <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                        <Link 
+                            href="/perfil" 
+                            onClick={toggleMenu}
+                            className="flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 group"
+                        >
+                            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0 overflow-hidden shadow-sm border border-white dark:border-slate-700">
+                                {avatarUrl ? (
+                                    <img src={avatarUrl} alt={userName || ""} className="w-full h-full object-cover" />
+                                ) : (
+                                    <User size={20} />
+                                )}
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                <p className="text-sm font-black text-slate-900 dark:text-white truncate">{userName}</p>
+                                <p className="text-[10px] text-slate-500 font-bold truncate">{userEmail}</p>
+                            </div>
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-primary transition-colors" />
+                        </Link>
+                        
+                        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                M2A Group - PACT v3.2
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>

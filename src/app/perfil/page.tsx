@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { User, Key, Shield, Save, ArrowLeft, Building, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { User, Key, Shield, Save, ArrowLeft, Building, Lock, Eye, EyeOff, CheckCircle2, Camera, Upload, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 export default function ProfilePage() {
@@ -20,6 +20,8 @@ export default function ProfilePage() {
     const [projects, setProjects] = useState<any[]>([]);
     const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -30,7 +32,20 @@ export default function ProfilePage() {
             }
 
             setEmail(session.user.email || "");
-            setName(session.user.user_metadata?.name || "");
+            
+            // Cargar datos extendidos del usuario (incluyendo avatar)
+            const { data: userData } = await supabase
+                .from("users")
+                .select("name, avatar_url")
+                .eq("id", session.user.id)
+                .single();
+
+            if (userData) {
+                setName(userData.name || session.user.user_metadata?.name || "");
+                setAvatarUrl(userData.avatar_url);
+            } else {
+                setName(session.user.user_metadata?.name || "");
+            }
 
             const { data: userProjects } = await supabase
                 .from("memberships")
@@ -60,14 +75,53 @@ export default function ProfilePage() {
 
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                await supabase.from("users").update({ name }).eq("id", user.id);
+                await supabase.from("users").update({ name, avatar_url: avatarUrl }).eq("id", user.id);
             }
 
-            setProfileMsg({ type: 'success', text: "✓ Nombre actualizado correctamente." });
+            setProfileMsg({ type: 'success', text: "✓ Perfil actualizado correctamente." });
         } catch (err: any) {
             setProfileMsg({ type: 'error', text: err.message || "Error al actualizar perfil" });
         } finally {
             setSavingProfile(false);
+        }
+    };
+
+    const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            setUploading(true);
+            setProfileMsg(null);
+
+            if (!event.target.files || event.target.files.length === 0) {
+                throw new Error('Debes seleccionar una imagen para subir.');
+            }
+
+            const file = event.target.files[0];
+            const fileExt = file.name.split('.').pop();
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("No hay sesión activa.");
+
+            const filePath = `${session.user.id}/${Math.random()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('profiles')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('profiles')
+                .getPublicUrl(filePath);
+
+            setAvatarUrl(publicUrl);
+            
+            // Actualizar inmediatamente en la tabla users
+            await supabase.from("users").update({ avatar_url: publicUrl }).eq("id", session.user.id);
+            
+            setProfileMsg({ type: 'success', text: "✓ Foto de perfil actualizada." });
+        } catch (error: any) {
+            setProfileMsg({ type: 'error', text: error.message });
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -161,6 +215,55 @@ export default function ProfilePage() {
                             <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2 border-b pb-2">
                                 <Shield className="text-primary" size={20} /> Información Personal
                             </h2>
+
+                            {/* Foto de Perfil */}
+                            <div className="flex flex-col items-center gap-4 py-4">
+                                <div className="relative group">
+                                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-slate-100 dark:border-slate-800 shadow-xl bg-slate-50 relative">
+                                        {avatarUrl ? (
+                                            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                <User size={64} />
+                                            </div>
+                                        )}
+                                        {uploading && (
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <label className="absolute bottom-0 right-0 p-2 bg-primary hover:bg-blue-700 text-white rounded-full shadow-lg cursor-pointer transition-all transform group-hover:scale-110">
+                                        <Camera size={20} />
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={uploadAvatar}
+                                            disabled={uploading}
+                                        />
+                                    </label>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-sm font-black text-slate-800 dark:text-white">Foto de Perfil</p>
+                                    <p className="text-xs text-slate-400">JPG, PNG o GIF. Máx 2MB</p>
+                                </div>
+                                {avatarUrl && (
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            setAvatarUrl(null);
+                                            // También actualizar en DB
+                                            supabase.auth.getSession().then(({data}) => {
+                                                if(data.session) supabase.from("users").update({ avatar_url: null }).eq("id", data.session.user.id);
+                                            });
+                                        }}
+                                        className="text-xs text-red-500 font-bold hover:text-red-700 flex items-center gap-1"
+                                    >
+                                        <Trash2 size={12} /> Eliminar foto
+                                    </button>
+                                )}
+                            </div>
 
                             {profileMsg && (
                                 <div className={`p-4 rounded-xl text-sm font-bold border ${

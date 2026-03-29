@@ -141,7 +141,7 @@ export async function generateFinalAcceptanceReport(projectId: string) {
         Y += 20;
         RECT(ML, Y, PW - ML - MR, 20); // Liquidated Damages
         TXT("Liquidated Damages (No. of days and total amount):", ML + 5, Y + 12, 8.5, true);
-        TXT("--- days at $ ---. Total: $ ---", ML + 195, Y + 12, 9);
+        TXT("--- days at $ ---. Total: $ ---", ML + 215, Y + 12, 9);
 
         // 5. Submittals Table
         Y += 30;
@@ -193,12 +193,12 @@ export async function generateFinalAcceptanceReport(projectId: string) {
 
         // 6. Footer Notes
         Y = Y + 20 + (items.length * ROW_H) + 5;
-        RECT(ML, Y, TBL_W, 20);
-        TXT("(If available, status of environmental commitments if not completed):", ML + 5, Y + 12, 7.5, false);
+        RECT(ML, Y, TBL_W, 22);
+        TXT("(If available, status of environmental commitments if not completed):", ML + 5, Y + 14, 7.5, false);
 
-        Y += 20;
-        RECT(ML, Y, TBL_W, 20);
-        TXT("Additional Information or changes:", ML + 5, Y + 12, 7.5, true);
+        Y += 22;
+        RECT(ML, Y, TBL_W, 22);
+        TXT("Additional Information or changes:", ML + 5, Y + 14, 7.5, true);
 
         Y += 20;
         RECT(ML, Y, TBL_W, 25);

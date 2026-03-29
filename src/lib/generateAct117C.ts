@@ -261,11 +261,14 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
             // --- HEADER (Matches Photo perfectly now) ---
             if (logoImage) {
+                const dims = logoImage.scale(1);
+                const targetHeight = 45;
+                const targetWidth = (dims.width / dims.height) * targetHeight;
                 page.drawImage(logoImage, {
                     x: 40,
-                    y: height - 65,
-                    width: 60,
-                    height: 45
+                    y: height - 15 - targetHeight,
+                    width: targetWidth,
+                    height: targetHeight
                 });
             }
 
@@ -297,14 +300,15 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             field("8", "Municipality:", 40, ly + lh * 7, 315, projData.municipios?.join(", "));
 
             const rx = 330;
-            field("9", "Date:", rx, ry, width - 40, certDate ? formatDate(certDate) : formatDate(new Date()));
-            field("10", "Cert. Num.:", rx, ry + lh, width - 40, certNum.toString());
-            field("11", "Work Performed up to:", rx, ry + lh * 2, width - 40, formatDate(currentCert?.wp_up_to || certDate));
-            field("12", "Contract Beginning Date:", rx, ry + lh * 3, width - 40, formatDate(projData.date_project_start));
-            field("13", "Contract Completion Date:", rx, ry + lh * 4, width - 40, formatDate(projData.date_orig_completion));
-            field("14", "Revised Completion Date:", rx, ry + lh * 5, width - 40, formatDate(projData.date_rev_completion));
-            field("15", "Project Original Amount:", rx, ry + lh * 6, width - 40, fmt(calcOriginalAmount, 2, true));
-            field("16", "Project Revised Amount:", rx, ry + lh * 7, width - 40, fmt(totalProjectAmount, 2, true));
+            const rEnd = width - 70; // Shorter lines for 9-16
+            field("9", "Date:", rx, ry, rEnd, certDate ? formatDate(certDate) : formatDate(new Date()));
+            field("10", "Cert. Num.:", rx, ry + lh, rEnd, certNum.toString());
+            field("11", "Work Performed up to:", rx, ry + lh * 2, rEnd, formatDate(currentCert?.wp_up_to || certDate));
+            field("12", "Contract Beginning Date:", rx, ry + lh * 3, rEnd, formatDate(projData.date_project_start));
+            field("13", "Contract Completion Date:", rx, ry + lh * 4, rEnd, formatDate(projData.date_orig_completion));
+            field("14", "Revised Completion Date:", rx, ry + lh * 5, rEnd, formatDate(projData.date_rev_completion));
+            field("15", "Project Original Amount:", rx, ry + lh * 6, rEnd, fmt(calcOriginalAmount, 2, true));
+            field("16", "Project Revised Amount:", rx, ry + lh * 7, rEnd, fmt(totalProjectAmount, 2, true));
 
             // --- GRID 17-25 (Table Structure) ---
             const ty = 255; const th = 38;
@@ -469,7 +473,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             const { width } = p.getSize();
             p.drawText(`Page ${i + 1} of ${pages.length}`, {
                 x: width - 80,
-                y: 20,
+                y: 10, // Move down to avoid overlap
                 size: 8,
                 font: font,
                 color: rgb(0, 0, 0)

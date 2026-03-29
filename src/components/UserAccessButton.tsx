@@ -8,6 +8,7 @@ import { setLocalStorageItem } from "@/lib/utils";
 export default function UserAccessButton() {
     const [userName, setUserName] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
 
@@ -18,7 +19,15 @@ export default function UserAccessButton() {
                 setUserName(session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuario");
                 setUserEmail(session.user.email || "Sin correo");
                 // Check if global admin or project admin
-                const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
+                const { data: userData } = await supabase.from("users").select("name, avatar_url, role_global").eq("id", session.user.id).single();
+                
+                if (userData) {
+                    setUserName(userData.name || session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuario");
+                    setAvatarUrl(userData.avatar_url);
+                } else {
+                    setUserName(session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuario");
+                }
+
                 let hasAdmin = userData?.role_global === "A";
                 if (!hasAdmin) {
                     const { count } = await supabase.from("memberships").select("*", { count: "exact", head: true }).eq("user_id", session.user.id).eq("role", "B");
@@ -79,8 +88,12 @@ export default function UserAccessButton() {
                     <span className="text-xs font-bold text-white leading-none">{userName}</span>
                     <span className="text-[10px] text-blue-200 font-medium truncate max-w-[120px]">{userEmail}</span>
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-[10px] font-black border border-white/30 backdrop-blur-md">
-                    {initials}
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-[10px] font-black border border-white/30 backdrop-blur-md overflow-hidden shrink-0">
+                    {avatarUrl ? (
+                        <img src={avatarUrl} alt={userName || ""} className="w-full h-full object-cover" />
+                    ) : (
+                        initials
+                    )}
                 </div>
             </button>
 
@@ -92,8 +105,12 @@ export default function UserAccessButton() {
                     ></div>
                     <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0 scale-90">
-                                <User size={20} />
+                            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white shrink-0 shadow-lg overflow-hidden border-2 border-white dark:border-slate-700">
+                                {avatarUrl ? (
+                                    <img src={avatarUrl} alt={userName || ""} className="w-full h-full object-cover" />
+                                ) : (
+                                    <User size={20} />
+                                )}
                             </div>
                             <div className="overflow-hidden">
                                 <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{userName}</p>

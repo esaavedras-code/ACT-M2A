@@ -71,16 +71,6 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         }
     } catch (_) { }
 
-    let m2aLogoImg: any = null;
-    try {
-        const resp = await fetch('/m2a_logo.png');
-        if (resp.ok) {
-            const bytes = await resp.arrayBuffer();
-            const arr = new Uint8Array(bytes);
-            if (arr[0] === 0x89 && arr[1] === 0x50) m2aLogoImg = await pdfDoc.embedPng(arr);
-            else if (arr[0] === 0xFF && arr[1] === 0xD8) m2aLogoImg = await pdfDoc.embedJpg(arr);
-        }
-    } catch (_) { }
 
     // ── Dimensiones: Landscape Letter 792 × 612 ────────────────
     const PW = 792, PH = 612;
@@ -189,15 +179,6 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
             });
         }
 
-        if (m2aLogoImg) {
-            const dims = m2aLogoImg.scaleToFit(55, 20);
-            pg.drawImage(m2aLogoImg, {
-                x: PW - ML - dims.width,
-                y: topY - dims.height,
-                width: dims.width,
-                height: dims.height,
-            });
-        }
 
         // Texto institucional y de M2A Group centrado
         const pageCenter = PW / 2;
@@ -469,8 +450,8 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         // BLOQUE INFERIOR: Observaciones | E.W.O. # | PAG. #
         // Altura reducida y fija
         // ══════════════════════════════════════════════════════
-        const OBS_H = 22;   // altura fija reducida para todo el bloque
-        const ewoW = 72;
+        const OBS_H = 65;   // Triplicado el espacio para observaciones
+        const ewoW = 75;
         const obsW = CW - ewoW;
         const halfEH = OBS_H / 2;
 
@@ -478,10 +459,10 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         RECT(pg, ML + obsW, Y - halfEH, ewoW, halfEH, WH, 0.7);
         RECT(pg, ML + obsW, Y - OBS_H, ewoW, halfEH, WH, 0.7);
 
-        TXT(pg, 'Observaciones:', ML + 3, Y - 8, 7, true);
-        TXT(pg, 'E.W.O. #', ML + obsW + 4, Y - 8, 6.5, true);
-        TXT(pg, 'PAG. #', ML + obsW + 4, Y - OBS_H + halfEH - 8, 6.5, true);
-        TXT(pg, `${pageIndex + 1} de ${totalItems}`, ML + obsW + ewoW - 5, Y - OBS_H + halfEH - 8, 7, true, 'right');
+        TXT(pg, 'Observaciones:', ML + 3, Y - 10, 8, true);
+        TXT(pg, 'E.W.O. #', ML + obsW + 4, Y - 10, 7.5, true);
+        TXT(pg, 'PAG. #', ML + obsW + 4, Y - OBS_H + halfEH - 10, 7.5, true);
+        TXT(pg, `${pageIndex + 1} de ${totalItems}`, ML + obsW + ewoW - 5, Y - OBS_H + halfEH - 10, 8, true, 'right');
     };
 
     // ── 3. Generar páginas ─────────────────────────────────────

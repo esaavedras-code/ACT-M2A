@@ -469,13 +469,20 @@ function ReportesContent() {
                             label: '1. Dashboard Ejecutivo',
                             description: 'Resumen gerencial de costos y tiempo.',
                             icon: <Activity size={18} className="text-indigo-500" />,
-                            action: () => generateDashboardReportLogic(projectId, reportFormat, endDate)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    console.error(e);
-                                    setStatus(`Error: ${e.message}`);
-                                })
-                                .finally(() => setLoading(false))
+                            action: () => {
+                                if (reportFormat === 'excel') {
+                                    alert("El reporte de información principal no está disponible en formato Excel por requerimiento.");
+                                    setLoading(false);
+                                    return;
+                                }
+                                generateDashboardReportLogic(projectId, reportFormat, endDate)
+                                    .then(() => setStatus("Reporte generado."))
+                                    .catch(e => {
+                                        console.error(e);
+                                        setStatus(`Error: ${e.message}`);
+                                    })
+                                    .finally(() => setLoading(false))
+                            }
                         }}
                     />
                 </DropdownGroup>
@@ -597,6 +604,11 @@ function ReportesContent() {
                                         alert("Por favor seleccione certificación y partida.");
                                         throw new Error("Selection required");
                                     }
+                                    if (reportFormat === 'excel') {
+                                        alert("El reporte ACT-117B no está disponible en formato Excel por requerimiento.");
+                                        setLoading(false);
+                                        return;
+                                    }
                                     await generateAct117BReportLogic(projectId, certId, itemNum, reportFormat);
                                     setStatus("Reporte generado.");
                                 } catch (e: any) {
@@ -698,6 +710,11 @@ function ReportesContent() {
                                         alert("Por favor seleccione una Orden de Cambio (CHO).");
                                         throw new Error("Selection required");
                                     }
+                                    if (reportFormat === 'excel') {
+                                        alert("El reporte ACT-124 no está disponible en formato Excel por requerimiento.");
+                                        setLoading(false);
+                                        return;
+                                    }
                                     await generateAct124ReportLogic(projectId, choId, [], reportFormat);
                                     setStatus("Reporte generado.");
                                 } catch (e: any) {
@@ -737,6 +754,11 @@ function ReportesContent() {
                                     if (!choId) {
                                         alert("Por favor seleccione una Orden de Cambio (CHO).");
                                         throw new Error("Selection required");
+                                    }
+                                    if (reportFormat === 'excel') {
+                                        alert("El reporte ROA no está disponible en formato Excel por requerimiento.");
+                                        setLoading(false);
+                                        return;
                                     }
                                     await generateRoaReportLogic(projectId, choId, reportFormat);
                                     setStatus("Reporte ROA generado.");
@@ -813,6 +835,11 @@ function ReportesContent() {
                                     const choId = (window as any).selectedTimeExtCho;
                                     if (!choId) {
                                         alert("Por favor seleccione una CHO para la Gráfica.");
+                                        return;
+                                    }
+                                    if (reportFormat === 'excel') {
+                                        alert("La gráfica de extensión de tiempo no está disponible en formato Excel por requerimiento.");
+                                        setLoading(false);
                                         return;
                                     }
                                     const { generateTimeExtensionChartLogic } = await import("@/lib/reportLogic");
@@ -948,7 +975,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'material-certification',
-                            label: '5. Material Certification',
+                            label: '5. Material Certification (sin firmas)',
                             description: 'Certificación oficial de materiales, muestreo y pruebas de aceptación.',
                             icon: <FileCheck size={18} className="text-orange-600" />,
                             action: () => {
@@ -972,7 +999,7 @@ function ReportesContent() {
                             description: 'Certificación oficial de participación y esfuerzos de buena fe de empresas DBE.',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             action: () => {
-                                alert("Recordatorio: Este documento de participación DBE no sustituye las firmas requeridas en los documentos originales firmados por el inspector.");
+                                alert("Recordatorio: Este documento de participación DBE no sustituye las firmas requeridas en los documentos originales firmados por el inspector. Recuerde añadir el documento DBA del contratista.");
                                 return generateDbeCertificationReportLogic(projectId, reportFormat)
                                     .then(() => setStatus("Reporte generado."))
                                     .catch(e => {

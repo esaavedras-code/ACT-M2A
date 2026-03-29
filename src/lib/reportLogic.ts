@@ -142,24 +142,16 @@ export const createPdfBlob = async (
         }
     } catch (_) { }
 
-    try {
-        const m2aResp = await fetch('/m2a_logo.png');
-        if (m2aResp.ok) {
-            const bytes = await m2aResp.arrayBuffer();
-            m2aLogoImg = await pdfDoc.embedPng(bytes).catch(() => pdfDoc.embedJpg(bytes));
-        }
-    } catch (_) { }
 
     const headerY = height - 50;
     if (actLogoImg) {
-        // Obtenemos las dimensiones originales para mantener el aspect ratio
         const dims = actLogoImg.scale(1);
-        const targetHeight = 40;
+        const targetHeight = 35; // Slightly smaller to avoid distortion
         const targetWidth = (dims.width / dims.height) * targetHeight;
         
         page.drawImage(actLogoImg, { 
             x: marginX, 
-            y: height - 60, 
+            y: height - 55, 
             width: targetWidth, 
             height: targetHeight 
         });
@@ -565,9 +557,9 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
             const choItems = Array.isArray(c.items) ? c.items : [];
             const match = choItems.find((ci: any) => ci.item_num === itemNum);
             if (match) {
-                totalChoQty += (parseFloat(match.proposed_change) || 0);
+                totalChoQty += (parseFloat(match.proposed_change !== undefined ? match.proposed_change : match.quantity) || 0);
                 if (!description && match.description) choDescription = match.description;
-                if (!unit && match.unit) choDescription = match.unit; // fallback unit
+                if (!unit && (match.unit || match.unit_measure)) choDescription = match.unit || match.unit_measure;
             }
         });
 
@@ -739,11 +731,20 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
     if (missingCerts.length === 0) throw new Error("NO_FALTA_NINGUNO");
 
     const data = [
-        ['Item', 'Especificación', 'Descripción', 'Cant. Certificada', 'Cant. en CM', 'Cantidad faltante', 'Fecha del certificado'],
-        ...missingCerts.map((m: any) => [m.item_num, m.spec, m.desc, `${m.certQty.toFixed(4)} ${m.unit}`, `${m.mfgQty.toFixed(4)} ${m.unit}`, `${m.missing.toFixed(4)} ${m.unit}`, m.date])
+        ['Item', 'Especificación', 'Descripción', 'Cant. Certificada', 'Unidad', 'Cant. en CM', 'Faltante', 'Fecha de Certificado'],
+        ...missingCerts.map((m: any) => [
+            m.item_num, 
+            m.spec, 
+            m.desc, 
+            m.certQty.toFixed(4), 
+            m.unit,
+            m.mfgQty.toFixed(4), 
+            m.missing.toFixed(4), 
+            m.date
+        ])
     ];
 
-    await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM) QUE FALTAN', data, project, [40, 70, 200, 80, 80, 80, 90], 'landscape', format, 'Certificados_CM_Faltantes.pdf');
+    await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM) QUE FALTAN', data, project, [40, 70, 180, 80, 50, 80, 80, 100], 'landscape', format, 'Certificados_CM_Faltantes.pdf');
 };
 
 export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {

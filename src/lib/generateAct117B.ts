@@ -115,11 +115,14 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
                     const logoUrl = `${window.location.origin}/act_logo.png`;
                     const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
                     const logoImage = await pdfDoc.embedPng(logoBytes);
+                    const dims = logoImage.scale(1);
+                    const targetHeight = 55;
+                    const targetWidth = (dims.width / dims.height) * targetHeight;
                     page.drawImage(logoImage, {
                         x: 45,
-                        y: height - 85,
-                        width: 75,
-                        height: 60
+                        y: height - 15 - targetHeight,
+                        width: targetWidth,
+                        height: targetHeight
                     });
                 } catch (e) {
                     console.error("Logo error:", e);
@@ -146,7 +149,16 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
                 const lineW = lineLen - lineX;
                 if (shaded) drawRect(lineX, y - 10, lineW, 14);
                 else drawLine(lineX, y + 2, lineLen, y + 2);
-                drawText(value || "", lineX + 5, y, 9);
+                
+                // Truncate if too long
+                let sVal = value?.toString() || "";
+                if (font.widthOfTextAtSize(sVal, 9) > lineW - 10) {
+                    while (sVal.length > 0 && font.widthOfTextAtSize(sVal + "...", 9) > lineW - 10) {
+                        sVal = sVal.slice(0, -1);
+                    }
+                    sVal += "...";
+                }
+                drawText(sVal, lineX + 5, y, 9);
             };
 
             drawField("1", "Project Name", 40, ly, 450, projData.name);
