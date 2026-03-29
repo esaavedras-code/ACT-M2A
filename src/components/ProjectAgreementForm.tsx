@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Plus, Trash2 } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 
 interface FundRow {
     id?: string;
@@ -171,9 +172,7 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
                     <button type="button" onClick={addUnit} className="btn-secondary flex-1 sm:flex-none py-1.5 px-3 text-[10px] flex items-center justify-center gap-1">
                         <Plus size={14} /> Añadir Unidad
                     </button>
-                    <button type="button" onClick={saveFunds} disabled={loading} className="btn-primary flex-1 sm:flex-none py-1.5 px-4 text-[10px] flex items-center justify-center gap-1">
-                        <Save size={14} /> {loading ? "Guardando..." : "Guardar Fondos"}
-                    </button>
+                    {/* El botón de guardar ahora es flotante */}
                 </div>
             </div>
 
@@ -236,6 +235,18 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
                     </tbody>
                 </table>
             </div>
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar cambios",
+                        icon: <Save />,
+                        onClick: () => saveFunds(),
+                        description: "Actualizar la tabla de fondos originales y créditos de peaje del Project Agreement",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
         </div>
     );
 }

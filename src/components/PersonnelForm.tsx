@@ -140,7 +140,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         variant: 'secondary' as const
                     },
                     {
-                        label: loading ? "Sincronizando..." : "Guardar Firmas",
+                        label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
                         description: "Actualizar y sincronizar el registro oficial de firmas autorizadas de la ACT",
@@ -178,7 +178,8 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                                     <td className="px-2 py-1.5">
                                         <select
-                                            className="input-field text-xs font-bold min-h-[38px] !py-1.5 bg-white"
+                                            className="input-field text-xs font-bold min-h-[38px] !py-1.5"
+                                            style={{ backgroundColor: '#66FF99' }}
                                             value={p.role || STAFF_ROLES[0]}
                                             onChange={(e) => updateItem(idx, 'role', e.target.value)}
                                         >
@@ -188,7 +189,8 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                     <td className="px-2 py-1.5">
                                         <input
                                             type="text"
-                                            className="input-field text-xs min-h-[38px] !py-1.5"
+                                            className="input-field text-xs min-h-[38px] !py-1.5 font-bold"
+                                            style={{ backgroundColor: '#66FF99' }}
                                             value={p.name || ""}
                                             placeholder="Nombre del funcionario"
                                             onChange={(e) => updateItem(idx, 'name', e.target.value)}
@@ -198,7 +200,8 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                         {!isNoContact && (
                                             <input
                                                 type="tel"
-                                                className="input-field text-xs min-h-[38px] !py-1.5 text-center bg-white"
+                                                className="input-field text-xs min-h-[38px] !py-1.5 text-center font-bold"
+                                                style={{ backgroundColor: '#66FF99' }}
                                                 placeholder="(000) 000-0000"
                                                 value={p.phone_office || ""}
                                                 onChange={(e) => updateItem(idx, 'phone_office', formatPhoneNumber(e.target.value))}
@@ -209,7 +212,8 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                         {!isNoContact && (
                                             <input
                                                 type="tel"
-                                                className="input-field text-xs min-h-[38px] !py-1.5 text-center bg-white"
+                                                className="input-field text-xs min-h-[38px] !py-1.5 text-center font-bold"
+                                                style={{ backgroundColor: '#66FF99' }}
                                                 placeholder="(000) 000-0000"
                                                 value={p.phone_mobile || ""}
                                                 onChange={(e) => updateItem(idx, 'phone_mobile', formatPhoneNumber(e.target.value))}
@@ -220,7 +224,8 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                         {!isNoContact && (
                                             <input
                                                 type="email"
-                                                className="input-field text-xs min-h-[38px] !py-1.5 bg-white"
+                                                className="input-field text-xs min-h-[38px] !py-1.5 font-bold"
+                                                style={{ backgroundColor: '#66FF99' }}
                                                 placeholder="correo@ejemplo.com"
                                                 value={p.email || ""}
                                                 onChange={(e) => updateItem(idx, 'email', e.target.value)}

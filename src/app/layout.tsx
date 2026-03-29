@@ -45,7 +45,9 @@ export default function RootLayout({
                                     <nav className="hidden lg:flex gap-2 xl:gap-6 items-center border-l border-white/20 pl-4 xl:pl-6 ml-1 xl:ml-2">
                                         <Link href="/" className="text-[9px] xl:text-[10px] font-black uppercase tracking-[0.1em] xl:tracking-[0.2em] hover:text-blue-200 transition-colors shrink-0">Dashboard</Link>
                                         <Link href="/proyectos" className="text-[9px] xl:text-[10px] font-black uppercase tracking-[0.1em] xl:tracking-[0.2em] hover:text-blue-200 transition-colors shrink-0">Proyectos</Link>
-                                        <Link href="/precios" className="text-[9px] xl:text-[10px] font-black uppercase tracking-[0.05em] xl:tracking-[0.2em] hover:text-blue-200 transition-colors shrink-0 whitespace-nowrap">Historial de precios de la ACT</Link>
+                                        <Link href="/precios" className="text-[8px] xl:text-[10px] font-black uppercase tracking-[0.05em] xl:tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0 leading-tight">
+                                            Historial de precios <br /> de la ACT
+                                        </Link>
                                         <Suspense fallback={null}>
                                             <div className="bg-white/10 h-6 w-px mx-1"></div>
                                             <ReportesMenu />

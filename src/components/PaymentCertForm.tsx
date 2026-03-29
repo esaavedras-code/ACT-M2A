@@ -514,7 +514,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         variant: 'secondary' as const
                     },
                     {
-                        label: loading ? "Sincronizando..." : "Guardar Certificaciones",
+                        label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
                         description: "Sincronizar todas las certificaciones y partidas con los balances del contrato",

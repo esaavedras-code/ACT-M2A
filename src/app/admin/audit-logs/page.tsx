@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { History, Search, ArrowLeft, Filter, User, Table as TableIcon, Database } from "lucide-react";
+import { History, Search, ArrowLeft, Filter, User, Table as TableIcon, Database, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 interface AuditLog {
@@ -22,11 +22,13 @@ export default function AuditLogsPage() {
     const [users, setUsers] = useState<{email: string, name: string | null}[]>([]);
     const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedTable, setSelectedTable] = useState("all");
     const [selectedUser, setSelectedUser] = useState("all");
     const [selectedProject, setSelectedProject] = useState("all");
+    const [expandedLog, setExpandedLog] = useState<number | null>(null);
 
     useEffect(() => {
         const checkAdmin = async () => {
@@ -57,11 +59,17 @@ export default function AuditLogsPage() {
 
     const fetchInitialData = async () => {
         setLoading(true);
-        await Promise.all([
-            fetchLogs(),
-            fetchUsers(),
-            fetchProjects()
-        ]);
+        setError(null);
+        try {
+            await Promise.all([
+                fetchLogs(),
+                fetchUsers(),
+                fetchProjects()
+            ]);
+        } catch (err: any) {
+            console.error("Fetch Initial Data Error:", err);
+            setError("Error al cargar datos iniciales. Verifique su conexión y permisos.");
+        }
         setLoading(false);
     };
 
@@ -76,14 +84,22 @@ export default function AuditLogsPage() {
     };
 
     const fetchLogs = async () => {
-        let query = supabase
+        console.log("Fetching logs...");
+        const { data, error: fetchErr } = await supabase
             .from("audit_log")
             .select("*")
             .order("timestamp_utc", { ascending: false })
             .limit(200);
 
-        const { data } = await query;
-        if (data) setLogs(data);
+        if (fetchErr) {
+            console.error("Detailed Audit Fetch Error:", fetchErr);
+            setError("No se pudieron consultar los logs: " + fetchErr.message);
+            return;
+        }
+        if (data) {
+            console.log(`Successfully fetched ${data.length} logs.`);
+            setLogs(data);
+        }
     };
 
     const filteredLogs = logs.filter(log => {
@@ -113,6 +129,14 @@ export default function AuditLogsPage() {
                     </h1>
                     <p className="text-slate-500 font-medium tracking-tight text-sm md:text-base text-balance">Registro completo de actividades y cambios en el sistema.</p>
                 </div>
+
+                {error && (
+                    <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 p-4 rounded-2xl flex items-center gap-3 text-red-600 dark:text-red-400 font-bold text-sm">
+                        <AlertCircle size={18} />
+                        {error}
+                        <button onClick={fetchInitialData} className="ml-auto underline text-xs">Reintentar</button>
+                    </div>
+                )}
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex gap-3 w-full lg:w-auto">
                     <div className="relative group col-span-1 sm:col-span-2 lg:flex-1 lg:min-w-[200px]">
@@ -134,6 +158,8 @@ export default function AuditLogsPage() {
                             onChange={(e) => setSelectedUser(e.target.value)}
                         >
                             <option value="all">Cualquier Usuario</option>
+                            <option value="postgres">SISTEMA (Postgres)</option>
+                            <option value="authenticated">CLIENTE (En sesión)</option>
                             {users.map(u => (
                                 <option key={u.email} value={u.email}>
                                     {u.name || u.email}
@@ -167,7 +193,7 @@ export default function AuditLogsPage() {
                     </div>
 
                     <button 
-                        onClick={fetchLogs}
+                        onClick={fetchInitialData}
                         className="p-2.5 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest sm:col-span-2 lg:col-span-1"
                         title="Refrescar"
                     >
@@ -179,13 +205,14 @@ export default function AuditLogsPage() {
 
             <div className="card overflow-hidden border-none shadow-xl bg-white dark:bg-slate-900 rounded-[2rem] p-0">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
+                    <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800">
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">ID</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Fecha / Hora</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Evento</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Tabla / Registro</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
                                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Detalles</th>
                             </tr>
                         </thead>
@@ -193,72 +220,98 @@ export default function AuditLogsPage() {
                             {loading ? (
                                 [1, 2, 3, 4, 5].map(i => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan={5} className="px-6 py-6"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-full"></div></td>
+                                        <td colSpan={6} className="px-6 py-6"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-full"></div></td>
                                     </tr>
                                 ))
                             ) : filteredLogs.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-20 text-center text-slate-400 italic font-medium">No se encontraron registros que coincidan con los filtros.</td>
+                                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 italic font-medium">No se encontraron registros que coincidan con los filtros.</td>
                                 </tr>
                             ) : filteredLogs.map(log => (
-                                <tr key={log.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
-                                    <td className="px-6 py-5">
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-slate-900 dark:text-white">
-                                                {new Date(log.timestamp_utc).toLocaleDateString("es-PR")}
-                                            </span>
-                                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                                {new Date(log.timestamp_utc).toLocaleTimeString("es-PR", { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <span className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
-                                            <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px]">
-                                                {log.usuario_db?.substring(0, 2).toUpperCase() || '??'}
+                                <Fragment key={log.id}>
+                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                                        <td className="px-6 py-5">
+                                            <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">#{log.id}</span>
+                                        </td>
+                                        <td className="px-6 py-5 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                                    {new Date(log.timestamp_utc).toLocaleDateString("es-PR")}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 font-mono tracking-tighter italic">
+                                                    {new Date(log.timestamp_utc).toLocaleTimeString("es-PR")}
+                                                </span>
                                             </div>
-                                            <span className="truncate max-w-[150px]" title={log.usuario_db}>{log.usuario_db}</span>
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tighter shadow-sm ${
-                                            log.evento === 'INSERT' ? 'bg-emerald-500 text-white shadow-emerald-200' :
-                                            log.evento === 'UPDATE' ? 'bg-blue-600 text-white shadow-blue-200' :
-                                            'bg-rose-500 text-white shadow-rose-200'
-                                        }`}>
-                                            {log.evento}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-tighter">
-                                                <TableIcon size={12} className="text-primary opacity-60" /> {log.tabla}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                                                log.evento === 'INSERT' ? 'bg-emerald-100 text-emerald-700' : 
+                                                log.evento === 'UPDATE' ? 'bg-blue-100 text-blue-700' : 
+                                                'bg-rose-100 text-rose-700'}`}>
+                                                {log.evento}
                                             </span>
-                                            <span className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-[180px]" title={log.fila_id}>
-                                                {log.fila_id || 'N/A'}
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">{log.tabla}</span>
+                                                <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">ID: {log.fila_id}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <span className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                <div className={`w-6 h-6 rounded-lg ${log.usuario_db === 'postgres' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 dark:bg-slate-800'} flex items-center justify-center text-[10px]`}>
+                                                    {log.usuario_db?.substring(0, 2).toUpperCase() || '??'}
+                                                </div>
+                                                <span className="truncate max-w-[150px]" title={log.usuario_db}>
+                                                    {log.usuario_db === 'postgres' ? 'SISTEMA (Postgres)' : (log.usuario_db === 'authenticated' ? 'CLIENTE (En sesión)' : log.usuario_db)}
+                                                </span>
                                             </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5 text-right">
-                                        <button 
-                                            onClick={() => {
-                                                console.log("OLD:", log.datos_anteriores);
-                                                console.log("NEW:", log.datos_nuevos);
-                                                alert("Detalles enviados a la consola (F12) para revisión técnica.\n\nFila ID: " + log.fila_id);
-                                            }}
-                                            className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-primary hover:text-white transition-all rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500"
-                                        >
-                                            JSON
-                                        </button>
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td className="px-6 py-5 text-right">
+                                            <button 
+                                                onClick={() => setExpandedLog(expandedLog === log.id ? null : log.id)}
+                                                className={`p-2 rounded-xl transition-all inline-flex items-center gap-2 text-[10px] font-bold ${expandedLog === log.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-primary'}`}
+                                            >
+                                                {expandedLog === log.id ? 'CERRAR' : 'VER JSON'}
+                                                <ChevronDown size={14} className={`transform transition-transform ${expandedLog === log.id ? 'rotate-180' : ''}`} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {expandedLog === log.id && (
+                                        <tr className="bg-slate-50 dark:bg-slate-800/20 animate-in slide-in-from-top-1 duration-200">
+                                            <td colSpan={6} className="px-10 py-8 border-b border-slate-100 dark:border-slate-800">
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                                    <div className="space-y-3">
+                                                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                                                            Estado Anterior
+                                                        </h4>
+                                                        <pre className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl text-[11px] overflow-auto max-h-[400px] font-mono text-slate-400 shadow-sm leading-relaxed">
+                                                            {log.datos_anteriores ? JSON.stringify(log.datos_anteriores, null, 2) : "// Sin datos previos"}
+                                                        </pre>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        <h4 className="text-[10px] font-black uppercase text-blue-500 tracking-widest flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                                            Nuevo Estado
+                                                        </h4>
+                                                        <pre className="bg-blue-50/10 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 p-5 rounded-2xl text-[11px] overflow-auto max-h-[400px] font-mono text-slate-600 dark:text-slate-300 shadow-sm leading-relaxed">
+                                                            {log.datos_nuevos ? JSON.stringify(log.datos_nuevos, null, 2) : "// Registro eliminado"}
+                                                        </pre>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </Fragment>
                             ))}
                         </tbody>
                     </table>
                 </div>
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
-                    <p className="text-[10px] text-slate-400 font-medium italic">
-                        * Mostrando los últimos 200 eventos. Para ver más detalles técnicos, inspeccione la consola del navegador.
+                <div className="p-6 bg-slate-50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] text-slate-400 font-medium italic flex items-center gap-2">
+                        <Info size={14} className="text-slate-300" />
+                        Mostrando los últimos 200 eventos globales del sistema. Use los filtros superiores para refinar la búsqueda.
                     </p>
                 </div>
             </div>

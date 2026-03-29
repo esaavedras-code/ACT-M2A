@@ -432,7 +432,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         disabled: loading
                     }] : []),
                     {
-                        label: loading ? "Guardando..." : projectId ? "Actualizar" : "Guardar",
+                        label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
                         description: "Guardar toda la información del proyecto y crear respaldo",

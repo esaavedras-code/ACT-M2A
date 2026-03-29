@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Info } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
 
 interface CCMLMod {
@@ -102,15 +103,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                         <p className="text-slate-500 text-xs font-medium">Información de Cartas de Requerimiento de Modificación de Proyecto</p>
                     </div>
                 </div>
-                <button
-                    type="button"
-                    onClick={saveMods}
-                    disabled={loading}
-                    className="btn-primary px-8 py-3 flex items-center gap-2 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
-                >
-                    <Save size={20} />
-                    {loading ? "Guardando..." : "Guardar Cambios"}
-                </button>
+                {/* El botón de guardar ahora es flotante */}
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800 flex items-start gap-3">
@@ -140,7 +133,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                     {mod.label}
                                 </td>
                                 {/* Federal Share */}
-                                <td className="border p-1 text-right">
+                                <td className="border p-1 text-right" style={{ backgroundColor: '#66FF99' }}>
                                     {editingField?.idx === idx && editingField?.field === 'federal_share' ? (
                                         <input
                                             type="number"
@@ -155,7 +148,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                         />
                                     ) : (
                                         <div 
-                                            className="p-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors font-medium text-slate-800 dark:text-slate-200"
+                                            className="p-2 cursor-pointer hover:bg-black/5 dark:hover:bg-slate-800/50 rounded-lg transition-colors font-bold text-black"
                                             onClick={() => setEditingField({ idx, field: 'federal_share' })}
                                         >
                                             {formatCurrency(mod.federal_share)}
@@ -163,7 +156,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                     )}
                                 </td>
                                 {/* Toll Credits */}
-                                <td className="border p-1 text-right">
+                                <td className="border p-1 text-right" style={{ backgroundColor: '#66FF99' }}>
                                     {editingField?.idx === idx && editingField?.field === 'toll_credits' ? (
                                         <input
                                             type="number"
@@ -178,7 +171,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                         />
                                     ) : (
                                         <div 
-                                            className="p-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors font-medium text-slate-800 dark:text-slate-200"
+                                            className="p-2 cursor-pointer hover:bg-black/5 dark:hover:bg-slate-800/50 rounded-lg transition-colors font-bold text-black"
                                             onClick={() => setEditingField({ idx, field: 'toll_credits' })}
                                         >
                                             {formatCurrency(mod.toll_credits)}
@@ -186,7 +179,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                     )}
                                 </td>
                                 {/* State Funds */}
-                                <td className="border p-1 text-right">
+                                <td className="border p-1 text-right" style={{ backgroundColor: '#66FF99' }}>
                                     {editingField?.idx === idx && editingField?.field === 'state_funds' ? (
                                         <input
                                             type="number"
@@ -201,7 +194,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                                         />
                                     ) : (
                                         <div 
-                                            className="p-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg transition-colors font-medium text-slate-800 dark:text-slate-200"
+                                            className="p-2 cursor-pointer hover:bg-black/5 dark:hover:bg-slate-800/50 rounded-lg transition-colors font-bold text-black"
                                             onClick={() => setEditingField({ idx, field: 'state_funds' })}
                                         >
                                             {formatCurrency(mod.state_funds)}
@@ -220,6 +213,18 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                     </tbody>
                 </table>
             </div>
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar cambios",
+                        icon: <Save />,
+                        onClick: () => saveMods(),
+                        description: "Actualizar y sincronizar las modificaciones y montos obligados del CCML",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
         </div>
     );
 }

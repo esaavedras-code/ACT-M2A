@@ -177,7 +177,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
             <FloatingFormActions
                 actions={[
                     {
-                        label: loading ? "Guardando..." : "Guardar Force Account",
+                        label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
                         description: "Actualizar balances de mano de obra, equipo y materiales para este Force Account",

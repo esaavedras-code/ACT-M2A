@@ -3,6 +3,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Building2 } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { formatPhoneNumber } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
@@ -65,14 +66,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     <Building2 className="text-primary" />
                     2. Información del Contratista
                 </h2>
-                <button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="btn-primary flex items-center gap-2"
-                >
-                    <Save size={18} />
-                    {loading ? "Sincronizando..." : "Actualizar Contratista"}
-                </button>
+                {/* El botón de guardar ahora es flotante */}
             </div>
 
             {numAct && (
@@ -169,6 +163,18 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     />
                 </div>
             </form>
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar cambios",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Actualizar y sincronizar la información de contacto de la empresa contratista",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
         </div>
     );
 });

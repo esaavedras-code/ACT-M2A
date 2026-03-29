@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { PackageSearch, Info } from "lucide-react";
+import { PackageSearch, Info, Save } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
@@ -173,19 +174,23 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
 
     return (
         <div className="w-full space-y-6">
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                        <PackageSearch className="text-amber-600" size={24} />
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-4 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col items-center justify-between mb-6">
+                <div className="w-full flex justify-center mb-2">
+                    <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-xl">
+                        <Info size={14} className="text-red-600 shrink-0" />
+                        <span className="text-sm font-black text-red-600 uppercase">Esta sección se actualiza automáticamente — no es necesario ingresar información aquí.</span>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 4</span>
-                        <span>Inventario Material on Site</span>
-                    </div>
-                </h2>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl">
-                    <Info size={13} className="text-emerald-600 shrink-0" />
-                    <span className="text-[11px] font-semibold text-emerald-700">Esta sección se actualiza automáticamente — no es necesario ingresar información aquí.</span>
+                </div>
+                <div className="w-full flex items-center justify-between">
+                    <h2 className="text-2xl font-bold flex items-center gap-3">
+                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                            <PackageSearch className="text-amber-600" size={24} />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 4</span>
+                            <span>Inventario Material on Site</span>
+                        </div>
+                    </h2>
                 </div>
             </div>
 
@@ -303,6 +308,18 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                     </table>
                 </div>
             </div>
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar cambios",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Actualizar balances de inventario y ajustes de precios de Material on Site",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
         </div>
     );
 });

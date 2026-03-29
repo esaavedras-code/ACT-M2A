@@ -3,6 +3,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FileCheck2, UserCheck, Upload, FileText, Activity, CheckSquare, X, Printer, Loader2 } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 import { generateSignedItemsReportLogic } from "@/lib/reportLogic";
@@ -38,6 +39,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         liquidated_items: []
     });
     const [isFocused, setIsFocused] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [showPartidas, setShowPartidas] = useState(false);
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -83,9 +85,11 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
     const saveData = async (silent = false) => {
         if (!projectId) return;
+        setLoading(true);
         const { error } = await supabase.from("projects").update({
             liquidation_data: formData
         }).eq('id', projectId);
+        setLoading(false);
         if (error && !silent) alert("Error: " + error.message);
         else if (!error) {
             if (!silent) alert("Liquidación sincronizada");
@@ -183,13 +187,6 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         Reporte de Firmas
                     </button>
                 </div>
-                <button
-                    onClick={handleSubmit}
-                    className="btn-primary flex items-center gap-2"
-                >
-                    <Save size={18} />
-                    Guardar Liquidación
-                </button>
             </div>
 
             {numAct && (
@@ -212,8 +209,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-tighter">Admin</label>
                             <input
                                 type="number"
-                                className="input-field text-center font-bold"
-                                style={{ backgroundColor: '#66FF99' }}
+                                className="input-field text-center font-bold bg-white"
                                 value={formData.admin_signed_count || 0}
                                 onChange={(e) => {
                                     setFormData({ ...formData, admin_signed_count: parseInt(e.target.value) || 0 });
@@ -225,8 +221,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-tighter">Contratista</label>
                             <input
                                 type="number"
-                                className="input-field text-center font-bold"
-                                style={{ backgroundColor: '#66FF99' }}
+                                className="input-field text-center font-bold bg-white"
                                 value={formData.contractor_signed_count || 0}
                                 onChange={(e) => {
                                     setFormData({ ...formData, contractor_signed_count: parseInt(e.target.value) || 0 });
@@ -238,8 +233,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-tighter">Liquidador</label>
                             <input
                                 type="number"
-                                className="input-field text-center font-bold"
-                                style={{ backgroundColor: '#66FF99' }}
+                                className="input-field text-center font-bold bg-white"
                                 value={formData.liquidator_signed_count || 0}
                                 onChange={(e) => {
                                     setFormData({ ...formData, liquidator_signed_count: parseInt(e.target.value) || 0 });
@@ -263,7 +257,6 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             const attachments = formData.federal_attachments?.[doc] || [];
                             const isChecked = formData.federal_docs?.includes(doc);
 
-                            // Reportes que el sistema genera y no requieren subida manual
                             const noUploadDocs = [
                                 "Final Acceptance Checklist for Federal -Aid Projects",
                                 "Final Acceptance Report (FHWA)",
@@ -412,6 +405,18 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     </div>
                 </div>
             )}
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar cambios",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Actualizar datos de cierre federal, conteo de firmas y documentos de liquidación",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
         </div>
     );
 });

@@ -305,7 +305,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         variant: 'secondary' as const
                     },
                     {
-                        label: loading ? "Guardando..." : "Sincronizar Partidas",
+                        label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
                         description: "Guardar todos los cambios realizados en las partidas y refrescar balances",

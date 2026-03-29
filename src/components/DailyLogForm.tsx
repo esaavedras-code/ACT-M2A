@@ -445,7 +445,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         disabled: loading
                     }] : []),
                     {
-                        label: loading ? "Guardando..." : "Guardar Informe",
+                        label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
                         description: "Sincronizar todos los cambios y actualizar balances de personal, equipo y partidas",

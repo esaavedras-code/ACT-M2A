@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, ShieldCheck, Plus, Trash2 } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import { formatDate, getLocalStorageItem } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
@@ -293,10 +294,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     5. Cumplimiento Log (Labor/DBE/EEO)
                 </h2>
                 <div className="flex gap-2">
-                    <button onClick={handleSubmit} disabled={loading} className="btn-primary flex items-center gap-2">
-                        <Save size={18} />
-                        {loading ? "Sincronizando..." : "Guardar Cumplimiento"}
-                    </button>
+                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>
             </div>
 
@@ -405,7 +403,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                 {!isSubcontracts && (
                                                     <input
                                                         type="date"
-                                                        className="input-field text-xs w-full"
+                                                        className="input-field text-xs w-full text-black"
+                                                        style={{ backgroundColor: '#66FF99' }}
                                                         value={r.date_expiry || ""}
                                                         onChange={(e) => updateRecord(idx, 'date_expiry', e.target.value)}
                                                         onKeyDown={(e) => handleLastCellTab(e, idx)}
@@ -417,7 +416,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                             <td className="px-4 py-2">
                                                 {!isSubcontracts && (
                                                     <select
-                                                        className="input-field text-xs w-full"
+                                                        className="input-field text-xs w-full text-black"
+                                                        style={{ backgroundColor: '#66FF99' }}
                                                         value={r.status || ""}
                                                         onChange={(e) => updateRecord(idx, 'status', e.target.value)}
                                                         onKeyDown={(e) => handleLastCellTab(e, idx)}
@@ -514,14 +514,16 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                     <td className="px-4 py-2">
                                                         <input
                                                             type="date"
-                                                            className="input-field text-xs w-full"
+                                                            className="input-field text-xs w-full text-black"
+                                                            style={{ backgroundColor: '#66FF99' }}
                                                             value={sub.date_expiry || ""}
                                                             onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.value)}
                                                         />
                                                     </td>
                                                     <td className="px-4 py-2">
                                                         <select
-                                                            className="input-field text-xs w-full"
+                                                            className="input-field text-xs w-full text-black"
+                                                            style={{ backgroundColor: '#66FF99' }}
                                                             value={sub.status || ""}
                                                             onChange={(e) => updateRecord(sidx, 'status', e.target.value)}
                                                         >
@@ -582,6 +584,18 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     </p>
                 </div>
             </div>
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar cambios",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Actualizar y sincronizar todos los documentos de cumplimiento laboral y subcontratos",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
         </div>
     );
 });

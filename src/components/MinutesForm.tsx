@@ -8,6 +8,7 @@ import {
     Save, Trash2, Download, Copy
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { generateMinutesReport } from "@/lib/generateMinutesReport";
 import { downloadBlob } from "@/lib/reportLogic";
@@ -248,12 +249,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                     <Mic className="text-primary" />
                     9. Minutas de Reunión
                 </h2>
-                {result && (
-                    <button onClick={handleDownloadPdf} disabled={loading} className="btn-primary flex items-center gap-2">
-                        {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-                        Descargar PDF
-                    </button>
-                )}
+                {/* Las acciones principales ahora son flotantes */}
             </div>
             {/* Header Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -455,6 +451,28 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                         </div>
                     </div>
                 </div>
+            )}
+            {result && (
+                <FloatingFormActions
+                    actions={[
+                        {
+                            label: loading ? "Guardando..." : "Guardar cambios",
+                            icon: <Save />,
+                            onClick: () => handleSaveToDB(),
+                            description: "Sincronizar los cambios manuales hechos en el resumen o las minutas",
+                            variant: 'primary' as const,
+                            disabled: loading
+                        },
+                        {
+                            label: "Descargar PDF",
+                            icon: <Download />,
+                            onClick: handleDownloadPdf,
+                            description: "Generar y descargar el reporte oficial de la minuta en formato PDF",
+                            variant: 'secondary' as const,
+                            disabled: loading
+                        }
+                    ]}
+                />
             )}
         </div>
     );

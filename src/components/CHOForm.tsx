@@ -324,7 +324,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                         variant: 'secondary' as const
                     },
                     {
-                        label: loading ? "Sincronizando..." : "Guardar Cambios",
+                        label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
                         description: "Sincronizar todas las enmiendas y partidas vinculadas con el contrato",

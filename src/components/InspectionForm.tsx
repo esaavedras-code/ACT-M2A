@@ -237,7 +237,7 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
                         disabled: loading
                     }] : []),
                     {
-                        label: loading ? "Guardando..." : "Guardar Inspección",
+                        label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => handleSave(),
                         description: "Sincronizar todos los datos de inspección, seguridad y visitantes",

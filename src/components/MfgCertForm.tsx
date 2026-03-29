@@ -3,6 +3,7 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Factory, Plus, Trash2, Upload, Loader2, FileSearch, CheckCircle2, AlertCircle, Info, ShieldCheck } from "lucide-react";
+import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 
 interface ValidationResult {
@@ -411,10 +412,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                         {parsing ? <Loader2 size={16} className="animate-spin" /> : <FileSearch size={16} />} 
                         {parsing ? "Leyendo..." : "Subir y Evaluar PDFs"}
                     </button>
-                    <button onClick={handleSubmit} disabled={loading || parsing} className="btn-primary flex items-center gap-2">
-                        <Save size={18} />
-                        {loading ? "Sincronizando..." : "Guardar cambios"}
-                    </button>
+                    {/* El botón de guardar ahora es flotante */}
                 </div>
             </div>
 
@@ -747,6 +745,18 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     </div>
                 )}
             </div>
+            <FloatingFormActions
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar cambios",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Actualizar validar y sincronizar certificados de manufactura detectados",
+                        variant: 'primary' as const,
+                        disabled: loading || parsing
+                    }
+                ]}
+            />
         </div>
     );
 });
