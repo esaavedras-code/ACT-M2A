@@ -81,8 +81,10 @@ export default function RootLayout({
                         <footer className="bg-slate-900 text-slate-500 py-8 text-center text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800 mb-20 lg:mb-0" suppressHydrationWarning>
                             <p>© M2A Group - Sistema de Control de Proyectos Carreteras</p>
                         </footer>
-                        <QuickHelpModal />
-                        <BottomNav />
+                        <Suspense fallback={null}>
+                            <QuickHelpModal />
+                            <BottomNav />
+                        </Suspense>
                     </div>
                 </TranslationProvider>
             </body>
