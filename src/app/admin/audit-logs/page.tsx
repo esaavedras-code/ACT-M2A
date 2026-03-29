@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { History, Search, ArrowLeft, Filter, User, Table as TableIcon, Database, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { History, Search, ArrowLeft, Filter, User, Table as TableIcon, Database, AlertCircle, ChevronDown, ChevronRight, Info } from "lucide-react";
 import Link from "next/link";
 
 interface AuditLog {
