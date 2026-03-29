@@ -105,7 +105,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
             }
 
             // 3. Preparar enlace de invitación 
-            const inviteLink = `https://pact.m2a-group.com/login?invite_token=${token}`;
+            const inviteLink = `https://act-m2-a.vercel.app/login?invite_token=${token}`;
             const messageStr = "Únete a este proyecto en la PACT";
 
             // 4. Enviar correo vía Electron IPC o fallback de API Web
@@ -139,7 +139,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
 
                             <!-- Botones -->
                             <div style="text-align: center; margin: 28px 0 20px 0;">
-                                <a href="https://pact.m2a-group.com" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 16px; margin-bottom: 12px;">
+                                <a href="https://act-m2-a.vercel.app" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 16px; margin-bottom: 12px;">
                                     🌐 Entrar al Programa Web
                                 </a>
                                 <br/>
@@ -149,7 +149,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                             </div>
 
                             <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 20px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 16px;">
-                                Enlace web: <a href="https://pact.m2a-group.com" style="color: #2563eb;">https://pact.m2a-group.com</a><br/>
+                                Enlace web: <a href="https://act-m2-a.vercel.app" style="color: #2563eb;">https://act-m2-a.vercel.app</a><br/>
                                 Si el botón no funciona, copia: ${inviteLink}
                             </p>
                         </div>
@@ -231,7 +231,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                 return;
             }
 
-            const link = `https://pact.m2a-group.com/login?invite_token=${token}`;
+            const link = `https://act-m2-a.vercel.app/login?invite_token=${token}`;
             setGeneratedLink(link);
             copyToClipboard(link);
             setLinkCopied(true);

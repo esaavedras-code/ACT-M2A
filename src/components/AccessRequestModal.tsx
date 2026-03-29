@@ -85,7 +85,7 @@ export default function AccessRequestModal({ isOpen, onClose, initialData }: Acc
                                         </div>
 
                                         <div style="text-align: center; margin-top: 35px;">
-                                            <a href="https://pact.m2a-group.com/admin/requests" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: bold; display: inline-block; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">
+                                            <a href="https://act-m2-a.vercel.app/admin/requests" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: bold; display: inline-block; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">
                                                 Gestionar Solicitud en el Panel
                                             </a>
                                         </div>

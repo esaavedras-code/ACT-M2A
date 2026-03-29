@@ -267,7 +267,10 @@ export default function AdminRequestsPage() {
                                 <p style="margin: 0 0 10px 0;"><strong>Usuario:</strong> ${req.email}</p>
                                 <p style="margin: 0;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
                             </div>
-                            <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes entrar si ya tienes el programa instalado. Si no lo tienes, solicítalo al administrador.</p>
+                            <p style="color: #475569; line-height: 1.6;">Con esta información ya puedes acceder al sistema PACT desde el navegador.</p>
+                            <div style="text-align: center; margin: 20px 0;">
+                                <a href="https://act-m2-a.vercel.app" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block;">🌐 Entrar al Programa Web</a>
+                            </div>
                             <p style="font-size: 12px; color: #94a3b8; margin-top: 30px; border-top: 1px solid #f1f5f9; pt: 20px;">Este es un mensaje automático del sistema de administración PACT.</p>
                         </div>
                     `
@@ -467,12 +470,12 @@ export default function AdminRequestsPage() {
                                 <p style="margin: 5px 0; font-size: 15px;"><strong>Password Temporero:</strong> <code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPwd}</code></p>
                             </div>
                             <div style="text-align: center; margin: 28px 0 20px 0;">
-                                <a href="https://pact.m2a-group.com" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 16px;">
+                                <a href="https://act-m2-a.vercel.app" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 16px;">
                                     🌐 Entrar al Programa Web
                                 </a>
                             </div>
                             <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 20px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 16px;">
-                                Enlace directo: <a href="https://pact.m2a-group.com" style="color: #2563eb;">https://pact.m2a-group.com</a><br/>
+                                Enlace directo: <a href="https://act-m2-a.vercel.app" style="color: #2563eb;">https://act-m2-a.vercel.app</a><br/>
                                 Se recomienda cambiar tu contraseña en tu primer acceso.
                             </p>
                         </div>
