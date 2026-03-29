@@ -23,11 +23,6 @@ const drawLine = (p: any, x1: number, y1: number, x2: number, y2: number, thickn
     p.drawLine({ start: { x: x1, y: PH - y1 }, end: { x: x2, y: PH - y2 }, thickness, color: rgb(0, 0, 0) });
 };
 
-const drawRect = (p: any, x: number, y: number, w: number, h: number, fill = false, color = rgb(0.9, 0.9, 0.9)) => {
-    if (fill) { p.drawRectangle({ x, y: PH - y - h, width: w, height: h, color }); }
-    else { p.drawRectangle({ x, y: PH - y - h, width: w, height: h, borderColor: rgb(0, 0, 0), borderWidth: 0.5 }); }
-};
-
 /**
  * Genera el reporte ACT-123 (Supplementary Contract Form) - Rev 12/2024
  */
@@ -37,11 +32,23 @@ export async function generateAct123(projectId: string, choId: string) {
         if (!projData) throw new Error("Proyecto no encontrado");
         const { data: contrData } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
         const { data: choData } = await supabase.from('chos').select('*').eq('id', choId).single();
-        const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
+        const { data: allChos } = await supabase.from('chos').select('cho_num, time_extension_days, proposed_change').eq('project_id', projectId).order('cho_num', { ascending: true });
         const { data: contractItems } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
 
-        const personnelMap: Record<string, string> = {};
-        personnel?.forEach(p => { personnelMap[p.role] = p.name; });
+        const currentChoNum = parseFloat(choData.cho_num);
+        let prevCostMods = 0;
+        if (allChos) {
+            for (const c of allChos) {
+                if (parseFloat(c.cho_num) < currentChoNum) {
+                    prevCostMods += (parseFloat(c.proposed_change) || 0);
+                }
+            }
+        }
+
+        const originalCost = parseFloat(projData.cost_original) || 0;
+        const actualContractAmount = originalCost + prevCostMods;
+        const currentChoAmount = parseFloat(choData.proposed_change) || 0;
+        const newContractAmount = actualContractAmount + currentChoAmount;
 
         const contractItemNums = new Set(contractItems?.map(ci => ci.item_num) || []);
         const allChoItems = Array.isArray(choData.items) ? choData.items : [];
@@ -58,8 +65,6 @@ export async function generateAct123(projectId: string, choId: string) {
             return Math.abs(parseFloat(v)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
 
-        const vc = [40, 65, 95, 250, 290, 330, 360, 405, 455, 525, PW - 45];
-
         const drawHeader = (p: any) => {
             drawText(p, "Government of Puerto Rico", PW / 2, 22, font, 8.5, true);
             drawText(p, "Department of Transportation and Public Works", PW / 2, 32, font, 8.5, true);
@@ -69,86 +74,66 @@ export async function generateAct123(projectId: string, choId: string) {
             drawText(p, "SUPPLEMENTARY CONTRACT FORM", PW / 2, 68, fontBold, 13, true);
             drawLine(p, 40, 75, PW - 45, 75, 2.5);
 
-            const ly = 95, ry = 95, lh = 15.5;
-            const c1 = 40, c2 = 330, le1 = 315; 
-            const drawF = (n: string, lbl: string, x: number, y: number, lineEnd: number, v: any) => {
+            const ly = 95, lh = 15.5;
+            const c1 = 40, le1 = 300; 
+            const drawF = (n: string, lbl: string, x: number, lineIdx: number, lineEnd: number, v: any) => {
                 const label = `${n}. ${lbl}`;
-                drawText(p, label, x, y, fontBold, 7.2);
+                const yy = ly + (lineIdx * lh);
+                drawText(p, label, x, yy, fontBold, 7.2);
                 const w = fontBold.widthOfTextAtSize(label, 7.2);
-                drawLine(p, x + w + 5, y + 2, lineEnd, y + 2, 0.4);
-                drawText(p, v || "", x + w + 8, y, font, 7.8);
+                drawLine(p, x + w + 5, yy + 2, lineEnd, yy + 2, 0.4);
+                drawText(p, v || "", x + w + 8, yy, font, 7.8);
             };
 
-            drawF("1", "Project Name:", c1, ly, le1, projData.name);
-            drawF("2", "Contractor:", c1, ly+lh, le1, contrData?.name);
-            drawF("3", "Project Num.:", c1, ly+lh*2, 205, projData.num_act);
-            drawF("6", "Contract Num.:", c1, ly+lh*3, 205, projData.num_contrato);
-            drawF("8", "CHO Number:", c1, ly+lh*4, 150, choData.cho_num);
+            // ACT-123 Specific Boxes (1-7)
+            drawF("1", "Project No.:", c1, 0, le1, projData.num_act);
+            drawF("2", "Oracle No.:", c1, 1, le1, projData.num_oracle);
+            drawF("3", "Federal No.:", c1, 2, le1, projData.num_federal);
+            drawF("4", "Contract No.:", c1, 3, le1, projData.num_contrato);
+            drawF("5", "OCPR Contract No.:", c1, 4, le1, projData.num_contrato_ocpr || "-");
+            drawF("6", "Account No.:", c1, 5, le1, projData.no_cuenta || "-");
+            
+            drawF("7", "SUPPLEMENTARY CONTRACT NO.:", PW - 260, 0, PW - 45, choData.cho_num);
 
-            drawF("9", "Contract Beginning Date:", c2, ry, PW-45, formatDate(projData.date_project_start));
-            drawF("10", "Revised Completion Date:", c2, ry+lh, PW-45, formatDate(projData.date_orig_completion)); 
-            drawF("11", "Add Contract Time (Days):", c2, ry+lh*2, PW-45, choData.time_extension_days || "0");
-            drawF("12", "New Completion Date:", c2, ry+lh*3, PW-45, formatDate(projData.date_orig_completion));
-
-            return 180;
+            return 200;
         };
 
-        const drawTable = (p: any, y: number, items: any[], title: string) => {
-            drawRect(p, 40, y, PW-85, 14, true, rgb(0.9, 0.9, 0.9));
-            drawText(p, title, 45, y+10, fontBold, 8);
-            y += 14;
-
-            vc.forEach((x, i) => { if (i > 0 && i < vc.length - 1) drawLine(p, x, y-14, x, y+items.length*14, 0.4); });
+        const vc = [40, 65, 95, 250, 290, 330, 360, 405, 455, 525, PW - 45];
+        const drawTable = (p: any, y: number, items: any[], title: string, boxNum: string) => {
+            drawText(p, `${boxNum}. ${title}`, 45, y - 5, fontBold, 8.5);
+            drawLine(p, 40, y + 2, PW - 45, y + 2, 0.5);
+            y += 10;
 
             items.forEach((it, i) => {
                 const q = parseFloat(it.proposed_change || it.quantity) || 0;
                 const up = parseFloat(it.unit_price) || 0;
                 const amt = q * up;
-                drawText(p, it.item_num || "", vc[0]+(vc[1]-vc[0])/2, y+10, font, 7, true);
-                drawText(p, it.specification || "", vc[1]+(vc[2]-vc[1])/2, y+10, font, 7, true);
-                drawText(p, it.description || "", vc[2]+5, y+10, font, 6.5);
-                drawText(p, it.unit || "", vc[5]+(vc[6]-vc[5])/2, y+10, font, 7, true);
-                drawText(p, fmt(q), vc[7]-4, y+10, font, 7, false, true);
-                drawText(p, fmt(up), vc[8]-4, y+10, font, 7, false, true);
-                drawText(p, fmt(amt), vc[9]-5, y+10, font, 7, false, true);
-                drawLine(p, 40, y+14, PW-45, y+14, 0.2);
-                y += 14;
+                drawText(p, it.item_num || "", vc[0]+(vc[1]-vc[0])/2, y, font, 7, true);
+                drawText(p, it.description || "", vc[2]+5, y, font, 6.5);
+                drawText(p, it.unit || "", vc[5]+(vc[6]-vc[5])/2, y, font, 7, true);
+                drawText(p, fmt(q), vc[7]-4, y, font, 7, false, true);
+                drawText(p, fmt(up), vc[8]-4, y, font, 7, false, true);
+                drawText(p, fmt(amt), vc[9]-5, y, font, 7, false, true);
+                y += 12;
             });
             return y;
         };
 
-        const drawSignatures = (p: any, y: number, totalAmt: number) => {
-            const financeX = 380;
-            const drawFinancial = (n: string, lbl: string, v: number, yy: number) => {
-                drawText(p, `${n}. ${lbl}:`, financeX, yy, fontBold, 8.5);
-                drawText(p, "$", financeX + 110, yy, fontBold, 8.5);
-                drawText(p, fmt(v), PW - 50, yy, fontBold, 8.5, false, true);
-                drawLine(p, financeX + 120, yy + 2, PW - 45, yy + 2, 0.5);
-            };
-
-            const origCost = parseFloat(projData.cost_original) || 0;
-            drawFinancial("28", "Change Order Amount", totalAmt, y);
-            drawFinancial("29", "Actual Contract Amount", origCost, y+15);
-            drawFinancial("30", "New Contract Amount", origCost + totalAmt, y+30);
-
-            // Distribution
-            const dy = y + 60;
-            drawText(p, "37. Distribution:", 40, dy, fontBold, 8.5);
-            const dist = ["Regional Office", "Preaudit Office", "Contractor", "Project", "Construction Area", "FHWA", "Treasury Office"];
-            dist.forEach((d, i) => {
-                drawText(p, `• ${d}`, 40 + (i % 2 === 0 ? 0 : 150), dy + 15 + Math.floor(i/2)*12, font, 7.5);
-            });
-        };
-
         const page = pdfDoc.addPage([PW, PH]);
         let nextY = drawHeader(page);
-        nextY = drawTable(page, nextY, contractChoItems, "Contract Items");
-        nextY = drawTable(page, nextY + 10, newChoItems, "New Items (Extra Work)");
+        nextY = drawTable(page, nextY, contractChoItems, "Change of Contract Items", "8");
+        nextY = drawTable(page, nextY + 20, newChoItems, "New Items (Extra Work)", "9");
         
-        let totalAmt = 0;
-        allChoItems.forEach((it: any) => totalAmt += (parseFloat(it.proposed_change || it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
-        
-        drawSignatures(page, nextY + 30, totalAmt);
+        // Totals (Box 28-30)
+        const ty = nextY + 30;
+        const drawFin = (p: any, n: string, lbl: string, v: number, yy: number) => {
+            drawText(p, `${n}. ${lbl}:`, 320, yy, fontBold, 8.5);
+            drawText(p, "$", 460, yy, fontBold, 8.5);
+            drawText(p, fmt(v), PW - 50, yy, fontBold, 8.5, false, true);
+        };
+        drawFin(page, "28", "Change Order Amount", currentChoAmount, ty);
+        drawFin(page, "29", "Actual Contract Amount", actualContractAmount, ty + 15);
+        drawFin(page, "30", "New Contract Amount", newContractAmount, ty + 30);
 
         const pdfBytes = await pdfDoc.save();
         return new Blob([pdfBytes as any], { type: 'application/pdf' });

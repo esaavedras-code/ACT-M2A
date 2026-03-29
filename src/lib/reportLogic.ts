@@ -1215,7 +1215,9 @@ export const generateProjectedFundDistributionReportLogic = async (projectId: st
 import { generateAct117C } from "./generateAct117C";
 import { generateAct117B } from "./generateAct117B";
 import { generateAct122 } from "./generateAct122";
+import { generateAct122Excel } from "./generateAct122Excel";
 import { generateAct123 } from "./generateAct123";
+import { generateAct123Excel } from "./generateAct123Excel";
 import { generateAct124 } from "./generateAct124";
 import { generateRoa } from "./generateRoa";
 import { generateTimeAnalysisReportLogic as generateTimeAnalysis } from "@/lib/generateTimeAnalysisReport";
@@ -1301,17 +1303,28 @@ export const generateAct122ReportLogic = async (projectId: string, choId: string
     const { project, chos } = await fetchAllReportData(projectId);
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
-    const blob = await generateAct122(projectId, choId);
-    if (blob)    downloadBlob(blob, `ACT-122_CHO_${choId}.pdf`);
+
+    if (format === 'excel') {
+        const blob = await generateAct122Excel(projectId, choId);
+        downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}.xlsx`);
+    } else {
+        const blob = await generateAct122(projectId, choId);
+        if (blob) downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}.pdf`);
+    }
 };
 
 export const generateAct123ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    const { project, chos } = await fetchAllReportData(projectId);
+    const cho = chos?.find(c => c.id === choId);
+    if (!project || !cho) return;
+
     if (format === 'excel') {
-        alert("Este reporte oficial solo está disponible en formato PDF.");
-        return;
+        const blob = await generateAct123Excel(projectId, choId);
+        downloadBlob(blob, `ACT-123_CHO_${cho.cho_num || choId}_${project.num_act}.xlsx`);
+    } else {
+        const blob = await generateAct123(projectId, choId);
+        if (blob) downloadBlob(blob, `ACT-123_CHO_${cho.cho_num || choId}_${project.num_act}.pdf`);
     }
-    const blob = await generateAct123(projectId, choId);
-    downloadBlob(blob, `ACT-123_Supplementary_Form_${choId}.pdf`);
 };
 
 export const generateAct124ReportLogic = async (projectId: string, choId: string, selectedItems: string[] = [], format: 'pdf' | 'excel' = 'pdf') => {

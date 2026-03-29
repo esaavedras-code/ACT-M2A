@@ -658,7 +658,9 @@ function ReportesContent() {
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
                             onGenerate: async (ids) => {
                                 try {
-                                    await generateChoReportLogic(projectId, ids, reportFormat);
+                                    for(const id of ids) {
+                                        await generateAct122ReportLogic(projectId, id, reportFormat);
+                                    }
                                     setStatus("Reporte(s) generado(s).");
                                 } catch (e: any) {
                                     setStatus(`Error: ${e.message}`);

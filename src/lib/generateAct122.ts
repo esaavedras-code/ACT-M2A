@@ -68,7 +68,7 @@ export async function generateAct122(projectId: string, choId: string) {
         if (!projData) throw new Error("Proyecto no encontrado");
         const { data: contrData } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
         const { data: choData } = await supabase.from('chos').select('*').eq('id', choId).single();
-        const { data: allChos } = await supabase.from('chos').select('cho_num, time_extension_days').eq('project_id', projectId).order('cho_num', { ascending: true });
+        const { data: allChos } = await supabase.from('chos').select('cho_num, time_extension_days, proposed_change').eq('project_id', projectId).order('cho_num', { ascending: true });
         const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
         const { data: contractItems } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
 
@@ -93,34 +93,40 @@ export async function generateAct122(projectId: string, choId: string) {
 
         const vc = [40, 65, 95, 250, 290, 330, 360, 405, 455, 525, PW - 45];
 
-        // Lógica de fechas acumuladas
+        // Lógica de fechas y montos acumulados
         let prevExtDays = 0;
+        let prevCostMods = 0;
+        const currentChoNum = parseFloat(choData.cho_num);
         if (allChos) {
             for (const c of allChos) {
-                if (c.cho_num < choData.cho_num) {
+                const loopNum = parseFloat(c.cho_num);
+                if (loopNum < currentChoNum) {
                     prevExtDays += (parseInt(c.time_extension_days) || 0);
+                    prevCostMods += (parseFloat(c.proposed_change) || 0);
                 }
             }
         }
 
-        const origStart = projData.date_project_start;
-        const origEnd = projData.date_orig_completion;
+        const origStart = projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null;
+        const origEndRaw = projData.date_orig_completion ? new Date(projData.date_orig_completion + "T00:00:00") : null;
         
-        const getRevisedDate = (baseDate: string, days: number) => {
-            if (!baseDate) return "N/A";
-            const d = new Date(baseDate + "T12:00:00"); // Avoid timezone shift
-            d.setDate(d.getDate() + days);
-            return d.toISOString().split('T')[0];
-        };
+        // El Revised Completion Date antes de este CHO (Box 10) es el Original + Extensiones Previas
+        const dateRevisedBox10 = origEndRaw ? new Date(origEndRaw.getTime() + prevExtDays * 86400000) : null;
+        
+        // New Completion Date (Box 12) = Box 10 + Extensión de esta CHO
+        const timeExt = parseInt(choData.time_extension_days) || 0;
+        const dateNewBox12 = dateRevisedBox10 ? new Date(dateRevisedBox10.getTime() + timeExt * 86400000) : null;
 
-        const dateRevisedBox10 = getRevisedDate(origEnd, prevExtDays);
-        const totalExtDays = prevExtDays + (parseInt(choData.time_extension_days) || 0);
-        const dateNewBox12 = getRevisedDate(origEnd, totalExtDays);
+        // Montos para Box 28, 29, 30
+        const originalCost = parseFloat(projData.cost_original) || 0;
+        const actualContractAmount = originalCost + prevCostMods;
+        const currentChoAmount = parseFloat(choData.proposed_change) || 0;
+        const newContractAmount = actualContractAmount + currentChoAmount;
         
         // Fecha Administrativa: Nueva fecha de completar + 2 años
         let adminDateStr = "N/A";
-        if (dateNewBox12 !== "N/A") {
-            const d = new Date(dateNewBox12 + "T12:00:00");
+        if (dateNewBox12) {
+            const d = new Date(dateNewBox12);
             d.setFullYear(d.getFullYear() + 2);
             adminDateStr = formatDate(d.toISOString().split('T')[0]);
         }
@@ -135,7 +141,7 @@ export async function generateAct122(projectId: string, choId: string) {
             drawLine(p, 40, 75, PW - 45, 75, 2.5);
             drawLine(p, 40, 78, PW - 45, 78, 0.5);
 
-            const ly = 95, ry = 95, lh = 15.5;
+            const ly = 95, ry = 95, lh = 15.5, sy = 95;
             const c1 = 40, c2 = 330, le1 = 315; 
             const drawF = (n: string, lbl: string, x: number, y: number, lineEnd: number, v: any) => {
                 const label = `${n}. ${lbl}`;
@@ -147,6 +153,9 @@ export async function generateAct122(projectId: string, choId: string) {
 
             drawF("1", "Project Name:", c1, ly, le1, projData.name);
             drawF("2", "Contractor:", c1, ly+lh, le1, contrData?.name);
+            drawF("28", "Change Order Amount:", PW-210, sy+lh*4.5, 75, fmt(currentChoAmount));
+            drawF("29", "Actual Contract Amount:", PW-210, sy+lh*5.5, 75, fmt(actualContractAmount));
+            drawF("30", "New Contract Amount:", PW-210, sy+lh*6.5, 75, fmt(newContractAmount));
             drawF("3", "Project Num.:", c1, ly+lh*2, 205, projData.num_act);
             drawF("4", "Federal Num.:", c1, ly+lh*3, 205, projData.num_federal);
             drawF("5", "Oracle Num.:", c1, ly+lh*4, 230, projData.num_oracle);
@@ -154,12 +163,12 @@ export async function generateAct122(projectId: string, choId: string) {
             drawF("7", "Amendment:", c1, ly+lh*6, 150, choData.amendment_letter || "0");
             drawF("8", "CHO Number:", c1, ly+lh*7, 150, choData.cho_num);
 
-            drawF("9", "Contract Beginning Date:", c2, ry, PW-45, formatDate(origStart));
-            drawF("10", "Revised Completion Date:", c2, ry+lh, PW-45, formatDate(dateRevisedBox10));
+            drawF("9", "Contract Beginning Date:", c2, ry, PW-45, formatDate(origStart ? origStart.toISOString().split('T')[0] : ""));
+            drawF("10", "Revised Completion Date:", c2, ry+lh, PW-45, formatDate(dateRevisedBox10 ? dateRevisedBox10.toISOString().split('T')[0] : ""));
             drawF("11", "Add Contract Time (Days):", c2, ry+lh*2, PW-45, choData.time_extension_days || "0");
             drawF("11a", "Compensable Days:", c2, ry+lh*3, PW-45, "0");
             drawF("12", "New Completion Date:", c2, ry+lh*4, PW-45, formatDate(dateNewBox12));
-            drawF("13", "New Administrative Term Date:", c2, ry+lh*5, PW-45, adminDateStr);
+            drawF("13", "New Administrative Term Date (Contralor):", c2, ry+lh*5, PW-45, adminDateStr);
             drawF("14", "FMIS End Date:", c2, ry+lh*6, PW-45, formatDate(projData.fmis_end_date));
 
             const cby = 222;
