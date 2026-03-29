@@ -101,7 +101,7 @@ export default function AccessRequestModal({ isOpen, onClose, initialData }: Acc
                             await api.sendEmail(emailData);
                         } else {
                             // Fallback para versión Web
-                            await fetch('/api/send-email', {
+                            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(emailData)

@@ -144,7 +144,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
             } else {
                 // Fallback para versión Web
                 try {
-                    const res = await fetch('/api/send-email', {
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(emailData)

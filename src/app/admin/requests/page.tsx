@@ -277,7 +277,7 @@ export default function AdminRequestsPage() {
                     await api.sendEmail(emailData);
                 } else {
                     // Fallback para versión Web
-                    await fetch('/api/send-email', {
+                    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(emailData)
@@ -467,7 +467,7 @@ export default function AdminRequestsPage() {
                 await api.sendEmail(invitationData);
             } else {
                 // Fallback para versión Web
-                await fetch('/api/send-email', {
+                await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(invitationData)

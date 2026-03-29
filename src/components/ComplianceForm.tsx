@@ -105,7 +105,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         response = await api.sendEmail(emailData);
                     } else {
                         // Fallback para versión Web
-                        const res = await fetch('/api/send-email', {
+                        const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(emailData)
