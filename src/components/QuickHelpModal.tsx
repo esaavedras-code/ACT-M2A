@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { HelpCircle, X, ChevronRight, BookOpen, ShieldCheck, Mail, Search, BookMarked, ArrowLeft } from "lucide-react";
 
 const abbreviations = [
@@ -67,7 +67,11 @@ export default function QuickHelpModal() {
         { title: "Control Diario", text: "Registra minutas, actividades e informes de inspección con voz o texto." },
         { title: "Reportes", text: "Genera ACT-117 (Pagos/MOS), ACT-122 (CHO) y balances en PDF/Excel." },
         { title: "Archivos", text: "📂 Sube y descarga documentos por sección. El inspector no tiene acceso." },
-        { title: "Administración", text: "Gestión de accesos y roles (A, B, C, D, E) con seguridad de doble paso." }
+        { title: "Administración", text: "Gestión de accesos y roles (A, B, C, D, E) con seguridad de doble paso." },
+        {
+            title: "🟢 Ingreso de Datos",
+            text: "Los espacios pintados de verde son datos que, por lo general, se deben llenar.\n\nCuando se anota por primera vez la especificación de un ítem, se anota automáticamente la descripción y la unidad. Si ese ítem ya está en el proyecto, al escribir el número de ítem se escribe automáticamente."
+        }
     ];
 
     const filteredAbbr = abbreviations.filter(a =>
@@ -75,15 +79,77 @@ export default function QuickHelpModal() {
         a.significado.toLowerCase().includes(search.toLowerCase())
     );
 
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const [hasMoved, setHasMoved] = useState(false);
+
+    useEffect(() => {
+        const savedPos = localStorage.getItem("pact_help_pos");
+        if (savedPos) {
+            try {
+                setPosition(JSON.parse(savedPos));
+            } catch (e) {
+                console.error("Error loading help position", e);
+            }
+        }
+    }, []);
+
+    const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+        setIsDragging(true);
+        setHasMoved(false);
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        setDragStart({ x: clientX - position.x, y: clientY - position.y });
+    };
+
+    const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isDragging) return;
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        
+        const newX = clientX - dragStart.x;
+        const newY = clientY - dragStart.y;
+        
+        if (Math.abs(newX - position.x) > 2 || Math.abs(newY - position.y) > 2) {
+            setHasMoved(true);
+        }
+        
+        setPosition({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+        if (isDragging) {
+            localStorage.setItem("pact_help_pos", JSON.stringify(position));
+        }
+        setIsDragging(false);
+    };
+
     if (!isOpen) {
         return (
             <button
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-10 right-10 z-[2000] bg-primary text-white p-4 rounded-full shadow-2xl hover:bg-blue-700 transition-all hover:scale-110 group animate-bounce"
-                title="Ayuda del Sistema"
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onTouchMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onTouchEnd={handleMouseUp}
+                onClick={(e) => {
+                    if (!hasMoved) {
+                        setIsOpen(true);
+                    }
+                }}
+                className="fixed z-[2000] bg-primary text-white p-4 rounded-full shadow-2xl hover:bg-blue-700 transition-all hover:scale-110 group animate-bounce cursor-move"
+                style={{ 
+                    bottom: '40px', 
+                    right: '40px',
+                    transform: `translate(${position.x}px, ${position.y}px)`,
+                    transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                }}
+                title="Ayuda del Sistema (Arrastrar para mover)"
             >
                 <HelpCircle size={28} />
-                <span className="absolute right-full mr-4 bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                <span className="absolute right-full mr-4 bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
                     Guía Rápida
                 </span>
             </button>
@@ -162,17 +228,24 @@ export default function QuickHelpModal() {
                         {/* Main Guide View */}
                         <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto no-scrollbar">
                             <div className="grid grid-cols-1 gap-4">
-                                {sections.map((s, i) => (
-                                    <div key={i} className="flex gap-4 items-start p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl transition-colors border-l-4 border-primary/20 hover:border-primary">
-                                        <div className="mt-1 text-primary">
-                                            <ChevronRight size={16} />
+                                {sections.map((s, i) => {
+                                    const isDataEntry = s.title.includes("Ingreso de Datos");
+                                    return (
+                                        <div key={i} className={`flex gap-4 items-start p-4 rounded-2xl transition-colors border-l-4 ${
+                                            isDataEntry
+                                                ? "bg-green-50 dark:bg-green-900/10 border-green-400 hover:bg-green-100 dark:hover:bg-green-900/20"
+                                                : "hover:bg-slate-50 dark:hover:bg-slate-800/50 border-primary/20 hover:border-primary"
+                                        }`}>
+                                            <div className={`mt-1 shrink-0 ${isDataEntry ? "text-green-600" : "text-primary"}`}>
+                                                <ChevronRight size={16} />
+                                            </div>
+                                            <div>
+                                                <h4 className={`font-black text-xs uppercase tracking-widest mb-1 ${isDataEntry ? "text-green-700 dark:text-green-400" : "text-slate-800 dark:text-white"}`}>{s.title}</h4>
+                                                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed whitespace-pre-line">{s.text}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="font-black text-xs uppercase tracking-widest text-slate-800 dark:text-white mb-1">{s.title}</h4>
-                                            <p className="text-sm text-slate-500 font-medium leading-relaxed">{s.text}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
 
                             <div className="bg-amber-50 dark:bg-amber-900/10 border-2 border-dashed border-amber-200 dark:border-amber-800 p-6 rounded-3xl text-center">

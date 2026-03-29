@@ -79,19 +79,33 @@ export default function ProfilePage() {
             return;
         }
         if (newPassword !== confirmPassword) {
-            setPasswordMsg({ type: 'error', text: "Las contraseñas no coinciden." });
+            setPasswordMsg({ type: 'error', text: "Las contraseñas nuevas no coinciden." });
             return;
         }
 
         setSavingPassword(true);
         try {
+            console.log("Intentando actualizar contraseña en perfil...");
             const { error } = await supabase.auth.updateUser({ password: newPassword });
-            if (error) throw error;
+            
+            if (error) {
+                console.error("Error al actualizar con updateUser en perfil:", error);
+                let msg = error.message;
+                if (msg.includes("should be different")) msg = "La nueva contraseña debe ser diferente a la anterior.";
+                if (msg.includes("too short")) msg = "La contraseña debe tener al menos 6 caracteres.";
+                if (msg.includes("session missing")) msg = "Tu sesión ha expirado. Por favor cierra e inicia sesión nuevamente.";
+                throw new Error(msg);
+            }
+
             setNewPassword("");
             setConfirmPassword("");
-            setPasswordMsg({ type: 'success', text: "✓ Contraseña actualizada correctamente." });
+            setPasswordMsg({ type: 'success', text: "✓ Contraseña actualizada correctamente. Tu sesión ha sido refrescada." });
+            
+            console.log("Contraseña actualizada con éxito en perfil.");
+
         } catch (err: any) {
-            setPasswordMsg({ type: 'error', text: err.message || "Error al cambiar la contraseña." });
+            console.error("Excepción al cambiar contraseña en perfil:", err);
+            setPasswordMsg({ type: 'error', text: err.message || "Error al cambiar la contraseña. Verifica tu conexión o intenta cerrar e iniciar sesión de nuevo." });
         } finally {
             setSavingPassword(false);
         }

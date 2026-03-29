@@ -617,22 +617,20 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
 function MetricRow({ label, value, color }: { label: string, value: string | number, color?: string }) {
     return (
-        <div className="flex justify-between items-center py-0.5 border-b border-slate-50 dark:border-slate-900 last:border-0">
-            <span className="text-xs font-medium text-slate-500 uppercase">{label}</span>
-            <span className={`text-sm font-semibold ${color || 'text-slate-900 dark:text-white'}`}>{value}</span>
+        <div className="flex justify-between items-center py-1 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+            <span className="text-[11px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-tight">{label}</span>
+            <span className={`text-sm font-black ${color || 'text-slate-900 dark:text-white'}`}>{value}</span>
         </div>
     );
 }
 
 function CHORow({ label, count, days, amount, color }: { label: string, count: number, days: number, amount: string, color?: string }) {
     return (
-        <div className={`grid grid-cols-4 gap-1 py-0.5 border-b border-slate-50 dark:border-slate-900 last:border-0 ${color || 'text-slate-900 dark:text-white'}`}>
-            <span className="text-xs font-medium text-slate-500 uppercase">{label}</span>
-            <span className="text-sm font-semibold text-center">{count}</span>
-            <span className="text-sm font-semibold text-center">{days}</span>
-            <span className="text-sm font-semibold text-right">{amount}</span>
+        <div className={`grid grid-cols-4 gap-1 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${color || 'text-slate-900 dark:text-white'}`}>
+            <span className="text-[10px] font-black text-slate-700 dark:text-slate-400 uppercase tracking-tighter">{label}</span>
+            <span className="text-sm font-black text-center">{count}</span>
+            <span className="text-sm font-black text-center">{days}</span>
+            <span className="text-sm font-black text-right">{amount}</span>
         </div>
     );
 }
-
-

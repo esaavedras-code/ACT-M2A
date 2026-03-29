@@ -20,7 +20,6 @@ const LoginPage: NextPage = () => {
 
     const [newPassword, setNewPassword] = useState("");
     const [confirmNewPassword, setConfirmNewPassword] = useState("");
-    const [oldPassword, setOldPassword] = useState("");
     const [requirePasswordChange, setRequirePasswordChange] = useState(false);
     const [tempSessionUser, setTempSessionUser] = useState<any>(null);
 
@@ -92,8 +91,8 @@ const LoginPage: NextPage = () => {
 
             if (authError) throw authError;
 
-            // Detectar si la contraseña es temporal (10 caracteres, alfanuméricos mayúsculas)
-            const isTempPassword = /^[A-Z0-9]{10}$/.test(password);
+            // Detectar si la contraseña es temporal (8-10 caracteres, alfanuméricos mayúsculas)
+            const isTempPassword = /^[A-Z0-9]{8,10}$/.test(password);
             
             if (isTempPassword) {
                 setTempSessionUser(data.user);
@@ -110,12 +109,10 @@ const LoginPage: NextPage = () => {
 
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (oldPassword !== password) {
-            setError("La contraseña actual ingresada no coincide con su contraseña temporal.");
-            return;
-        }
+        
+        // Eliminamos el check redundant de oldPassword !== password ya que el usuario ya se autenticó exitosamente
         if (newPassword !== confirmNewPassword) {
-            setError("Las contraseñas no coinciden. Verifique nuevamente.");
+            setError("Las contraseñas nuevas no coinciden. Verifique nuevamente.");
             return;
         }
         if (newPassword.length < 6) {
@@ -127,16 +124,25 @@ const LoginPage: NextPage = () => {
         setError(null);
 
         try {
+            console.log("Iniciando actualización de contraseña...");
             const { error: updateError } = await supabase.auth.updateUser({
                 password: newPassword
             });
 
-            if (updateError) throw updateError;
+            if (updateError) {
+                console.error("Error al actualizar con updateUser:", updateError);
+                let msg = updateError.message;
+                if (msg.includes("should be different")) msg = "La nueva contraseña debe ser diferente a la anterior.";
+                if (msg.includes("too short")) msg = "La contraseña es muy corta.";
+                throw new Error(msg);
+            }
             
+            console.log("Contraseña actualizada con éxito en login.");
             // Si el cambio fue exitoso, completamos el login
             await completeLogin(tempSessionUser);
         } catch (err: any) {
-            setError(err.message || "Error al actualizar contraseña.");
+            console.error("Excepción en handlePasswordChange:", err);
+            setError(err.message || "Error al actualizar contraseña. Intente nuevamente.");
             setLoading(false);
         }
     };
@@ -176,29 +182,6 @@ const LoginPage: NextPage = () => {
                                     </div>
                                 )}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Contraseña Temporal Actual</label>
-                                    <div className="relative group">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
-                                            <Lock size={18} />
-                                        </div>
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            required
-                                            value={oldPassword}
-                                            onChange={(e) => setOldPassword(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-slate-400"
-                                            placeholder="••••••••"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
-                                        >
-                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
                                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Nueva Contraseña</label>
                                     <div className="relative group">
                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
@@ -237,19 +220,31 @@ const LoginPage: NextPage = () => {
                                         />
                                     </div>
                                 </div>
-                                <button
-                                    disabled={loading}
-                                    type="submit"
-                                    className="w-full bg-primary hover:bg-blue-700 text-white rounded-xl py-4 font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
-                                >
-                                    {loading ? (
-                                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    ) : (
-                                        <>
-                                            Actualizar Contraseña <ArrowRight size={18} />
-                                        </>
-                                    )}
-                                </button>
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        disabled={loading}
+                                        type="submit"
+                                        className="w-full bg-primary hover:bg-blue-700 text-white rounded-xl py-4 font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
+                                    >
+                                        {loading ? (
+                                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        ) : (
+                                            <>
+                                                Actualizar Contraseña <ArrowRight size={18} />
+                                            </>
+                                        )}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setRequirePasswordChange(false);
+                                            setError(null);
+                                        }}
+                                        className="w-full text-slate-400 hover:text-slate-600 text-xs font-bold py-2 transition-colors"
+                                    >
+                                        Cancelar y volver
+                                    </button>
+                                </div>
                             </form>
                         ) : (
                             <form onSubmit={handleLogin} className="space-y-6">
