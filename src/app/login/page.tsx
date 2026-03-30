@@ -94,14 +94,15 @@ const LoginPage: NextPage = () => {
 
             if (authError) throw authError;
 
-            // Detectar si la contraseña es temporal (comienza con PACT- o es el patrón de 6-10 chars mayúsculas/números)
-            const isTempPassword = password.startsWith("PACT-") || /^[A-Z0-9]{6,10}$/.test(password);
+            // Detectar si la contraseña es temporal (solo comienza con PACT-)
+            const isTempPassword = password.startsWith("PACT-");
             
             if (isTempPassword) {
                 setTempSessionUser(data.user);
                 setOriginalTempPassword(password);
                 setRequirePasswordChange(true);
-                return; // Detenemos el flujo aquí
+                setLoading(false); // ← CRÍTICO: evita el loading infinito
+                return;
             }
 
             await completeLogin(data.user);
