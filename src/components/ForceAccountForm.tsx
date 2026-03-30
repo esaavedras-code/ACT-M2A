@@ -68,11 +68,17 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         try {
             const { labor, equipment, materials, ...faData } = currentFA;
             
+            const faDataToSave = {
+                ...faData,
+                fecha_inicio: faData.fecha_inicio || null,
+                fecha_fin: faData.fecha_fin || null,
+            };
+
             let faId = currentFA.id;
             if (faId) {
-                await supabase.from("force_accounts").update(faData).eq("id", faId);
+                await supabase.from("force_accounts").update(faDataToSave).eq("id", faId);
             } else {
-                const { data, error } = await supabase.from("force_accounts").insert([faData]).select().single();
+                const { data, error } = await supabase.from("force_accounts").insert([faDataToSave]).select().single();
                 if (error) throw error;
                 faId = data.id;
                 setCurrentFA((prev: any) => ({ ...prev, id: faId }));
@@ -82,6 +88,8 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
             const processChildTable = async (table: string, items: any[]) => {
                 const itemsWithFAId = items.map(item => {
                     const { id, created_at, ...rest } = item;
+                    // Sanitize dates to prevent empty strings crashing postgres
+                    if (rest.fecha === "") rest.fecha = null;
                     return { ...rest, force_account_id: faId };
                 });
                 
