@@ -116,7 +116,8 @@ export async function generateFaInformeDiario(projectId: string, faId: string) {
     drawText("Inspector Autorizado (HTA)", 380, y, 8, true);
 
     const pdfBytes = await pdfDoc.save();
-    return new Blob([pdfBytes], { type: "application/pdf" });
+    const buffer = Buffer.from(pdfBytes);
+    return new Blob([buffer], { type: "application/pdf" });
 }
 
 /**
@@ -138,5 +139,6 @@ export async function generateFaRelacionEquipo(projectId: string) {
     page.drawText(`PROYECTO: ${project.name}`, { x: 40, y: height - 70, size: 10, font: fontBold });
 
     const pdfBytes = await pdfDoc.save();
-    return new Blob([pdfBytes], { type: "application/pdf" });
+    const buffer = Buffer.from(pdfBytes);
+    return new Blob([buffer], { type: "application/pdf" });
 }
