@@ -159,39 +159,39 @@ export async function generateAct123(projectId: string, choId: string) {
         // Line 1
         drawText(p, "This agreement entered into this", 40, by, font, fs);
         drawLine(p, 175, by + 2, 320, by + 2);
-        drawText(p, "9", 250, by - 3, fontBold, 5.5);
-        drawText(p, formatDate(choData.cho_date) || "", 185, by, font, fs);
-        drawText(p, "by and between the Puerto Rico Highway and Transportation", 325, by, font, fs);
+        drawText(p, "9", 325, by - 3, fontBold, 5.5);
+        // drawText(p, formatDate(choData.cho_date) || "", 185, by, font, fs); // Box 9 empty as requested
+        drawText(p, "by and between the Puerto Rico Highway and Transportation", 345, by, font, fs);
 
         // Line 2
         by += lh;
         drawText(p, "Authority, hereinafter referred to as the \"Authority\", represented by", 40, by, font, fs);
         drawLine(p, 305, by + 2, 540, by + 2);
         drawText(p, personnelMap["Director Ejecutivo"] || "", 315, by, font, fs);
-        drawText(p, "10", 420, by - 3, fontBold, 5.5);
+        drawText(p, "10", 545, by - 3, fontBold, 5.5);
         drawText(p, ",", 542, by, font, fs);
 
         // Line 3
         by += lh;
         drawLine(p, 40, by + 2, 230, by + 2);
         drawText(p, "Director Ejecutivo", 45, by - 1, font, fs);
-        drawText(p, "11", 135, by - 3, fontBold, 5.5);
-        drawText(p, "; and", 235, by, font, fs);
-        drawLine(p, 260, by + 2, 430, by + 2);
-        drawText(p, contrData?.name || "", 265, by, font, fs);
-        drawText(p, "12", 345, by - 3, fontBold, 5.5);
-        drawText(p, ", hereinafter referred to as the \"Contractor\",", 432, by, font, fs);
+        drawText(p, "11", 235, by - 3, fontBold, 5.5);
+        drawText(p, "; and", 245, by, font, fs);
+        drawLine(p, 270, by + 2, 440, by + 2);
+        drawText(p, contrData?.name || "", 275, by, font, fs);
+        drawText(p, "12", 445, by - 3, fontBold, 5.5);
+        drawText(p, ", hereinafter referred to as the \"Contractor\",", 455, by, font, fs);
 
         // Line 4
         by += lh;
         drawText(p, "represented by", 40, by, font, fs);
         drawLine(p, 105, by + 2, 310, by + 2);
         drawText(p, contrData?.representative || "", 115, by, font, fs);
-        drawText(p, "13", 205, by - 3, fontBold, 5.5);
-        drawText(p, ",", 312, by, font, fs);
-        drawLine(p, 320, by + 2, 530, by + 2);
-        drawText(p, "President", 330, by - 1, font, fs);
-        drawText(p, "14", 425, by - 3, fontBold, 5.5);
+        drawText(p, "13", 315, by - 3, fontBold, 5.5);
+        drawText(p, ",", 325, by, font, fs);
+        drawLine(p, 335, by + 2, 545, by + 2);
+        drawText(p, "President", 345, by - 1, font, fs);
+        drawText(p, "14", 550, by - 3, fontBold, 5.5);
 
         // WITNESSETH
         by += lh * 1.5;
@@ -202,14 +202,14 @@ export async function generateAct123(projectId: string, choId: string) {
         drawText(p, "Whereas, on", 40, by, font, fs);
         drawLine(p, 95, by + 2, 210, by + 2);
         drawText(p, formatDate(projData.date_project_start) || "", 105, by, font, fs);
-        drawText(p, "15", 150, by - 3, fontBold, 5.5);
-        drawText(p, ", the Parties entered into a contract for the construction of project", 215, by, font, fs);
+        drawText(p, "15", 215, by - 3, fontBold, 5.5);
+        drawText(p, ", the Parties entered into a contract for the construction of project", 225, by, font, fs);
 
         // Line 6
         by += lh;
         drawLine(p, 40, by + 2, 540, by + 2);
         drawText(p, projData.name || "", 45, by, font, fs);
-        drawText(p, "16", 290, by - 3, fontBold, 5.5);
+        drawText(p, "16", 545, by - 3, fontBold, 5.5);
         drawText(p, ".", 542, by, font, fs);
 
         // Line 7
@@ -228,33 +228,33 @@ export async function generateAct123(projectId: string, choId: string) {
         drawLine(p, 360, by + 2, 510, by + 2);
         const amtText = choData.proposed_change && parseFloat(choData.proposed_change) !== 0 ? "$" + formatCurrency(choData.proposed_change) : "";
         drawText(p, amtText, 370, by, font, fs);
-        drawText(p, "17", 435, by - 3, fontBold, 5.5);
+        drawText(p, "17", 515, by - 3, fontBold, 5.5);
         drawText(p, "and", 515, by, font, fs);
 
         // Line 10
         by += lh;
         drawLine(p, 40, by + 2, 110, by + 2);
         drawText(p, choData.time_extension_days > 0 ? choData.time_extension_days.toString() : "0", 50, by, font, fs);
-        drawText(p, "18", 75, by - 3, fontBold, 5.5);
-        drawText(p, "additional calendar day(s). The Substantial Completion date is herein moved from", 115, by, font, fs);
-        drawLine(p, 435, by + 2, 540, by + 2);
-        drawText(p, formatDate(dateRevisedBox10) || "", 445, by, font, fs);
-        drawText(p, "19", 485, by - 3, fontBold, 5.5);
+        drawText(p, "18", 120, by - 3, fontBold, 5.5);
+        drawText(p, "additional calendar day(s). The Substantial Completion date is herein moved from", 135, by, font, fs);
+        drawLine(p, 460, by + 2, 565, by + 2);
+        drawText(p, formatDate(dateRevisedBox10) || "", 470, by, font, fs);
+        drawText(p, "19", 570, by - 3, fontBold, 5.5);
         drawText(p, "to", 545, by, font, fs);
 
         // Line 11
         by += lh;
         drawLine(p, 40, by + 2, 140, by + 2);
         drawText(p, formatDate(dateNewBox12) || "", 45, by, font, fs);
-        drawText(p, "20", 90, by - 3, fontBold, 5.5);
-        drawText(p, "and the Administrative Term date is herein moved from", 145, by, font, fs);
-        drawLine(p, 365, by + 2, 455, by + 2);
-        drawText(p, oldAdminStr || "", 375, by, font, fs);
-        drawText(p, "21", 410, by - 3, fontBold, 5.5);
-        drawText(p, "to", 460, by, font, fs);
-        drawLine(p, 475, by + 2, 550, by + 2);
-        drawText(p, adminDateStr || "", 480, by, font, fs);
-        drawText(p, "22", 515, by - 3, fontBold, 5.5);
+        drawText(p, "20", 145, by - 3, fontBold, 5.5);
+        drawText(p, "and the Administrative Term date is herein moved from", 160, by, font, fs);
+        drawLine(p, 380, by + 2, 470, by + 2);
+        drawText(p, oldAdminStr || "", 390, by, font, fs);
+        drawText(p, "21", 475, by - 3, fontBold, 5.5);
+        drawText(p, "to", 495, by, font, fs);
+        drawLine(p, 510, by + 2, 585, by + 2);
+        drawText(p, adminDateStr || "", 515, by, font, fs);
+        drawText(p, "22", 590, by - 3, fontBold, 5.5);
         drawText(p, "for", 555, by, font, fs);
 
         // Line 12
@@ -276,36 +276,36 @@ export async function generateAct123(projectId: string, choId: string) {
 
         by += lh * 2;
         drawLine(p, 40, by + 2, 280, by + 2);
-        drawText(p, "10", 160, by - 3, fontBold, 5.5, true);
+        drawText(p, "10", 285, by - 3, fontBold, 5.5);
         drawLine(p, PW - 280, by + 2, PW - 40, by + 2);
-        drawText(p, "13", PW - 160, by - 3, fontBold, 5.5, true);
+        drawText(p, "13", PW - 35, by - 3, fontBold, 5.5);
 
         by += lh;
         drawLine(p, 60, by + 2, 260, by + 2);
-        drawText(p, "11", 160, by - 3, fontBold, 5.5, true);
+        drawText(p, "11", 265, by - 3, fontBold, 5.5);
         drawLine(p, PW - 260, by + 2, PW - 60, by + 2);
-        drawText(p, "14", PW - 160, by - 3, fontBold, 5.5, true);
+        drawText(p, "14", PW - 55, by - 3, fontBold, 5.5);
 
         by += lh;
         drawLine(p, 60, by + 2, 260, by + 2);
         drawText(p, "Highway and Transportation Authority", 160, by + 10, fontBold, 9, true);
         drawLine(p, PW - 260, by + 2, PW - 60, by + 2);
-        drawText(p, "12", PW - 160, by - 3, fontBold, 5.5, true);
+        drawText(p, "12", PW - 55, by - 3, fontBold, 5.5);
 
         by += lh;
         drawText(p, "660-43-3808", 160, by + 10, fontBold, 9, true);
         drawLine(p, PW - 260, by + 2, PW - 60, by + 2);
-        drawText(p, "25", PW - 160, by - 3, fontBold, 5.5, true);
+        drawText(p, "25", PW - 55, by - 3, fontBold, 5.5);
 
         by += lh;
         drawLine(p, PW - 260, by + 2, PW - 60, by + 2);
-        drawText(p, "26", PW - 160, by - 3, fontBold, 5.5, true);
+        drawText(p, "26", PW - 55, by - 3, fontBold, 5.5);
 
         // Distribution area
         const distY = PH - 65; 
         drawLine(p, 10, distY, PW - 10, distY);
         drawText(p, "Distribution", 15, distY + 15, font, 9);
-        drawText(p, "27", 65, distY + 5, fontBold, 6);
+        drawText(p, "27", 85, distY + 5, fontBold, 6);
 
         const dx1 = 150, dx2 = 195, dx3 = 310, dx4 = 360;
         const dby = distY + 15;

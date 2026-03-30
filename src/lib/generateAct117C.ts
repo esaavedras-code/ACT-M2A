@@ -45,55 +45,88 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             return val < 0 ? `(${out})` : out;
         };
 
+        const V_LINES = [40, 75, 100, 135, 180, 345, 385, 445, 515, 612 - 40];
+
         let wpPrevious = 0;
         let wpCurrent = 0;
         let materialBalance = 0;
-
+        let sumNetPayments = 0;
+        
+        let runningWP = 0;
+        let runningMOS = 0;
         allCerts?.forEach(c => {
-            const cItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-            let certWP = 0;
-            let certMOSChange = 0;
-
-            cItems.forEach((it: any) => {
+            const itemsList = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+            let certGross = 0;
+            let certMOS = 0;
+            itemsList.forEach((it: any) => {
                 const q = parseFloat(it.quantity) || 0;
                 const p = parseFloat(it.unit_price) || 0;
-                certWP += q * p;
-
-                const addedMOS = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
-                const mosPU = parseFloat(it.mos_unit_price) || p;
-                const deductedMOS = (parseFloat(it.qty_from_mos) || 0) * mosPU;
-                certMOSChange += addedMOS - deductedMOS;
+                certGross += q * p;
+                certMOS += (it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0) - ((parseFloat(it.qty_from_mos) || 0) * (parseFloat(it.mos_unit_price) || p));
             });
+            runningWP += certGross;
+            runningMOS += certMOS;
+            const certRetention = c.skip_retention ? 0 : (runningWP * 0.05);
 
             if (c.cert_num < certNum) {
-                wpPrevious += certWP;
-                materialBalance += certMOSChange;
+                wpPrevious += certGross;
             } else if (c.cert_num === certNum) {
-                wpCurrent = certWP;
-                materialBalance += certMOSChange;
+                wpCurrent = certGross;
+            }
+            // Net payment to date = runningWP - certRetention + runningMOS
+            if (c.cert_num === certNum) {
+                sumNetPayments = runningWP - certRetention + runningMOS;
+                materialBalance = runningMOS;
             }
         });
-
+        
         const wpTotalToDate = wpPrevious + wpCurrent;
+        const totalToDatePaid = sumNetPayments;
         const percentWPValue = totalProjectAmount > 0 ? (wpTotalToDate / totalProjectAmount) * 100 : 0;
         
-        // 5% Retained To Date (on Total to Date)
         const totalRetentionToDate = currentCert?.skip_retention ? 0 : (wpTotalToDate * 0.05);
-
-        // Previous retention (from all previous certs)
+        
         let previousRetention = 0;
         allCerts?.filter(c => c.cert_num < certNum).forEach(c => {
             if (!c.skip_retention) {
                 const cItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
                 let cWP = 0;
-                cItems.forEach((it: any) => { cWP += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0); });
-                previousRetention += cWP * 0.05;
+                let rWP = 0;
+                allCerts?.filter(prev => prev.cert_num <= c.cert_num).forEach(prev => {
+                     const pItems = Array.isArray(prev.items) ? prev.items : (prev.items?.list || []);
+                     pItems.forEach((it: any) => rWP += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
+                });
+                previousRetention = (allCerts?.filter(pc => pc.cert_num < certNum && !pc.skip_retention).length > 0) ? 
+                    (allCerts?.filter(pc => pc.cert_num < certNum).reduce((acc, pc) => {
+                        let pcWP = 0;
+                        allCerts?.filter(p => p.cert_num <= pc.cert_num).forEach(p => (Array.isArray(p.items) ? p.items : (p.items?.list || [])).forEach((it: any) => pcWP += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)));
+                        return pc.skip_retention ? acc : (pcWP * 0.05);
+                    }, 0)) : 0;
+            }
+        });
+        
+        // Re-calculate previous retention correctly
+        previousRetention = 0;
+        let prevRunningWP = 0;
+        const prevCerts = allCerts?.filter(c => c.cert_num < certNum) || [];
+        prevCerts.forEach(c => {
+            const itemsList = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+            itemsList.forEach((it: any) => { prevRunningWP += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0); });
+            if (!c.skip_retention) {
+                // Retention is always calculated on the TOTAL to date at that cert
+                previousRetention = prevRunningWP * 0.05;
             }
         });
 
         const currentRetention = totalRetentionToDate - previousRetention;
         const subTotalValue = wpCurrent - currentRetention;
-        const netPaymentValue = subTotalValue + materialBalance;
+        const netPaymentValue = subTotalValue + (materialBalance - (prevCerts.reduce((acc, c) => {
+             let cMOS = 0;
+             (Array.isArray(c.items) ? c.items : (c.items?.list || [])).forEach((it: any) => {
+                 cMOS += (it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0) - ((parseFloat(it.qty_from_mos) || 0) * (parseFloat(it.mos_unit_price) || (parseFloat(it.unit_price) || 0)));
+             });
+             return acc + cMOS;
+        }, 0)));
 
         // 3. Document Setup
         const pdfDoc = await PDFDocument.create();
@@ -294,11 +327,11 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
             // --- FIELDS 1-16 ---
             const ly = 100; const ry = 100; const lh = 17;
-            const field = (n: string, lbl: string, x: number, y: number, lLen: number, v: any) => {
+            const field = (n: string, lbl: string, x: number, y: number, endX: number, v: any) => {
                 const fullLbl = `${n}. ${lbl}`;
                 drawText(fullLbl, x, y, 7.5, true);
                 const w = fontBold.widthOfTextAtSize(fullLbl, 7.5);
-                drawLine(x + w + 5, y + 2, x + lLen, y + 2);
+                drawLine(x + w + 5, y + 2, endX, y + 2);
                 drawText(v, x + w + 8, y, 8);
             };
 
@@ -312,7 +345,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             field("8", "Municipality:", 40, ly + lh * 7, 286, projData.municipios?.join(", "));
 
             const rx = 330;
-            const rEnd = width - 98; // Shorter lines for 9-16 (reduced by 1cm / 28px)
+            const rEnd = V_LINES[8]; // Aligned with start of Column 25 (Amount)
             field("9", "Date:", rx, ry, rEnd, certDate ? formatDate(certDate) : formatDate(new Date()));
             field("10", "Cert. Num.:", rx, ry + lh, rEnd, certNum.toString());
             field("11", "Work Performed up to:", rx, ry + lh * 2, rEnd, formatDate(currentCert?.wp_up_to || certDate));
@@ -328,7 +361,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             drawLine(40, ty, width - 40, ty, 0.8); // Top line
             drawLine(40, ty + th, width - 40, ty + th, 0.8); // Header Separator
 
-            const vLines = [40, 75, 100, 135, 180, 345, 385, 445, 515, width - 40];
+            const vLines = V_LINES;
             vLines.forEach(x => drawLine(x, ty, x, ty + tableHeight, 0.6)); // Grid columns
 
             const hdr = (n: string, l1: string, l2: string, x: number) => {
@@ -454,7 +487,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 ["35", "Safety Penalties - Spec 638(-):", fmt(0, 2, true)],
                 ["36", "Other (+/-):", fmt(0, 2, true)],
                 ["37", "Net Payment:", fmt(netPaymentValue, 2, true)],
-                ["38", "Total to Date (WP):", fmt(wpTotalToDate, 2, true)]
+                ["38", "Total to Date (WP):", fmt(totalToDatePaid, 2, true)]
             ];
 
             sumDefs.forEach((sd, i) => {
