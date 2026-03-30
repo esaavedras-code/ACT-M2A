@@ -287,7 +287,18 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 setLoading(true);
                                 try {
                                     const win = window as any;
-                                    if (!win.electronAPI?.parsePdfBase64) { alert("Usa la versión EXE."); setLoading(false); return; }
+                                    const parsePdf = async (b64: string) => {
+                                        if (win.electronAPI?.parsePdfBase64) {
+                                            return await win.electronAPI.parsePdfBase64(b64);
+                                        } else {
+                                            const parseRes = await fetch('/api/parse-pdf', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ base64: b64 })
+                                            });
+                                            return await parseRes.json();
+                                        }
+                                    };
                                     const { data: files } = await supabase.storage.from("project-documents").list(projectId);
                                     if (!files?.length) { alert("Sube documentos (Proposal, Contrato) en la pestaña 'Datos Proyecto' primero."); setLoading(false); return; }
                                     
@@ -301,7 +312,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                         if (!f.name.toLowerCase().endsWith('.pdf')) continue;
                                         const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
                                         if (!blob) continue;
-                                        const res = await win.electronAPI.parsePdfBase64(await blobToBase64(blob));
+                                        const res = await parsePdf(await blobToBase64(blob));
                                         if (res.success && res.text) {
                                             const lines = res.text.split("\n");
                                             const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;

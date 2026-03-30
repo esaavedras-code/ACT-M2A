@@ -535,7 +535,18 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                             const { data: dbDocs } = await supabase.from('project_documents').select('file_name').eq('project_id', projectId);
                                                             if (!dbDocs?.length) { alert("Sube documentos (Proposal, Contrato) antes."); setLoading(false); return; }
                                                             const win = window as any;
-                                                            if (!win.electronAPI?.parsePdfBase64) { alert("Usa la versión EXE para leer PDFs."); setLoading(false); return; }
+                                                            const parsePdf = async (b64: string) => {
+                                                                if (win.electronAPI?.parsePdfBase64) {
+                                                                    return await win.electronAPI.parsePdfBase64(b64);
+                                                                } else {
+                                                                    const parseRes = await fetch('/api/parse-pdf', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ base64: b64 })
+                                                                    });
+                                                                    return await parseRes.json();
+                                                                }
+                                                            };
                                                             const { data: files } = await supabase.storage.from("project-documents").list(projectId);
                                                             if (!files?.length) { alert("No hay PDFs subidos en Storage."); setLoading(false); return; }
                                                             
@@ -552,7 +563,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                 if (!f.name.toLowerCase().endsWith('.pdf')) continue;
                                                                 const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
                                                                 if (!blob) continue;
-                                                                const res = await win.electronAPI.parsePdfBase64(await blobToBase64(blob));
+                                                                const res = await parsePdf(await blobToBase64(blob));
                                                                 if (res.success && res.text) {
                                                                     fullExtractedText += "\n\n" + res.text;
                                                                     const txt = res.text.replace(/\s+/g, ' ');
