@@ -109,6 +109,30 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         }
     };
 
+    const handleDeleteDocument = async (docId: string, storagePath: string) => {
+        if (!window.confirm("¿Está seguro que desea eliminar este documento?")) return;
+        
+        try {
+            setUploadingDoc(true);
+            // 1. Delete from Storage
+            if (storagePath) {
+                await supabase.storage.from("project-documents").remove([storagePath]);
+            }
+            
+            // 2. Delete from DB
+            const { error } = await supabase.from("project_documents").delete().eq("id", docId);
+            if (error) throw error;
+            
+            fetchDocuments();
+            alert("Documento eliminado correctamente.");
+        } catch (err: any) {
+            console.error("Error deleting doc:", err);
+            alert("Error al eliminar documento: " + err.message);
+        } finally {
+            setUploadingDoc(false);
+        }
+    };
+
     const fetchProject = async () => {
         const { data, error } = await supabase.from("projects").select("*").eq("id", projectId).single();
         if (data) {
@@ -682,17 +706,27 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         {DOC_TYPES.map(type => {
                             const doc = documents.find(d => d.doc_type === type);
                             return (
-                                <div key={type} className={`px-3 py-2.5 rounded-xl border flex items-center gap-3 transition-all ${doc ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" : "bg-slate-50 border-slate-100 dark:bg-slate-800/30 dark:border-slate-800 text-slate-400 opacity-60"}`}>
-                                    <div className={`p-1.5 rounded-lg ${doc ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-slate-100 dark:bg-slate-700/50"}`}>
-                                        {doc ? <CheckCircle size={14} /> : <FileText size={14} />}
+                                    <div key={type} className={`group relative px-3 py-2.5 rounded-xl border flex items-center gap-3 transition-all ${doc ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" : "bg-slate-50 border-slate-100 dark:bg-slate-800/30 dark:border-slate-800 text-slate-400 opacity-60"}`}>
+                                        <div className={`p-1.5 rounded-lg ${doc ? "bg-emerald-100 dark:bg-emerald-900/50" : "bg-slate-100 dark:bg-slate-700/50"}`}>
+                                            {doc ? <CheckCircle size={14} /> : <FileText size={14} />}
+                                        </div>
+                                        <div className="flex flex-col flex-1">
+                                            <span className="text-[10px] font-bold leading-tight">{type}</span>
+                                            <span className="text-[9px] opacity-70 leading-tight">
+                                                {doc ? `Subido: ${new Date(doc.uploaded_at).toLocaleDateString()}` : "Pendiente"}
+                                            </span>
+                                        </div>
+                                        {doc && (
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleDeleteDocument(doc.id, doc.storage_path)}
+                                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                title="Borrar documento"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold leading-tight">{type}</span>
-                                        <span className="text-[9px] opacity-70 leading-tight">
-                                            {doc ? `Subido: ${new Date(doc.uploaded_at).toLocaleDateString()}` : "Pendiente"}
-                                        </span>
-                                    </div>
-                                </div>
                             );
                         })}
                     </div>
