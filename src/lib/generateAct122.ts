@@ -156,9 +156,7 @@ export async function generateAct122(projectId: string, choId: string) {
 
             drawF("1", "Project Name:", c1, ly, le1, projData.name);
             drawF("2", "Contractor:", c1, ly+lh, le1, contrData?.name);
-            drawF("28", "Change Order Amount:", PW-210, sy+lh*4.5, 75, fmt(currentChoAmount));
-            drawF("29", "Actual Contract Amount:", PW-210, sy+lh*5.5, 75, fmt(actualContractAmount));
-            drawF("30", "New Contract Amount:", PW-210, sy+lh*6.5, 75, fmt(newContractAmount));
+            // #28, 29, 30 removed from header — they go only in signature section
             drawF("3", "Project Num.:", c1, ly+lh*2, 205, projData.num_act);
             drawF("4", "Federal Num.:", c1, ly+lh*3, 205, projData.num_federal);
             drawF("5", "Oracle Num.:", c1, ly+lh*4, 230, projData.num_oracle);
@@ -166,13 +164,15 @@ export async function generateAct122(projectId: string, choId: string) {
             drawF("7", "Amendment:", c1, ly+lh*6, 150, choData.amendment_letter || "0");
             drawF("8", "CHO Number:", c1, ly+lh*7, 150, choData.cho_num);
 
-            drawF("9", "Contract Beginning Date:", c2, ry, PW-45, formatDate(origStart ? origStart.toISOString().split('T')[0] : ""));
-            drawF("10", "Revised Completion Date:", c2, ry+lh, PW-45, formatDate(dateRevisedBox10 ? dateRevisedBox10.toISOString().split('T')[0] : ""));
-            drawF("11", "Add Contract Time (Days):", c2, ry+lh*2, PW-45, choData.time_extension_days || "0");
-            drawF("11a", "Compensable Days:", c2, ry+lh*3, PW-45, "0");
-            drawF("12", "New Completion Date:", c2, ry+lh*4, PW-45, formatDate(dateNewBox12));
-            drawF("13", "New Administrative Term Date (Contralor):", c2, ry+lh*5, PW-45, adminDateStr);
-            drawF("14", "FMIS End Date:", c2, ry+lh*6, PW-45, formatDate(projData.fmis_end_date));
+            // Right column: 9. Date (CHO date), 9a. Contract Beginning Date, 10-14
+            drawF("9", "Date:", c2, ry, PW-45, formatDate(choData.cho_date));
+            drawF("9a", "Contract Beginning Date:", c2, ry+lh, PW-45, formatDate(origStart ? origStart.toISOString().split('T')[0] : ""));
+            drawF("10", "Revised Completion Date:", c2, ry+lh*2, PW-45, formatDate(dateRevisedBox10 ? dateRevisedBox10.toISOString().split('T')[0] : ""));
+            drawF("11", "Add Contract Time (Days):", c2, ry+lh*3, PW-45, choData.time_extension_days || "0");
+            drawF("11a", "Compensable Days:", c2, ry+lh*4, PW-45, "0");
+            drawF("12", "New Completion Date:", c2, ry+lh*5, PW-45, formatDate(dateNewBox12));
+            drawF("13", "New Administrative Term Date (Contralor):", c2, ry+lh*6, PW-45, adminDateStr);
+            drawF("14", "FMIS End Date:", c2, ry+lh*7, PW-45, formatDate(projData.fmis_end_date));
 
             const cby = 222;
             drawText(p, "15. Favor de marcar todas las opciones que apliquen", 40, cby, fontBold, 7);
@@ -352,13 +352,15 @@ export async function generateAct122(projectId: string, choId: string) {
             drawFinancial("28", "Change Order Amount", totalAmt, y, true);
 
             drawSigGroup("32. Accepted by:", contrData?.representative, "Contractor", y + 38);
-            drawFinancial("29", "Actual Contract Amount", parseFloat(projData.cost_original) || 0, y + 38);
+            // #29: Actual Contract Amount = Costo Original + TODOS los CHOs anteriores al actual
+            drawFinancial("29", "Actual Contract Amount", actualContractAmount, y + 38);
 
             drawText(p, "33. Recommended by:", lX, y + 76, fontBold, 8.2);
-            drawSigGroup("", personnelMap["Supervisor de Á rea"], "Area Supervisor or Project Manager", y + 76);
-            drawFinancial("30", "New Contract Amount", (parseFloat(projData.cost_original) || 0) + totalAmt, y + 76);
+            drawSigGroup("", personnelMap["Supervisor de Área"], "Area Supervisor or Project Manager", y + 76);
+            // #30: New Contract Amount = Actual + este CHO
+            drawFinancial("30", "New Contract Amount", newContractAmount, y + 76);
 
-            drawSigGroup("", "", "Distric Director or Program Manager", y + 114);
+            drawSigGroup("", personnelMap["Director Regional"], "Distric Director or Program Manager", y + 114);
             const drawSigRight = (subtitle: string, yy: number) => {
                 const fieldX = financeX, fieldW = 145, lineY = yy + 2;
                 drawLine(p, fieldX, lineY, fieldX + fieldW, lineY, 0.5);
