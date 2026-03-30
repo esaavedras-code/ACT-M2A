@@ -181,7 +181,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON",
+                        label: "Exportar JSON", position: "middle-right", size: "small",
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("contractor", formData),
                         description: "Exportar información del contratista a un archivo JSON",
@@ -189,7 +189,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         disabled: loading
                     },
                     {
-                        label: "Importar JSON",
+                        label: "Importar JSON", position: "middle-right", size: "small",
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-contractor-json')?.click(),
                         description: "Cargar información del contratista desde un archivo JSON",

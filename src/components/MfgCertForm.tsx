@@ -809,7 +809,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON",
+                        label: "Exportar JSON", position: "middle-right", size: "small",
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("mfg_certs", certs),
                         description: "Exportar todos los certificados de manufactura actuales a JSON",
@@ -817,7 +817,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                         disabled: loading || parsing
                     },
                     {
-                        label: "Importar JSON",
+                        label: "Importar JSON", position: "middle-right", size: "small",
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-mfg-json')?.click(),
                         description: "Cargar certificados de manufactura desde un archivo JSON",

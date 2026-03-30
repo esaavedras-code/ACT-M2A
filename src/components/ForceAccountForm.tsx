@@ -324,7 +324,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
 
             <FloatingFormActions actions={[
                 {
-                    label: "Exportar JSON",
+                    label: "Exportar JSON", position: "middle-right", size: "small",
                     icon: <Download />,
                     onClick: () => exportSectionToJSON(`fa_${currentFA?.fa_num || 'draft'}`, currentFA),
                     description: "Exportar todos los datos de este Force Account (MO, Materiales, Equipo)",
@@ -332,7 +332,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                     disabled: loading
                 },
                 {
-                    label: "Importar JSON",
+                    label: "Importar JSON", position: "middle-right", size: "small",
                     icon: <Upload />,
                     onClick: () => document.getElementById('import-fa-json')?.click(),
                     description: "Cargar datos de Force Account desde un archivo JSON",

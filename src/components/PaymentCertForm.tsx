@@ -568,20 +568,24 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON",
+                        label: "Exportar JSON", position: "middle-right", size: "small",
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("payment_certs", certs),
                         description: "Exportar todas las certificaciones de este proyecto a JSON",
                         variant: 'info' as const,
-                        disabled: loading
+                        disabled: loading,
+                        position: 'middle-right',
+                        size: 'small'
                     },
                     {
-                        label: "Importar JSON",
+                        label: "Importar JSON", position: "middle-right", size: "small",
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-certs-json')?.click(),
                         description: "Cargar certificaciones desde un archivo JSON",
                         variant: 'secondary' as const,
-                        disabled: loading
+                        disabled: loading,
+                        position: 'middle-right',
+                        size: 'small'
                     },
                     {
                         label: "Nueva Certificación",

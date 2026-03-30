@@ -608,7 +608,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON",
+                        label: "Exportar JSON", position: "middle-right", size: "small",
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("compliance", records),
                         description: "Exportar todos los registros de cumplimiento a JSON",
@@ -616,7 +616,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         disabled: loading
                     },
                     {
-                        label: "Importar JSON",
+                        label: "Importar JSON", position: "middle-right", size: "small",
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-compliance-json')?.click(),
                         description: "Cargar registros de cumplimiento desde un archivo JSON",

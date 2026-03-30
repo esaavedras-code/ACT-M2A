@@ -265,7 +265,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 actions={[
                     ...(projectId ? [
                         {
-                            label: "Exportar JSON",
+                            label: "Exportar JSON", position: "middle-right", size: "small",
                             icon: <Download />,
                             onClick: () => exportSectionToJSON("items", items),
                             description: "Exportar todas las partidas actuales a un archivo JSON",
@@ -273,7 +273,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             disabled: loading
                         },
                         {
-                            label: "Importar JSON",
+                            label: "Importar JSON", position: "middle-right", size: "small",
                             icon: <Upload />,
                             onClick: () => document.getElementById('import-items-json')?.click(),
                             description: "Cargar partidas desde un archivo JSON",

@@ -257,20 +257,24 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar Datos",
+                        label: "Exportar Datos", position: "middle-right", size: "small",
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("project_agreement", funds),
                         description: "Descargar los datos de esta tabla en formato JSON",
                         variant: 'info' as const,
-                        disabled: loading
+                        disabled: loading,
+                        position: 'middle-right',
+                        size: 'small'
                     },
                     {
-                        label: "Importar Datos",
+                        label: "Importar Datos", position: "middle-right", size: "small",
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-funds-json')?.click(),
                         description: "Cargar datos desde un archivo JSON previamente exportado",
                         variant: 'secondary' as const,
-                        disabled: loading
+                        disabled: loading,
+                        position: 'middle-right',
+                        size: 'small'
                     },
                     {
                         label: loading ? "Guardando..." : "Guardar cambios",

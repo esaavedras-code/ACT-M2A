@@ -530,10 +530,16 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                     onClick={async () => {
                                                         if (!projectId) return;
                                                         setLoading(true);
-                                                        setAiResponse("");
+                                                        setAiResponse("Buscando documentos subidos...");
                                                         try {
-                                                            const { data: dbDocs } = await supabase.from('project_documents').select('file_name, storage_path').eq('project_id', projectId);
-                                                            if (!dbDocs?.length) { alert("Sube documentos (Proposal, Contrato) antes."); setLoading(false); return; }
+                                                            const { data: dbDocs, error: dbErr } = await supabase.from('project_documents').select('file_name, storage_path').eq('project_id', projectId);
+                                                            if (dbErr) throw dbErr;
+                                                            if (!dbDocs?.length) { 
+                                                                alert("No se encontraron documentos. Asegúrese de haber subido archivos en la sección superior."); 
+                                                                setLoading(false); 
+                                                                setAiResponse("");
+                                                                return; 
+                                                            }
                                                             const win = window as any;
                                                             const parsePdf = async (b64: string) => {
                                                                 if (win.electronAPI?.parsePdfBase64) {
@@ -559,8 +565,14 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                             
                                                             for (const doc of dbDocs) {
                                                                 if (!doc.storage_path || !doc.storage_path.toLowerCase().endsWith('.pdf')) continue;
-                                                                const { data: blob } = await supabase.storage.from('project-documents').download(doc.storage_path);
-                                                                if (!blob) continue;
+                                                                
+                                                                setAiResponse(`Extrayendo texto: ${doc.file_name}...`);
+                                                                const { data: blob, error: downloadErr } = await supabase.storage.from('project-documents').download(doc.storage_path);
+                                                                
+                                                                if (downloadErr || !blob) {
+                                                                    console.error("Download Error:", doc.file_name, downloadErr);
+                                                                    continue;
+                                                                }
                                                                 const res = await parsePdf(await blobToBase64(blob));
                                                                 if (res.success && res.text) {
                                                                     fullExtractedText += "\n\n" + res.text;
@@ -585,7 +597,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                             if (itemsToInsert.length) await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
                                                             setFormData(updated);
 
-                                                            if (aiPrompt.trim().length > 0 && fullExtractedText.length > 0) {
+                                                            if (fullExtractedText.length === 0) {
+                                                                setAiResponse("No se encontró texto procesable en los documentos.");
+                                                                alert("No se pudo extraer texto de los documentos. Verifique que sean archivos PDF legibles.");
+                                                            } else if (aiPrompt.trim().length > 0) {
+                                                                setAiResponse("Consultando Asistente AI...");
                                                                 try {
                                                                     const response = await fetch('/api/analyze-document', {
                                                                         method: 'POST',
@@ -602,9 +618,13 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                     setAiResponse("Error al consultar IA: " + err.message);
                                                                 }
                                                             } else {
-                                                                alert(`Extracción Finalizada: ${count} campos y ${items} partidas.`);
+                                                                alert(`Extracción Finalizada: ${count} campos completados y ${items} partidas importadas.`);
+                                                                setAiResponse("");
                                                             }
-                                                        } catch (e) { console.error(e); }
+                                                        } catch (e: any) { 
+                                                            console.error("AI Error:", e);
+                                                            alert("Error durante el análisis: " + e.message);
+                                                        }
                                                         setLoading(false);
                                                     }}
                                                     className="px-6 py-2 bg-white text-indigo-600 rounded-lg font-bold text-xs uppercase hover:bg-white/90 active:scale-95 transition-all shrink-0 h-[38px] flex items-center justify-center whitespace-nowrap"
