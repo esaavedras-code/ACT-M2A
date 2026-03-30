@@ -8,7 +8,7 @@ import {
     FileText, Download, AlertCircle, CheckCircle2,
     Package, ListChecks, ArrowLeft, Loader2,
     Activity, Info, Files, BadgeAlert, FileDigit,
-    ChevronDown, Search, FileCheck, BarChart
+    ChevronDown, Search, FileCheck, BarChart, Calculator
 } from "lucide-react";
 import Link from "next/link";
 import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
@@ -44,6 +44,10 @@ import {
     generateMaterialCertificationReportLogic,
     generateDbeCertificationReportLogic,
     generateSignedItemsReportLogic,
+    generateFaResumenAnualLogic,
+    generateFaResumenMensualLogic,
+    generateFaInformeDiarioLogic,
+    generateFaRelacionEquipoLogic,
     formatDate
 } from "@/lib/reportLogic";
 import { generateAct117C } from "@/lib/generateAct117C";
@@ -1098,7 +1102,67 @@ function ReportesContent() {
                     />
                 </DropdownGroup>
 
-                {/* 8. Distribución de Fondos */}
+                {/* 8. Force Account */}
+                <DropdownGroup title="8. Force Account" icon={<Calculator size={18} className="text-pink-500" />}>
+                     <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'fa-anual',
+                            label: '1. Resumen Anual de FA',
+                            description: 'Basado en el formato oficial Resumen Anual de FA.',
+                            icon: <FileText size={18} className="text-pink-500" />,
+                            action: () => generateFaResumenAnualLogic(projectId, reportFormat)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'fa-mensual',
+                            label: '2. Resumen Mensual de FA',
+                            description: 'Basado en el formato oficial Resumen Mensual de FA.',
+                            icon: <FileText size={18} className="text-pink-500" />,
+                            action: () => generateFaResumenMensualLogic(projectId, reportFormat)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'fa-diario',
+                            label: '3. Informe Diario de FA',
+                            description: 'Basado en el formato oficial Informe Diario de FA.',
+                            icon: <FileText size={18} className="text-pink-500" />,
+                            action: () => generateFaInformeDiarioLogic(projectId, reportFormat)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                     <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'fa-equipo',
+                            label: '4. Relación de Equipo de FA',
+                            description: 'Basado en el formato oficial Relación de equipo de FA.',
+                            icon: <FileText size={18} className="text-pink-500" />,
+                            action: () => generateFaRelacionEquipoLogic(projectId, reportFormat)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                </DropdownGroup>
+
+                {/* 9. Distribución de Fondos */}
                 <DropdownGroup title="8. Distribución de Fondos" icon={<Activity size={18} className="text-green-600" />}>
                     <StandardReportItem
                         onAction={handleAction}

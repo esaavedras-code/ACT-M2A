@@ -1456,3 +1456,5 @@ export const generateTimeExtensionChartLogic = async (projectId: string, choId: 
     const blob = await generateTimeExtensionChart(projectId, choId);
     downloadBlob(blob, `Grafica_Ext_Tiempo_CHO_${choId}.pdf`);
 };
+
+export const generateFaResumenAnualLogic = async (p: string, f: string) => { alert('Resumen Anual FA en construcción'); }; export const generateFaResumenMensualLogic = async (p: string, f: string) => { alert('Resumen Mensual FA en construcción'); }; export const generateFaInformeDiarioLogic = async(p: string, f: string) => { alert('Informe Diario FA en construcción'); }; export const generateFaRelacionEquipoLogic = async(p: string, f: string) => { alert('Relación de Equipo FA en construcción'); };

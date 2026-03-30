@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { HelpCircle, X, ChevronRight, BookOpen, ShieldCheck, Mail, Search, BookMarked, ArrowLeft } from "lucide-react";
 
 const abbreviations = [
@@ -79,15 +79,18 @@ export default function QuickHelpModal() {
     );
 
     const [position, setPosition] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [hasMoved, setHasMoved] = useState(false);
+    const posRef = useRef(position);
+    const draggingRef = useRef(false);
+    const dragStartRef = useRef({ x: 0, y: 0 });
 
     useEffect(() => {
         const savedPos = localStorage.getItem("pact_help_pos");
         if (savedPos) {
             try {
-                setPosition(JSON.parse(savedPos));
+                const parsed = JSON.parse(savedPos);
+                setPosition(parsed);
+                posRef.current = parsed;
             } catch (e) {
                 console.error("Error loading help position", e);
             }
@@ -95,29 +98,31 @@ export default function QuickHelpModal() {
     }, []);
 
     useEffect(() => {
-        if (!isDragging) return;
-
         const handleMove = (e: MouseEvent | TouchEvent) => {
+            if (!draggingRef.current) return;
             const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
             const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
             
-            const newX = clientX - dragStart.x;
-            const newY = clientY - dragStart.y;
+            const newX = clientX - dragStartRef.current.x;
+            const newY = clientY - dragStartRef.current.y;
             
-            if (Math.abs(newX - position.x) > 2 || Math.abs(newY - position.y) > 2) {
+            if (Math.abs(newX - posRef.current.x) > 3 || Math.abs(newY - posRef.current.y) > 3) {
                 setHasMoved(true);
             }
             
+            posRef.current = { x: newX, y: newY };
             setPosition({ x: newX, y: newY });
         };
 
         const handleEnd = () => {
-            setIsDragging(false);
-            localStorage.setItem("pact_help_pos", JSON.stringify(position));
+            if(draggingRef.current) {
+                draggingRef.current = false;
+                localStorage.setItem("pact_help_pos", JSON.stringify(posRef.current));
+            }
         };
 
-        window.addEventListener('mousemove', handleMove);
-        window.addEventListener('touchmove', handleMove);
+        window.addEventListener('mousemove', handleMove, { passive: false });
+        window.addEventListener('touchmove', handleMove, { passive: false });
         window.addEventListener('mouseup', handleEnd);
         window.addEventListener('touchend', handleEnd);
 
@@ -127,38 +132,33 @@ export default function QuickHelpModal() {
             window.removeEventListener('mouseup', handleEnd);
             window.removeEventListener('touchend', handleEnd);
         };
-    }, [isDragging, dragStart, position]);
+    }, []);
 
-    const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-        
-        setIsDragging(true);
+    const handlePointerDown = (e: React.PointerEvent) => {
+        draggingRef.current = true;
         setHasMoved(false);
-        setDragStart({ x: clientX - position.x, y: clientY - position.y });
-        
-        // Prevent default only for mouse to avoid interfering with touch gestures
-        if (!('touches' in e)) {
-            e.preventDefault();
-        }
+        dragStartRef.current = { 
+            x: e.clientX - posRef.current.x, 
+            y: e.clientY - posRef.current.y 
+        };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
     };
 
     if (!isOpen) {
         return (
             <button
-                onMouseDown={handleMouseDown}
-                onTouchStart={handleMouseDown}
+                onPointerDown={handlePointerDown}
                 onClick={(e) => {
                     if (!hasMoved) {
                         setIsOpen(true);
                     }
                 }}
-                className="fixed z-[2000] bg-primary text-white p-4 rounded-full shadow-2xl hover:bg-blue-700 transition-all hover:scale-110 group animate-bounce cursor-move"
+                className="fixed z-[2000] bg-primary text-white p-4 rounded-full shadow-2xl hover:bg-blue-700 transition-all hover:scale-110 group animate-bounce touch-none"
                 style={{ 
                     bottom: '40px', 
                     left: '40px',
                     transform: `translate(${position.x}px, ${position.y}px)`,
-                    transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                    cursor: 'grab'
                 }}
                 title="Ayuda del Sistema (Arrastrar para mover)"
             >
