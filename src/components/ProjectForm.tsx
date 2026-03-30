@@ -545,12 +545,22 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                 if (win.electronAPI?.parsePdfBase64) {
                                                                     return await win.electronAPI.parsePdfBase64(b64);
                                                                 } else {
-                                                                    const parseRes = await fetch('/api/parse-pdf', {
-                                                                        method: 'POST',
-                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ base64: b64 })
-                                                                    });
-                                                                    return await parseRes.json();
+                                                                    try {
+                                                                        const parseRes = await fetch('/api/parse-pdf', {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ base64: b64 })
+                                                                        });
+                                                                        if (!parseRes.ok) {
+                                                                            const errText = await parseRes.text();
+                                                                            console.error("Error API Parse PDF:", parseRes.status, errText);
+                                                                            return { success: false, error: `Error del servidor (${parseRes.status})` };
+                                                                        }
+                                                                        return await parseRes.json();
+                                                                    } catch (err: any) {
+                                                                        console.error("Fetch failure:", err);
+                                                                        return { success: false, error: "Fallo de conexión al servidor" };
+                                                                    }
                                                                 }
                                                             };
                                                             
@@ -573,6 +583,13 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                     console.error("Download Error:", doc.file_name, downloadErr);
                                                                     continue;
                                                                 }
+
+                                                                if (blob.size > 4500000 && !win.electronAPI) {
+                                                                    setAiResponse(`Error: ${doc.file_name} es muy grande (>4.5MB). Vercel no permite procesar archivos tan grandes en la versión web.`);
+                                                                    console.warn("File too large for Vercel:", doc.file_name, blob.size);
+                                                                    continue;
+                                                                }
+
                                                                 const res = await parsePdf(await blobToBase64(blob));
                                                                 if (res.success && res.text) {
                                                                     fullExtractedText += "\n\n" + res.text;
@@ -608,6 +625,12 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                         headers: { 'Content-Type': 'application/json' },
                                                                         body: JSON.stringify({ text: fullExtractedText, prompt: aiPrompt })
                                                                     });
+                                                                    if (!response.ok) {
+                                                                        const errText = await response.text();
+                                                                        console.error("Error API Analyze:", response.status, errText);
+                                                                        setAiResponse(`Error del servidor AI (${response.status})`);
+                                                                        return;
+                                                                    }
                                                                     const aiData = await response.json();
                                                                     if (aiData.result) {
                                                                         setAiResponse(aiData.result);
@@ -615,6 +638,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                         setAiResponse("Error AI: " + aiData.error);
                                                                     }
                                                                 } catch(err: any) {
+                                                                    console.error("AI Fetch Failure:", err);
                                                                     setAiResponse("Error al consultar IA: " + err.message);
                                                                 }
                                                             } else {
