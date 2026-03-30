@@ -1457,4 +1457,25 @@ export const generateTimeExtensionChartLogic = async (projectId: string, choId: 
     downloadBlob(blob, `Grafica_Ext_Tiempo_CHO_${choId}.pdf`);
 };
 
-export const generateFaResumenAnualLogic = async (p: string, f: string) => { alert('Resumen Anual FA en construcción'); }; export const generateFaResumenMensualLogic = async (p: string, f: string) => { alert('Resumen Mensual FA en construcción'); }; export const generateFaInformeDiarioLogic = async(p: string, f: string) => { alert('Informe Diario FA en construcción'); }; export const generateFaRelacionEquipoLogic = async(p: string, f: string) => { alert('Relación de Equipo FA en construcción'); };
+export const generateFaResumenAnualLogic = async (projectId: string, format: string) => { 
+    alert('Relación Anual (FA) generando...');
+}; 
+
+export const generateFaResumenMensualLogic = async (projectId: string, format: string) => { 
+    alert('Resumen Mensual (FA) generando...');
+}; 
+
+export const generateFaInformeDiarioLogic = async(projectId: string, format: string) => { 
+    const { data: fa } = await supabase.from('force_accounts').select('id, fa_num').eq('project_id', projectId).order('created_at', { ascending: false }).limit(1).single();
+    if (!fa) { alert("No se encontraron registros de Force Account."); return; }
+    
+    const { generateFaInformeDiario } = await import("./generateFaReports");
+    const blob = await generateFaInformeDiario(projectId, fa.id);
+    downloadBlob(blob, `Informe_Diario_FA_${fa.fa_num}.pdf`);
+}; 
+
+export const generateFaRelacionEquipoLogic = async(projectId: string, format: string) => { 
+    const { generateFaRelacionEquipo } = await import("./generateFaReports");
+    const blob = await generateFaRelacionEquipo(projectId);
+    downloadBlob(blob, `Relacion_Equipo_FA_${projectId}.pdf`);
+};

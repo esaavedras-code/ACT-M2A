@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileSearch } from "lucide-react";
+import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileSearch, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatCurrency, formatNumber, roundedAmt } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 import mfgItemsData from "@/lib/mfgItems.json";
@@ -209,6 +210,23 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
         }
     };
 
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await importSectionFromJSON(file);
+        if (result.success && Array.isArray(result.data)) {
+            const cleaned = result.data.map((it: any) => {
+                const { id, project_id, created_at, ...rest } = it;
+                return { ...rest, project_id: projectId };
+            });
+            setItems(cleaned);
+            alert("Partidas importadas correctamente. Guarde para confirmar.");
+        } else {
+            alert("Error al importar: " + (result.error || "Formato inválido"));
+        }
+        e.target.value = "";
+    };
+
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -245,58 +263,76 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
             <FloatingFormActions
                 actions={[
-                    ...(projectId ? [{
-                        label: loading ? "Procesando..." : "Cargar desde PDFs",
-                        icon: <FileSearch />,
-                        onClick: async () => {
-                            setLoading(true);
-                            try {
-                                const win = window as any;
-                                if (!win.electronAPI?.parsePdfBase64) { alert("Usa la versión EXE."); setLoading(false); return; }
-                                const { data: files } = await supabase.storage.from("project-documents").list(projectId);
-                                if (!files?.length) { alert("Sube documentos (Proposal, Contrato) en la pestaña 'Datos Proyecto' primero."); setLoading(false); return; }
-                                
-                                let itemsCount = 0;
-                                const itemsToInsert: any[] = [];
-                                const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
-                                    const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
-                                });
+                    ...(projectId ? [
+                        {
+                            label: "Exportar JSON",
+                            icon: <Download />,
+                            onClick: () => exportSectionToJSON("items", items),
+                            description: "Exportar todas las partidas actuales a un archivo JSON",
+                            variant: 'info' as const,
+                            disabled: loading
+                        },
+                        {
+                            label: "Importar JSON",
+                            icon: <Upload />,
+                            onClick: () => document.getElementById('import-items-json')?.click(),
+                            description: "Cargar partidas desde un archivo JSON",
+                            variant: 'secondary' as const,
+                            disabled: loading
+                        },
+                        {
+                            label: loading ? "Procesando..." : "Cargar desde PDFs",
+                            icon: <FileSearch />,
+                            onClick: async () => {
+                                setLoading(true);
+                                try {
+                                    const win = window as any;
+                                    if (!win.electronAPI?.parsePdfBase64) { alert("Usa la versión EXE."); setLoading(false); return; }
+                                    const { data: files } = await supabase.storage.from("project-documents").list(projectId);
+                                    if (!files?.length) { alert("Sube documentos (Proposal, Contrato) en la pestaña 'Datos Proyecto' primero."); setLoading(false); return; }
+                                    
+                                    let itemsCount = 0;
+                                    const itemsToInsert: any[] = [];
+                                    const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
+                                        const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
+                                    });
 
-                                for (const f of files) {
-                                    if (!f.name.toLowerCase().endsWith('.pdf')) continue;
-                                    const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
-                                    if (!blob) continue;
-                                    const res = await win.electronAPI.parsePdfBase64(await blobToBase64(blob));
-                                    if (res.success && res.text) {
-                                        const lines = res.text.split("\n");
-                                        const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
-                                        for (const l of lines) {
-                                            const m = pat.exec(l);
-                                            if (m) {
-                                                const n = m[1].padStart(3, '0');
-                                                if (!itemsToInsert.some(it => it.item_num === n)) {
-                                                    const spec = m[2].trim();
-                                                    itemsToInsert.push({ project_id: projectId, item_num: n, specification: spec, description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[spec], mfg_cert_qty: 1 });
-                                                    itemsCount++;
+                                    for (const f of files) {
+                                        if (!f.name.toLowerCase().endsWith('.pdf')) continue;
+                                        const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
+                                        if (!blob) continue;
+                                        const res = await win.electronAPI.parsePdfBase64(await blobToBase64(blob));
+                                        if (res.success && res.text) {
+                                            const lines = res.text.split("\n");
+                                            const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
+                                            for (const l of lines) {
+                                                const m = pat.exec(l);
+                                                if (m) {
+                                                    const n = m[1].padStart(3, '0');
+                                                    if (!itemsToInsert.some(it => it.item_num === n)) {
+                                                        const spec = m[2].trim();
+                                                        itemsToInsert.push({ project_id: projectId, item_num: n, specification: spec, description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[spec], mfg_cert_qty: 1 });
+                                                        itemsCount++;
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                                if (itemsToInsert.length) {
-                                    await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
-                                    await fetchItems();
-                                    alert(`Análisis Finalizado: Se importaron ${itemsCount} partidas.`);
-                                } else {
-                                    alert("No se detectaron partidas en los documentos actuales.");
-                                }
-                            } catch (e) { console.error(e); }
-                            setLoading(false);
-                        },
-                        description: "Extraer datos de partidas automáticamente de los PDFs subidos",
-                        variant: 'info' as const,
-                        disabled: loading
-                    }] : []),
+                                    if (itemsToInsert.length) {
+                                        await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
+                                        await fetchItems();
+                                        alert(`Análisis Finalizado: Se importaron ${itemsCount} partidas.`);
+                                    } else {
+                                        alert("No se detectaron partidas en los documentos actuales.");
+                                    }
+                                } catch (e) { console.error(e); }
+                                setLoading(false);
+                            },
+                            description: "Extraer datos de partidas automáticamente de los PDFs subidos",
+                            variant: 'info' as const,
+                            disabled: loading
+                        }
+                    ] : []),
                     {
                         label: "Añadir Item",
                         icon: <Plus />,
@@ -314,6 +350,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                     }
                 ]}
             />
+            <input id="import-items-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
 
             {numAct && (
                 <div className="flex items-center gap-2 -mt-4 mb-6">

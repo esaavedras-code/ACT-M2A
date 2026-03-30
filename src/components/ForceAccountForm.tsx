@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, Trash2, Calculator, Users, Truck, Package, FileText, ChevronRight, ChevronLeft, LayoutDashboard } from "lucide-react";
+import { Save, Plus, Trash2, Calculator, Users, Truck, Package, FileText, ChevronRight, ChevronLeft, LayoutDashboard, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 import { formatCurrency } from "@/lib/utils";
 
@@ -25,6 +26,10 @@ const defaultFaDetails = {
     
     // Calculables Equipos
     eq_beneficio_pct: 15,
+
+    // Fotos y Otros (Cisterna, Camión, etc)
+    fotos_data: [] as any[],
+    cisterna_qty: 0, camion_agua_qty: 0, camion_diesel_qty: 0,
     
     // Total final
     fianzas_pct_mil: 0
@@ -48,20 +53,31 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         setLoading(false);
     };
 
-    const handleCreateNew = () => {
+    const handleCreateNew = async () => {
+        setLoading(true);
+        // Intentar obtener datos del proyecto para autocompletar
+        let projectData: any = {};
+        if (projectId) {
+            const { data } = await supabase.from("projects").select("name, admin_name, contractor_name, liquidador_name").eq("id", projectId).single();
+            if (data) projectData = data;
+        }
+
         setCurrentFA({
             project_id: projectId,
             fa_num: `FA-${forceAccounts.length + 1}`,
-            descripcion: "",
+            descripcion: projectData.name || "",
             fecha_inicio: new Date().toISOString().split("T")[0],
             fecha_fin: "",
             partida_num: "", ewo_num: "", con_union: false,
-            admin: "", contratista: "", liquidador: "",
+            admin: projectData.admin_name || "", 
+            contratista: projectData.contractor_name || "", 
+            liquidador: projectData.liquidador_name || "",
             fa_details: defaultFaDetails,
             labor: [], equipment: [], materials: []
         });
         setActiveSubTab("edit");
         setEditTab("general");
+        setLoading(false);
     };
 
     const handleEdit = async (fa: any) => {
@@ -103,17 +119,18 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
             };
 
             let faId = currentFA.id;
-            if (faId) {
+            if (faId && !faId.includes('-temp-')) { // Check if it's a real ID
                 await supabase.from("force_accounts").update(faDataToSave).eq("id", faId);
             } else {
-                const { data, error } = await supabase.from("force_accounts").insert([faDataToSave]).select().single();
+                const { id: _, ...insertData } = faDataToSave;
+                const { data, error } = await supabase.from("force_accounts").insert([insertData]).select().single();
                 if (error) throw error;
                 faId = data.id;
                 setCurrentFA((prev: any) => ({ ...prev, id: faId }));
             }
 
             const processChildTable = async (table: string, items: any[]) => {
-                const itemsWithFAId = items.map(item => {
+                const itemsWithFAId = (items || []).map(item => {
                     const { id, created_at, ...rest } = item;
                     if (rest.fecha === "") rest.fecha = null;
                     return { ...rest, force_account_id: faId };
@@ -125,7 +142,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
             await Promise.all([
                 processChildTable("fa_labor", labor),
                 processChildTable("fa_equipment", equipment),
-                processChildTable("fa_materials", materials) // Not using this for 31-day? We keep it for basic Material lines.
+                processChildTable("fa_materials", materials)
             ]);
 
             if (!silent) alert("Force Account guardado exitosamente");
@@ -137,6 +154,44 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await importSectionFromJSON(file);
+        if (result.success) {
+            const data = result.data;
+            if (activeSubTab === "edit") {
+                // Si estamos editando un FA, importamos los componentes (labor, equipment, etc) a este FA
+                const { labor, equipment, materials, fa_details } = data;
+                setCurrentFA((prev: any) => ({
+                    ...prev,
+                    labor: labor || prev.labor || [],
+                    equipment: equipment || prev.equipment || [],
+                    materials: materials || prev.materials || [],
+                    fa_details: { ...prev.fa_details, ...(fa_details || {}) }
+                }));
+                alert("Datos importados al Force Account actual. Guarde para confirmar.");
+            } else {
+                // Si estamos en la lista, importamos como un nuevo FA completo
+                const { labor, equipment, materials, ...faHeader } = data;
+                const newFA = {
+                    ...faHeader,
+                    id: `new-temp-${Date.now()}`, // Temporary ID
+                    project_id: projectId,
+                    labor: labor || [],
+                    equipment: equipment || [],
+                    materials: materials || []
+                };
+                setCurrentFA(newFA);
+                setActiveSubTab("edit");
+                alert("Nuevos datos de Force Account cargados. Guarde para finalizar la importación.");
+            }
+        } else {
+            alert("Error al importar: " + (result.error || "Formato inválido"));
+        }
+        e.target.value = "";
     };
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
@@ -245,13 +300,32 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
             </div>
 
             <FloatingFormActions actions={[
-                { label: loading ? "Guardando..." : "Guardar Fuerza Cuenta", description: "Grabar datos al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
+                {
+                    label: "Exportar JSON",
+                    icon: <Download />,
+                    onClick: () => exportSectionToJSON(`fa_${currentFA?.fa_num || 'draft'}`, currentFA),
+                    description: "Exportar todos los datos de este Force Account (MO, Materiales, Equipo)",
+                    variant: 'info' as const,
+                    disabled: loading
+                },
+                {
+                    label: "Importar JSON",
+                    icon: <Upload />,
+                    onClick: () => document.getElementById('import-fa-json')?.click(),
+                    description: "Cargar datos de Force Account desde un archivo JSON",
+                    variant: 'secondary' as const,
+                    disabled: loading
+                },
+                { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar datos al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />
+            <input id="import-fa-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
 
             <div className="card p-0 overflow-hidden bg-white dark:bg-slate-900 shadow-xl rounded-[2rem]">
                 <div className="bg-slate-50 dark:bg-slate-800/50 flex flex-wrap border-b border-slate-100">
                     <TabBtn id="general" active={editTab} set={setEditTab} label="General" />
                     <TabBtn id="labor" active={editTab} set={setEditTab} label="Mano de Obra" />
+                    <TabBtn id="photos" active={editTab} set={setEditTab} label="Evidencias/Fotos" />
                     <TabBtn id="material" active={editTab} set={setEditTab} label="Materiales" />
                     <TabBtn id="equipment" active={editTab} set={setEditTab} label="Equipo" />
                     <TabBtn id="summary" active={editTab} set={setEditTab} label="Totales" />
@@ -281,8 +355,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                             <div className="space-y-1"><label className="text-[10px] uppercase font-black">Fecha Fín FA</label><input type="date" className="input-field" value={currentFA.fecha_fin||""} onChange={e=>setCurrentFA({...currentFA, fecha_fin: e.target.value})}/></div>
                         </div>
                     )}
-
-                    {/* ===== MANO DE OBRA ===== */}
+                                     {/* ===== MANO DE OBRA ===== */}
                     {editTab === "labor" && (
                         <div className="space-y-8">
                             <TableEditor 
@@ -331,6 +404,73 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                                         <div className="flex justify-between p-2"><span className="font-bold">t) Beneficio Industrial final <input className="w-10 border text-center font-normal" value={currentFA.fa_details.mo_beneficio_ind_final_pct} onChange={e=>updateDetail('mo_beneficio_ind_final_pct', +e.target.value)}/>%</span> <b>{formatCurrency(t)}</b></div>
 
                                         <div className="flex justify-between p-4 bg-green-50 text-green-900 border border-green-200 mt-4"><span className="font-black text-lg">(1) TOTAL DE MANO DE OBRA (m+s+t)</span> <b className="text-xl">{formatCurrency(tManoObra)}</b></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ===== FOTOS / EVIDENCIAS ===== */}
+                    {editTab === "photos" && (
+                        <div className="space-y-6">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-3xl border border-blue-100 dark:border-blue-800">
+                                <h3 className="text-lg font-bold text-blue-800 dark:text-blue-300 mb-2">Evidencia Fotográfica</h3>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 mb-6">Suba las fotos correspondientes a los trabajos realizados para este Force Account.</p>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {(currentFA.fa_details.fotos_data || []).map((foto: any, idx: number) => (
+                                        <div key={idx} className="relative group aspect-video bg-slate-200 dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                                            <img src={foto.url} alt={`Evidencia ${idx}`} className="w-full h-full object-cover" />
+                                            <button 
+                                                onClick={() => {
+                                                    const newPhotos = [...currentFA.fa_details.fotos_data];
+                                                    newPhotos.splice(idx, 1);
+                                                    updateDetail('fotos_data', newPhotos as any);
+                                                }}
+                                                className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <label className="flex flex-col items-center justify-center aspect-video border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all">
+                                        <Plus className="text-slate-400 mb-2" size={32} />
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase">Añadir Foto</span>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (ev) => {
+                                                        const newPhoto = { url: ev.target?.result, name: file.name, date: new Date().toISOString() };
+                                                        const photos = [...(currentFA.fa_details.fotos_data || []), newPhoto];
+                                                        updateDetail('fotos_data', photos as any);
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border">
+                                <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-6">Insumos Especiales (Basado en Fotos)</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase">Cisterna (Qty)</label>
+                                        <input type="number" className="input-field" value={currentFA.fa_details.cisterna_qty || 0} onChange={e => updateDetail('cisterna_qty', +e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase">Camión Agua (Qty)</label>
+                                        <input type="number" className="input-field" value={currentFA.fa_details.camion_agua_qty || 0} onChange={e => updateDetail('camion_agua_qty', +e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-black uppercase">Camión Diesel (Qty)</label>
+                                        <input type="number" className="input-field" value={currentFA.fa_details.camion_diesel_qty || 0} onChange={e => updateDetail('camion_diesel_qty', +e.target.value)} />
                                     </div>
                                 </div>
                             </div>

@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2, PlusSquare } from "lucide-react";
+import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2, PlusSquare, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { generateAct117C } from "@/lib/generateAct117C";
 import { downloadBlob } from "@/lib/reportLogic";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -236,6 +237,26 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             if (!silent) alert("Certificaciones y partidas actualizadas");
             if (onSaved) onSaved();
         }
+    };
+
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await importSectionFromJSON(file);
+        if (result.success && Array.isArray(result.data)) {
+            const cleaned = result.data.map(c => {
+                const { id, project_id, created_at, ...rest } = c;
+                return { 
+                    ...rest, 
+                    project_id: projectId 
+                };
+            });
+            setCerts([...certs, ...cleaned]);
+            alert("Certificaciones importadas. Guarde para confirmar.");
+        } else {
+            alert("Error al importar: " + (result.error || "Formato inválido"));
+        }
+        e.target.value = "";
     };
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
@@ -507,6 +528,22 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             <FloatingFormActions
                 actions={[
                     {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON("payment_certs", certs),
+                        description: "Exportar todas las certificaciones de este proyecto a JSON",
+                        variant: 'info' as const,
+                        disabled: loading
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-certs-json')?.click(),
+                        description: "Cargar certificaciones desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
+                    {
                         label: "Nueva Certificación",
                         icon: <Plus />,
                         onClick: addCert,
@@ -523,6 +560,8 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     }
                 ]}
             />
+            <input id="import-certs-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
 
             {/* Cuadro de Resumen Financiero */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

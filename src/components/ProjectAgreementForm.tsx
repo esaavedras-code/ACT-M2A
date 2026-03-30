@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, Trash2 } from "lucide-react";
+import { Save, Plus, Trash2, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 
 interface FundRow {
     id?: string;
@@ -147,7 +148,7 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
         }]);
     };
 
-    const saveFunds = async () => {
+    const saveFunds = async (silent = false) => {
         setLoading(true);
         try {
             const { error } = await supabase
@@ -155,12 +156,30 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
                 .upsert(funds.map(f => ({ ...f, project_id: projectId })));
 
             if (error) throw error;
-            alert("Información del Project Agreement guardada con éxito.");
+            if(!silent) alert("Información del Project Agreement guardada con éxito.");
         } catch (err: any) {
-            alert("Error al guardar: " + err.message);
+            if(!silent) alert("Error al guardar: " + err.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await importSectionFromJSON(file);
+        if (result.success && Array.isArray(result.data)) {
+            // Limpiar IDs anteriores para que se generen nuevos al hacer upsert o se vinculen a este proyecto
+            const cleanedData = result.data.map((f: any) => {
+                const { id, project_id, created_at, ...rest } = f;
+                return { ...rest, project_id: projectId };
+            });
+            setFunds(cleanedData);
+            alert("Datos importados correctamente. No olvide Guardar para confirmar los cambios.");
+        } else {
+            alert("Error al importar: " + (result.error || "Formato no válido"));
+        }
+        e.target.value = "";
     };
 
 
@@ -238,6 +257,22 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
             <FloatingFormActions
                 actions={[
                     {
+                        label: "Exportar Datos",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON("project_agreement", funds),
+                        description: "Descargar los datos de esta tabla en formato JSON",
+                        variant: 'info' as const,
+                        disabled: loading
+                    },
+                    {
+                        label: "Importar Datos",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-funds-json')?.click(),
+                        description: "Cargar datos desde un archivo JSON previamente exportado",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
+                    {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveFunds(),
@@ -246,6 +281,13 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
                         disabled: loading
                     }
                 ]}
+            />
+            <input 
+                id="import-funds-json"
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImport}
             />
         </div>
     );

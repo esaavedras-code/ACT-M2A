@@ -2,8 +2,9 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Users, Plus, Trash2 } from "lucide-react";
+import { Save, Users, Plus, Trash2, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatPhoneNumber } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
@@ -51,6 +52,26 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
     const removeItem = (index: number) => {
         setPersonnel(personnel.filter((_, i) => i !== index));
         if (onDirty) onDirty();
+    };
+
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await importSectionFromJSON(file);
+        if (result.success && Array.isArray(result.data)) {
+            const cleaned = result.data.map(p => {
+                const { id, project_id, created_at, ...rest } = p;
+                return { 
+                    ...rest, 
+                    project_id: projectId 
+                };
+            });
+            setPersonnel([...personnel, ...cleaned]);
+            alert("Firmas importadas. Guarde para confirmar.");
+        } else {
+            alert("Error al importar: " + (result.error || "Formato inválido"));
+        }
+        e.target.value = "";
     };
 
     const saveData = async (silent = false) => {
@@ -133,6 +154,22 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             <FloatingFormActions
                 actions={[
                     {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON("personnel", personnel),
+                        description: "Exportar lista de firmas actuales a un archivo JSON",
+                        variant: 'info' as const,
+                        disabled: loading
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-personnel-json')?.click(),
+                        description: "Cargar lista de firmas desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
+                    {
                         label: "Añadir Persona",
                         icon: <Plus />,
                         onClick: addItem,
@@ -149,6 +186,8 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                     }
                 ]}
             />
+            <input id="import-personnel-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
 
             {numAct && (
                 <div className="flex items-center gap-2 -mt-4 mb-6">

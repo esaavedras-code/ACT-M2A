@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ShieldCheck, Plus, Trash2 } from "lucide-react";
+import { Save, ShieldCheck, Plus, Trash2, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatDate, getLocalStorageItem } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
@@ -198,6 +199,26 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         (newList[idx] as any)[field] = value;
         setRecords(newList);
         if (onDirty) onDirty();
+    };
+
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await importSectionFromJSON(file);
+        if (result.success && Array.isArray(result.data)) {
+            const cleaned = result.data.map(r => {
+                const { id, project_id, created_at, ...rest } = r;
+                return { 
+                    ...rest, 
+                    project_id: projectId 
+                };
+            });
+            setRecords([...records, ...cleaned]);
+            alert("Registros de cumplimiento importados. Guarde para confirmar.");
+        } else {
+            alert("Error al importar: " + (result.error || "Formato inválido"));
+        }
+        e.target.value = "";
     };
 
     const saveData = async (silent = false) => {
@@ -587,6 +608,22 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             <FloatingFormActions
                 actions={[
                     {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON("compliance", records),
+                        description: "Exportar todos los registros de cumplimiento a JSON",
+                        variant: 'info' as const,
+                        disabled: loading
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-compliance-json')?.click(),
+                        description: "Cargar registros de cumplimiento desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
+                    {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
@@ -596,6 +633,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     }
                 ]}
             />
+            <input id="import-compliance-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
         </div>
     );
 });

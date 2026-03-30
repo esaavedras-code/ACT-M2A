@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Factory, Plus, Trash2, Upload, Loader2, FileSearch, CheckCircle2, AlertCircle, Info, ShieldCheck } from "lucide-react";
+import { Save, Factory, Plus, Trash2, Upload, Loader2, FileSearch, CheckCircle2, AlertCircle, Info, ShieldCheck, Download } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 
 interface ValidationResult {
@@ -142,6 +143,26 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         }
         
         if (onDirty) onDirty();
+    };
+
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const result = await importSectionFromJSON(file);
+        if (result.success && Array.isArray(result.data)) {
+            const cleaned = result.data.map(c => {
+                const { id, project_id, created_at, item_num, specification, ...rest } = c;
+                return { 
+                    ...rest, 
+                    project_id: projectId 
+                };
+            });
+            setCerts([...certs, ...cleaned]);
+            alert("Certificados importados. Guarde para confirmar.");
+        } else {
+            alert("Error al importar: " + (result.error || "Formato inválido"));
+        }
+        e.target.value = "";
     };
 
     const extractData = (text: string) => {
@@ -788,6 +809,22 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             <FloatingFormActions
                 actions={[
                     {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON("mfg_certs", certs),
+                        description: "Exportar todos los certificados de manufactura actuales a JSON",
+                        variant: 'info' as const,
+                        disabled: loading || parsing
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-mfg-json')?.click(),
+                        description: "Cargar certificados de manufactura desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading || parsing
+                    },
+                    {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
@@ -797,6 +834,8 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     }
                 ]}
             />
+            <input id="import-mfg-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
         </div>
     );
 });
