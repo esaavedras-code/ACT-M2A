@@ -88,7 +88,10 @@ export async function generateAct122(projectId: string, choId: string) {
         const fmt = (v: any) => {
             if (v === 0 || v === "0") return "0.00";
             if (!v || v === "-") return "-";
-            return Math.abs(parseFloat(v)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const num = parseFloat(v);
+            if (isNaN(num)) return "-";
+            const formatted = Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return num < 0 ? `(${formatted})` : formatted;
         };
 
         const vc = [40, 65, 95, 250, 290, 330, 360, 405, 455, 525, PW - 45];
