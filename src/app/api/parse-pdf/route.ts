@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import pdfParse from 'pdf-parse';
 
 export async function POST(req: Request) {
     try {
@@ -13,6 +12,9 @@ export async function POST(req: Request) {
         const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
         const buffer = Buffer.from(base64Data, 'base64');
         
+        // Usar require en vez de import() para evitar el "no default export" error de ESM en Vercel
+        // @ts-ignore
+        const pdfParse = require('pdf-parse');
         const data = await pdfParse(buffer);
 
         return NextResponse.json({ success: true, text: data.text });
