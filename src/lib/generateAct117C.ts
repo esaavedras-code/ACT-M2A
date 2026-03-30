@@ -27,8 +27,12 @@ export async function generateAct117C(projectId: string, certId: string, certNum
         const currentCertItemsRaw = Array.isArray(currentCert?.items) ? currentCert.items : (currentCert?.items?.list || []);
         const currentCertItems = [...currentCertItemsRaw].sort((a, b) => (parseInt(a.item_num) || 0) - (parseInt(b.item_num) || 0));
 
-        const { data: chos } = await supabase.from("chos").select("proposed_change").eq("project_id", projectId).eq("doc_status", "Aprobado");
-        const totalCho = (chos || []).reduce((sum, c) => sum + (c.proposed_change || 0), 0);
+        const { data: chos } = await supabase.from("chos")
+            .select("proposed_change, cho_date")
+            .eq("project_id", projectId)
+            .eq("doc_status", "Aprobado")
+            .lte("cho_date", certDate);
+        const totalCho = (chos || []).reduce((sum, c) => sum + (parseFloat(c.proposed_change as any) || 0), 0);
 
         // 2. Calculations
         // El costo original se toma de projData.cost_original si existe, de lo contrario se calcula de los fondos del acuerdo, y como último recurso de los items.
@@ -99,7 +103,15 @@ export async function generateAct117C(projectId: string, certId: string, certNum
         const ITEMS_PER_PAGE = 10; // Reduced to ensure legal box and footer fit perfectly
         const numSheets = Math.ceil(Math.max(1, currentCertItems.length) / ITEMS_PER_PAGE);
         const personnelMap: Record<string, string> = {};
-        personnel?.forEach(p => { personnelMap[p.role] = p.name; });
+        personnel?.forEach(p => { 
+            const start = p.active_from ? new Date(p.active_from) : new Date(0);
+            const end = p.active_to ? new Date(p.active_to) : new Date(8640000000000000);
+            const cDate = new Date(certDate);
+            
+            if (cDate >= start && cDate <= end) {
+                personnelMap[p.role] = p.name; 
+            }
+        });
 
         // Load Logo
         let logoImage: any = null;
@@ -235,21 +247,21 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             const page = pdfDoc.addPage([612, 792]);
             const { width, height } = page.getSize();
 
-            const drawText = (txt: any, x: number, y: number, size = 8, isBold = false, center = false, forceColor?: any) => {
+            const drawText = (txt: any, x: number, y: number, size = 8, isBold = false, center = false, forceColor?: any, isRetention?: boolean) => {
                 if (txt === undefined || txt === null) return;
                 const s = txt.toString();
                 const usedFont = isBold ? fontBold : font;
                 const textWidth = usedFont.widthOfTextAtSize(s, size);
                 const finalX = center ? x - (textWidth / 2) : x;
 
-                // Color logic: Purely negative numbers in red, rest in black
+                // Color logic: Purely negative numbers OR 5% retained in red, rest in black
                 let textColor = rgb(0, 0, 0);
                 if (forceColor) {
                     textColor = forceColor;
                 } else {
                     const isNumLike = /^[(-]?[0-9,.]+[)]?%?$/.test(s.trim());
                     const isNegative = isNumLike && (s.includes('(') || s.startsWith('-'));
-                    if (isNegative) textColor = rgb(0.8, 0, 0);
+                    if (isNegative || isRetention) textColor = rgb(0.8, 0, 0);
                 }
 
                 page.drawText(s, { x: finalX, y: height - y, size, font: usedFont, color: textColor });
@@ -290,17 +302,17 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 drawText(v, x + w + 8, y, 8);
             };
 
-            field("1", "To:", 40, ly, 315, "Director Regional");
-            field("2", "Project Name:", 40, ly + lh, 315, projData.name);
-            field("3", "Contractor:", 40, ly + lh * 2, 315, contrData?.name);
-            field("4", "Project Num.:", 40, ly + lh * 3, 315, projData.num_act);
-            field("5", "Federal Num.:", 40, ly + lh * 4, 315, projData.num_federal || 'N/A');
-            field("6", "Oracle Num.:", 40, ly + lh * 5, 315, projData.num_oracle);
-            field("7", "Contract Num.:", 40, ly + lh * 6, 315, projData.num_contrato);
-            field("8", "Municipality:", 40, ly + lh * 7, 315, projData.municipios?.join(", "));
+            field("1", "To:", 40, ly, 286, "Director Regional");
+            field("2", "Project Name:", 40, ly + lh, 286, projData.name);
+            field("3", "Contractor:", 40, ly + lh * 2, 286, contrData?.name);
+            field("4", "Project Num.:", 40, ly + lh * 3, 286, projData.num_act);
+            field("5", "Federal Num.:", 40, ly + lh * 4, 286, projData.num_federal || 'N/A');
+            field("6", "Oracle Num.:", 40, ly + lh * 5, 286, projData.num_oracle);
+            field("7", "Contract Num.:", 40, ly + lh * 6, 286, projData.num_contrato);
+            field("8", "Municipality:", 40, ly + lh * 7, 286, projData.municipios?.join(", "));
 
             const rx = 330;
-            const rEnd = width - 70; // Shorter lines for 9-16
+            const rEnd = width - 98; // Shorter lines for 9-16 (reduced by 1cm / 28px)
             field("9", "Date:", rx, ry, rEnd, certDate ? formatDate(certDate) : formatDate(new Date()));
             field("10", "Cert. Num.:", rx, ry + lh, rEnd, certNum.toString());
             field("11", "Work Performed up to:", rx, ry + lh * 2, rEnd, formatDate(currentCert?.wp_up_to || certDate));
@@ -328,7 +340,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             hdr("17", "Item No.", "", 57.5);
             hdr("", "Alt", "", 87.5);
             hdr("19", "Spec. Code", "", 117.5);
-            hdr("20", "", "", 157.5);
+            hdr("20", "% Federal", "participation", 157.5);
             hdr("21", "Description", "", 262.5);
             hdr("22", "Unit", "", 365);
             hdr("23", "Quantity", "", 415);
@@ -339,10 +351,19 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             pageItems.forEach((it, i) => {
                 const rowY = ty + th + 14 + (i * 15.5);
                 drawLine(40, rowY + 2, width - 40, rowY + 2, 0.1);
+                
+                // If it's certification 1, and item is #6 (006), let's ensure spec is loaded if missing
+                let specCode = it.specification;
+                if (!specCode && it.item_num === "006") {
+                    specCode = items?.find((ci: any) => ci.item_num === "006")?.specification || '';
+                }
+
                 drawText(it.item_num, 57.5, rowY, 7, false, true);
-                drawText(it.specification, 117.5, rowY, 7, false, true);
-                // const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('100%') ? '100%' : '0%');
-                // drawText(fedP, 157.5, rowY, 7, false, true);
+                drawText(specCode, 117.5, rowY, 7, false, true);
+                
+                // Column 20: % Federal participation
+                const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('100%') ? '100.00%' : '0%');
+                drawText(fedP, 157.5, rowY, 7, false, true);
                 
                 const matchCi = items?.find((i: any) => i.item_num === it.item_num);
                 const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
@@ -402,9 +423,9 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             const sigDefs = [
                 { id: "39", lbl: "Prepared by:", name: contrData?.representative || '', sub: "Contractor" },
                 { id: "40", lbl: "Concurred by:", name: personnelMap["Administrador del Proyecto"] || '', sub: "Project Administrator or Resident Engineer or Inspector" },
-                { id: "41", lbl: "Received for Review:", name: personnelMap["Supervisor de Área"] || '', sub: "Regional Director's Designated Representative" },
-                { id: "42", lbl: "Submitted for Review:", name: '', sub: "Area Supervisor (Program Manager)" },
-                { id: "43", lbl: "Approved by:", name: '', sub: "Regional Director" },
+                { id: "41", lbl: "Received for Review:", name: '', sub: "Regional Director's Designated Representative" },
+                { id: "42", lbl: "Submitted for Review:", name: personnelMap["Supervisor de Área"] || '', sub: "Area Supervisor (Program Manager)" },
+                { id: "43", lbl: "Approved by:", name: personnelMap["Director Regional"] || '', sub: "Regional Director" },
                 { id: "44", lbl: "Approved for Payment by:", name: personnelMap["Director Finanzas"] || '', sub: "Finance Area Director" }
             ];
 
@@ -438,9 +459,10 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
             sumDefs.forEach((sd, i) => {
                 const y = ay + (i * 15); // Consistent spacing
+                const isRetentionLine = sd[0] === "27";
                 drawText(`${sd[0]}. ${sd[1]}`, sx, y, 6.8);
                 drawLine(width - 80, y + 2, width - 40, y + 2);
-                drawText(sd[2], width - 60, y, 7.5, false, true);
+                drawText(sd[2], width - 60, y, 7.5, false, true, null, isRetentionLine);
             });
 
             // Percent Progress (45-46) - Aligned with signatures (x=40)

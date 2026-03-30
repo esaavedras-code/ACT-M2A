@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { UserCheck, UserX, Clock, Mail, Hash, Shield, ArrowLeft, Pencil, Check, X as XIcon, Users, ChevronDown, ShieldCheck } from "lucide-react";
+import { UserCheck, UserX, Clock, Mail, Hash, Shield, ArrowLeft, Pencil, Check, X as XIcon, Users, ChevronDown, ShieldCheck, Monitor, Smartphone, AppWindow } from "lucide-react";
 import Link from "next/link";
 
 interface UserProfile {
@@ -932,8 +932,9 @@ export default function AdminRequestsPage() {
                                                             );
                                                         })()}
                                                         {user.current_platform && (
-                                                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-black rounded border border-slate-200 dark:border-slate-700">
-                                                                {user.current_platform}
+                                                            <span className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-black rounded border border-slate-200 dark:border-slate-700 w-fit text-center mx-auto">
+                                                                {user.current_platform.includes('Celular') || user.current_platform === 'Mobile' ? <Smartphone size={10} /> : user.current_platform.includes('Windows') || user.current_platform === 'Windows' ? <AppWindow size={10} /> : <Monitor size={10} />}
+                                                                {user.current_platform === 'Mobile' ? 'Web (Celular)' : user.current_platform === 'Desktop' ? 'Web (Computadora)' : user.current_platform === 'Windows' ? 'App Windows' : user.current_platform}
                                                             </span>
                                                         )}
                                                     </div>

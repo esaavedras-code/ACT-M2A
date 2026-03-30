@@ -32,13 +32,13 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
     }, [projectId]);
 
     const fetchPersonnel = async () => {
-        const { data } = await supabase.from("act_personnel").select("*").eq("project_id", projectId);
+        const { data } = await supabase.from("act_personnel").select("*").eq("project_id", projectId).order("active_from", { ascending: false });
         if (data && data.length > 0) setPersonnel(data);
-        else setPersonnel([{ role: STAFF_ROLES[0], name: "", phone_office: "", phone_mobile: "", email: "" }]);
+        else setPersonnel([{ role: STAFF_ROLES[0], name: "", phone_office: "", phone_mobile: "", email: "", active_from: new Date().toISOString().split('T')[0] }]);
     };
 
     const addItem = () => {
-        setPersonnel([...personnel, { role: STAFF_ROLES[0], name: "", phone_office: "", phone_mobile: "", email: "" }]);
+        setPersonnel([{ role: STAFF_ROLES[0], name: "", phone_office: "", phone_mobile: "", email: "", active_from: new Date().toISOString().split('T')[0] }, ...personnel]);
         if (onDirty) onDirty();
     };
 
@@ -82,14 +82,14 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             if (fetchError) throw fetchError;
             const existingIds = existingRecords?.map(r => r.id) || [];
 
-            const updates = [];
-            const inserts = [];
+            const updates: any[] = [];
+            const inserts: any[] = [];
 
             // Ignore rows where no name has been typed to avoid creating junk rows
             const validPersonnel = personnel.filter(p => p.name?.trim() !== "");
 
             for (const p of validPersonnel) {
-                const { id, created_at, ...rest } = p;
+                const { id, created_at, show_successor, new_name, new_start_date, ...rest } = p;
                 const payload = { ...rest, project_id: projectId };
 
                 if (id) {
@@ -202,23 +202,43 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                 <table suppressHydrationWarning className="w-full text-left border-collapse min-w-[1500px]">
                     <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                            <th className="px-4 py-3 min-w-[300px]">Rol / Puesto</th>
-                            <th className="px-4 py-3 min-w-[350px]">Nombre Completo</th>
-                            <th className="px-4 py-3 min-w-[220px] text-center">Oficina</th>
-                            <th className="px-4 py-3 min-w-[220px] text-center">Celular</th>
-                            <th className="px-4 py-3 min-w-[320px]">Email</th>
-                            <th className="px-4 py-3 min-w-[90px] text-center"></th>
+                            <th className="px-4 py-3 min-w-[200px] text-center">Periodo (Firma)</th>
+                            <th className="px-4 py-3 min-w-[250px]">Rol / Puesto</th>
+                            <th className="px-4 py-3 min-w-[300px]">Nombre Completo</th>
+                            <th className="px-4 py-3 min-w-[150px] text-center">Cambio?</th>
+                            <th className="px-4 py-3 min-w-[180px] text-center">Oficina</th>
+                            <th className="px-4 py-3 min-w-[180px] text-center">Celular</th>
+                            <th className="px-4 py-3 min-w-[250px]">Email</th>
+                            <th className="px-4 py-3 min-w-[60px] text-center"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                         {personnel.map((p, idx) => {
                             const isNoContact = ROLES_WITHOUT_CONTACT_INFO.includes(p.role || STAFF_ROLES[0]);
                             return (
-                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                                <tr key={idx} className={`hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors ${p.active_to ? 'opacity-60 bg-slate-100/30' : ''}`}>
+                                    <td className="px-2 py-1.5">
+                                        <div className="flex items-center gap-1">
+                                            <input
+                                                type="date"
+                                                className="input-field text-[10px] min-h-[30px] !py-0.5 w-full text-center"
+                                                value={p.active_from || ""}
+                                                onChange={(e) => updateItem(idx, 'active_from', e.target.value)}
+                                            />
+                                            <span className="text-[10px] font-bold text-slate-400">al</span>
+                                            <input
+                                                type="date"
+                                                className="input-field text-[10px] min-h-[30px] !py-0.5 w-full text-center"
+                                                value={p.active_to || ""}
+                                                onChange={(e) => updateItem(idx, 'active_to', e.target.value)}
+                                                placeholder="Actual..."
+                                            />
+                                        </div>
+                                    </td>
                                     <td className="px-2 py-1.5">
                                         <select
                                             className="input-field text-xs font-bold min-h-[38px] !py-1.5"
-                                            style={{ backgroundColor: '#66FF99' }}
+                                            style={{ backgroundColor: '#EEF2FF' }}
                                             value={p.role || STAFF_ROLES[0]}
                                             onChange={(e) => updateItem(idx, 'role', e.target.value)}
                                         >
@@ -234,6 +254,22 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                             placeholder="Nombre del funcionario"
                                             onChange={(e) => updateItem(idx, 'name', e.target.value)}
                                         />
+                                    </td>
+                                    <td className="px-2 py-1.5 text-center">
+                                        {!p.active_to && (
+                                            <div className="flex flex-col items-center gap-1 group">
+                                                <label className="relative flex items-center justify-center w-8 h-8 rounded-full border-2 border-slate-200 cursor-pointer hover:border-primary transition-all has-[:checked]:bg-primary has-[:checked]:border-primary">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only"
+                                                        checked={!!p.show_successor}
+                                                        onChange={(e) => updateItem(idx, 'show_successor', e.target.checked)}
+                                                    />
+                                                    <Plus size={16} className={`text-slate-400 group-hover:text-primary ${p.show_successor ? 'text-white rotate-45' : ''} transition-all`} />
+                                                </label>
+                                                <span className="text-[8px] font-bold text-slate-400 uppercase">Cambio</span>
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-2 py-1.5">
                                         {!isNoContact && (
@@ -284,8 +320,62 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                 </tr>
                             );
                         })}
+                        {personnel.map((p, idx) => {
+                            if (!p.show_successor) return null;
+                            return (
+                                <tr key={`suc-${idx}`} className="bg-emerald-50/20 border-l-4 border-emerald-500">
+                                    <td className="px-2 py-3" colSpan={2}>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Nueva Fecha Inicio</span>
+                                            <input
+                                                type="date"
+                                                className="input-field text-xs min-h-[34px] !py-1 text-center font-black"
+                                                style={{ borderColor: '#10B981' }}
+                                                value={p.new_start_date || ""}
+                                                onChange={(e) => {
+                                                    updateItem(idx, 'new_start_date', e.target.value);
+                                                    updateItem(idx, 'active_to', e.target.value); // El saliente termina cuando empieza el nuevo
+                                                }}
+                                            />
+                                        </div>
+                                    </td>
+                                    <td className="px-2 py-3">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-emerald-600 uppercase mb-1">Nombre de Sucesor</span>
+                                            <input
+                                                type="text"
+                                                className="input-field text-xs min-h-[34px] !py-1 font-black"
+                                                style={{ borderColor: '#10B981' }}
+                                                value={p.new_name || ""}
+                                                placeholder="Nombre del nuevo funcionario..."
+                                                onChange={(e) => updateItem(idx, 'new_name', e.target.value)}
+                                                onBlur={(e) => {
+                                                    // Auto-crear el nuevo registro al salir si hay nombre
+                                                    if (e.target.value.trim() !== "" && p.new_start_date) {
+                                                        const newP = { 
+                                                            role: p.role, 
+                                                            name: e.target.value, 
+                                                            active_from: p.new_start_date,
+                                                            phone_office: p.phone_office,
+                                                            phone_mobile: p.phone_mobile,
+                                                            email: p.email
+                                                        };
+                                                        setPersonnel([newP, ...personnel.map((item, i) => i === idx ? { ...item, show_successor: false } : item)]);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    </td>
+                                    <td className="px-2 py-3" colSpan={5}>
+                                        <div className="text-[10px] text-slate-400 italic mt-4">
+                                            Se creará un nuevo registro histórico y el actual se marcará como finalizado.
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                         <tr>
-                            <td colSpan={6} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                            <td colSpan={8} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
                                 <button
                                     type="button"
                                     onClick={addItem}

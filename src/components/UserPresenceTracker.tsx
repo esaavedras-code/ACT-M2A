@@ -31,7 +31,19 @@ export default function UserPresenceTracker() {
     useEffect(() => {
         if (!userId) return;
 
-        const platform = (typeof window !== "undefined" && (window as any).electronAPI) ? "Windows" : "Web";
+        let platform = "Web";
+        if (typeof window !== "undefined") {
+            if ((window as any).electronAPI) {
+                platform = "App Windows";
+            } else {
+                const ua = window.navigator.userAgent.toLowerCase();
+                if (/mobi|android|iphone|ipad|touch/i.test(ua)) {
+                    platform = "Web (Celular)";
+                } else {
+                    platform = "Web (Computadora)";
+                }
+            }
+        }
         
         const getFriendlyPathname = (path: string) => {
             if (path === "/") return "Dashboard";

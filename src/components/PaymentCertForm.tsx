@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2, PlusSquare, Upload } from "lucide-react";
+import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2, PlusSquare, Upload, Image, X, ZoomIn } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { generateAct117C } from "@/lib/generateAct117C";
@@ -29,6 +29,8 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     const [certs, setCerts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState<number | null>(null);
+    const [uploadingImage, setUploadingImage] = useState<number | null>(null);
+    const [lightboxImg, setLightboxImg] = useState<string | null>(null);
     const [summary, setSummary] = useState({
         executed: 0,
         paid: 0,
@@ -130,7 +132,11 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 if (c.items && !Array.isArray(c.items) && c.items.list) {
                     items = c.items.list;
                 }
-                return { ...c, items };
+                return { 
+                    ...c, 
+                    items: items || [],
+                    notes_images: Array.isArray(c.notes_images) ? c.notes_images : []
+                };
             });
             setCerts(normalized);
         } else {
@@ -227,7 +233,9 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 project_id: projectId,
                 wp_up_to: c.wp_up_to || null,
                 skip_retention: !!c.skip_retention,
-                items: c.items || []
+                items: c.items || [],
+                notes: c.notes || null,
+                notes_images: c.notes_images || []
             };
         });
         const { error } = await supabase.from("payment_certifications").insert(certsToInsert);
@@ -260,6 +268,38 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     };
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
+
+    const uploadNoteImage = async (certIdx: number, file: File) => {
+        if (!projectId) return;
+        setUploadingImage(certIdx);
+        try {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const storagePath = `${projectId}/payment/cert_${certs[certIdx].cert_num}_${Date.now()}_${safeName}`;
+            const { error: uploadError } = await supabase.storage
+                .from("project-documents")
+                .upload(storagePath, file);
+            if (uploadError) throw uploadError;
+            const { data: urlData } = supabase.storage.from("project-documents").getPublicUrl(storagePath);
+            const publicUrl = urlData.publicUrl;
+            const newList = [...certs];
+            const currentImages: string[] = Array.isArray(newList[certIdx].notes_images) ? newList[certIdx].notes_images : [];
+            newList[certIdx].notes_images = [...currentImages, publicUrl];
+            setCerts(newList);
+            if (onDirty) onDirty();
+        } catch (err) {
+            console.error("Error subiendo imagen:", err);
+            alert("Error al subir la imagen. Intente de nuevo.");
+        } finally {
+            setUploadingImage(null);
+        }
+    };
+
+    const removeNoteImage = (certIdx: number, imgUrl: string) => {
+        const newList = [...certs];
+        newList[certIdx].notes_images = (newList[certIdx].notes_images || []).filter((u: string) => u !== imgUrl);
+        setCerts(newList);
+        if (onDirty) onDirty();
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -770,9 +810,38 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             </div>
 
                             {/* Notas de la Certificación */}
-                            <div className="px-4 py-2 bg-amber-50/30 dark:bg-amber-900/5 border-b border-amber-100 dark:border-amber-900/30">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Notas / Observaciones de esta Certificación</span>
+                            <div className="px-4 py-3 bg-amber-50/30 dark:bg-amber-900/5 border-b border-amber-100 dark:border-amber-900/30 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 flex items-center gap-1.5">
+                                        <Image size={12} /> Notas / Observaciones e Imágenes
+                                    </span>
+                                    <label
+                                        htmlFor={`img-upload-${certIdx}`}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase cursor-pointer transition-all ${
+                                            uploadingImage === certIdx
+                                                ? 'bg-amber-100 text-amber-400'
+                                                : 'bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-400'
+                                        }`}
+                                        title="Añadir imagen a las notas"
+                                    >
+                                        {uploadingImage === certIdx ? (
+                                            <><Loader2 size={11} className="animate-spin" /> Subiendo...</>
+                                        ) : (
+                                            <><Upload size={11} /> Añadir Imagen</>
+                                        )}
+                                    </label>
+                                    <input
+                                        id={`img-upload-${certIdx}`}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        disabled={uploadingImage === certIdx}
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) uploadNoteImage(certIdx, file);
+                                            e.target.value = "";
+                                        }}
+                                    />
                                 </div>
                                 <textarea
                                     rows={2}
@@ -781,6 +850,45 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                     value={c.notes || ""}
                                     onChange={(e) => updateCert(certIdx, 'notes', e.target.value)}
                                 />
+                                {/* Galería de imágenes adjuntas */}
+                                {Array.isArray(c.notes_images) && c.notes_images.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {c.notes_images.map((imgUrl: string, imgIdx: number) => (
+                                            <div
+                                                key={imgIdx}
+                                                className="relative group w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-200 dark:border-amber-800 shadow-sm flex-shrink-0"
+                                            >
+                                                <img
+                                                    src={imgUrl}
+                                                    alt={`Nota imagen ${imgIdx + 1}`}
+                                                    className="w-full h-full object-cover cursor-pointer transition-transform group-hover:scale-105"
+                                                    onClick={() => setLightboxImg(imgUrl)}
+                                                />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setLightboxImg(imgUrl)}
+                                                        className="p-1 bg-white/90 rounded-full text-slate-700 hover:text-blue-600 transition-colors"
+                                                        title="Ver imagen"
+                                                    >
+                                                        <ZoomIn size={12} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeNoteImage(certIdx, imgUrl)}
+                                                        className="p-1 bg-white/90 rounded-full text-slate-700 hover:text-red-600 transition-colors"
+                                                        title="Eliminar imagen"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                                <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-[8px] font-bold text-center py-0.5">
+                                                    {imgIdx + 1}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Detalle de Partidas (Acordeón) */}
@@ -1152,6 +1260,38 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     );
                 })}
             </div>
+
+            {/* Lightbox Modal para ver imágenes */}
+            {lightboxImg && (
+                <div 
+                    className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setLightboxImg(null)}
+                >
+                    <button 
+                        className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all shadow-xl"
+                        onClick={() => setLightboxImg(null)}
+                    >
+                        <X size={28} />
+                    </button>
+                    <div className="relative max-w-5xl w-full flex flex-col items-center gap-4">
+                        <img 
+                            src={lightboxImg} 
+                            alt="Vista ampliada" 
+                            className="max-h-[85vh] w-auto object-contain rounded-2xl shadow-2xl border-4 border-white/10 ring-1 ring-white/20 animate-in zoom-in-95 duration-300"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <a 
+                            href={lightboxImg} 
+                            download 
+                            className="btn-primary px-8 py-3 rounded-2xl font-black shadow-2xl flex items-center gap-3 transition-transform hover:scale-105"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <Download size={20} />
+                            Descargar Imagen
+                        </a>
+                    </div>
+                </div>
+            )}
         </div>
     );
 });

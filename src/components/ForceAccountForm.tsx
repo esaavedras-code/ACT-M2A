@@ -57,9 +57,32 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         setLoading(true);
         // Intentar obtener datos del proyecto para autocompletar
         let projectData: any = {};
+        let adminName = "";
+        let liquidadorName = "";
+
         if (projectId) {
-            const { data } = await supabase.from("projects").select("name, admin_name, contractor_name, liquidador_name").eq("id", projectId).single();
+            const { data } = await supabase.from("projects").select("name, contractor_name").eq("id", projectId).single();
             if (data) projectData = data;
+
+            // Extraer Administrador del Proyecto de act_personnel
+            const { data: adminData } = await supabase.from("act_personnel")
+                .select("name")
+                .eq("project_id", projectId)
+                .eq("role", "Administrador del Proyecto")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+            if (adminData) adminName = adminData.name;
+
+            // Extraer Oficial de Liquidación de act_personnel
+            const { data: liqData } = await supabase.from("act_personnel")
+                .select("name")
+                .eq("project_id", projectId)
+                .eq("role", "Oficial de Liquidación")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+            if (liqData) liquidadorName = liqData.name;
         }
 
         setCurrentFA({
@@ -69,9 +92,9 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
             fecha_inicio: new Date().toISOString().split("T")[0],
             fecha_fin: "",
             partida_num: "", ewo_num: "", con_union: false,
-            admin: projectData.admin_name || "", 
+            admin: adminName, 
             contratista: projectData.contractor_name || "", 
-            liquidador: projectData.liquidador_name || "",
+            liquidador: liquidadorName,
             fa_details: defaultFaDetails,
             labor: [], equipment: [], materials: []
         });
