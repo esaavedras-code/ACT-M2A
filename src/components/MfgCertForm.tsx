@@ -351,7 +351,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             }
 
             for (const c of expandedCerts) {
-                const { id, created_at, validation, file_name, _unit, item_num, specification, item_ids, is_multiple, ...rest } = c;
+                const { id, created_at, validation, file_name, _unit, item_num, specification, item_ids, is_multiple, multiple_quantities, ...rest } = c;
                 const payload = {
                     ...rest,
                     project_id: projectId,
