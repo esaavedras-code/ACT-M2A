@@ -447,7 +447,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right", size: "small",
+                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Download />,
                         onClick: () => exportSectionToJSON(`informe_diario_${currentLog.log_date}`, currentLog),
                         description: "Exportar el informe diario completo a un archivo JSON (para copiar a otro proyecto o fecha)",
@@ -455,7 +455,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         disabled: loading
                     },
                     {
-                        label: "Importar JSON", position: "middle-right", size: "small",
+                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-dailylog-json')?.click(),
                         description: "Cargar datos de un informe diario desde un archivo JSON",

@@ -244,7 +244,7 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right", size: "small",
+                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Download />,
                         onClick: () => exportSectionToJSON(`inspeccion_${selectedDate}`, currentLog),
                         description: "Exportar datos de inspección del día a un archivo JSON",
@@ -252,7 +252,7 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
                         disabled: loading || !currentLog
                     },
                     {
-                        label: "Importar JSON", position: "middle-right", size: "small",
+                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-inspection-json')?.click(),
                         description: "Cargar datos de inspección desde un archivo JSON",

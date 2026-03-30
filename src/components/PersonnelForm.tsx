@@ -244,24 +244,22 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right", size: "small",
+                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("personnel", personnel),
                         description: "Exportar lista de firmas actuales a un archivo JSON",
                         variant: 'info' as const,
                         disabled: loading,
-                        position: 'middle-right',
-                        size: 'small'
+
                     },
                     {
-                        label: "Importar JSON", position: "middle-right", size: "small",
+                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-personnel-json')?.click(),
                         description: "Cargar lista de firmas desde un archivo JSON",
                         variant: 'secondary' as const,
                         disabled: loading,
-                        position: 'middle-right',
-                        size: 'small'
+
                     },
                     {
                         label: "Añadir Persona",

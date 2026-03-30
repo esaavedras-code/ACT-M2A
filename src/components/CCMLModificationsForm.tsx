@@ -237,7 +237,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right", size: "small",
+                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("ccml_modificaciones", mods),
                         description: "Exportar tabla de modificaciones CCML a un archivo JSON",
@@ -245,7 +245,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                         disabled: loading
                     },
                     {
-                        label: "Importar JSON", position: "middle-right", size: "small",
+                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-ccml-json')?.click(),
                         description: "Cargar tabla de modificaciones CCML desde un archivo JSON",

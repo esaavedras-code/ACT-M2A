@@ -422,7 +422,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right", size: "small",
+                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("liquidacion", formData),
                         description: "Exportar datos de liquidación a un archivo JSON",
@@ -430,7 +430,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         disabled: loading
                     },
                     {
-                        label: "Importar JSON", position: "middle-right", size: "small",
+                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-liq-json')?.click(),
                         description: "Cargar datos de liquidación desde un archivo JSON",

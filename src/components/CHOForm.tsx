@@ -339,7 +339,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right", size: "small",
+                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("change_orders", chos),
                         description: "Exportar todas las enmiendas actuales a un archivo JSON",
@@ -347,7 +347,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                         disabled: loading
                     },
                     {
-                        label: "Importar JSON", position: "middle-right", size: "small",
+                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-chos-json')?.click(),
                         description: "Cargar enmiendas desde un archivo JSON",
