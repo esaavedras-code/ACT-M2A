@@ -58,6 +58,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     const [documents, setDocuments] = useState<any[]>([]);
     const [selectedDocType, setSelectedDocType] = useState(DOC_TYPES[0]);
     const [uploadingDoc, setUploadingDoc] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState("");
+    const [aiResponse, setAiResponse] = useState("");
 
     useEffect(() => {
         setMounted(true);
@@ -496,67 +498,122 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         {projectId && (
                             <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-indigo-200 dark:shadow-none relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16 group-hover:bg-white/20 transition-all duration-500"></div>
-                                <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
-                                    <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30">
-                                        <FileSearch size={32} className="text-white" />
-                                    </div>
-                                    <div className="flex-1 text-center md:text-left">
-                                        <h4 className="text-lg font-black uppercase tracking-tight">Asistente AI</h4>
-                                        <p className="text-indigo-100 text-sm font-medium mt-1">Extrae automáticamente datos del proyecto y partidas.</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        disabled={loading}
-                                        onClick={async () => {
-                                            if (!projectId) return;
-                                            setLoading(true);
-                                            try {
-                                                const { data: dbDocs } = await supabase.from('project_documents').select('file_name').eq('project_id', projectId);
-                                                if (!dbDocs?.length) { alert("Sube documentos (Proposal, Contrato) antes."); setLoading(false); return; }
-                                                const win = window as any;
-                                                if (!win.electronAPI?.parsePdfBase64) { alert("Usa la versión EXE."); setLoading(false); return; }
-                                                const { data: files } = await supabase.storage.from("project-documents").list(projectId);
-                                                if (!files?.length) { alert("No hay PDFs."); setLoading(false); return; }
-                                                let count = 0, items = 0;
-                                                const updated = { ...formData };
-                                                const itemsToInsert: any[] = [];
-                                                const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
-                                                    const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
-                                                });
-                                                for (const f of files) {
-                                                    if (!f.name.toLowerCase().endsWith('.pdf')) continue;
-                                                    const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
-                                                    if (!blob) continue;
-                                                    const res = await win.electronAPI.parsePdfBase64(await blobToBase64(blob));
-                                                    if (res.success && res.text) {
-                                                        const txt = res.text.replace(/\s+/g, ' ');
-                                                        const act = txt.match(/AC-\d{6}[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[0].toUpperCase(); count++; }
-                                                        const fed = txt.match(/(?:Federal(?: Aid)?(?:\s+Project)?(?: No| Number)?)\s*[:=]?\s*(PR-\d{4}\(\d{3}\)|PR-[A-Z0-9]+)/i); if (fed && !updated.num_federal) { updated.num_federal = fed[1]; count++; }
-                                                        const cost = txt.match(/(?:Total\s*Cost|Contract\s*Amount|Monto|Total\s*a\s*Pagar|Contract\s*Price)\s*[:=\$]*\s*\$?\s*([\d,]+\.\d{2})/i); if (cost && !updated.cost_original) { const v = parseFloat(cost[1].replace(/,/g, '')); if (!isNaN(v)) { updated.cost_original = v; count++; } }
-                                                        const lines = res.text.split("\n");
-                                                        const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
-                                                        for (const l of lines) {
-                                                            const m = pat.exec(l);
-                                                            if (m) {
-                                                                const n = m[1].padStart(3, '0');
-                                                                if (!itemsToInsert.some(it => it.item_num === n)) {
-                                                                    itemsToInsert.push({ project_id: projectId, item_num: n, specification: m[2].trim(), description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[m[2].trim()] });
-                                                                    items++;
+                                <div className="relative z-10 flex flex-col w-full gap-4">
+                                    <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+                                        <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shrink-0">
+                                            <FileSearch size={32} className="text-white" />
+                                        </div>
+                                        <div className="flex-1 text-center md:text-left w-full space-y-3">
+                                            <div>
+                                                <h4 className="text-lg font-black uppercase tracking-tight">Asistente AI</h4>
+                                                <p className="text-indigo-100 text-sm font-medium mt-1">Extrae automáticamente datos del proyecto y partidas, o pregúntale lo que necesites buscar en los documentos subidos.</p>
+                                            </div>
+                                            <div className="flex flex-col sm:flex-row gap-2 w-full">
+                                                <input 
+                                                    type="text" 
+                                                    value={aiPrompt}
+                                                    onChange={(e) => setAiPrompt(e.target.value)}
+                                                    placeholder="Opcional: Indica qué información necesitas extraer (ej. Nombres, fechas)..."
+                                                    className="w-full px-3 py-2 text-sm text-slate-900 bg-white/90 focus:bg-white rounded-lg outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-slate-500 transition-colors"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            // @ts-ignore
+                                                            document.getElementById('btn-analyze-ai')?.click();
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    id="btn-analyze-ai"
+                                                    type="button"
+                                                    disabled={loading}
+                                                    onClick={async () => {
+                                                        if (!projectId) return;
+                                                        setLoading(true);
+                                                        setAiResponse("");
+                                                        try {
+                                                            const { data: dbDocs } = await supabase.from('project_documents').select('file_name').eq('project_id', projectId);
+                                                            if (!dbDocs?.length) { alert("Sube documentos (Proposal, Contrato) antes."); setLoading(false); return; }
+                                                            const win = window as any;
+                                                            if (!win.electronAPI?.parsePdfBase64) { alert("Usa la versión EXE para leer PDFs."); setLoading(false); return; }
+                                                            const { data: files } = await supabase.storage.from("project-documents").list(projectId);
+                                                            if (!files?.length) { alert("No hay PDFs subidos en Storage."); setLoading(false); return; }
+                                                            
+                                                            let count = 0, items = 0;
+                                                            const updated = { ...formData };
+                                                            const itemsToInsert: any[] = [];
+                                                            let fullExtractedText = "";
+                                                            
+                                                            const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
+                                                                const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
+                                                            });
+                                                            
+                                                            for (const f of files) {
+                                                                if (!f.name.toLowerCase().endsWith('.pdf')) continue;
+                                                                const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
+                                                                if (!blob) continue;
+                                                                const res = await win.electronAPI.parsePdfBase64(await blobToBase64(blob));
+                                                                if (res.success && res.text) {
+                                                                    fullExtractedText += "\n\n" + res.text;
+                                                                    const txt = res.text.replace(/\s+/g, ' ');
+                                                                    const act = txt.match(/AC-\d{6}[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[0].toUpperCase(); count++; }
+                                                                    const fed = txt.match(/(?:Federal(?: Aid)?(?:\s+Project)?(?: No| Number)?)\s*[:=]?\s*(PR-\d{4}\(\d{3}\)|PR-[A-Z0-9]+)/i); if (fed && !updated.num_federal) { updated.num_federal = fed[1]; count++; }
+                                                                    const cost = txt.match(/(?:Total\s*Cost|Contract\s*Amount|Monto|Total\s*a\s*Pagar|Contract\s*Price)\s*[:=\$]*\s*\$?\s*([\d,]+\.\d{2})/i); if (cost && !updated.cost_original) { const v = parseFloat(cost[1].replace(/,/g, '')); if (!isNaN(v)) { updated.cost_original = v; count++; } }
+                                                                    const lines = res.text.split("\n");
+                                                                    const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
+                                                                    for (const l of lines) {
+                                                                        const m = pat.exec(l);
+                                                                        if (m) {
+                                                                            const n = m[1].padStart(3, '0');
+                                                                            if (!itemsToInsert.some(it => it.item_num === n)) {
+                                                                                itemsToInsert.push({ project_id: projectId, item_num: n, specification: m[2].trim(), description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[m[2].trim()] });
+                                                                                items++;
+                                                                            }
+                                                                        }
+                                                                    }
                                                                 }
                                                             }
-                                                        }
-                                                    }
-                                                }
-                                                if (itemsToInsert.length) await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
-                                                setFormData(updated);
-                                                alert(`Extracción Finalizada: ${count} campos y ${items} partidas.`);
-                                            } catch (e) { console.error(e); }
-                                            setLoading(false);
-                                        }}
-                                        className="px-6 py-2 bg-white text-indigo-600 rounded-lg font-bold text-xs uppercase hover:bg-white/90 active:scale-95 transition-all"
-                                    >
-                                        {loading ? "Procesando..." : "Analizar con IA"}
-                                    </button>
+                                                            if (itemsToInsert.length) await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
+                                                            setFormData(updated);
+
+                                                            if (aiPrompt.trim().length > 0 && fullExtractedText.length > 0) {
+                                                                try {
+                                                                    const response = await fetch('/api/analyze-document', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ text: fullExtractedText, prompt: aiPrompt })
+                                                                    });
+                                                                    const aiData = await response.json();
+                                                                    if (aiData.result) {
+                                                                        setAiResponse(aiData.result);
+                                                                    } else if (aiData.error) {
+                                                                        setAiResponse("Error AI: " + aiData.error);
+                                                                    }
+                                                                } catch(err: any) {
+                                                                    setAiResponse("Error al consultar IA: " + err.message);
+                                                                }
+                                                            } else {
+                                                                alert(`Extracción Finalizada: ${count} campos y ${items} partidas.`);
+                                                            }
+                                                        } catch (e) { console.error(e); }
+                                                        setLoading(false);
+                                                    }}
+                                                    className="px-6 py-2 bg-white text-indigo-600 rounded-lg font-bold text-xs uppercase hover:bg-white/90 active:scale-95 transition-all shrink-0 h-[38px] flex items-center justify-center whitespace-nowrap"
+                                                >
+                                                    {loading ? "Procesando..." : "Analizar con IA"}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {aiResponse && (
+                                        <div className="w-full bg-indigo-900/50 rounded-xl p-4 border border-indigo-400/30 text-indigo-50 mt-2">
+                                            <div className="flex items-center gap-2 mb-2 opacity-80 border-b border-indigo-400/20 pb-2">
+                                                <FileSearch size={14} />
+                                                <span className="text-[10px] font-bold uppercase tracking-wider">Respuesta de IA:</span>
+                                            </div>
+                                            <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiResponse}</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
