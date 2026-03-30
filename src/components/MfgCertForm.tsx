@@ -336,7 +336,14 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             for (const c of certs) {
                 if (c.is_multiple && c.item_ids && c.item_ids.length > 0) {
                     for (const iId of c.item_ids) {
-                        expandedCerts.push({ ...c, item_id: iId, item_ids: undefined, is_multiple: false });
+                        expandedCerts.push({ 
+                            ...c, 
+                            item_id: iId, 
+                            item_ids: undefined, 
+                            is_multiple: false, 
+                            quantity: c.multiple_quantities?.[iId] || 0,
+                            multiple_quantities: undefined 
+                        });
                     }
                 } else if (c.item_id) {
                     expandedCerts.push(c);
@@ -516,10 +523,20 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                             </label>
                                         </div>
                                     </td>
-                                    <td className="px-2 py-1 text-center">
-                                        <span className="text-xs font-black text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                                            {c._unit || contractItems.find(it => it.id === c.item_id)?.unit || "—"}
-                                        </span>
+                                    <td className="px-2 py-1 text-center align-top">
+                                        {c.is_multiple && c.item_ids?.length > 0 ? (
+                                            <div className="flex flex-col gap-1">
+                                                {c.item_ids.map((id: string) => (
+                                                    <span key={id} className="text-[10px] font-black text-slate-600 bg-slate-100 px-1 py-1 rounded min-h-[32px] flex items-center justify-center">
+                                                        {contractItems.find(it => it.id === id)?.unit || "—"}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs font-black text-slate-600 bg-slate-100 px-2 py-1 rounded inline-block min-h-[32px] flex items-center justify-center">
+                                                {c._unit || contractItems.find(it => it.id === c.item_id)?.unit || "—"}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="px-2 py-1">
                                         <input
@@ -531,14 +548,37 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                             placeholder={c.file_name ? "No detectado en PDF" : "Nombre del Fabricante"}
                                         />
                                     </td>
-                                    <td className="px-2 py-1">
-                                        <input
-                                            type="number"
-                                            className="input-field text-[10px] text-center !py-1 min-h-[32px] font-bold text-black"
-                                            style={{ backgroundColor: '#66FF99' }}
-                                            value={isNaN(c.quantity) ? "" : c.quantity}
-                                            onChange={(e) => updateCert(idx, 'quantity', e.target.value === "" ? NaN : parseFloat(e.target.value))}
-                                        />
+                                    <td className="px-2 py-1 align-top">
+                                        {c.is_multiple && c.item_ids?.length > 0 ? (
+                                            <div className="flex flex-col gap-1">
+                                                {c.item_ids.map((id: string) => (
+                                                    <div key={id} className="relative flex items-center">
+                                                        <span className="absolute left-1 text-[8px] text-slate-500 font-bold z-10 pointer-events-none">Pt.{contractItems.find(it => it.id === id)?.item_num}</span>
+                                                        <input
+                                                            type="number"
+                                                            className="input-field pl-9 text-[10px] text-center !py-1 min-h-[32px] font-bold text-black w-full relative z-0"
+                                                            style={{ backgroundColor: '#66FF99' }}
+                                                            value={c.multiple_quantities?.[id] !== undefined ? c.multiple_quantities[id] : ""}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                                                                const newList = [...certs];
+                                                                newList[idx].multiple_quantities = { ...(newList[idx].multiple_quantities || {}), [id]: val };
+                                                                setCerts(newList);
+                                                                if (onDirty) onDirty();
+                                                            }}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <input
+                                                type="number"
+                                                className="input-field text-[10px] text-center !py-1 min-h-[32px] font-bold text-black w-full"
+                                                style={{ backgroundColor: '#66FF99' }}
+                                                value={isNaN(c.quantity) ? "" : c.quantity}
+                                                onChange={(e) => updateCert(idx, 'quantity', e.target.value === "" ? NaN : parseFloat(e.target.value))}
+                                            />
+                                        )}
                                     </td>
                                     <td className="px-2 py-1">
                                         <input

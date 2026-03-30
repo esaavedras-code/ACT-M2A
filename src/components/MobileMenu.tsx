@@ -37,12 +37,17 @@ export default function MobileMenu() {
         loadUser();
     }, []);
 
+    const searchParams = useSearchParams();
+    const isProjectDetail = pathname === "/proyectos/detalle";
+    const projectId = searchParams.get("id");
+    const activeTab = searchParams.get("tab") || "dashboard";
+
     const menuItems = [
         { name: "Dashboard", href: "/", icon: LayoutDashboard },
         { name: "Proyectos", href: "/proyectos", icon: Briefcase },
         { name: "Historial de precios", href: "/precios", icon: History },
-        { name: "Centro de Reportes", href: "/reportes", icon: TrendingUp },
-        { name: "Mi Perfil", href: "/perfil", icon: FileText }, // Added Perfil
+        { name: "Centro de Reportes", href: projectId ? `/reportes?id=${projectId}` : "/reportes", icon: TrendingUp },
+        { name: "Mi Perfil", href: "/perfil", icon: FileText },
     ];
 
     if (isAdmin) {
@@ -51,10 +56,6 @@ export default function MobileMenu() {
 
     const toggleMenu = () => setIsOpen(!isOpen);
 
-    const searchParams = useSearchParams();
-    const isProjectDetail = pathname === "/proyectos/detalle";
-    const projectId = searchParams.get("id");
-    const activeTab = searchParams.get("tab") || "dashboard";
 
     const projectTabs = [
         { id: "dashboard",   label: "Resumen",        icon: LayoutDashboard },
@@ -108,22 +109,30 @@ export default function MobileMenu() {
                     </div>
 
                     <nav className="flex-grow p-4 space-y-3 overflow-y-auto">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Secciones Principales</p>
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest px-4 mb-4 mt-2">Navegación Principal</p>
                         {menuItems.map((item) => {
                             const Icon = item.icon;
-                            const isActive = pathname === item.href;
+                            let isActive = false;
+                            
+                            // Logica especial para marcar activo Centro de Reportes sin incluir parametros GET
+                            if (item.name === "Centro de Reportes" && pathname.startsWith("/reportes")) {
+                                isActive = true;
+                            } else {
+                                isActive = pathname === item.href.split('?')[0];
+                            }
+                            
                             return (
                                 <Link
                                     key={item.name}
                                     href={item.href}
                                     onClick={toggleMenu}
-                                    className={`flex items-center gap-4 p-4 rounded-2xl font-black text-sm transition-all shadow-sm ${
+                                    className={`flex items-center gap-4 py-4 px-5 rounded-[1.25rem] font-bold text-base transition-all shadow-sm ${
                                         isActive
-                                            ? "bg-primary text-white shadow-primary/40 scale-[1.02]"
-                                            : "bg-white dark:bg-slate-900 text-slate-950 dark:text-slate-50 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-800"
+                                            ? "bg-primary text-white shadow-primary/40 scale-[1.02] border-transparent"
+                                            : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                                     }`}
                                 >
-                                    <Icon size={20} className={isActive ? "text-white" : "text-primary"} />
+                                    <Icon size={24} className={isActive ? "text-white" : "text-primary dark:text-blue-400"} />
                                     {item.name}
                                 </Link>
                             );
@@ -146,19 +155,19 @@ export default function MobileMenu() {
                                                 key={tab.id}
                                                 href={`/proyectos/detalle?id=${projectId}&tab=${tab.id}`}
                                                 onClick={toggleMenu}
-                                                className={`flex items-center justify-between p-3 rounded-xl transition-all ${
+                                                className={`flex items-center justify-between py-3.5 px-4 rounded-2xl transition-all ${
                                                     isTabActive
-                                                        ? "bg-primary/20 text-primary font-black shadow-inner"
-                                                        : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                        ? "bg-primary/10 border border-primary/20 text-primary font-black shadow-inner"
+                                                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent"
                                                 }`}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`p-2 rounded-lg ${isTabActive ? "bg-primary text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400"}`}>
-                                                        <TabIcon size={14} />
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`p-2.5 rounded-xl ${isTabActive ? "bg-primary text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
+                                                        <TabIcon size={18} />
                                                     </div>
-                                                    <span className="text-xs uppercase tracking-tight">{tab.label}</span>
+                                                    <span className="text-sm font-bold uppercase tracking-tight">{tab.label}</span>
                                                 </div>
-                                                {isTabActive && <ChevronRight size={14} />}
+                                                {isTabActive && <ChevronRight size={18} />}
                                             </Link>
                                         );
                                     })}

@@ -15,6 +15,66 @@ function AIChatContent() {
     const searchParams = useSearchParams();
     const projectId = searchParams.get("id");
 
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const [hasMoved, setHasMoved] = useState(false);
+
+    useEffect(() => {
+        const savedPos = localStorage.getItem("pact_ai_pos");
+        if (savedPos) {
+            try {
+                setPosition(JSON.parse(savedPos));
+            } catch (e) {
+                console.error("Error loading AI position", e);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isDragging) return;
+
+        const handleMove = (e: MouseEvent | TouchEvent) => {
+            const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+            const clientY = 'touches' in e ? (e as TouchEvent).touches[0].clientY : (e as MouseEvent).clientY;
+            
+            const newX = clientX - dragStart.x;
+            const newY = clientY - dragStart.y;
+            
+            if (Math.abs(newX - position.x) > 2 || Math.abs(newY - position.y) > 2) {
+                setHasMoved(true);
+            }
+            
+            setPosition({ x: newX, y: newY });
+        };
+
+        const handleEnd = () => {
+            setIsDragging(false);
+            localStorage.setItem("pact_ai_pos", JSON.stringify(position));
+        };
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchend', handleEnd);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('mouseup', handleEnd);
+            window.removeEventListener('touchend', handleEnd);
+        };
+    }, [isDragging, dragStart, position]);
+
+    const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+        const clientX = 'touches' in e ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
+        
+        setIsDragging(true);
+        setHasMoved(false);
+        setDragStart({ x: clientX - position.x, y: clientY - position.y });
+    };
+
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -54,8 +114,14 @@ function AIChatContent() {
     if (!isOpen) {
         return (
             <button
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-24 right-5 lg:bottom-10 lg:right-10 w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all z-[100] group overflow-hidden"
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleMouseDown}
+                onClick={() => !hasMoved && setIsOpen(true)}
+                className="fixed top-[2in] right-5 lg:right-10 w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all z-[100] group overflow-hidden cursor-move"
+                style={{
+                    transform: `translate(${position.x}px, ${position.y}px)`,
+                    transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                }}
             >
                 <div className="absolute inset-0 bg-gradient-to-tr from-blue-400/20 to-transparent animate-pulse" />
                 <Bot size={28} className="relative z-10 group-hover:scale-110 transition-transform" />
@@ -66,7 +132,11 @@ function AIChatContent() {
 
     return (
         <div 
-            className={`fixed bottom-0 right-0 lg:bottom-10 lg:right-10 w-full lg:w-[400px] bg-white dark:bg-slate-950 lg:rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-200 dark:border-slate-800 flex flex-col z-[100] transition-all duration-300 ${minimized ? 'h-16 overflow-hidden' : 'h-[600px] max-h-[85vh]'}`}
+            className={`fixed top-[2in] right-0 lg:right-10 w-full lg:w-[400px] bg-white dark:bg-slate-950 lg:rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-200 dark:border-slate-800 flex flex-col z-[100] transition-all duration-300 ${minimized ? 'h-16 overflow-hidden' : 'h-[600px] max-h-[70vh]'}`}
+            style={{
+                transform: `translate(${position.x}px, ${position.y}px)`,
+                transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}
         >
             {/* Header */}
             <div className="p-5 bg-blue-600 text-white flex justify-between items-center lg:rounded-t-[2rem]">

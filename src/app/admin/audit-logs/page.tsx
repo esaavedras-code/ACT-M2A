@@ -28,6 +28,8 @@ export default function AuditLogsPage() {
     const [selectedTable, setSelectedTable] = useState("all");
     const [selectedUser, setSelectedUser] = useState("all");
     const [selectedProject, setSelectedProject] = useState("all");
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
     const [expandedLog, setExpandedLog] = useState<number | null>(null);
 
     useEffect(() => {
@@ -84,20 +86,25 @@ export default function AuditLogsPage() {
     };
 
     const fetchLogs = async () => {
-        console.log("Fetching logs...");
-        const { data, error: fetchErr } = await supabase
-            .from("audit_log")
-            .select("*")
-            .order("timestamp_utc", { ascending: false })
-            .limit(200);
+        let query = supabase.from("audit_log").select("*").order("timestamp_utc", { ascending: false });
+        
+        if (selectedUser !== "all") query = query.eq("usuario_db", selectedUser);
+        if (selectedTable !== "all") query = query.eq("tabla", selectedTable);
+        if (dateFrom) query = query.gte("timestamp_utc", dateFrom + "T00:00:00Z");
+        if (dateTo) query = query.lte("timestamp_utc", dateTo + "T23:59:59Z");
+
+        // Si hay un filtro especial (fechas o usuarios), le permitimos obtener hasta 1000 para que vea 'todos' esos viejos.
+        // Si no hay filtro, mostramos los 200 últimos globales en vivo.
+        const usingFilter = dateFrom || dateTo || selectedUser !== "all" || selectedTable !== "all";
+        query = query.limit(usingFilter ? 1000 : 200);
+
+        const { data, error: fetchErr } = await query;
 
         if (fetchErr) {
-            console.error("Detailed Audit Fetch Error:", fetchErr);
             setError("No se pudieron consultar los logs: " + fetchErr.message);
             return;
         }
         if (data) {
-            console.log(`Successfully fetched ${data.length} logs.`);
             setLogs(data);
         }
     };
@@ -192,6 +199,22 @@ export default function AuditLogsPage() {
                         </select>
                     </div>
 
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5">
+                        <input 
+                            type="date" 
+                            className="bg-transparent outline-none font-bold text-[10px] uppercase tracking-wider text-slate-500 w-[110px]"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                        />
+                        <span className="text-[10px] text-slate-300">-</span>
+                        <input 
+                            type="date" 
+                            className="bg-transparent outline-none font-bold text-[10px] uppercase tracking-wider text-slate-500 w-[110px]"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                        />
+                    </div>
+
                     <button 
                         onClick={fetchInitialData}
                         className="p-2.5 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest sm:col-span-2 lg:col-span-1"
@@ -208,12 +231,12 @@ export default function AuditLogsPage() {
                     <table className="w-full text-left border-collapse min-w-[1000px]">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">ID</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Fecha / Hora</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Evento</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Tabla / Registro</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Detalles</th>
+                                <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400">ID</th>
+                                <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400">Fecha / Hora</th>
+                                <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400">Evento</th>
+                                <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400">Tabla / Registro</th>
+                                <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
+                                <th className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Detalles</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -230,50 +253,46 @@ export default function AuditLogsPage() {
                             ) : filteredLogs.map(log => (
                                 <Fragment key={log.id}>
                                     <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
-                                        <td className="px-6 py-5">
+                                        <td className="px-4 py-2">
                                             <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">#{log.id}</span>
                                         </td>
-                                        <td className="px-6 py-5 whitespace-nowrap">
+                                        <td className="px-4 py-2 whitespace-nowrap">
                                             <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
                                                     {new Date(log.timestamp_utc).toLocaleDateString("es-PR")}
                                                 </span>
-                                                <span className="text-[10px] text-slate-400 font-mono tracking-tighter italic">
+                                                <span className="text-[9px] text-slate-400 font-mono tracking-tighter italic">
                                                     {new Date(log.timestamp_utc).toLocaleTimeString("es-PR")}
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5">
-                                            <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                                        <td className="px-4 py-2">
+                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
                                                 log.evento === 'INSERT' ? 'bg-emerald-100 text-emerald-700' : 
                                                 log.evento === 'UPDATE' ? 'bg-blue-100 text-blue-700' : 
                                                 'bg-rose-100 text-rose-700'}`}>
                                                 {log.evento}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-5">
+                                        <td className="px-4 py-2">
                                             <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">{log.tabla}</span>
-                                                <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">ID: {log.fila_id}</span>
+                                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight">{log.tabla}</span>
+                                                <span className="text-[9px] text-slate-400 font-mono truncate max-w-[120px]">ID: {log.fila_id}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-5">
-                                            <span className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
-                                                <div className={`w-6 h-6 rounded-lg ${log.usuario_db === 'postgres' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 dark:bg-slate-800'} flex items-center justify-center text-[10px]`}>
-                                                    {log.usuario_db?.substring(0, 2).toUpperCase() || '??'}
-                                                </div>
+                                        <td className="px-4 py-2">
+                                            <span className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
                                                 <span className="truncate max-w-[150px]" title={log.usuario_db}>
-                                                    {log.usuario_db === 'postgres' ? 'SISTEMA (Postgres)' : (log.usuario_db === 'authenticated' ? 'CLIENTE (En sesión)' : log.usuario_db)}
+                                                    {log.usuario_db === 'postgres' ? 'SISTEMA (PG)' : (log.usuario_db === 'authenticated' ? 'CLIENTE' : log.usuario_db)}
                                                 </span>
                                             </span>
                                         </td>
-                                        <td className="px-6 py-5 text-right">
+                                        <td className="px-4 py-2 text-right">
                                             <button 
                                                 onClick={() => setExpandedLog(expandedLog === log.id ? null : log.id)}
-                                                className={`p-2 rounded-xl transition-all inline-flex items-center gap-2 text-[10px] font-bold ${expandedLog === log.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-primary'}`}
+                                                className={`px-2 py-1.5 rounded-lg transition-all inline-flex items-center gap-1 text-[9px] font-bold ${expandedLog === log.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-primary border border-primary/20'}`}
                                             >
                                                 {expandedLog === log.id ? 'CERRAR' : 'VER JSON'}
-                                                <ChevronDown size={14} className={`transform transition-transform ${expandedLog === log.id ? 'rotate-180' : ''}`} />
                                             </button>
                                         </td>
                                     </tr>

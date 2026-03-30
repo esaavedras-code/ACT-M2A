@@ -113,16 +113,10 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
         }
     };
 
-    // Lógica de Auto-guardado cada 3 segundos
+    // El autoguardado ha sido deshabilitado a petición del usuario
     useEffect(() => {
-        let timer: any;
-        if (activeSubTab === "edit" && currentLog && isDirty && !loading) {
-            timer = setTimeout(() => {
-                saveData(true, true); // silent=true, background=true
-            }, 3000);
-        }
-        return () => clearTimeout(timer);
-    }, [currentLog, isDirty, activeSubTab, loading]);
+        // La validación o limpieza de timers viejos se omite temporalmente
+    }, []);
 
     const fetchDailyLogs = async () => {
         if (!projectId) return;

@@ -163,7 +163,7 @@ export default function AdminRequestsPage() {
             .select("*")
             .eq("user_id", userId)
             .order("created_at", { ascending: false })
-            .limit(10);
+            .limit(20);
         if (data) {
             setUserHistory(prev => ({ ...prev, [userId]: data }));
         }
@@ -987,21 +987,21 @@ export default function AdminRequestsPage() {
                                                 <tr key={`${user.id}-history`} className="bg-blue-50/20 dark:bg-blue-900/5 animate-in slide-in-from-top-2 duration-300">
                                                     <td colSpan={5} className="px-8 py-0">
                                                         <div className="py-6 border-t border-blue-100/50 dark:border-blue-900/20">
-                                                            <div className="flex items-center justify-between mb-4">
+                                                            <div className="flex items-center justify-between mb-3">
                                                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                                                                    <Clock size={12} /> Últimas 10 actividades en el programa
+                                                                    <Clock size={12} /> Últimas 20 actividades
                                                                 </h4>
-                                                                {historyLoading && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
+                                                                {historyLoading && <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
                                                             </div>
                                                             
                                                             {userHistory[user.id]?.length === 0 ? (
-                                                                <p className="text-xs text-slate-400 italic py-4">No hay registros de actividad recientes.</p>
+                                                                <p className="text-[10px] text-slate-400 italic py-2">No hay registros de actividad recientes.</p>
                                                             ) : (
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                                                                     {userHistory[user.id]?.map((log) => (
-                                                                        <div key={log.id} className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-1 hover:shadow-md transition-shadow">
+                                                                        <div key={log.id} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-1 hover:shadow-md transition-shadow">
                                                                             <div className="flex justify-between items-start">
-                                                                                <span className="text-[10px] font-black text-slate-900 dark:text-white truncate pr-2">
+                                                                                <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300 leading-tight pr-1 line-clamp-2" title={log.activity_detail}>
                                                                                     {log.activity_detail}
                                                                                 </span>
                                                                                 <span className="px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 text-[8px] font-bold text-slate-400 border border-slate-100 dark:border-slate-800 rounded">

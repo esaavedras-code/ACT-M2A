@@ -13,6 +13,7 @@ import BottomNav from "@/components/BottomNav";
 import QuickHelpModal from "@/components/QuickHelpModal";
 import AIChat from "@/components/AIChat";
 import UserPresenceTracker from "@/components/UserPresenceTracker";
+import MaintenanceGuard from "@/components/MaintenanceGuard";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,6 +31,9 @@ export default function RootLayout({
             <body className="antialiased min-h-screen relative font-sans text-slate-900 bg-slate-50" suppressHydrationWarning>
                 <TranslationProvider>
                     <UserPresenceTracker />
+                    <Suspense fallback={null}>
+                        <MaintenanceGuard />
+                    </Suspense>
                     <RegistrationModal />
                     <div className="flex flex-col min-h-screen">
                         <header className="bg-blue-700 text-white shadow-xl px-0 fixed top-0 w-full z-50 h-16 transition-all duration-300" suppressHydrationWarning>

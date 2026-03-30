@@ -11,6 +11,8 @@ export default function UserAccessButton() {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
+    const [loadingToggle, setLoadingToggle] = useState(false);
 
     useEffect(() => {
         const loadUser = async () => {
@@ -37,6 +39,18 @@ export default function UserAccessButton() {
             } else {
                 setUserName(null);
                 setUserEmail(null);
+            }
+
+            // Check if Maintenance project configuration exists
+            const { data: config } = await supabase.from('projects')
+                .select('contractor_name')
+                .eq('name', 'PACT_SYSTEM_CONFIG')
+                .maybeSingle();
+
+            if (config) {
+                setMaintenanceMode(config.contractor_name === 'MAINTENANCE_ON');
+            } else {
+                setMaintenanceMode(false);
             }
         };
 
@@ -75,6 +89,37 @@ export default function UserAccessButton() {
         }
         await supabase.auth.signOut();
         window.location.href = "/login";
+    };
+
+    const toggleMaintenanceMode = async () => {
+        setIsMenuOpen(false);
+        setLoadingToggle(true);
+        try {
+            const newValue = maintenanceMode ? 'MAINTENANCE_OFF' : 'MAINTENANCE_ON';
+            
+            // Check if exists
+            const { data: exists } = await supabase.from('projects').select('id').eq('name', 'PACT_SYSTEM_CONFIG').maybeSingle();
+            
+            if (exists) {
+                await supabase.from('projects').update({ contractor_name: newValue, num_act: 'AC-999999' }).eq('id', exists.id);
+            } else {
+                await supabase.from('projects').insert([{
+                    name: 'PACT_SYSTEM_CONFIG',
+                    num_act: 'AC-999999',
+                    contractor_name: newValue,
+                    municipios: 'System',
+                    carreteras: 'Config'
+                }]);
+            }
+            
+            setMaintenanceMode(!maintenanceMode);
+            alert(`El sistema ha sido ${newValue === 'MAINTENANCE_ON' ? 'BLOQUEADO' : 'DESBLOQUEADO'} para el resto de los usuarios.`);
+        } catch (e: any) {
+            console.error(e);
+            alert("Error cambiando modo: " + e.message);
+        } finally {
+            setLoadingToggle(false);
+        }
     };
 
     return (
@@ -183,6 +228,34 @@ export default function UserAccessButton() {
                                         <div className="text-left">
                                             <span className="block text-sm font-bold">Solicitudes de Acceso</span>
                                             <span className="text-[10px] text-slate-400 font-medium">Gestionar usuarios y permisos</span>
+                                        </div>
+                                    </button>
+                                    
+                                    <div className="my-1 h-px bg-slate-100 dark:bg-slate-800" />
+                                    
+                                    <button
+                                        onClick={toggleMaintenanceMode}
+                                        disabled={loadingToggle || maintenanceMode === null}
+                                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group ${
+                                            maintenanceMode
+                                                ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100'
+                                                : 'hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                                        }`}
+                                    >
+                                        <div className={`p-2 rounded-lg transition-colors ${
+                                            maintenanceMode
+                                                ? 'bg-red-500 text-white'
+                                                : 'bg-slate-100 dark:bg-slate-800 group-hover:bg-amber-500/10 text-slate-500 group-hover:text-amber-500'
+                                        }`}>
+                                            <ShieldCheck size={16} />
+                                        </div>
+                                        <div className="text-left">
+                                            <span className={`block text-sm font-bold ${maintenanceMode ? 'text-red-700 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                {maintenanceMode ? 'Apagar Mantenimiento' : 'Encender Mantenimiento'}
+                                            </span>
+                                            <span className={`text-[10px] font-medium leading-tight ${maintenanceMode ? 'text-red-500' : 'text-slate-400'}`}>
+                                                {maintenanceMode ? 'Web Bloqueada. Clic para dar acceso.' : 'Bloquear web para todos los usuarios'}
+                                            </span>
                                         </div>
                                     </button>
                                 </>
