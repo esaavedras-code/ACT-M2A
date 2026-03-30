@@ -299,8 +299,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             return await parseRes.json();
                                         }
                                     };
-                                    const { data: files } = await supabase.storage.from("project-documents").list(projectId);
-                                    if (!files?.length) { alert("Sube documentos (Proposal, Contrato) en la pestaña 'Datos Proyecto' primero."); setLoading(false); return; }
+                                    const { data: dbDocs } = await supabase.from('project_documents').select('file_name, storage_path').eq('project_id', projectId);
+                                    if (!dbDocs?.length) { alert("Sube documentos (Proposal, Contrato) en la pestaña 'Datos Proyecto' primero."); setLoading(false); return; }
                                     
                                     let itemsCount = 0;
                                     const itemsToInsert: any[] = [];
@@ -308,9 +308,9 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                         const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
                                     });
 
-                                    for (const f of files) {
-                                        if (!f.name.toLowerCase().endsWith('.pdf')) continue;
-                                        const { data: blob } = await supabase.storage.from('project-documents').download(`${projectId}/${f.name}`);
+                                    for (const doc of dbDocs) {
+                                        if (!doc.storage_path || !doc.storage_path.toLowerCase().endsWith('.pdf')) continue;
+                                        const { data: blob } = await supabase.storage.from('project-documents').download(doc.storage_path);
                                         if (!blob) continue;
                                         const res = await parsePdf(await blobToBase64(blob));
                                         if (res.success && res.text) {
