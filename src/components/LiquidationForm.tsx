@@ -2,9 +2,10 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileCheck2, UserCheck, Upload, FileText, Activity, CheckSquare, X, Printer, Loader2 } from "lucide-react";
+import { Save, FileCheck2, UserCheck, Upload, FileText, Activity, CheckSquare, X, Printer, Loader2, Download } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 import { generateSignedItemsReportLogic } from "@/lib/reportLogic";
 
@@ -405,8 +406,37 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     </div>
                 </div>
             )}
+            <input id="import-liq-json" type="file" accept=".json" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const result = await importSectionFromJSON(file);
+                if (result.success && result.data && typeof result.data === 'object') {
+                    setFormData({ ...formData, ...result.data });
+                    if (onDirty) onDirty();
+                    alert("Datos de liquidación importados. Guarde para confirmar.");
+                } else {
+                    alert("Error al importar: " + (result.error || "Formato inválido"));
+                }
+                e.target.value = "";
+            }} />
             <FloatingFormActions
                 actions={[
+                    {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON("liquidacion", formData),
+                        description: "Exportar datos de liquidación a un archivo JSON",
+                        variant: 'info' as const,
+                        disabled: loading
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-liq-json')?.click(),
+                        description: "Cargar datos de liquidación desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
                     {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,

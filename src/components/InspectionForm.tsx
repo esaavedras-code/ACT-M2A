@@ -4,11 +4,13 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import {
     Save, Plus, Trash2, Users, Search,
-    Clock, Shield, AlertTriangle, Trash, Info, ChevronLeft, ChevronRight, Printer, Mic, Loader2
+    Clock, Shield, AlertTriangle, Trash, Info, ChevronLeft, ChevronRight, Printer, Mic, Loader2,
+    Download, Upload
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { generateInspectionReport } from "@/lib/generateInspectionReport";
 import { downloadBlob } from "@/lib/reportLogic";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 
 const DELAY_TYPES = ["Condiciones existentes", "Material", "Falla en la especificación", "Decisión de ACT", "Calidad", "Evento de seguridad", "Clima"];
 
@@ -226,8 +228,37 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
                 </div>
             </div>
 
+            <input id="import-inspection-json" type="file" accept=".json" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const result = await importSectionFromJSON(file);
+                if (result.success && result.data && typeof result.data === 'object') {
+                    setCurrentLog((prev: any) => ({ ...prev, ...result.data }));
+                    if (onDirty) onDirty();
+                    alert("Datos de inspección importados. Guarde para confirmar.");
+                } else {
+                    alert("Error al importar: " + (result.error || "Formato inválido"));
+                }
+                e.target.value = "";
+            }} />
             <FloatingFormActions
                 actions={[
+                    {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON(`inspeccion_${selectedDate}`, currentLog),
+                        description: "Exportar datos de inspección del día a un archivo JSON",
+                        variant: 'info' as const,
+                        disabled: loading || !currentLog
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-inspection-json')?.click(),
+                        description: "Cargar datos de inspección desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
                     ...(currentLog?.id ? [{
                         label: "Imprimir (ACT-96)",
                         icon: <Printer />,

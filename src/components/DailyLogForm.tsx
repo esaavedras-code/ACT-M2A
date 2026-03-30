@@ -7,12 +7,13 @@ import {
     FileText, ChevronRight, ChevronLeft,
     CloudSun, MessageSquare, ListChecks,
     Clock, Shield, AlertTriangle, Trash, Check,
-    Camera, Image as ImageIcon, Search, Upload, Printer, FileSpreadsheet, Info, Mic, Loader2
+    Camera, Image as ImageIcon, Search, Upload, Printer, FileSpreadsheet, Info, Mic, Loader2, Download
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { generateDailyLogReport } from "@/lib/generateDailyLogReport";
 import { downloadBlob } from "@/lib/reportLogic";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 
 const DELAY_TYPES = ["Condiciones existentes", "Material", "Falla en la especificación", "Decisión de ACT", "Calidad", "Evento de seguridad", "Clima"];
 const EQUIPMENT_TYPES = ["Bob Cat", "Pickup F-150", "Pickup Ram 2500", "Pickup F-450", "Truck Tumba 320", "Grúa de canasto", "Miniexcavadora"];
@@ -428,8 +429,39 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                 </div>
             </div>
 
+            <input id="import-dailylog-json" type="file" accept=".json" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const result = await importSectionFromJSON(file);
+                if (result.success && result.data && typeof result.data === 'object') {
+                    const { id: _id, created_at, updated_at, project_id, ...rest } = result.data;
+                    setCurrentLog((prev: any) => ({ ...prev, ...rest }));
+                    setIsDirty(true);
+                    if (onDirty) onDirty();
+                    alert("Datos del informe importados. Guarde para confirmar.");
+                } else {
+                    alert("Error al importar: " + (result.error || "Formato inválido"));
+                }
+                e.target.value = "";
+            }} />
             <FloatingFormActions
                 actions={[
+                    {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON(`informe_diario_${currentLog.log_date}`, currentLog),
+                        description: "Exportar el informe diario completo a un archivo JSON (para copiar a otro proyecto o fecha)",
+                        variant: 'info' as const,
+                        disabled: loading
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-dailylog-json')?.click(),
+                        description: "Cargar datos de un informe diario desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
                     ...(currentLog.id ? [{
                         label: "Imprimir PDF",
                         icon: <Printer />,

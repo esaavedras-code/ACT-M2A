@@ -2,9 +2,10 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Building2 } from "lucide-react";
+import { Save, Building2, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatPhoneNumber } from "@/lib/utils";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 
 const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function ContractorForm({ projectId, numAct, onDirty, onSaved }, ref) {
@@ -163,8 +164,38 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     />
                 </div>
             </form>
+            <input id="import-contractor-json" type="file" accept=".json" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const result = await importSectionFromJSON(file);
+                if (result.success && result.data && typeof result.data === 'object') {
+                    const { id, project_id, created_at, ...rest } = result.data;
+                    setFormData({ ...formData, ...rest });
+                    if (onDirty) onDirty();
+                    alert("Datos importados. Guarde para confirmar.");
+                } else {
+                    alert("Error al importar: " + (result.error || "Formato inválido"));
+                }
+                e.target.value = "";
+            }} />
             <FloatingFormActions
                 actions={[
+                    {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON("contractor", formData),
+                        description: "Exportar información del contratista a un archivo JSON",
+                        variant: 'info' as const,
+                        disabled: loading
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-contractor-json')?.click(),
+                        description: "Cargar información del contratista desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
                     {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,

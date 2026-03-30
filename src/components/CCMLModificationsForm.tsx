@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Info } from "lucide-react";
+import { Save, Info, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
+import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 
 interface CCMLMod {
     modification_num: number;
@@ -213,8 +214,44 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
                     </tbody>
                 </table>
             </div>
+            <input id="import-ccml-json" type="file" accept=".json" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const result = await importSectionFromJSON(file);
+                if (result.success && Array.isArray(result.data)) {
+                    const imported: CCMLMod[] = result.data.map((m: any) => ({
+                        modification_num: m.modification_num ?? 0,
+                        label: m.label ?? '',
+                        federal_share: m.federal_share ?? 0,
+                        toll_credits: m.toll_credits ?? 0,
+                        state_funds: m.state_funds ?? 0,
+                    }));
+                    setMods(imported);
+                    if (onDirty) onDirty();
+                    alert("Datos CCML importados. Guarde para confirmar.");
+                } else {
+                    alert("Error al importar: " + (result.error || "Formato inválido"));
+                }
+                e.target.value = "";
+            }} />
             <FloatingFormActions
                 actions={[
+                    {
+                        label: "Exportar JSON",
+                        icon: <Download />,
+                        onClick: () => exportSectionToJSON("ccml_modificaciones", mods),
+                        description: "Exportar tabla de modificaciones CCML a un archivo JSON",
+                        variant: 'info' as const,
+                        disabled: loading
+                    },
+                    {
+                        label: "Importar JSON",
+                        icon: <Upload />,
+                        onClick: () => document.getElementById('import-ccml-json')?.click(),
+                        description: "Cargar tabla de modificaciones CCML desde un archivo JSON",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    },
                     {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
