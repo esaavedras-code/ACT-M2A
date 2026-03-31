@@ -7,7 +7,11 @@ const PH = 792; // 11"
 
 const drawText = (p: any, txt: any, x: number, y: number, font: any, size = 8, center = false, right = false) => {
     if (txt === undefined || txt === null) return;
-    const s = txt.toString();
+    // Fix WinAnsi encoding error (0x2011 is non-breaking hyphen)
+    const s = txt.toString()
+        .replace(/[\u2010-\u2015]/g, '-')
+        .replace(/\t/g, ' ');
+
     const textWidth = font.widthOfTextAtSize(s, size);
     let finalX = x;
     if (center) finalX = x - (textWidth / 2);
@@ -47,6 +51,26 @@ export async function generateAct124(projectId: string, choId: string, selectedI
         const fontItalicBold = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
 
         const page = pdfDoc.addPage([PW, PH]);
+
+        // Logo ACT - Top Left
+        let logoImage: any = null;
+        try {
+            const logoUrl = `${window.location.origin}/act_logo.png`;
+            const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
+            logoImage = await pdfDoc.embedPng(logoBytes);
+            
+            const dims = logoImage.scale(1);
+            const targetHeight = 40;
+            const targetWidth = (dims.width / dims.height) * targetHeight;
+            page.drawImage(logoImage, {
+                x: 35,
+                y: PH - 15 - targetHeight,
+                width: targetWidth,
+                height: targetHeight
+            });
+        } catch (e) {
+            console.error("No se pudo cargar el logo:", e);
+        }
 
         // Header - Subido 0.5cm adicionales (aprox 14pt)
         drawText(page, "Government of Puerto Rico", PW / 2, 21, font, 9, true);
