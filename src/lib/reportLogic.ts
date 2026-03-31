@@ -178,7 +178,7 @@ export const createPdfBlob = async (
                         cutDate.getMonth() === today.getMonth() && 
                         cutDate.getDate() === today.getDate();
         
-        if (!isToday) {
+        if (!isToday && !title.includes('INFORMACIÓN PRINCIPAL')) {
             centerText(`Fecha de Corte de Información: ${utilsFormatDate(cutDate)}`, timesRomanFont, 9, y);
             y -= 12;
         }
@@ -202,7 +202,7 @@ export const createPdfBlob = async (
         }
 
         const fontSize = isHeader ? 9 : 8;
-        const lineHeight = fontSize + 3;
+        const lineHeight = fontSize + 4;
 
         const rowHasSubtitle = row.some(cell => /^\s*\d+\.\s+[A-ZÁÉÍÓÚÑ]/.test(cell?.toString() || ''));
         const rowHasItemNum = !isHeader && /^\d+([-(A-Z]|$)/.test(row[0]?.toString() || '');
@@ -218,12 +218,12 @@ export const createPdfBlob = async (
             const useBold = isHeader || isPartida || isSubtitle || isItemNum || rowIsSpecial || textStr.endsWith(':') ||
                 textStr === 'Rol / Puesto' || textStr === 'Nombre' || textStr === 'Contacto' || textStr === 'Oficina' || textStr === 'Celular' || textStr === 'Email';
             const cellFont = useBold ? timesRomanBoldFont : timesRomanFont;
-            const displayFontSize = (isSubtitle || isItemNum || rowIsSpecial) ? fontSize + 1 : fontSize;
+            const displayFontSize = isSubtitle ? fontSize + 3.5 : (isItemNum || rowIsSpecial) ? fontSize + 2.5 : fontSize;
             return {
                 lines: splitTextIntoLines(textStr === '' ? '' : text, width, cellFont, displayFontSize),
                 font: cellFont,
                 useBold,
-                isRed: !isHeader && (textStr.startsWith('-') || (idx === 7 && parseFloat(textStr.replace(/[^0-9.-]/g, '')) < 0)),
+                isRed: !isHeader && (textStr.startsWith('-') || textStr.startsWith('(') || (idx === 7 && parseFloat(textStr.replace(/[^0-9.-]/g, '')) < 0) || (idx === 6 && parseFloat(textStr.replace(/[^0-9.-]/g, '')) < 0)),
                 displayFontSize
             };
         });
@@ -601,7 +601,8 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
     const reportData: any[][] = [['Item', 'Descripción', 'Unidad', 'C. Orig', 'CHO', 'Total', 'Certific.', 'Balance']];
     
     grouped.forEach((groupItems, source) => {
-        reportData.push([`PARTIDA / FUENTE DE FONDOS: ${source}`, '', '', '', '', '', '', '']);
+        const cleanSource = source.startsWith('AC:') ? source.replace(/^AC:/, ':') : source;
+        reportData.push([`PARTIDA / FUENTE DE FONDOS: ${cleanSource}`, '', '', '', '', '', '', '']);
         
         let subtotalQty = 0;
         let subtotalAmount = 0;
@@ -1114,7 +1115,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     });
 
     const projectInfo = { name: proj.name, num_act: proj.num_act };
-    await generateReport('REPORTE DE INFORMACIÓN PRINCIPAL (DASHBOARD)', reportData, projectInfo, [138, 138, 138, 138], 'portrait', format, `Dashboard_Reporte_${proj.num_act}.pdf`, endDate);
+    await generateReport('REPORTE DE INFORMACIÓN PRINCIPAL', reportData, projectInfo, [138, 138, 138, 138], 'portrait', format, `Dashboard_Reporte_${proj.num_act}.pdf`, endDate);
 };
 
 
