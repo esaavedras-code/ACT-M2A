@@ -235,11 +235,11 @@ export const createPdfBlob = async (
             const isSubtitle = /^\s*\d+\.\s+[A-ZÁÉÍÓÚÑ]/.test(textStr);
             const isItemNum = !isHeader && idx === 0 && row[0] && /^\d+([-(A-Z]|$)/.test(textStr);
             
-            const useBold = isHeader || isPartida || isSubtitle || isItemNum || rowIsSpecial || textStr.endsWith(':') ||
+            const useBold = isHeader || isPartida || isSubtitle || isItemNum || rowIsSpecial || isSubtitleRow || textStr.endsWith(':') ||
                 textStr.toLowerCase() === 'sí' || textStr.toLowerCase() === 'si' ||
                 textStr === 'Rol / Puesto' || textStr === 'Nombre' || textStr === 'Contacto' || textStr === 'Oficina' || textStr === 'Celular' || textStr === 'Email';
             const cellFont = useBold ? timesRomanBoldFont : timesRomanFont;
-            const displayFontSize = isSubtitle ? fontSize + 3.5 : (isItemNum || rowIsSpecial) ? fontSize + 2.5 : fontSize;
+            const displayFontSize = (isSubtitle || isSubtitleRow) ? fontSize + 3.5 : (isItemNum || rowIsSpecial) ? fontSize + 2.5 : fontSize;
             return {
                 lines: splitTextIntoLines(textStr === '' ? '' : text, width, cellFont, displayFontSize),
                 font: cellFont,
