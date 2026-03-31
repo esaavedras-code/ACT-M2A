@@ -287,7 +287,11 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
             const drawText = (txt: any, x: number, y: number, size = 8, isBold = false, center = false, forceColor?: any, isRetention?: boolean) => {
                 if (txt === undefined || txt === null) return;
-                const s = txt.toString();
+                // Fix WinAnsi encoding error
+                const s = txt.toString()
+                    .replace(/[\u2010-\u2015]/g, '-')
+                    .replace(/\t/g, ' ');
+
                 const usedFont = isBold ? fontBold : font;
                 const textWidth = usedFont.widthOfTextAtSize(s, size);
                 const finalX = center ? x - (textWidth / 2) : x;
@@ -492,7 +496,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 ["35", "Safety Penalties - Spec 638(-):", fmt(0, 2, true)],
                 ["36", "Other (+/-):", fmt(0, 2, true)],
                 ["37", "Net Payment:", fmt(netPaymentValue, 2, true)],
-                ["38", "Total to Date (WP):", fmt(totalToDatePaid, 2, true)]
+                ["38", "Total to Date (WP):", fmt(wpTotalToDate, 2, true)]
             ];
 
             sumDefs.forEach((sd, i) => {
