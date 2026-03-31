@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Plus, Trash2, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
@@ -105,7 +105,7 @@ const MoneyCell = ({
     );
 };
 
-export default function ProjectAgreementForm({ projectId }: { projectId: string }) {
+const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectId, hideActions = false }: { projectId: string, hideActions?: boolean }, ref) {
     const [funds, setFunds] = useState<FundRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [editingField, setEditingField] = useState<string | null>(null);
@@ -113,6 +113,10 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
     useEffect(() => {
         if (projectId) fetchFunds();
     }, [projectId]);
+
+    useImperativeHandle(ref, () => ({
+        save: () => saveFunds(true)
+    }));
 
     const fetchFunds = async () => {
         const { data } = await supabase
@@ -239,9 +243,13 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
                                 <MoneyCell fieldKey={`state_share_${idx}`} rowIdx={idx} field="state_share_federal" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-green-50/50 dark:bg-green-900/10" />
                                 <MoneyCell fieldKey={`cont_state_share_${idx}`} rowIdx={idx} field="contingencies_state_share" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-green-50/50 dark:bg-green-900/10" />
                                 {/* Not Participating (State Funds) — verde */}
-                                <MoneyCell fieldKey={`not_participating_${idx}`} rowIdx={idx} field="not_participating_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
+                                <td className="border p-0.5" style={{ backgroundColor: '#66FF99' }}>
+                                    <MoneyCell fieldKey={`not_participating_${idx}`} rowIdx={idx} field="not_participating_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" />
+                                </td>
                                 {/* Contingencies (No Part.) — verde */}
-                                <MoneyCell fieldKey={`cont_nop_${idx}`} rowIdx={idx} field="contingencies_not_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
+                                <td className="border p-0.5" style={{ backgroundColor: '#66FF99' }}>
+                                    <MoneyCell fieldKey={`cont_nop_${idx}`} rowIdx={idx} field="contingencies_not_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" />
+                                </td>
                                 <MoneyCell fieldKey={`payroll_mileage_diets_state_${idx}`} rowIdx={idx} field="payroll_mileage_diets_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-gray-50/50 dark:bg-gray-900/10" />
                                 {/* Acciones */}
                                 <td className="border p-0.5 text-center">
@@ -254,36 +262,38 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
                     </tbody>
                 </table>
             </div>
-            <FloatingFormActions
-                actions={[
-                    {
-                        label: "Exportar Datos", position: "middle-right" as const, size: "small" as const,
-                        icon: <Download />,
-                        onClick: () => exportSectionToJSON("project_agreement", funds),
-                        description: "Descargar los datos de esta tabla en formato JSON",
-                        variant: 'info' as const,
-                        disabled: loading,
+            {!hideActions && (
+                <FloatingFormActions
+                    actions={[
+                        {
+                            label: "Exportar Datos", position: "middle-right" as const, size: "small" as const,
+                            icon: <Download />,
+                            onClick: () => exportSectionToJSON("project_agreement", funds),
+                            description: "Descargar los datos de esta tabla en formato JSON",
+                            variant: 'info' as const,
+                            disabled: loading,
 
-                    },
-                    {
-                        label: "Importar Datos", position: "middle-right" as const, size: "small" as const,
-                        icon: <Upload />,
-                        onClick: () => document.getElementById('import-funds-json')?.click(),
-                        description: "Cargar datos desde un archivo JSON previamente exportado",
-                        variant: 'secondary' as const,
-                        disabled: loading,
+                        },
+                        {
+                            label: "Importar Datos", position: "middle-right" as const, size: "small" as const,
+                            icon: <Upload />,
+                            onClick: () => document.getElementById('import-funds-json')?.click(),
+                            description: "Cargar datos desde un archivo JSON previamente exportado",
+                            variant: 'secondary' as const,
+                            disabled: loading,
 
-                    },
-                    {
-                        label: loading ? "Guardando..." : "Guardar cambios",
-                        icon: <Save />,
-                        onClick: () => saveFunds(),
-                        description: "Actualizar la tabla de fondos originales y créditos de peaje del Project Agreement",
-                        variant: 'primary' as const,
-                        disabled: loading
-                    }
-                ]}
-            />
+                        },
+                        {
+                            label: loading ? "Guardando..." : "Guardar cambios",
+                            icon: <Save />,
+                            onClick: () => saveFunds(),
+                            description: "Actualizar la tabla de fondos originales y créditos de peaje del Project Agreement",
+                            variant: 'primary' as const,
+                            disabled: loading
+                        }
+                    ]}
+                />
+            )}
             <input 
                 id="import-funds-json"
                 type="file"
@@ -293,4 +303,7 @@ export default function ProjectAgreementForm({ projectId }: { projectId: string 
             />
         </div>
     );
-}
+});
+
+export default ProjectAgreementForm;
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, FileSearch } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
@@ -60,6 +60,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     const [uploadingDoc, setUploadingDoc] = useState(false);
     const [aiPrompt, setAiPrompt] = useState("");
     const [aiResponse, setAiResponse] = useState("");
+    const agreementRef = useRef<{ save: () => Promise<void> }>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -83,22 +84,19 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
 
         setUploadingDoc(true);
         try {
-            const dateFolder = new Date().toISOString().split('T')[0];
-            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-            const storagePath = `${projectId}/${selectedDocType}/${dateFolder}/${Date.now()}_${safeName}`;
-            const { error: storageErr } = await supabase.storage.from("project-documents").upload(storagePath, file);
-            
+            const storagePath = `projects/${projectId}/${file.name}`;
+            const { error: storageErr } = await supabase.storage.from('project-documents').upload(storagePath, file, { upsert: true });
+
             const { error: dbErr } = await supabase.from("project_documents").upsert({
                 project_id: projectId,
                 doc_type: selectedDocType,
                 section: selectedDocType,
                 file_name: file.name,
                 storage_path: storageErr ? null : storagePath
-            });
+            }, { onConflict: 'project_id, doc_type' });
 
             if (dbErr) throw dbErr;
-            
-            fetchDocuments();
+            await fetchDocuments();
             alert(`Documento "${selectedDocType}" subido correctamente.`);
             
         } catch (err: any) {
@@ -235,6 +233,10 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             let result;
             if (projectId) {
                 result = await supabase.from("projects").update(dataToSave).eq("id", projectId).select();
+                // Guardar también la sección de fondos si existe
+                if (agreementRef.current) {
+                    await agreementRef.current.save();
+                }
             } else {
                 // Si es un proyecto nuevo y no hay ruta de carpeta, activamos el modal
                 if (!formData.folder_path) {
@@ -622,9 +624,15 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                         fullExtractedText += "\n\n" + res.text;
                                                                         // Lógica básica de extracción
                                                                         const txt = res.text.replace(/\s+/g, ' ');
-                                                                        const act = txt.match(/AC-\d{6}[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[0].toUpperCase(); count++; }
+                                                                        const act = txt.match(/AC-(\d{6})[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[1]; count++; }
                                                                         const fed = txt.match(/(?:Federal(?: Aid)?(?:\s+Project)?(?: No| Number)?)\s*[:=]?\s*(PR-\d{4}\(\d{3}\)|PR-[A-Z0-9]+)/i); if (fed && !updated.num_federal) { updated.num_federal = fed[1]; count++; }
                                                                         const cost = txt.match(/(?:Total\s*Cost|Contract\s*Amount|Monto|Total\s*a\s*Pagar|Contract\s*Price)\s*[:=\$]*\s*\$?\s*([\d,]+\.\d{2})/i); if (cost && !updated.cost_original) { const v = parseFloat(cost[1].replace(/,/g, '')); if (!isNaN(v)) { updated.cost_original = v; count++; } }
+                                                                        
+                                                                        // Extracción de nombres (Gerentes, Contratistas)
+                                                                        const pm = txt.match(/(?:Project Manager|Gerente de Proyecto|Gerente del Proyecto)\s*[:=]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/); if (pm && !updated.project_manager_name) { updated.project_manager_name = pm[1].trim(); count++; }
+                                                                        const contr = txt.match(/(?:Contractor|Contratista|Empresa|Compañía)\s*[:=]\s*([A-Z0-9][A-Za-z0-9&.\s,]+(?:Inc|Corp|LLC|S\.E\.)?)/i); if (contr && !updated.contractor_name) { updated.contractor_name = contr[1].trim(); count++; }
+                                                                        const admin = txt.match(/(?:Project Administrator|Administrador de Proyecto)\s*[:=]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i); if (admin && !updated.admin_name) { updated.admin_name = admin[1].trim(); count++; }
+
                                                                         const lines = res.text.split("\n");
                                                                         const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
                                                                         for (const l of lines) {
@@ -1255,7 +1263,59 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         </div>
                     </div>
 
-                    {projectId && <ProjectAgreementForm projectId={projectId} />}
+                    <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4 mt-6">Personal del Proyecto</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Project Manager</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                value={formData.project_manager_name || ""}
+                                onChange={(e) => handleChange('project_manager_name', e.target.value)}
+                                placeholder="Nombre completo..."
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Administrador de Proy.</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                value={formData.admin_name || ""}
+                                onChange={(e) => handleChange('admin_name', e.target.value)}
+                                placeholder="Nombre completo..."
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contratista</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                value={formData.contractor_name || ""}
+                                onChange={(e) => handleChange('contractor_name', e.target.value)}
+                                placeholder="Nombre de la empresa..."
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Oficial Liquidador</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                value={formData.liquidador_name || ""}
+                                onChange={(e) => handleChange('liquidador_name', e.target.value)}
+                                placeholder="Nombre completo..."
+                            />
+                        </div>
+                    </div>
+
+                    {projectId && (
+                        <div className="mt-12 border-t pt-8">
+                            <ProjectAgreementForm ref={agreementRef} projectId={projectId} hideActions={true} />
+                        </div>
+                    )}
                 </div>
             </form>
         </div >
