@@ -83,32 +83,14 @@ export async function generateEnvironmentalReviewReportLogic(projectId: string) 
         LINE(50, 105, PW - 50, 105, 1.5);
         LINE(50, 108, PW - 50, 108, 0.5);
 
-        // Project Info
-        let Y = 150;
+        // Description
+        let Y = 120;
         const ML = 50;
-
-        TXT("Project Number", ML, Y, 11);
-        const actNum = proj.num_act?.startsWith('AC-') ? proj.num_act : `AC-${proj.num_act || '---'}`;
-        TXT(actNum, ML + 90, Y, 11, true);
-        LINE(ML + 85, Y + 2, ML + 250, Y + 2);
-
-        Y += 25;
-        TXT("Federal Number", ML, Y, 11);
-        TXT(proj.num_federal || '---', ML + 90, Y, 11, true);
-        LINE(ML + 85, Y + 2, ML + 250, Y + 2);
-
-        Y += 25;
         TXT("Description", ML, Y, 11);
         WRAP_TXT(proj.name || '---', ML + 85, Y, 11, PW - ML - 90);
 
         Y += 45;
-        // Fetch contractor from specific table if possible for more accuracy
-        const { data: contrData } = await supabase.from('contractors').select('name').eq('project_id', projectId).maybeSingle();
-        const contractorName = contrData?.name || proj.contractor_name || '---';
-
-        TXT("Contractor", ML, Y, 11);
-        TXT(contractorName, ML + 85, Y, 11, true);
-        LINE(ML + 85, Y + 2, PW - ML, Y + 2);
+        // Se quitaron las líneas de Project Number, Federal Number y Contractor por requerimiento.
 
         // Certification Text
         Y += 60;
@@ -132,12 +114,11 @@ export async function generateEnvironmentalReviewReportLogic(projectId: string) 
         Y += 15;
         TXT("Project Administrator", ML + 25, Y, 11);
 
-        // --- FOOTER (Punto 20) ---
-        const footerY = PH - 60;
-        TXT("Government of Puerto Rico", PW / 2, footerY, 7, false, 'center');
-        TXT("Department of Transportation and Public Works", PW / 2, footerY + 10, 7, false, 'center');
-        TXT("HIGHWAY AND TRANSPORTATION AUTHORITY", PW / 2, footerY + 23, 9, true, 'center');
-        TXT(`Page 1 of 1`, PW - 80, footerY + 23, 8, false, 'right');
+        // --- FOOTER (Actualizado con el formato de DBE Participation) ---
+        const footerY = PH - 40;
+        const szFooter = 7.5;
+        TXT("ROBERTO SÁNCHEZ VILELLA GOVERNMENT CENTER 300 JOSÉ DE DIEGO AVENUE SOUTH TOWER, 10TH FLOOR, SAN JUAN, PR 00911", PW / 2, footerY - 12, szFooter, false, 'center');
+        TXT("PO BOX 42007, SAN JUAN, PR 00940-2007- 787-721-8787 - WWW.ACT.PR.GOV", PW / 2, footerY, szFooter, false, 'center');
 
         // Finalize
         const pdfBytes = await pdfDoc.save();

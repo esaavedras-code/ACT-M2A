@@ -57,6 +57,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         eligible_toll_credits: false,
         pay_items_er_funds: false,
         project_manager_name: "",
+        regional_director: "",
+        chief_project_control: "",
+        dir_construction: "",
     });
     const [mounted, setMounted] = useState(false);
     const [todayDate, setTodayDate] = useState("");
@@ -238,6 +241,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 eligible_toll_credits: formData.eligible_toll_credits,
                 pay_items_er_funds: formData.pay_items_er_funds,
                 project_manager_name: formData.project_manager_name || null,
+                regional_director: formData.regional_director || null,
+                chief_project_control: formData.chief_project_control || null,
+                dir_construction: formData.dir_construction || null,
             };
 
             let result;
@@ -1344,6 +1350,39 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 value={formData.liquidador_name || ""}
                                 onChange={(e) => handleChange('liquidador_name', e.target.value)}
                                 placeholder="Nombre completo..."
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Regional Director</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                value={formData.regional_director || ""}
+                                onChange={(e) => handleChange('regional_director', e.target.value)}
+                                placeholder="Director Regional..."
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chief Project Control</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                value={formData.chief_project_control || ""}
+                                onChange={(e) => handleChange('chief_project_control', e.target.value)}
+                                placeholder="Chief Project Control Division..."
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dir. Construcción</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ backgroundColor: '#66FF99' }}
+                                value={formData.dir_construction || ""}
+                                onChange={(e) => handleChange('dir_construction', e.target.value)}
+                                placeholder="Director, Construction Area..."
                             />
                         </div>
                     </div>

@@ -4,18 +4,13 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 /**
  * Genera el reporte "ANÁLISIS DE TIEMPO" (AC-457b)
- * Basado en la imagen provista por el usuario.
+ * Dividido en dos páginas según instrucciones del usuario.
  */
 export async function generateTimeAnalysisReportLogic(projectId: string) {
     try {
         // 1. Fetch Data
         const { data: proj } = await supabase.from('projects').select('*').eq('id', projectId).single();
         if (!proj) throw new Error("Proyecto no encontrado");
-
-        const { data: certs } = await supabase.from('payment_certifications')
-            .select('*')
-            .eq('project_id', projectId)
-            .order('cert_num', { ascending: false });
 
         const { data: chos } = await supabase.from('chos')
             .select('*')
@@ -28,275 +23,294 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
             .eq('project_id', projectId);
 
         // -- Cálculos Preliminares --
-
-        // A. Net Overrun (Final Report)
-        // Usualmente es lo ejecutado total menos lo original
-        const totalExecuted = (items || []).reduce((acc, it) => acc + (it.executed_quantity * it.unit_price), 0);
-        const originalValue = proj.cost_original || 0;
+        const totalExecuted = (items || []).reduce((acc, it) => acc + ((parseFloat(it.executed_quantity as any) || 0) * (parseFloat(it.unit_price as any) || 0)), 0);
+        const originalValue = parseFloat(proj.cost_original as any) || 0;
         const valA = totalExecuted - originalValue;
 
-        // B. Valor total de CHOs y EWOs
         const regularCHOs = chos?.filter(c => !c.description?.toUpperCase().includes('EXTRA WORK') && !c.description?.toUpperCase().includes('EWO')) || [];
         const extraWorkOrders = chos?.filter(c => c.description?.toUpperCase().includes('EXTRA WORK') || c.description?.toUpperCase().includes('EWO')) || [];
 
-        const valCHO = regularCHOs.reduce((acc, c) => acc + (c.amount_impact || 0), 0);
-        const valEWO = extraWorkOrders.reduce((acc, c) => acc + (c.amount_impact || 0), 0);
+        const valCHO = regularCHOs.reduce((acc, c) => acc + (parseFloat(c.amount_impact as any) || 0), 0);
+        const valEWO = extraWorkOrders.reduce((acc, c) => acc + (parseFloat(c.amount_impact as any) || 0), 0);
         const valB = valCHO + valEWO;
-
-        // D. A - B
         const valD = valA - valB;
 
-        // 6. Tiempo calculado por Overrun
+        const daysOriginal = parseInt(proj.orig_working_days as any) || 0;
+        const daysCHO = regularCHOs.reduce((acc, c) => acc + (parseInt(c.time_extension as any) || 0), 0);
+        const daysEWO = extraWorkOrders.reduce((acc, c) => acc + (parseInt(c.time_extension as any) || 0), 0);
+        
         let daysOverrun = 0;
         if (valA > valB && originalValue > 0) {
-            // Tiempo por Overrun (6) = (D x Tiempo Contrato Original) / Valor del Contrato Original
-            daysOverrun = Math.round((valD * (proj.orig_working_days || 0)) / originalValue);
+            daysOverrun = Math.round((valD * daysOriginal) / originalValue);
         }
 
-        // 7, 8, 9, 10
-        const daysOriginal = proj.orig_working_days || 0;
-        const daysCHO = regularCHOs.reduce((acc, c) => acc + (c.time_extension || 0), 0);
-        const daysEWO = extraWorkOrders.reduce((acc, c) => acc + (c.time_extension || 0), 0);
-        const daysSpecials = 0; // Podría venir de un campo específico si existe
-
-        // 11. Total días autorizados
+        const daysSpecials = 0; 
         const totalDaysAuth = daysOverrun + daysOriginal + daysCHO + daysEWO + daysSpecials;
 
         // Fechas
-        const dateStart = proj.date_project_start ? new Date(proj.date_project_start) : null;
-        const dateShouldEnd = proj.date_orig_completion ? new Date(proj.date_orig_completion) : null;
+        const dateStartStr = proj.date_project_start;
+        const dateStart = dateStartStr ? new Date(dateStartStr) : null;
+        const dateOrigEnd = proj.date_orig_completion ? new Date(proj.date_orig_completion) : null;
+        const dateRevEnd = proj.date_rev_completion ? new Date(proj.date_rev_completion) : dateOrigEnd;
         const dateFinished = proj.date_real_completion ? new Date(proj.date_real_completion) : null;
-        const dateInspection = proj.date_acceptance ? new Date(proj.date_acceptance) : null; // Asumimos esta para la 1ra Insp Final
+        const dateInspection = proj.date_acceptance ? new Date(proj.date_acceptance) : null;
 
-        // Cálculos de duraciones (Diferencia en días)
         const getDaysDiff = (d1: Date | null, d2: Date | null) => {
             if (!d1 || !d2) return 0;
-            const diffTime = Math.abs(d2.getTime() - d1.getTime());
+            const diffTime = d2.getTime() - d1.getTime();
             return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         };
 
-        // 16. Duración del proyecto (12 y 14)
         const duration12_14 = getDaysDiff(dateStart, dateFinished);
-        // 18. Tiempo en sobrante
         const val18 = totalDaysAuth - duration12_14;
 
-        // 23. Diferencia entre (15) y (14)
-        const diff15_14 = getDaysDiff(dateInspection, dateFinished);
+        // Página 2 Calculations
+        const duration20 = getDaysDiff(dateStart, dateRevEnd);
+        const excess_22 = duration12_14 - totalDaysAuth; 
+        const diff23 = getDaysDiff(dateFinished, dateInspection);
+        
+        let val24 = Math.max(0, diff23 - 10);
+        let val25 = Math.max(0, excess_22 - val24);
 
-        // 2. Document Setup (Portrait)
+        const ldRate = parseFloat(proj.liquidated_damages_rate as any) || 5000;
+        const totalLD = val25 * ldRate;
+
+        // 2. Document Setup
         const pdfDoc = await PDFDocument.create();
         const fR = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fB = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        const fI = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
         const PW = 612, PH = 792;
-        const pg = pdfDoc.addPage([PW, PH]);
         const BK = rgb(0, 0, 0);
 
-        const TXT = (txt: any, x: number, y: number, sz: number, bold = false, align: 'left' | 'center' | 'right' = 'left') => {
+        const TXT = (p: any, txt: any, x: number, y: number, sz: number, bold = false, align: 'left' | 'center' | 'right' = 'left') => {
             if (txt === undefined || txt === null) return;
             const s = txt.toString();
             const font = bold ? fB : fR;
             let px = x;
             if (align === 'center') px = x - font.widthOfTextAtSize(s, sz) / 2;
             if (align === 'right') px = x - font.widthOfTextAtSize(s, sz);
-            pg.drawText(s, { x: px, y: PH - y, size: sz, font, color: BK });
+            p.drawText(s, { x: px, y: PH - y, size: sz, font, color: BK });
         };
 
-        const LINE = (x1: number, y1: number, x2: number, y2: number, thick = 0.5) => {
-            pg.drawLine({ start: { x: x1, y: PH - y1 }, end: { x: x2, y: PH - y2 }, thickness: thick, color: BK });
+        const LINE = (p: any, x1: number, y1: number, x2: number, y2: number, thick = 0.5) => {
+            p.drawLine({ start: { x: x1, y: PH - y1 }, end: { x: x2, y: PH - y2 }, thickness: thick, color: BK });
         };
 
-        // Header
-        TXT("AC-457b", 50, 40, 8, true);
-        TXT("Estado Libre Asociado de Puerto Rico", PW / 2, 40, 9, true, 'center');
-        TXT("AUTORIDAD DE CARRETERAS", PW / 2, 52, 10, true, 'center');
-        TXT("Área de Construcción", PW / 2, 64, 9, false, 'center');
+        const drawHeader = (p: any) => {
+            TXT(p, "AC-457b", 50, 40, 8, true);
+            TXT(p, "Estado Libre Asociado de Puerto Rico", PW / 2, 40, 9, true, 'center');
+            TXT(p, "AUTORIDAD DE CARRETERAS Y TRANSPORTACION", PW / 2, 52, 10, true, 'center');
+            TXT(p, "Área de Construcción", PW / 2, 64, 9, false, 'center');
 
-        // Top Right Data
-        const actNumber = proj.num_act?.startsWith('AC-') ? proj.num_act : `AC-${proj.num_act || '---'}`;
-        const trData = [
-            `Suministro e Instalación de ${proj.name?.substring(0, 40)}${proj.name?.length > 40 ? '...' : ''}`,
-            `${actNumber}, O#: ${proj.num_contrato || '---'}, F#: ${proj.num_federal || '---'}`,
-            `MP-${proj.num_federal || '---'}, C#${proj.num_act || '---'}`
-        ];
-        let trY = 80;
-        trData.forEach(line => {
-            TXT(line, PW - 50, trY, 8, false, 'right');
-            trY += 12;
-        });
+            const actNumber = proj.num_act?.startsWith('AC-') ? proj.num_act : `AC-${proj.num_act || '---'}`;
+            
+            const labelX = 50;
+            const valueX = 140;
+            let curH = 90;
 
-        // --- ENCASILLADO DE RESUMEN DE CONTRATO (Punto 19) ---
-        let SY = 135;
-        const SL = 100, SR = PW - 50;
-        const SM = (SL + SR) / 2;
-        const SH = 45;
-        // Borde exterior
-        LINE(SL, SY, SR, SY, 1);
-        LINE(SL, SY + SH, SR, SY + SH, 1);
-        LINE(SL, SY, SL, SY + SH, 1);
-        LINE(SR, SY, SR, SY + SH, 1);
-        // Divisores
-        LINE(SM, SY, SM, SY + SH, 0.8);
-        LINE(SL, SY + 15, SR, SY + 15, 0.8);
+            TXT(p, "Proyecto:", labelX, curH, 8, true);
+            TXT(p, proj.name || '---', valueX, curH, 8);
+            LINE(p, valueX - 2, curH + 2, PW - 50, curH + 2);
+            curH += 15;
 
-        // Headers
-        TXT("VALOR DEL CONTRATO", (SL + SM) / 2, SY + 10, 8, true, 'center');
-        TXT("TIEMPO DEL CONTRATO", (SM + SR) / 2, SY + 10, 8, true, 'center');
+            TXT(p, "Núm. Proyecto:", labelX, curH, 8, true);
+            TXT(p, actNumber, valueX, curH, 8);
+            LINE(p, valueX - 2, curH + 2, valueX + 150, curH + 2);
+            
+            TXT(p, "Contrato:", valueX + 160, curH, 8, true);
+            TXT(p, proj.num_contrato || '---', valueX + 210, curH, 8);
+            LINE(p, valueX + 208, curH + 2, PW - 50, curH + 2);
+            curH += 15;
 
-        // Data Costos
-        TXT("Original:", SL + 5, SY + 25, 7.5);
-        TXT(utilsFormatCurrency(originalValue), SM - 5, SY + 25, 8, true, 'right');
-        TXT("Revisado:", SL + 5, SY + 38, 7.5);
-        TXT(utilsFormatCurrency(originalValue + valCHO), SM - 5, SY + 38, 8, true, 'right');
+            TXT(p, "Municipio:", labelX, curH, 8, true);
+            TXT(p, proj.location || '---', valueX, curH, 8);
+            LINE(p, valueX - 2, curH + 2, valueX + 150, curH + 2);
 
-        // Data Tiempo
-        TXT("Días Originales:", SM + 5, SY + 25, 7.5);
-        TXT(`${daysOriginal} días`, SR - 5, SY + 25, 8, true, 'right');
-        TXT("Días Revisados:", SM + 5, SY + 38, 7.5);
-        TXT(`${daysOriginal + daysCHO + daysEWO} días`, SR - 5, SY + 38, 8, true, 'right');
+            TXT(p, "Federal:", valueX + 160, curH, 8, true);
+            TXT(p, proj.num_federal || '---', valueX + 210, curH, 8);
+            LINE(p, valueX + 208, curH + 2, PW - 50, curH + 2);
+        };
 
-        TXT("ANÁLISIS DE TIEMPO", PW / 2, 200, 11, true, 'center');
+        // --- PAGE 1 ---
+        const page1 = pdfDoc.addPage([PW, PH]);
+        drawHeader(page1);
 
-        // Section 1
-        let Y = 230;
-        const L1 = 100, R1 = 380, R2 = 550;
+        let Y = 155;
+        const L1 = 60, R2 = 550, R1 = 380;
+        
+        // Summary Box
+        LINE(page1, L1, Y, R2, Y, 1);
+        LINE(page1, L1, Y + 40, R2, Y + 40, 1);
+        LINE(page1, L1, Y, L1, Y + 40, 1);
+        LINE(page1, R2, Y, R2, Y + 40, 1);
+        LINE(page1, PW / 2, Y, PW / 2, Y + 40, 0.8);
+        TXT(page1, "VALOR DEL CONTRATO", L1 + (PW / 2 - L1) / 2, Y + 12, 8, true, 'center');
+        TXT(page1, "TIEMPO DEL CONTRATO", PW / 2 + (R2 - PW / 2) / 2, Y + 12, 8, true, 'center');
+        TXT(page1, `Original: ${utilsFormatCurrency(originalValue)}`, L1 + 5, Y + 28, 8);
+        TXT(page1, `Revisado: ${utilsFormatCurrency(originalValue + valCHO + valEWO)}`, L1 + 140, Y + 28, 8);
+        TXT(page1, `Original: ${daysOriginal} días`, PW / 2 + 5, Y + 28, 8);
+        TXT(page1, `Revisado: ${daysOriginal + daysCHO + daysEWO} días`, PW / 2 + 120, Y + 28, 8);
 
-        TXT("1. Net Overrun (Final Report)", L1, Y, 9);
-        TXT("A =", R1 - 20, Y, 9, true);
-        TXT(utilsFormatCurrency(valA), R2, Y, 9, true, 'right');
-        LINE(R1, Y + 2, R2, Y + 2);
-
-        Y += 15;
-        TXT("2. Valor total de los Change Orders", L1, Y, 9);
-        TXT("=", R1 - 20, Y, 9);
-        TXT(utilsFormatCurrency(valCHO), R1 + 100, Y, 9, false, 'right');
-        Y += 15;
-        TXT("3. Valor total de los EWO", L1, Y, 9);
-        TXT("=", R1 - 20, Y, 9);
-        TXT(utilsFormatCurrency(valEWO), R1 + 100, Y, 9, false, 'right');
-        Y += 15;
-        TXT("4. Total (2) + (3)", L1, Y, 9);
-        TXT("B =", R1 - 20, Y, 9, true);
-        TXT(utilsFormatCurrency(valB), R1 + 100, Y, 9, true, 'right');
-        LINE(R1, Y + 2, R1 + 100, Y + 2);
-
-        Y += 15;
-        TXT("5. A - B", L1, Y, 9);
-        TXT("D =", R1 + 20, Y, 9, true);
-        TXT(utilsFormatCurrency(valD), R2, Y, 9, true, 'right');
-        LINE(R1 + 40, Y + 2, R2, Y + 2);
-
-        Y += 25;
-        TXT("Nota:", L1, Y, 8, true);
-        TXT("I  Si A es mayor que B, ello significa que hay que acreditar tiempo en", L1 + 40, Y, 8);
-        Y += 10;
-        TXT("proporción al trabajo adicional ejecutado. Ese tiempo adicional se", L1 + 50, Y, 8);
-        Y += 10;
-        TXT("Computa como sigue:", L1 + 50, Y, 8);
-        Y += 15;
-        TXT("Tiempo por Overrun (6) =", L1 + 50, Y, 8);
-        // Fracción movida más a la derecha para evitar solapamiento
-        const fractionCenterX = L1 + 260;
-        TXT("D x Tiempo Contrato Original", fractionCenterX, Y - 5, 8, false, 'center');
-        LINE(fractionCenterX - 70, Y - 2, fractionCenterX + 70, Y - 2);
-        TXT("Valor del Contrato Original", fractionCenterX, Y + 8, 8, false, 'center');
-
-        Y += 25;
-        TXT("II  Si A es menor que B, úsese cero en el encasillado (6).", L1, Y, 8);
-
-        // Section 2
+        Y = 220;
+        TXT(page1, "ANÁLISIS DE TIEMPO", PW / 2, Y, 12, true, 'center');
         Y += 30;
-        const labels2 = [
+
+        TXT(page1, "1. Net Overrun (Final Report)", L1, Y, 9);
+        TXT(page1, "A =", R1 - 30, Y, 9, true);
+        TXT(page1, utilsFormatCurrency(valA), R2, Y, 9, true, 'right');
+        LINE(page1, R1, Y + 2, R2, Y + 2);
+
+        Y += 15;
+        TXT(page1, "2. Valor total de los Change Orders", L1, Y, 9);
+        TXT(page1, "=", R1 - 30, Y, 9);
+        TXT(page1, utilsFormatCurrency(valCHO), R1 + 100, Y, 9, false, 'right');
+        Y += 15;
+        TXT(page1, "3. Valor total de los EWO", L1, Y, 9);
+        TXT(page1, "=", R1 - 30, Y, 9);
+        TXT(page1, utilsFormatCurrency(valEWO), R1 + 100, Y, 9, false, 'right');
+        Y += 15;
+        TXT(page1, "4. Total (2) + (3)", L1, Y, 9);
+        TXT(page1, "B =", R1 - 30, Y, 9, true);
+        TXT(page1, utilsFormatCurrency(valB), R1 + 100, Y, 9, true, 'right');
+        LINE(page1, R1, Y + 2, R1 + 100, Y + 2);
+
+        Y += 15;
+        TXT(page1, "5. A - B", L1, Y, 9);
+        TXT(page1, "D =", R1 + 20, Y, 9, true);
+        TXT(page1, utilsFormatCurrency(valD), R2, Y, 9, true, 'right');
+        LINE(page1, R1 + 40, Y + 2, R2, Y + 2);
+
+        Y += 25;
+        TXT(page1, "Nota: I. Si A es mayor que B, tiempo por Overrun (6) = (D x Tiempo Original) / Valor Original", L1, Y, 8, true);
+        Y += 12;
+        TXT(page1, "      II. Si A es menor que B, úsese cero en (6).", L1, Y, 8);
+
+        Y += 30;
+        const labelsPage1 = [
             { n: "6", l: "Tiempo calculado por Overrun", v: daysOverrun },
             { n: "7", l: "Días autorizados por contrato original", v: daysOriginal },
             { n: "8", l: "Días autorizados por Change Orders", v: daysCHO },
             { n: "9", l: "Días autorizados por E.W.O", v: daysEWO },
             { n: "10", l: "Autorizaciones especiales:", v: daysSpecials }
         ];
-
-        labels2.forEach(item => {
-            TXT(`${item.n}. ${item.l}`, L1, Y, 9);
-            TXT(item.v, R2 - 50, Y, 9, true, 'right');
-            LINE(R1, Y + 2, R2 - 30, Y + 2);
-            TXT("Días", R2 - 25, Y, 9);
+        labelsPage1.forEach(item => {
+            TXT(page1, `${item.n}. ${item.l}`, L1, Y, 9);
+            TXT(page1, `${item.v} días`, R2, Y, 9, true, 'right');
+            LINE(page1, R1, Y + 2, R2 - 40, Y + 2);
             Y += 15;
         });
 
         Y += 10;
-        TXT("11. Total días autorizados", L1, Y, 9, true);
-        TXT("=", R1 - 20, Y, 9);
-        TXT(totalDaysAuth, R2 - 50, Y, 9, true, 'right');
-        LINE(R1, Y + 2, R2 - 30, Y + 2);
-        TXT("Días", R2 - 25, Y, 9);
+        TXT(page1, "11. Total días autorizados (6 al 10)", L1, Y, 9, true);
+        TXT(page1, "=", R1 - 30, Y, 9);
+        TXT(page1, `${totalDaysAuth} días`, R2, Y, 9, true, 'right');
+        LINE(page1, R1, Y + 2, R2 - 40, Y + 2);
 
-        // Dates
         Y += 30;
-        const datesL = [
+        const datesPage1 = [
             { n: "12", l: "Fecha oficial de comienzo", v: utilsFormatDate(proj.date_project_start) },
             { n: "13", l: "Fecha que debió terminar", v: utilsFormatDate(proj.date_orig_completion) },
             { n: "14", l: "Fecha que terminó", v: utilsFormatDate(proj.date_real_completion) },
             { n: "15", l: "Fecha de la 1ra Inspección Final", v: utilsFormatDate(proj.date_acceptance) }
         ];
-        datesL.forEach(item => {
-            TXT(`${item.n}. ${item.l}`, L1, Y, 9);
-            TXT(item.v || '---', R2 - 50, Y, 9, true, 'right');
-            LINE(R1, Y + 2, R2 - 30, Y + 2);
+        datesPage1.forEach(item => {
+            TXT(page1, `${item.n}. ${item.l}`, L1, Y, 9);
+            TXT(page1, item.v || '---', R2, Y, 9, true, 'right');
+            LINE(page1, R1, Y + 2, R2, Y + 2);
             Y += 15;
         });
 
-        // Comparison 1
         Y += 30;
-        TXT("16. Duración del proyecto. Días entre 12 y 14", L1, Y, 9);
-        TXT(duration12_14, R2 - 50, Y, 9, true, 'right');
-        LINE(R1, Y + 2, R2 - 30, Y + 2);
-        TXT("Días", R2 - 25, Y, 9);
+        TXT(page1, "16. Duración del proyecto (Días entre 12 y 14)", L1, Y, 9);
+        TXT(page1, `${duration12_14} días`, R2, Y, 9, true, 'right');
+        LINE(page1, R1, Y + 2, R2 - 40, Y + 2);
 
         Y += 15;
-        TXT("17. Menos número total autorizados (11)........", L1, Y, 9);
-        TXT(totalDaysAuth, R2 - 50, Y, 9, true, 'right');
-        LINE(R1, Y + 2, R2 - 30, Y + 2);
-        TXT("Días", R2 - 25, Y, 9);
+        TXT(page1, "17. Menos número total autorizados (11)", L1, Y, 9);
+        TXT(page1, `${totalDaysAuth} días`, R2, Y, 9, true, 'right');
+        LINE(page1, R1, Y + 2, R2 - 40, Y + 2);
 
         Y += 15;
-        TXT("18. Tiempo en sobrante ....................", L1, Y, 9, true);
-        TXT(val18, R2 - 50, Y, 9, true, 'right');
-        LINE(R1, Y + 2, R2 - 30, Y + 2);
-        TXT("Días", R2 - 25, Y, 9);
+        TXT(page1, "18. Tiempo en sobrante (11 - 16)", L1, Y, 10, true);
+        TXT(page1, `${val18} días`, R2, Y, 10, true, 'right');
+        LINE(page1, R1, Y + 2, R2 - 40, Y + 2);
 
-        // Section for Excess (22+)
-        Y += 80;
-        TXT("22. Tiempo en exceso ...................... =", L1, Y, 9, true);
-        const excess = val18 < 0 ? Math.abs(val18) : 0;
-        TXT(excess, R2 - 50, Y, 9, true, 'right');
-        LINE(R1, Y + 2, R2 - 30, Y + 2);
-        TXT("Días", R2 - 25, Y, 9);
+        // --- PAGE 2 ---
+        const page2 = pdfDoc.addPage([PW, PH]);
+        drawHeader(page2);
+        Y = 135;
+
+        TXT(page2, "19. Nueva fecha de terminación", L1, Y, 9);
+        TXT(page2, utilsFormatDate(dateRevEnd), R2, Y, 9, true, 'right');
+        LINE(page2, R1, Y + 2, R2, Y + 2);
 
         Y += 15;
-        TXT("23. Diferencia en días entre (15) y (14)", L1, Y, 9);
-        TXT(diff15_14, R2 - 50, Y, 9, true, 'right');
-        LINE(R1, Y + 2, R2 - 30, Y + 2);
-        TXT("Días", R2 - 25, Y, 9);
+        TXT(page2, "20. Duración del proyecto enmendada. Días entre (19) y (12)", L1, Y, 9);
+        TXT(page2, `${duration20} días`, R2, Y, 9, true, 'right');
+        LINE(page2, R1, Y + 2, R2 - 40, Y + 2);
 
-        Y += 30;
-        // Liquidated Damages Calculation
-        const ldRate = proj.liquidated_damages_rate || 5000;
-        const totalLD = excess * ldRate;
+        Y += 15;
+        TXT(page2, "21. Menos número total autorizados (11)", L1, Y, 9);
+        TXT(page2, `${totalDaysAuth} días`, R2, Y, 9, true, 'right');
+        LINE(page2, R1, Y + 2, R2 - 40, Y + 2);
 
-        TXT("26. Daños líquidos:", L1, Y, 9, true);
         Y += 15;
-        TXT("= Días x Razón diaria", L1 + 100, Y, 9);
+        TXT(page2, "22. Tiempo en exceso ..................................................... =", L1, Y, 10);
+        TXT(page2, `${Math.max(0, excess_22)}`, R2 - 50, Y, 10, true, 'right');
+        TXT(page2, "días", R2, Y, 10);
+        LINE(page2, R1, Y + 2, R2 - 40, Y + 2);
+
         Y += 15;
-        TXT("=", L1 + 100, Y, 9);
-        TXT(excess, L1 + 130, Y, 9, true, 'center');
-        LINE(L1 + 115, Y + 2, L1 + 150, Y + 2);
-        TXT("a $", L1 + 160, Y, 9);
-        TXT(utilsFormatCurrency(ldRate), L1 + 220, Y, 9, true, 'right');
-        LINE(L1 + 175, Y + 2, L1 + 240, Y + 2);
+        TXT(page2, "23. Diferencia en días entre (15) y (14) ............................. =", L1, Y, 9);
+        TXT(page2, `${diff23}`, R2 - 50, Y, 9, true, 'right');
+        TXT(page2, "días", R2, Y, 9);
+        LINE(page2, R1, Y + 2, R2 - 40, Y + 2);
 
         Y += 25;
-        TXT("27. Daños líquidos totales ......................$", L1, Y, 10, true);
-        TXT(utilsFormatCurrency(totalLD), R2, Y, 10, true, 'right');
-        LINE(R1, Y + 3, R2, Y + 3, 1.5);
+        TXT(page2, "Nota:", L1, Y, 8, true);
+        TXT(page2, "(a) Si (23) es 10 días o menos, úsese el (22) para calcular", L1 + 40, Y, 8);
+        Y += 10;
+        TXT(page2, "    daños líquidos.", L1 + 40, Y, 8);
+        Y += 12;
+        TXT(page2, "(b) Si (23) es más de 10 días, eso quiere decir que la Autoridad", L1 + 40, Y, 8);
+        Y += 10;
+        TXT(page2, "    tardó más de 10 días en hacer la primera inspección final y", L1 + 40, Y, 8);
+        Y += 10;
+        TXT(page2, "    hay que darle crédito al contratista por la diferencia. Por lo tanto:", L1 + 40, Y, 8);
+
+        Y += 35;
+        TXT(page2, "24. (23) - 10 días ................................................................ =", L1, Y, 9);
+        TXT(page2, `${val24}`, R2 - 50, Y, 9, true, 'right');
+        TXT(page2, "días", R2, Y, 9);
+        LINE(page2, R1, Y + 2, R2 - 40, Y + 2);
+
+        Y += 15;
+        TXT(page2, "25. Tiempo en exceso a usar en daños (22) - (24) ...... =", L1, Y, 9);
+        TXT(page2, `${val25}`, R2 - 50, Y, 9, true, 'right');
+        TXT(page2, "días", R2, Y, 9);
+        LINE(page2, R1, Y + 2, R2 - 40, Y + 2);
+
+        Y += 35;
+        TXT(page2, "26. Daños líquidos:", L1, Y, 10, true);
+        Y += 15;
+        TXT(page2, "= Días x Razón diaria", L1 + 100, Y, 9);
+        Y += 15;
+        TXT(page2, "=", L1 + 100, Y, 9);
+        TXT(page2, `${val25}`, L1 + 180, Y, 9, true, 'center');
+        LINE(page2, L1 + 160, Y + 2, L1 + 200, Y + 2);
+        TXT(page2, `a $`, L1 + 215, Y, 9);
+        TXT(page2, `${utilsFormatCurrency(ldRate)}`, L1 + 300, Y, 9, true, 'right');
+        LINE(page2, L1 + 240, Y + 2, L1 + 320, Y + 2);
+
+        Y += 45;
+        TXT(page2, "27. Daños líquidos totales ........................................... $", L1, Y, 11, true);
+        TXT(page2, formatC(totalLD), R2, Y, 11, true, 'right');
+        LINE(page2, R1, Y + 3, R2, Y + 3, 1.5);
+
+        // Footer common
+        [page1, page2].forEach((p, idx) => {
+            TXT(p, `Página ${idx + 1} de 2`, PW / 2, PH - 20, 8, false, 'center');
+        });
 
         // Save
         const pdfBytes = await pdfDoc.save();
@@ -307,4 +321,8 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
         console.error("Error generating Time Analysis Report:", err);
         throw err;
     }
+}
+
+function formatC(val: number) {
+    return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

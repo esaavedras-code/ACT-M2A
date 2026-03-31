@@ -17,6 +17,10 @@ export async function generateFinalConstructionReport(projectId: string) {
         const { data: contr } = await supabase.from('contractors').select('name').eq('project_id', projectId).single();
         const contractorName = contr?.name || proj.contractor_name || '---';
 
+        const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
+        const personnelMap: Record<string, string> = {};
+        personnel?.forEach(p => { personnelMap[p.role] = p.name; });
+
         // 2. Document Setup
         const pdfDoc = await PDFDocument.create();
         const fR = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -104,10 +108,17 @@ export async function generateFinalConstructionReport(projectId: string) {
         for (let i = 1; i < colW.length; i++) colX.push(colX[i - 1] + colW[i - 1]);
 
         const drawTableHead = (pg: any, y: number) => {
+            // Grouped Headers Row
+            const GH_Y = y - 10;
+            TXT(pg, "Original and new ítems", colX[2] + (colX[6] - colX[2]) / 2, GH_Y, 7, true, 'center');
+            TXT(pg, "Overruns", colX[6] + (colX[8] - colX[6]) / 2, GH_Y, 7, true, 'center');
+            TXT(pg, "Underruns", colX[8] + (colX[10] - colX[8]) / 2, GH_Y, 7, true, 'center');
+            TXT(pg, "Work performed", colX[10] + (colX[12] - colX[10]) / 2, GH_Y, 7, true, 'center');
+
             RECT(pg, ML, y, PW - ML - MR, 25, true);
             const heads = [
                 "Item\nNum.", "Description of Item", "Approx.\nQuantity", "Unit", "Unit\nPrice", "Amount\nBid",
-                "OVERRUNS\nQty", "Amount", "UNDERRUNS\nQty", "Amount", "WORK PERF.\nQty", "Amount", "REM."
+                "Qty", "Amount", "Qty", "Amount", "Qty", "Amount", "REM."
             ];
             heads.forEach((h, i) => {
                 const lines = h.split('\n');
@@ -156,9 +167,17 @@ export async function generateFinalConstructionReport(projectId: string) {
             if (diff > 0) {
                 TXT(page, diff.toFixed(2), colX[6] + colW[6] - 3, curY + 8, 7, false, 'right');
                 TXT(page, formatCurrency(diff * price).replace('$', ''), colX[7] + colW[7] - 3, curY + 8, 7, false, 'right');
-            } else if (diff < 0) {
+            } else {
+                TXT(page, "0.00", colX[6] + colW[6] - 3, curY + 8, 7, false, 'right');
+                TXT(page, "0.00", colX[7] + colW[7] - 3, curY + 8, 7, false, 'right');
+            }
+            
+            if (diff < 0) {
                 TXT(page, Math.abs(diff).toFixed(2), colX[8] + colW[8] - 3, curY + 8, 7, false, 'right');
                 TXT(page, formatCurrency(Math.abs(diff) * price).replace('$', ''), colX[9] + colW[9] - 3, curY + 8, 7, false, 'right');
+            } else {
+                TXT(page, "0.00", colX[8] + colW[8] - 3, curY + 8, 7, false, 'right');
+                TXT(page, "0.00", colX[9] + colW[9] - 3, curY + 8, 7, false, 'right');
             }
 
             TXT(page, execQty.toFixed(2), colX[10] + colW[10] - 3, curY + 8, 7, false, 'right');
@@ -200,9 +219,19 @@ export async function generateFinalConstructionReport(projectId: string) {
         (certs || []).forEach(c => {
             TXT(page, c.cert_num, pColX[0] + pColW[0] / 2, curY + 8, 7, false, 'center');
             TXT(page, utilsFormatDate(c.cert_date), pColX[1] + pColW[1] / 2, curY + 8, 7, false, 'center');
-            TXT(page, formatCurrency(c.work_performed_period || 0).replace('$', ''), pColX[2] + pColW[2] - 3, curY + 8, 7, false, 'right');
+            
+            // Monthly payments summary cells - Fill with $0.00 if missing
+            TXT(page, formatCurrency(c.work_performed_period || 0), pColX[2] + pColW[2] - 3, curY + 8, 7, false, 'right');
+            TXT(page, formatCurrency(c.safety_penalty || 0), pColX[3] + pColW[3] - 2, curY + 8, 6.5, false, 'right');
+            TXT(page, formatCurrency(c.liquidated_damages || 0), pColX[4] + pColW[4] - 2, curY + 8, 6.5, false, 'right');
+            TXT(page, formatCurrency(c.extra_retainage || 0), pColX[5] + pColW[5] - 2, curY + 8, 6.5, false, 'right');
+            TXT(page, formatCurrency(c.price_adjustments || 0), pColX[6] + pColW[6] - 2, curY + 8, 6.5, false, 'right');
+            TXT(page, formatCurrency(c.material_on_site || 0), pColX[7] + pColW[7] - 2, curY + 8, 6.5, false, 'right');
+            TXT(page, formatCurrency(c.retainage_period || 0), pColX[8] + pColW[8] - 2, curY + 8, 6.5, false, 'right');
+            TXT(page, formatCurrency(c.other_penalties || 0), pColX[9] + pColW[9] - 2, curY + 8, 6.5, false, 'right');
+
             const paid = (c.work_performed_period || 0) - (c.retainage_period || 0);
-            TXT(page, formatCurrency(paid).replace('$', ''), pColX[10] + pColW[10] - 3, curY + 8, 7, true, 'right');
+            TXT(page, formatCurrency(paid), pColX[10] + pColW[10] - 3, curY + 8, 7, true, 'right');
             LINE(page, ML, curY + 12, PW - MR, curY + 12, 0.2);
             curY += 12;
         });
@@ -243,6 +272,16 @@ export async function generateFinalConstructionReport(projectId: string) {
             row.forEach((s, idx) => {
                 const x = ML + (idx * (sigW + sigGap));
                 TXT(page, s.label, x, curY, 8);
+                
+                let nameStr = '_________________________';
+                if (s.title.includes("Administrator")) nameStr = proj.admin_name || personnelMap["Administrador del Proyecto"] || nameStr;
+                if (s.title.includes("Contractor")) nameStr = contractorName || personnelMap["Contratista"] || nameStr;
+                if (s.title.includes("Regional Director")) nameStr = proj.regional_director || personnelMap["Director Regional"] || nameStr;
+                if (s.title.includes("Chief Project Control")) nameStr = proj.chief_project_control || personnelMap["Chief Project Control"] || nameStr;
+                if (s.title.includes("Director Construction")) nameStr = proj.dir_construction || personnelMap["Director de Construcción"] || nameStr;
+                if (s.title.includes("Final Settlement Official")) nameStr = proj.liquidador_name || personnelMap["Liquidador"] || nameStr;
+
+                TXT(page, nameStr, x + 50, curY, 8.5);
                 LINE(page, x + 50, curY + 2, x + sigW, curY + 2);
                 TXT(page, "Date", x + sigW + 5, curY, 8);
                 LINE(page, x + sigW + 30, curY + 2, x + sigW + 60, curY + 2);

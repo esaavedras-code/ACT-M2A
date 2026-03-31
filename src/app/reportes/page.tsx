@@ -1005,7 +1005,7 @@ function ReportesContent() {
                             description: 'Certificación oficial de participación y esfuerzos de buena fe de empresas DBE.',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             action: () => {
-                                alert("Recordatorio: Este documento de participación DBE no sustituye las firmas requeridas en los documentos originales firmados por el inspector. Recuerde añadir el documento DBA del contratista.");
+                                alert("Recordatorio: Junto con este reporte, se debe adjuntar la certificación DBA del contratista.");
                                 return generateDbeCertificationReportLogic(projectId, reportFormat)
                                     .then(() => setStatus("Reporte generado."))
                                     .catch(e => {

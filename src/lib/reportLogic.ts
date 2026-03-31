@@ -232,6 +232,7 @@ export const createPdfBlob = async (
             const isItemNum = !isHeader && idx === 0 && row[0] && /^\d+([-(A-Z]|$)/.test(textStr);
             
             const useBold = isHeader || isPartida || isSubtitle || isItemNum || rowIsSpecial || textStr.endsWith(':') ||
+                textStr.toLowerCase() === 'sí' || textStr.toLowerCase() === 'si' ||
                 textStr === 'Rol / Puesto' || textStr === 'Nombre' || textStr === 'Contacto' || textStr === 'Oficina' || textStr === 'Celular' || textStr === 'Email';
             const cellFont = useBold ? timesRomanBoldFont : timesRomanFont;
             const displayFontSize = isSubtitle ? fontSize + 3.5 : (isItemNum || rowIsSpecial) ? fontSize + 2.5 : fontSize;
@@ -1496,16 +1497,32 @@ export const generateSignedItemsReportLogic = async (projectId: string, format: 
         ['Item', 'Descripción', 'Por Admin', 'Por Contratista', 'Por Liquidador']
     ];
 
+    let adminCount = 0;
+    let contractorCount = 0;
+    let liquidatorCount = 0;
+
     items.forEach(it => {
         const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
+        const isAdmin = (liqItem && liqItem.signed_by_admin);
+        const isContractor = (liqItem && liqItem.signed_by_contractor);
+        const isLiquidator = (liqItem && liqItem.signed_by_liquidator);
+
+        if (isAdmin) adminCount++;
+        if (isContractor) contractorCount++;
+        if (isLiquidator) liquidatorCount++;
+
         reportData.push([
             it.item_num,
             it.description || '',
-            (liqItem && liqItem.signed_by_admin) ? 'Sí' : 'No',
-            (liqItem && liqItem.signed_by_contractor) ? 'Sí' : 'No',
-            (liqItem && liqItem.signed_by_liquidator) ? 'Sí' : 'No'
+            isAdmin ? 'Sí' : 'No',
+            isContractor ? 'Sí' : 'No',
+            isLiquidator ? 'Sí' : 'No'
         ]);
     });
+
+    // Añadir balance al final
+    reportData.push(['', '', '', '', '']);
+    reportData.push(['RESUMEN DE PARTIDAS FIRMADAS:', '', `Admin: ${adminCount}`, `Contratista: ${contractorCount}`, `Liquidador: ${liquidatorCount}`]);
 
     // ContentWidth is 552 for portrait. Let's do widths that fit inside 552:
     // 60 + 252 + 80 + 80 + 80 = 552
