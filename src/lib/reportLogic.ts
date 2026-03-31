@@ -789,15 +789,23 @@ export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 
     const { project, items, mfgCerts } = await fetchAllReportData(projectId);
     if (!mfgCerts) return;
 
+    const sortedMfgCerts = [...mfgCerts].sort((a: any, b: any) => {
+        const itemA = items?.find(i => i.id === a.item_id);
+        const itemB = items?.find(i => i.id === b.item_id);
+        const numA = itemA?.item_num || a.item_num || "";
+        const numB = itemB?.item_num || b.item_num || "";
+        return numA.toString().localeCompare(numB.toString(), undefined, { numeric: true });
+    });
+
     const data = [
         ['Item', 'Especificación', 'Descripción', 'Cantidad del certificado (CM)', 'Unidades', 'Fecha del certificado'],
-        ...mfgCerts.map((c: any) => {
+        ...sortedMfgCerts.map((c: any) => {
             const it = items?.find(i => i.id === c.item_id || i.item_num === c.item_num);
             const unit = it?.unit || '';
             const fullDescription = [it?.description, it?.additional_description].filter(Boolean).join(' - ');
             return [
-                c.item_num,
-                c.specification,
+                it?.item_num || c.item_num || '',
+                it?.specification || c.specification || '',
                 fullDescription || c.material_description || '',
                 c.quantity.toFixed(4),
                 unit,
