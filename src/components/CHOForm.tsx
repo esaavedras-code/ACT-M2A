@@ -90,6 +90,9 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             state_share_federal_funds: 0,
             fed_share_mod_letter: 0,
             toll_credits_mod: 0,
+            is_change_of_contract: false,
+            is_new_item: false,
+            is_time_extension: false,
             items: []
         }]);
         setExpandedCHO(newId);
@@ -239,7 +242,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             const existingIds = existingRecords?.map(r => r.id) || [];
 
             const updates = [];
-            const inserts = [];
 
             for (const c of chos) {
                 const { id, created_at, ...rest } = c;
@@ -253,12 +255,12 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                     ...rest,
                     project_id: projectId,
                     proposed_change: total,
+                    is_change_of_contract: c.is_change_of_contract || false,
+                    is_new_item: (c.items || []).some((it: any) => it.is_new),
+                    is_time_extension: c.is_time_extension || (c.time_extension_days > 0),
                     items: c.items || []
                 };
 
-                // Because id is locally generated via crypto.randomUUID() during addCHO,
-                // we should check if `existingIds` has the ID before deciding to UPDATE or INSERT
-                // For Supabase UPSERT, we can just supply the ID.
                 updates.push({ id, ...payload });
             }
 
@@ -294,7 +296,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                 const { id, project_id, created_at, ...rest } = c;
                 return { 
                     ...rest, 
-                    id: crypto.randomUUID(), // Generar nuevos IDs para evitar colisiones si se importa varias veces
+                    id: crypto.randomUUID(),
                     project_id: projectId 
                 };
             });
@@ -307,14 +309,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
     };
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!projectId) return;
-        setLoading(true);
-        await saveData(false);
-        setLoading(false);
-    };
 
     const toggleExpand = (id: string) => {
         setExpandedCHO(expandedCHO === id ? null : id);
@@ -332,7 +326,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                     </h2>
                 </div>
                 <div className="flex gap-2">
-                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>
             </div>
 
@@ -373,7 +366,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             />
             <input id="import-chos-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
 
-
             {numAct && (
                 <div className="flex items-center gap-2 -mt-4 mb-6">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
@@ -385,67 +377,21 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
 
             {/* Cuadro de Resumen Financiero de CHOs */}
             {(() => {
-                const approvedTotal = chos
-                    .filter(c => c.doc_status === "Aprobado")
-                    .reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
-
-                const pendingTotal = chos
-                    .filter(c => c.doc_status === "En trámite")
-                    .reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
-
-                const approvedDays = chos
-                    .filter(c => c.doc_status === "Aprobado")
-                    .reduce((sum, c) => sum + (c.time_extension_days || 0), 0);
-
+                const approvedTotal = chos.filter(c => c.doc_status === "Aprobado").reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
+                const pendingTotal = chos.filter(c => c.doc_status === "En trámite").reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
+                const approvedDays = chos.filter(c => c.doc_status === "Aprobado").reduce((sum, c) => sum + (c.time_extension_days || 0), 0);
                 let approvedFed = 0, approvedAct = 0;
                 chos.filter(c => c.doc_status === "Aprobado").forEach(c => {
                     const b = calculateChoBreakdown(c.items);
                     approvedFed = roundedAmt(approvedFed + b.fed, 2);
                     approvedAct = roundedAmt(approvedAct + b.act, 2);
                 });
-
-                let pendingFed = 0, pendingAct = 0;
-                chos.filter(c => c.doc_status === "En trámite").forEach(c => {
-                    const b = calculateChoBreakdown(c.items);
-                    pendingFed = roundedAmt(pendingFed + b.fed, 2);
-                    pendingAct = roundedAmt(pendingAct + b.act, 2);
-                });
-
                 return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                        <SummaryItem
-                            label="Total Aprobado ($)"
-                            value={approvedTotal}
-                            icon={<DollarSign size={16} />}
-                            color="text-emerald-600"
-                            bgColor="bg-emerald-50 dark:bg-emerald-900/20"
-                            breakdown={{ fed: approvedFed, act: approvedAct }}
-                        />
-                        <SummaryItem
-                            label="Total en Trámite ($)"
-                            value={pendingTotal}
-                            icon={<DollarSign size={16} />}
-                            color="text-amber-600"
-                            bgColor="bg-amber-50 dark:bg-amber-900/20"
-                            breakdown={{ fed: pendingFed, act: pendingAct }}
-                        />
-                        <SummaryItem
-                            label="Impacto Económico"
-                            value={approvedTotal}
-                            icon={<Activity size={16} />}
-                            color="text-primary"
-                            bgColor="bg-blue-50 dark:bg-blue-900/20"
-                            isCurrency={true}
-                            breakdown={{ fed: approvedFed, act: approvedAct }}
-                        />
-                        <SummaryItem
-                            label="Días de Extensión"
-                            value={approvedDays}
-                            icon={<Timer size={16} />}
-                            color="text-slate-600"
-                            bgColor="bg-slate-100 dark:bg-slate-800"
-                            isCurrency={false}
-                        />
+                        <SummaryItem label="Total Aprobado ($)" value={approvedTotal} icon={<DollarSign size={16} />} color="text-emerald-600" bgColor="bg-emerald-50 dark:bg-emerald-900/20" breakdown={{ fed: approvedFed, act: approvedAct }} />
+                        <SummaryItem label="Total en Trámite ($)" value={pendingTotal} icon={<DollarSign size={16} />} color="text-amber-600" bgColor="bg-amber-50 dark:bg-amber-900/20" />
+                        <SummaryItem label="Impacto Económico" value={approvedTotal} icon={<Activity size={16} />} color="text-primary" bgColor="bg-blue-50 dark:bg-blue-900/20" breakdown={{ fed: approvedFed, act: approvedAct }} />
+                        <SummaryItem label="Días de Extensión" value={approvedDays} icon={<Timer size={16} />} color="text-slate-600" bgColor="bg-slate-100 dark:bg-slate-800" isCurrency={false} />
                     </div>
                 );
             })()}
@@ -453,111 +399,64 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             <div className="space-y-4">
                 {chos.map((cho, idx) => (
                     <div key={cho.id || idx} className="card border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 p-0">
-                        {/* Header de la CHO */}
-                        <div className="p-4 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
-                            <div className="flex items-center gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">CHO / Enmienda</label>
-                                    <div className="text-2xl font-black text-primary flex items-baseline gap-1">
-                                        #{cho.cho_num}
-                                        <span className="text-lg text-slate-400 font-bold">{cho.amendment_letter}</span>
+                        <div className="p-4 flex flex-col gap-4 bg-slate-50/50 dark:bg-slate-800/20">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">CHO / Enmienda</label>
+                                        <div className="text-2xl font-black text-primary flex items-baseline gap-1">
+                                            #{cho.cho_num}
+                                            <span className="text-lg text-slate-400 font-bold">{cho.amendment_letter}</span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha</label>
+                                        <input suppressHydrationWarning type="date" className="input-field text-xs font-bold bg-white dark:bg-slate-900 w-32" style={{ backgroundColor: '#66FF99' }} value={cho.cho_date || ""} onChange={(e) => updateCHO(idx, 'cho_date', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ext. Días</label>
+                                        <input suppressHydrationWarning type="number" className="input-field text-xs text-center font-bold w-16 bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.time_extension_days ?? 0} onChange={(e) => updateCHO(idx, 'time_extension_days', parseInt(e.target.value))} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Estatus Doc.</label>
+                                        <select suppressHydrationWarning className="input-field text-xs font-bold bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.doc_status || DOC_STATUSES[0]} onChange={(e) => updateCHO(idx, 'doc_status', e.target.value)}>
+                                            {DOC_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
                                     </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha</label>
-                                    <input suppressHydrationWarning type="date" className="input-field text-xs font-bold bg-white dark:bg-slate-900 w-32" style={{ backgroundColor: '#66FF99' }} value={cho.cho_date || ""} onChange={(e) => updateCHO(idx, 'cho_date', e.target.value)} />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ext. Días</label>
-                                    <input suppressHydrationWarning type="number" className="input-field text-xs text-center font-bold w-16 bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.time_extension_days ?? 0} onChange={(e) => updateCHO(idx, 'time_extension_days', parseInt(e.target.value))} />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Impacto Económico</label>
-                                    <div className="h-9 flex items-center px-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800/50 font-black text-primary text-sm min-w-[120px] justify-end">
-                                        {formatCurrency((cho.items || []).reduce((acc: number, it: any) => {
-                                            const q = parseFloat(it.quantity) || 0;
-                                            const p = parseFloat(it.unit_price) || 0;
-                                            return roundedAmt(acc + roundedAmt(q * p, 2), 2);
-                                        }, 0))}
-                                    </div>
-                                    <div className="flex gap-1 justify-end mt-1">
-                                        {(() => {
-                                            const b = calculateChoBreakdown(cho.items);
-                                            return (
-                                                <>
-                                                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50/50 dark:bg-emerald-900/10 rounded border border-emerald-100 dark:border-emerald-800/50">
-                                                        <span className="text-[8px] font-bold text-emerald-600 uppercase">Fed:</span>
-                                                        <span className="text-[9px] font-extrabold text-emerald-700">{formatCurrency(b.fed)}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50/50 dark:bg-amber-900/10 rounded border border-amber-100 dark:border-amber-800/50">
-                                                        <span className="text-[8px] font-bold text-amber-600 uppercase">ACT:</span>
-                                                        <span className="text-[9px] font-extrabold text-amber-700">{formatCurrency(b.act)}</span>
-                                                    </div>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Estatus Doc.</label>
-                                    <select suppressHydrationWarning className="input-field text-xs font-bold bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.doc_status || DOC_STATUSES[0]} onChange={(e) => updateCHO(idx, 'doc_status', e.target.value)}>
-                                        {DOC_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => toggleExpand(cho.id)} className="bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                        {expandedCHO === cho.id ? "Cerrar Partidas" : "Ver / Añadir Partidas"}
+                                    </button>
+                                    <button type="button" onClick={() => generateCCMLReportLogic(projectId!, cho.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5">
+                                        <Files size={14} /> CCML
+                                    </button>
+                                    <button type="button" onClick={() => removeCHO(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
+                                        <Trash2 size={18} />
+                                    </button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => toggleExpand(cho.id)}
-                                    className="bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                                >
-                                    {expandedCHO === cho.id ? "Cerrar Partidas" : "Ver / Añadir Partidas"}
-                                  </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        if (projectId && cho.id) {
-                                            generateCCMLReportLogic(projectId, cho.id);
-                                        } else {
-                                            alert("La Orden de Cambio debe estar guardada para generar el reporte CCML.");
-                                        }
-                                    }}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
-                                    title="Descargar CCML (Plantilla Oficial con Fórmulas) hasta esta CHO"
-                                >
-                                    <Files size={14} /> CCML
-                                </button>
-                                <button type="button" onClick={() => removeCHO(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
-                                    <Trash2 size={18} />
-                                </button>
+                            
+                            <div className="flex gap-4 items-center bg-white/50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" checked={cho.is_change_of_contract || false} onChange={(e) => updateCHO(idx, 'is_change_of_contract', e.target.checked)} />
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider group-hover:text-primary transition-colors">Change of Contract Items</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" checked={(cho.items || []).some((it: any) => it.is_new)} readOnly disabled />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">New Items (Extra Work)</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" checked={cho.is_time_extension || (cho.time_extension_days > 0)} onChange={(e) => updateCHO(idx, 'is_time_extension', e.target.checked)} />
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider group-hover:text-primary transition-colors">Time Extension</span>
+                                </label>
                             </div>
                         </div>
 
-                        {/* Detalle de Partidas (Acordeón) */}
                         {expandedCHO === cho.id && (
                             <div className="p-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
-                                {/* Resumen de esta Enmienda */}
-                                {(() => {
-                                    return (
-                                        <div className="mb-6 p-4 bg-slate-50/30 dark:bg-slate-800/10 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <Activity size={14} className="text-primary" />
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Partidas Vinculadas</span>
-                                            </div>
-                                            <div className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase tracking-widest">Impacto en Contrato Activo</div>
-                                        </div>
-                                    );
-                                })()}
-
-                                <div className="flex items-center justify-between mb-4">
-                                    <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2">
-                                        <Plus size={14} className="text-primary" />
-                                        Partidas de esta Enmienda
-                                    </h4>
-                                </div>
-
                                 <div className="overflow-x-auto">
-                                    <table suppressHydrationWarning className="w-full text-left border-collapse">
+                                    <table className="w-full text-left border-collapse">
                                         <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                             <tr>
                                                 <th className="py-1 px-0.5 w-10 text-center">Nuevo</th>
@@ -576,130 +475,43 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                             {(cho.items || []).map((item: any, itIdx: number) => (
                                                 <tr key={itIdx}>
                                                     <td className="py-0.5 px-0.5 text-center">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-                                                            checked={item.is_new || false}
-                                                            onChange={(e) => updateCHOItem(idx, itIdx, 'is_new', e.target.checked)}
-                                                        />
+                                                        <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-primary" checked={item.is_new || false} onChange={(e) => updateCHOItem(idx, itIdx, 'is_new', e.target.checked)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input
-                                                            suppressHydrationWarning
-                                                            type="text"
-                                                            maxLength={20}
-                                                            className="input-field text-xs text-center p-1 h-7"
-                                                            style={{ backgroundColor: '#66FF99' }}
-                                                            value={item.item_num || ""}
-                                                            onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)}
-                                                            onBlur={(e) => {
-                                                                const val = e.target.value;
-                                                                if (val !== "" && !isNaN(parseInt(val))) {
-                                                                    updateCHOItem(idx, itIdx, 'item_num', val.padStart(3, '0'));
-                                                                }
-                                                            }}
-                                                        />
+                                                        <input type="text" maxLength={20} className="input-field text-xs text-center p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input 
-                                                            suppressHydrationWarning
-                                                            type="text" 
-                                                            className="input-field text-xs p-1 h-7 transition-colors" 
-                                                            style={{ backgroundColor: item.is_new ? '#66FF99' : '' }}
-                                                            value={item.specification || ""} 
-                                                            onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} 
-                                                        />
+                                                        <input type="text" className="input-field text-xs p-1 h-7" value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <div className="space-y-0.5">
-                                                            <input suppressHydrationWarning type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
-                                                                <input 
-                                                                    suppressHydrationWarning 
-                                                                    type="text" 
-                                                                    className="input-field text-[10px] p-1 h-6 opacity-80" 
-                                                                    style={{ backgroundColor: item.is_new ? '#66FF99' : '' }}
-                                                                    placeholder="Descripción adicional..."
-                                                                    value={item.additional_description || ""} 
-                                                                    onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} 
-                                                                />
-                                                            {(() => {
-                                                                const match = contractItems.find(it => it.item_num === item.item_num);
-                                                                if (match) {
-                                                                    return <div className="text-[9px] font-bold text-slate-400 italic px-1">Orig Plan: {match.quantity} {match.unit}</div>;
-                                                                }
-                                                                return null;
-                                                            })()}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-0.5 px-0.5 text-center">
-                                                        <input suppressHydrationWarning type="text" className="input-field text-xs p-1 h-7 text-center uppercase" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} />
+                                                        <input type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input
-                                                            suppressHydrationWarning
-                                                            type="text"
-                                                            className="input-field text-xs text-right p-1 h-7 border-blue-200 focus:ring-blue-500"
-                                                            style={{ backgroundColor: '#66FF99' }}
-                                                            value={item.quantity ?? ""}
-                                                            onChange={(e) => updateCHOItem(idx, itIdx, 'quantity', e.target.value)}
-                                                        />
+                                                        <input type="text" className="input-field text-xs p-1 h-7 text-center" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input
-                                                            suppressHydrationWarning
-                                                            type="number"
-                                                            step="0.0001"
-                                                            className="input-field text-xs text-right p-1 h-7 transition-colors"
-                                                            style={{ backgroundColor: '#66FF99' }}
-                                                            value={isNaN(parseFloat(item.unit_price)) ? "" : (item.unit_price ?? "")}
-                                                            onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)}
-                                                        />
+                                                        <input type="text" className="input-field text-xs text-right p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.quantity ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'quantity', e.target.value)} />
+                                                    </td>
+                                                    <td className="py-0.5 px-0.5">
+                                                        <input type="number" step="0.0001" className="input-field text-xs text-right p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.unit_price ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-right text-xs font-bold text-primary">
                                                         {formatCurrency(roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2))}
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <select
-                                                            suppressHydrationWarning
-                                                            className="input-field text-[10px] font-bold py-1 px-2 transition-colors"
-                                                            style={{ backgroundColor: item.is_new ? '#66FF99' : '' }}
-                                                            value={item.fund_source || ""}
-                                                            onChange={(e) => updateCHOItem(idx, itIdx, 'fund_source', e.target.value)}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Tab' && !e.shiftKey && itIdx === (cho.items || []).length - 1) {
-                                                                    addCHOItem(idx);
-                                                                }
-                                                            }}
-                                                        >
+                                                        <select className="input-field text-[10px] font-bold py-1 px-2" value={item.fund_source || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'fund_source', e.target.value)}>
                                                             {FUND_SOURCES.map(f => <option key={f} value={f}>{f}</option>)}
                                                         </select>
                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-center">
-                                                        <div className="flex flex-col gap-1 items-center">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => insertCHOItem(idx, itIdx)}
-                                                                className="text-emerald-500 hover:text-emerald-600 transition-colors"
-                                                                title="Insertar item debajo"
-                                                            >
-                                                                <PlusSquare size={12} />
-                                                            </button>
-                                                            <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500" title="Eliminar partida">
-                                                                <Trash2 size={12} />
-                                                            </button>
-                                                        </div>
+                                                        <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500">
+                                                            <Trash2 size={12} />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
-                                            {(cho.items || []).length === 0 && (
-                                                <tr>
-                                                    <td colSpan={10} className="py-8 text-center text-xs text-slate-400 font-medium italic">
-                                                        No hay partidas añadidas a esta enmienda. Haz clic en "Añadir item".
-                                                    </td>
-                                                </tr>
-                                            )}
                                             <tr>
-                                                <td colSpan={10} className="py-2 px-1 border-t border-slate-100 dark:border-slate-800">
+                                                <td colSpan={10} className="py-2">
                                                     <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
                                                         <Plus size={14} /> Añadir item
                                                     </button>
@@ -708,88 +520,32 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                         </tbody>
                                     </table>
                                 </div>
-
-                                {/* Justificación y Razones */}
-                                <div className="mt-8 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-3">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                                <Activity size={12} className="text-primary" />
-                                                35. Razones que justifican (Due to)
-                                            </label>
-                                            <div className="flex flex-wrap gap-3">
-                                                {["Design", "Construction", "Contract", "Utilities", "Other"].map((r) => (
-                                                    <label key={r} className="flex items-center gap-2 cursor-pointer group">
-                                                        <input 
-                                                            type="radio" 
-                                                            name={`reason-${cho.id}`}
-                                                            className="w-4 h-4 text-primary focus:ring-primary border-slate-300"
-                                                            checked={cho.reason === r}
-                                                            onChange={() => updateCHO(idx, 'reason', r)}
-                                                        />
-                                                        <span className="text-xs font-bold text-slate-600 group-hover:text-primary transition-colors">{r}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                            <FileEdit size={12} className="text-primary" />
-                                            36. Justificación Técnica y Legal
-                                        </label>
-                                        <textarea 
-                                            suppressHydrationWarning
-                                            className="w-full min-h-[120px] input-field text-xs p-3 font-medium leading-relaxed resize-y"
-                                            placeholder="Describa aquí la justificación técnica y legal para esta orden de cambio..."
-                                            style={{ backgroundColor: '#F8FAFC' }}
-                                            value={cho.justification || ""}
-                                            onChange={(e) => updateCHO(idx, 'justification', e.target.value)}
-                                        />
-                                    </div>
+                                <div className="mt-8 space-y-4">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">36. Justificación Técnica y Legal</label>
+                                    <textarea className="w-full min-h-[120px] input-field text-xs p-3" value={cho.justification || ""} onChange={(e) => updateCHO(idx, 'justification', e.target.value)} />
                                 </div>
-
-
                             </div>
                         )}
                     </div>
                 ))}
             </div>
-
-            {/* CCML Component - Shown only when a CHO is selected or as a global summary? 
-                Actually, the CCML report is global, but some fields are per-CHO. 
-                I'll add the per-CHO field inputs inside the Expanded view of each CHO. 
-            */}
         </div>
     );
 });
+
+CHOForm.displayName = "CHOForm";
 
 export default CHOForm;
 
 function SummaryItem({ label, value, icon, color, bgColor, isCurrency = true, breakdown }: { label: string, value: number, icon: React.ReactNode, color: string, bgColor: string, isCurrency?: boolean, breakdown?: { fed: number, act: number } }) {
     return (
         <div className={`${bgColor} rounded-xl p-3 border border-slate-100 dark:border-slate-800 flex items-start gap-3`}>
-            <div className={`${color} p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm`}>
-                {icon}
-            </div>
+            <div className={`${color} p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm font-bold`}>{icon}</div>
             <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</div>
                 <div className={`text-sm font-black ${color} truncate`}>
                     {isCurrency ? formatCurrency(value) : `${value} días`}
                 </div>
-                {breakdown && (
-                    <div className="flex gap-2 mt-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
-                        <div className="flex flex-col">
-                            <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">Fed</span>
-                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400">{formatCurrency(breakdown.fed)}</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">Act</span>
-                            <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400">{formatCurrency(breakdown.act)}</span>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

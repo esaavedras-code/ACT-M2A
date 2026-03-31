@@ -13,6 +13,16 @@ export interface FormRef { save: () => Promise<void>; }
 
 const DOC_TYPES = ["Orden de comienzo", "Project Agreement", "Proposal", "Contrato"];
 
+const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
+    <button 
+        type="button" 
+        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
+        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/50 hover:bg-white text-[10px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
+    >
+        HOY
+    </button>
+);
+
 const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: (newId?: string) => void }>(function ProjectForm({ projectId, onDirty, onSaved }, ref) {
     const [formData, setFormData] = useState({
         num_act: "",
@@ -1105,55 +1115,67 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Firma Contrato</label>
-                            <input
-                                type="date"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.date_contract_sign || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, date_contract_sign: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.date_contract_sign || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date_contract_sign: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('date_contract_sign', d)} />
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comienzo Proyecto</label>
-                            <input
-                                type="date"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.date_project_start || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, date_project_start: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.date_project_start || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date_project_start: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('date_project_start', d)} />
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terminación Original</label>
-                            <input
-                                type="date"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.date_orig_completion || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, date_orig_completion: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.date_orig_completion || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date_orig_completion: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('date_orig_completion', d)} />
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terminación Revisada</label>
-                            <input
-                                type="date"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.date_rev_completion || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, date_rev_completion: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.date_rev_completion || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date_rev_completion: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('date_rev_completion', d)} />
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider text-[10px] xl:text-xs">
@@ -1168,70 +1190,85 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terminación Estimada</label>
-                            <input
-                                type="date"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.date_est_completion || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, date_est_completion: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.date_est_completion || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date_est_completion: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('date_est_completion', d)} />
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terminación Real</label>
-                            <input
-                                type="date"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.date_real_completion || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, date_real_completion: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.date_real_completion || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date_real_completion: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('date_real_completion', d)} />
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terminación Sustancial</label>
-                            <input
-                                type="date"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.date_substantial_completion || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, date_substantial_completion: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.date_substantial_completion || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date_substantial_completion: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('date_substantial_completion', d)} />
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Inspección Final</label>
-                            <input
-                                type="date"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.date_final_inspection || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, date_final_inspection: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.date_final_inspection || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date_final_inspection: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('date_final_inspection', d)} />
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                                 FMIS END DATE
                             </label>
-                            <input
-                                type="date"
-                                className="input-field border-emerald-200 dark:border-emerald-800 focus:ring-emerald-500"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.fmis_end_date || ""}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, fmis_end_date: e.target.value });
-                                    if (onDirty) onDirty();
-                                }}
-                            />
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    className="input-field border-emerald-200 dark:border-emerald-800 focus:ring-emerald-500 pr-12"
+                                    style={{ backgroundColor: '#66FF99' }}
+                                    value={formData.fmis_end_date || ""}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, fmis_end_date: e.target.value });
+                                        if (onDirty) onDirty();
+                                    }}
+                                />
+                                <TodayButton onSelect={(d) => handleChange('fmis_end_date', d)} />
+                            </div>
                         </div>
                     </div>
                 </div>

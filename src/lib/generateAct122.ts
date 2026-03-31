@@ -77,11 +77,10 @@ export async function generateAct122(projectId: string, choId: string) {
         const personnelMap: Record<string, string> = {};
         personnel?.forEach(p => { personnelMap[p.role] = p.name; });
 
-        // Identificar Items de Contrato vs Items Nuevos
-        const contractItemNums = new Set(contractItems?.map(ci => ci.item_num) || []);
+        // Identificar Items de Contrato vs Items Nuevos basándose en el checkbox is_new de cada item
         const allChoItems = Array.isArray(choData.items) ? choData.items : [];
-        const contractChoItems = allChoItems.filter((it: any) => contractItemNums.has(it.item_num));
-        const newChoItems = allChoItems.filter((it: any) => !contractItemNums.has(it.item_num));
+        const contractChoItems = allChoItems.filter((it: any) => !it.is_new && !choData.is_new_item);
+        const newChoItems = allChoItems.filter((it: any) => it.is_new || choData.is_new_item);
 
         const pdfDoc = await PDFDocument.create();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -183,9 +182,9 @@ export async function generateAct122(projectId: string, choId: string) {
                 if (chk) drawText(p, "X", x + 1, cby + 16, fontBold, 8);
                 drawText(p, lbl, x + 15, cby + 16, fontBold, 7.2);
             };
-            sqCb(50, "Change of Contract Items", contractChoItems.length > 0);
-            sqCb(200, "New Items (Extra Work)", newChoItems.length > 0);
-            sqCb(365, "Time Extension", (parseInt(choData.time_extension_days) || 0) > 0);
+            sqCb(50, "Change of Contract Items", choData.is_change_of_contract || contractChoItems.length > 0);
+            sqCb(200, "New Items (Extra Work)", choData.is_new_item || newChoItems.length > 0);
+            sqCb(365, "Time Extension", choData.is_time_extension || (parseInt(choData.time_extension_days) || 0) > 0);
 
             const s16y = 252;
             drawText(p, "16. Description of Work/Scope of Work:", 40, s16y, fontBold, 8);

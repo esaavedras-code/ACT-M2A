@@ -18,6 +18,16 @@ import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 const DELAY_TYPES = ["Condiciones existentes", "Material", "Falla en la especificación", "Decisión de ACT", "Calidad", "Evento de seguridad", "Clima"];
 const EQUIPMENT_TYPES = ["Bob Cat", "Pickup F-150", "Pickup Ram 2500", "Pickup F-450", "Truck Tumba 320", "Grúa de canasto", "Miniexcavadora"];
 
+const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
+    <button 
+        type="button" 
+        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
+        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/50 hover:bg-white text-[10px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
+    >
+        HOY
+    </button>
+);
+
 const TAB_LIST = [
     { id: "partidas",      num: 1,  label: "Partidas",      icon: <ListChecks size={18} /> },
     { id: "clima",         num: 2,  label: "Clima",         icon: <CloudSun size={18} /> },
@@ -464,91 +474,6 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                     },
                     ...(currentLog.id ? [{
                         label: "Imprimir PDF",
-                        icon: <Printer />,
-                        onClick: handlePrint,
-                        description: "Generar el reporte oficial del informe diario en PDF",
-                        variant: 'secondary' as const,
-                        disabled: loading
-                    }] : []),
-                    {
-                        label: loading ? "Guardando..." : "Guardar cambios",
-                        icon: <Save />,
-                        onClick: () => saveData(false),
-                        description: "Sincronizar todos los cambios y actualizar balances de personal, equipo y partidas",
-                        variant: 'primary' as const,
-                        disabled: loading
-                    }
-                ]}
-            />
-
-            <div className="flex items-center gap-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 p-5 rounded-[2.5rem] shadow-xl border border-blue-400/20 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
-                <SmartDictationButton 
-                    context="global"
-                    contractItems={contractItems}
-                    onResult={handleGlobalAIResult}
-                />
-                <div className="text-white">
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_#4ade80]"></div>
-                        <h3 className="font-black text-sm uppercase tracking-wider text-blue-50">Inteligencia Artificial Global</h3>
-                    </div>
-                    <p className="text-xs text-blue-100/90 font-medium leading-relaxed max-w-2xl">
-                        Dicta libremente personal, equipos, partidas o notas de seguridad. <br className="hidden md:block"/>
-                        Ej: <span className="italic opacity-80 text-[11px]">"Personal: Roberto 8h. Excavadora 4h. Se completó el tramo de asfalto y no hubo incidentes."</span>
-                    </p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 p-6 rounded-3xl border">
-                <div className="space-y-2 flex flex-col justify-end">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Fecha</label>
-                    <input type="date" className="input-field" value={currentLog.log_date || ""} onChange={e => handleInputChange("log_date", e.target.value)} />
-                </div>
-                <div className="space-y-2 flex flex-col justify-end relative">
-                    <div className="text-[11px] font-black text-blue-600 bg-blue-100 px-2 py-0.5 rounded-md absolute -top-5 left-0">
-                        {TAB_LIST.find(t => t.id === editTab)?.label}
-                    </div>
-                    <label className="text-[10px] font-black uppercase text-slate-400 mt-1">Inspector</label>
-                    <input type="text" className="input-field" value={currentLog.inspector_name || ""} onChange={e => handleInputChange("inspector_name", e.target.value)} />
-                </div>
-                <div className="space-y-2 flex flex-col justify-end">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Localización</label>
-                    <input type="text" className="input-field" value={currentLog.location || ""} onChange={e => handleInputChange("location", e.target.value)} />
-                </div>
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-8">
-                <div className="w-full lg:w-72 shrink-0 flex lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-2 lg:pb-0">
-                    {TAB_LIST.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setEditTab(tab.id)}
-                            className={`flex-shrink-0 lg:w-full flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl transition-all whitespace-nowrap ${editTab === tab.id ? 'bg-primary text-white shadow-lg' : 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                        >
-                            <div className={`w-6 h-6 md:w-8 md:h-8 rounded-lg flex items-center justify-center font-black text-[10px] md:text-xs ${editTab === tab.id ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-300'}`}>{tab.num}</div>
-                            <span className="text-[11px] md:text-sm font-bold uppercase tracking-wider">{tab.label}</span>
-                        </button>
-                    ))}
-                </div>
-                <div className="flex-grow card p-4 sm:p-6 md:p-8 rounded-3xl min-h-[500px]">
-                    <TabContent
-                        id={editTab}
-                        data={currentLog}
-                        projectId={projectId}
-                        update={(field: string, val: any) => handleInputChange(field, val)}
-                        contractItems={contractItems}
-                        projectDefaults={projectDefaults}
-                        setProjectDefaults={setProjectDefaults}
-                        onDirty={() => { setIsDirty(true); if (onDirty) onDirty(); }}
-                    />
-                </div>
-            </div>
-        </div>
-    );
-});
-
-export default DailyLogForm;
-
 // ─────────────────────────────────────────────────────────────
 // IA Voice Processing Helper
 function SmartDictationButton({ context, contractItems, onResult }: any) {

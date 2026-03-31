@@ -163,7 +163,8 @@ export const createPdfBlob = async (
     centerText('Sistema de Control de Proyectos', timesRomanFont, 10, y);
     y -= 15;
     if (projectInfo) {
-        centerText(`Proyecto: ${projectInfo.name || 'N/A'} - ${projectInfo.num_act || 'N/A'}`, timesRomanBoldFont, 10, y);
+        const cleanAct = projectInfo.num_act ? projectInfo.num_act.replace(/^AC-/, '') : 'N/A';
+        centerText(`Proyecto: ${projectInfo.name || 'N/A'} - ${cleanAct}`, timesRomanBoldFont, 10, y);
         y -= 22;
     }
     centerText(title, timesRomanBoldFont, 14, y);
@@ -203,34 +204,26 @@ export const createPdfBlob = async (
         const fontSize = isHeader ? 9 : 8;
         const lineHeight = fontSize + 3;
 
-        const cellLines = row.map((cell, idx) => {
-            let text = cell?.toString() || '';
-            let isRed = false;
-            const trimmed = text.trim();
+        const rowHasSubtitle = row.some(cell => /^\s*\d+\.\s+[A-ZÁÉÍÓÚÑ]/.test(cell?.toString() || ''));
+        const rowHasItemNum = !isHeader && /^\d+([-(A-Z]|$)/.test(row[0]?.toString() || '');
+        const rowIsSpecial = rowHasSubtitle || rowHasItemNum;
 
-            if (trimmed.startsWith('-')) {
-                const val = parseFloat(trimmed.replace(/[^\d.-]/g, '')) || 0;
-                if (val < 0) {
-                    isRed = true;
-                    text = `(${trimmed.substring(1).trim()})`;
-                } else {
-                    text = trimmed.substring(1).trim();
-                }
-            }
-
+        const cellLines = row.map((text, idx) => {
+            const textStr = (text?.toString() || '').trim();
             const width = colWidths[idx] || 50;
-            const textStr = text.trim();
-            const isSubtitle = /^\d+\.\s[A-ZÁÉÍÓÚÑ]/.test(textStr);
+            
+            const isSubtitle = /^\s*\d+\.\s+[A-ZÁÉÍÓÚÑ]/.test(textStr);
             const isItemNum = !isHeader && idx === 0 && row[0] && /^\d+([-(A-Z]|$)/.test(textStr);
-            const useBold = isHeader || isPartida || isSubtitle || isItemNum || textStr.endsWith(':') ||
+            
+            const useBold = isHeader || isPartida || isSubtitle || isItemNum || rowIsSpecial || textStr.endsWith(':') ||
                 textStr === 'Rol / Puesto' || textStr === 'Nombre' || textStr === 'Contacto' || textStr === 'Oficina' || textStr === 'Celular' || textStr === 'Email';
             const cellFont = useBold ? timesRomanBoldFont : timesRomanFont;
-            const displayFontSize = (isSubtitle || isItemNum) ? fontSize + 1 : fontSize;
+            const displayFontSize = (isSubtitle || isItemNum || rowIsSpecial) ? fontSize + 1 : fontSize;
             return {
                 lines: splitTextIntoLines(textStr === '' ? '' : text, width, cellFont, displayFontSize),
                 font: cellFont,
                 useBold,
-                isRed,
+                isRed: !isHeader && (textStr.startsWith('-') || (idx === 7 && parseFloat(textStr.replace(/[^0-9.-]/g, '')) < 0)),
                 displayFontSize
             };
         });
@@ -537,7 +530,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
     const filteredChos = chos?.filter(c => new Date(c.cho_date) <= cutOff) || [];
     const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff) || [];
 
-    // Coleccionamos todos los números de ítems únicos (originales + añadidos por CHO)
+    // Coleccionamos todos los números de ítems únicos
     const allItemNums = new Set(items.map(i => i.item_num));
     filteredChos.forEach(c => {
         const choItems = Array.isArray(c.items) ? c.items : [];
@@ -549,15 +542,17 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
     const sortedItemNums = Array.from(allItemNums).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
     const balances = sortedItemNums.map(itemNum => {
-        // Buscamos el ítem base en el contrato
         const baseItem = items.find(i => i.item_num === itemNum);
         const origQty = baseItem ? (parseFloat(baseItem.quantity) || 0) : 0;
         const description = baseItem ? [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ') : "";
         const unit = baseItem ? baseItem.unit : "";
+        const fundSource = baseItem?.fund_source || "N/A";
+        const unitPrice = baseItem ? (parseFloat(baseItem.unit_price) || 0) : 0;
 
-        // Sumamos cambios de CHOs (solo los que apliquen a este ítem)
         let totalChoQty = 0;
         let choDescription = "";
+        let choUnitPrice = 0;
+        let choFundSource = "";
 
         filteredChos.forEach(c => {
             const choItems = Array.isArray(c.items) ? c.items : [];
@@ -565,11 +560,11 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
             if (match) {
                 totalChoQty += (parseFloat(match.proposed_change !== undefined ? match.proposed_change : match.quantity) || 0);
                 if (!description && match.description) choDescription = match.description;
-                if (!unit && (match.unit || match.unit_measure)) choDescription = match.unit || match.unit_measure;
+                if (match.unit_price) choUnitPrice = parseFloat(match.unit_price);
+                if (match.fund_source) choFundSource = match.fund_source;
             }
         });
 
-        // Sumamos certificaciones
         const certQty = filteredCerts.reduce((acc, c) => {
             const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
             const match = certItems.find((it: any) => it.item_num === itemNum);
@@ -578,6 +573,8 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
 
         const totalQty = origQty + totalChoQty;
         const balance = totalQty - certQty;
+        const price = unitPrice || choUnitPrice || 0;
+        const balanceAmount = balance * price;
 
         return { 
             item_num: itemNum, 
@@ -587,30 +584,82 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
             choQty: totalChoQty, 
             totalQty, 
             certQty, 
-            balance 
+            balance,
+            fundSource: fundSource !== "N/A" ? fundSource : (choFundSource || "N/A"),
+            balanceAmount
         };
     });
 
-    const data = [
-        ['Item', 'Descripción', 'Unidad', 'C. Orig', 'CHO', 'Total', 'Certific.', 'Balance'],
-        ...balances.map((b: any) => [
-            b.item_num,
-            b.description,
-            b.unit,
-            b.origQty.toFixed(4),
-            b.choQty.toFixed(4),
-            b.totalQty.toFixed(4),
-            (-b.certQty).toFixed(4),
-            b.balance.toFixed(4)
-        ])
-    ];
+    // Agrupar por fundSource
+    const grouped = new Map<string, any[]>();
+    balances.forEach(b => {
+        const key = b.fundSource;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(b);
+    });
+
+    const reportData: any[][] = [['Item', 'Descripción', 'Unidad', 'C. Orig', 'CHO', 'Total', 'Certific.', 'Balance']];
+    
+    grouped.forEach((groupItems, source) => {
+        reportData.push([`PARTIDA / FUENTE DE FONDOS: ${source}`, '', '', '', '', '', '', '']);
+        
+        let subtotalQty = 0;
+        let subtotalAmount = 0;
+
+        groupItems.forEach((b: any) => {
+            reportData.push([
+                b.item_num,
+                b.description,
+                b.unit,
+                b.origQty.toFixed(4),
+                b.choQty.toFixed(4),
+                b.totalQty.toFixed(4),
+                (b.certQty * -1).toFixed(4),
+                b.balance.toFixed(4)
+            ]);
+            reportData.push([
+                '',
+                '➔ Balance Total de la Partida:',
+                '',
+                '',
+                '',
+                `Qty: ${b.balance.toFixed(4)}`,
+                '',
+                `Amount: ${formatCurrency(b.balanceAmount)}`
+            ]);
+            subtotalQty += b.balance;
+            subtotalAmount += b.balanceAmount;
+        });
+
+        reportData.push([
+            'BALANCE TOTAL POR PARTIDA:', 
+            '', 
+            '', 
+            '', 
+            '', 
+            '', 
+            'CANTIDAD:', 
+            subtotalQty.toFixed(4)
+        ]);
+        reportData.push([
+            '', 
+            '', 
+            '', 
+            '', 
+            '', 
+            '', 
+            'MONTO:', 
+            formatCurrency(subtotalAmount)
+        ]);
+        reportData.push(['', '', '', '', '', '', '', '']); // Espacio entre partidas
+    });
 
     if (format === 'excel') {
         alert("Este reporte no está disponible en formato Excel por requerimiento.");
         return;
     }
 
-    await generateReport('REPORTE DE BALANCES DE PARTIDAS', data, project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape', format, 'Reporte_Balances_Partidas.pdf', endDate);
+    await generateReport('REPORTE DE BALANCES DE PARTIDAS', reportData, project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape', format, 'Reporte_Balances_Partidas.pdf', endDate);
 };
 
 export const generateDetailReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {

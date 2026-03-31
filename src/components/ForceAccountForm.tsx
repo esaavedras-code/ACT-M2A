@@ -48,7 +48,11 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
 
     const fetchForceAccounts = async () => {
         setLoading(true);
-        const { data } = await supabase.from("force_accounts").select("*").eq("project_id", projectId).order("created_at", { ascending: false });
+        const { data } = await supabase.from("force_accounts")
+            .select("*")
+            .eq("project_id", projectId)
+            .order("fecha_inicio", { ascending: false })
+            .order("created_at", { ascending: false });
         if (data) setForceAccounts(data);
         setLoading(false);
     };

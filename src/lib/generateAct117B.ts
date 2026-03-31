@@ -58,7 +58,19 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-        const fmt = (v: number) => v?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00";
+        const fmt = (v: number) => {
+            if (v === null || v === undefined || isNaN(v)) return "";
+            if (Math.abs(v) < 0.001) return "0.00";
+            const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return v < 0 ? `(${s})` : s;
+        };
+
+        const fmtDate = (str: string) => {
+            try {
+                const [y, m, d] = str.split('T')[0].split('-');
+                return `${m}/${d}/${y}`;
+            } catch { return str; }
+        };
 
         const createNewPage = () => {
             const page = pdfDoc.addPage([612, 792]);
@@ -161,21 +173,22 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
                 drawText(sVal, lineX + 5, y, 9);
             };
 
-            drawField("1", "Project Name", 40, ly, 450, projData.name);
-            drawField("2", "Project Number", 40, ly + fieldH, 450, projData.num_act);
-            drawField("3", "Provider", 40, ly + fieldH * 2, 450, provider);
+            const midX = 310; // Reducido por ~2 cm (aprox 56 pts)
+            drawField("1", "Project Name", 40, ly, midX, projData.name);
+            drawField("2", "Project Number", 40, ly + fieldH, midX, projData.num_act);
+            drawField("3", "Provider", 40, ly + fieldH * 2, midX, provider);
             drawField("4", "Item Num.", 40, ly + fieldH * 3, 145, itemNum);
-            drawField("5", "Description", 40, ly + fieldH * 4, 450, itemData?.description);
-            drawField("6", "Contract Quantity", 40, ly + fieldH * 5, 220, itemData?.quantity);
+            drawField("5", "Description", 40, ly + fieldH * 4, midX, itemData?.description);
+            drawField("6", "Contract Quantity", 40, ly + fieldH * 5, 220, fmt(parseFloat(itemData?.quantity || 0)));
             drawField("7", "Contract Unit Price", 40, ly + fieldH * 6, 220, fmt(itemData?.unit_price), true);
             drawField("8", "75% Cont. Unit Price", 40, ly + fieldH * 7, 220, fmt(field8_75PercentUP), true);
 
-            const rx = 475;
+            const rx = 330; // Alineado
             drawField("9", "Invoice Num.", rx, ly + fieldH * 2, 575, invoiceNum);
             drawField("10", "Lot Num.", rx, ly + fieldH * 3, 575, lotNum);
             drawField("11", "Unit", rx, ly + fieldH * 4, 575, itemData?.unit);
 
-            const rx2 = 425;
+            const rx2 = 330;
             drawField("12", "Invoice Amount", rx2, ly + fieldH * 5, 575, fmt(invoiceAmount));
             drawField("13", "Invoice Quantity", rx2, ly + fieldH * 6, 575, fmt(invoiceQty));
             drawField("14", "Invoice Unit Price", rx2, ly + fieldH * 7, 575, fmt(field14_InvoiceUP), true);
@@ -209,7 +222,7 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
             drawText("19", (cols[3] + cols[4]) / 2, ty + 22, 7, true, true);
             drawText("Amount", (cols[3] + cols[4]) / 2, ty + 32, 8.5, true, true);
             drawLine(cols[4], ty + rowH, cols[6], ty + rowH, 0.8);
-            drawText("Balance", (cols[4] + cols[6]) / 2, ty + 12, 9, true, true);
+            drawText("Balance total en inventario (MOS)", (cols[4] + cols[6]) / 2, ty + 12, 9, true, true);
             drawText("20", (cols[4] + cols[5]) / 2, ty + 22, 7, true, true);
             drawText("Quantity", (cols[4] + cols[5]) / 2, ty + 32, 8.5, true, true);
             drawText("21", (cols[5] + cols[6]) / 2, ty + 22, 7, true, true);
@@ -286,12 +299,15 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
             cumulativeAmount = roundedAmt(cumulativeQty * field15_LotUP, 2);
 
             const rowY = ty + th + (filledInPage * rowH) + rowH / 2;
-            drawText(formatDate(tx.cert.cert_date), (cols[0] + cols[1]) / 2, rowY + 3.5, 8, false, true);
+            drawText(fmtDate(tx.cert.cert_date), (cols[0] + cols[1]) / 2, rowY + 3.5, 8, false, true);
             drawText(tx.cert.cert_num, (cols[1] + cols[2]) / 2, rowY + 3.5, 8, false, true);
-            drawText(tx.qty.toFixed(2), cols[3] - 5, rowY + 3.5, 8, false, false, true);
+            drawText(tx.qty === 0 ? "0.00" : fmt(tx.qty), cols[3] - 5, rowY + 3.5, 8, false, false, true);
             drawText(fmt(tx.amt), cols[4] - 5, rowY + 3.5, 8, false, false, true);
-            drawText(cumulativeQty.toFixed(2), cols[5] - 5, rowY + 3.5, 8, false, false, true);
-            drawText(fmt(cumulativeAmount), cols[6] - 5, rowY + 3.5, 8, false, false, true);
+            
+            // Col 20 & 21: Balance
+            const isZeroQty = Math.abs(cumulativeQty) < 0.001;
+            drawText(fmt(cumulativeQty), cols[5] - 5, rowY + 3.5, isZeroQty ? 9 : 8, isZeroQty, false, true);
+            drawText(fmt(cumulativeAmount), cols[6] - 5, rowY + 3.5, isZeroQty ? 9 : 8, isZeroQty, false, true);
             drawText(tx.remark, cols[6] + 5, rowY + 3.5, 8, false);
 
             if (tx.cert.id === certId) {
@@ -312,11 +328,12 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
         drawText(formatCurrency(lastItemAmount), 482.5, by, 10, true, true);
 
         const by2 = by + 25;
-        drawText(`24. Net Material on Site Payment for Certification #`, 40, by2, 10, true);
+        // El texto del “Balance total en inventario (MOS), que se ponga entre las columnas
+        drawText(`24. Balance total en inventario (MOS) para Certificación #`, 40, by2, 10, true);
         drawLine(305, by2 + 2, 360, by2 + 2);
         drawText(currentCert.cert_num, 332.5, by2, 9.5, false, true);
         drawLine(415, by2 + 2, 550, by2 + 2);
-        drawText(formatCurrency(cumulativeAmount), 482.5, by2, 11, true, true);
+        drawText(fmt(cumulativeAmount), 482.5, by2, 11, true, true);
 
         // --- PAGE NUMBERING ---
         const pages = pdfDoc.getPages();

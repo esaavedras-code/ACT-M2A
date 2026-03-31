@@ -27,18 +27,17 @@ export async function generateAct123(projectId: string, choId: string) {
         if (!projData) throw new Error("Proyecto no encontrado");
         const { data: contrData } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
         const { data: choData } = await supabase.from('chos').select('*').eq('id', choId).single();
-        const { data: allChos } = await supabase.from('chos').select('cho_num, time_extension_days').eq('project_id', projectId).order('cho_num', { ascending: true });
-        const { data: contractItems } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
+        const { data: allChos } = await supabase.from('chos').select('cho_num, time_extension_days, proposed_change').eq('project_id', projectId).order('cho_num', { ascending: true });
+        const { data: contractItems } = await supabase.from('contract_items').select('item_num, fund_source').eq('project_id', projectId);
         const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
 
         const personnelMap: Record<string, string> = {};
         personnel?.forEach(p => { personnelMap[p.role] = p.name; });
 
         // Identificar Items de Contrato vs Items Nuevos
-        const contractItemNums = new Set(contractItems?.map(ci => ci.item_num) || []);
         const allChoItems = Array.isArray(choData.items) ? choData.items : [];
-        const contractChoItems = allChoItems.filter((it: any) => contractItemNums.has(it.item_num));
-        const newChoItems = allChoItems.filter((it: any) => !contractItemNums.has(it.item_num));
+        const contractChoItems = allChoItems.filter((it: any) => !it.is_new && !choData.is_new_item);
+        const newChoItems = allChoItems.filter((it: any) => it.is_new || choData.is_new_item);
 
         const pdfDoc = await PDFDocument.create();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -46,12 +45,14 @@ export async function generateAct123(projectId: string, choId: string) {
 
         // Lógica de fechas
         let prevExtDays = 0;
+        let prevCostMods = 0;
         const currentChoNum = parseFloat(choData.cho_num);
         if (allChos) {
             for (const c of allChos) {
                 const loopNum = parseFloat(c.cho_num);
                 if (loopNum < currentChoNum) {
                     prevExtDays += (parseInt(c.time_extension_days) || 0);
+                    prevCostMods += (parseFloat(c.proposed_change) || 0);
                 }
             }
         }
@@ -133,9 +134,9 @@ export async function generateAct123(projectId: string, choId: string) {
         let cbY = 175;
         const boxSize = 10;
 
-        const hasContractChange = contractChoItems.length > 0;
-        const hasNewItems = newChoItems.length > 0;
-        const hasTimeExt = choData.time_extension_days > 0;
+        const hasContractChange = choData.is_change_of_contract || contractChoItems.length > 0;
+        const hasNewItems = choData.is_new_item || newChoItems.length > 0;
+        const hasTimeExt = choData.is_time_extension || (parseInt(choData.time_extension_days) || 0) > 0;
 
         const drawCheck = (lbl: string, checked: boolean, isFirst: boolean) => {
             if (isFirst) drawText(p, "8", cbX - 10, cbY - 3, fontBold, 5.5);
@@ -157,41 +158,66 @@ export async function generateAct123(projectId: string, choId: string) {
         const lh = 18;
 
         // Line 1
+        by += lh;
         drawText(p, "This agreement entered into this", 40, by, font, fs);
         drawLine(p, 175, by + 2, 320, by + 2);
         drawText(p, "9", 325, by - 3, fontBold, 5.5);
         // drawText(p, formatDate(choData.cho_date) || "", 185, by, font, fs); // Box 9 empty as requested
         drawText(p, "by and between the Puerto Rico Highway and Transportation", 345, by, font, fs);
 
+        // Logic for Delegate
+        const originalCost = parseFloat(projData.cost_original) || 0;
+        const totalChangeNum = parseFloat(choData.proposed_change) || 0;
+        const accIncPct = originalCost > 0 ? ((prevCostMods + totalChangeNum) / originalCost) * 100 : 0;
+        const is100Fed = contractItems && contractItems.length > 0 && contractItems.every((ci:any) => ci.fund_source && ci.fund_source !== 'N/A' && ci.fund_source !== '100% Estatal');
+
+        let mainRole = "Director Área de Construcción";
+        let mainName = personnelMap["Director Construcción"] || personnelMap["Director de Construcción"] || personnelMap["Director Area Construcción"] || "Edwin Gonzalez Montalvo, P.E.";
+        
+        if (hasTimeExt || totalChangeNum > 250000 || accIncPct > 25) {
+            mainRole = "Director Ejecutivo";
+            mainName = "Edwin Gonzalez Montalvo, P.E.";
+        } else if ((totalChangeNum > 50000 && totalChangeNum <= 250000) || is100Fed) {
+            mainRole = "Subdirector Ejecutivo";
+            mainName = personnelMap["Subdirector Ejecutivo"] || "Ing. Rosemarie Visnauskas";
+        } else {
+            mainRole = "Director Área de Construcción";
+        }
+
         // Line 2
-        by += lh;
-        drawText(p, "Authority, hereinafter referred to as the \"Authority\", represented by", 40, by, font, fs);
-        drawLine(p, 305, by + 2, 540, by + 2);
-        drawText(p, personnelMap["Director Ejecutivo"] || "", 315, by, font, fs);
-        drawText(p, "10", 545, by - 3, fontBold, 5.5);
-        drawText(p, ",", 542, by, font, fs);
+        by += lh + 4;
+        const l2Prefix = "Authority, hereinafter referred to as the \"Authority\", represented by";
+        drawText(p, l2Prefix, 40, by, font, fs);
+        const l2W = font.widthOfTextAtSize(l2Prefix + " ", fs);
+        drawLine(p, 40 + l2W, by + 2, PW - 55, by + 2);
+        drawText(p, mainName, 40 + l2W + 5, by, font, fs);
+        drawText(p, "10", PW - 50, by - 3, fontBold, 5.5);
+        drawText(p, ",", PW - 45, by, font, fs);
 
         // Line 3
-        by += lh;
+        by += lh + 4;
         drawLine(p, 40, by + 2, 230, by + 2);
-        drawText(p, "Director Ejecutivo", 45, by - 1, font, fs);
+        drawText(p, mainRole, 45, by - 1, font, fs - 0.5);
         drawText(p, "11", 235, by - 3, fontBold, 5.5);
         drawText(p, "; and", 245, by, font, fs);
-        drawLine(p, 270, by + 2, 440, by + 2);
+        drawLine(p, 270, by + 2, 530, by + 2);
         drawText(p, contrData?.name || "", 275, by, font, fs);
-        drawText(p, "12", 445, by - 3, fontBold, 5.5);
-        drawText(p, ", hereinafter referred to as the \"Contractor\",", 455, by, font, fs);
+        drawText(p, "12", 535, by - 3, fontBold, 5.5);
+        drawText(p, ", hereinafter referred to as the", 540, by, font, fs - 1.5);
 
         // Line 4
-        by += lh;
-        drawText(p, "represented by", 40, by, font, fs);
-        drawLine(p, 105, by + 2, 310, by + 2);
-        drawText(p, contrData?.representative || "", 115, by, font, fs);
-        drawText(p, "13", 315, by - 3, fontBold, 5.5);
-        drawText(p, ",", 325, by, font, fs);
-        drawLine(p, 335, by + 2, 545, by + 2);
-        drawText(p, "President", 345, by - 1, font, fs);
-        drawText(p, "14", 550, by - 3, fontBold, 5.5);
+        by += lh + 4;
+        drawText(p, "\"Contractor\", represented by", 40, by, font, fs);
+        drawLine(p, 160, by + 2, 380, by + 2);
+        drawText(p, contrData?.representative || "", 165, by, font, fs);
+        drawText(p, "13", 385, by - 3, fontBold, 5.5);
+        drawText(p, ",", 395, by, font, fs);
+        drawLine(p, 405, by + 2, 535, by + 2);
+        drawText(p, "President", 415, by - 1, font, fs);
+        drawText(p, "14", 540, by - 3, fontBold, 5.5);
+
+        // Contractor SS and Email removed from this section, user wants them fixed at the bottom
+
 
         // WITNESSETH
         by += lh * 1.5;
@@ -277,29 +303,37 @@ export async function generateAct123(projectId: string, choId: string) {
         by += lh * 2;
         drawLine(p, 40, by + 2, 280, by + 2);
         drawText(p, "10", 285, by - 3, fontBold, 5.5);
+        drawText(p, mainName, 45, by, font, 8.5); // Add mainName at bottom #10
         drawLine(p, PW - 280, by + 2, PW - 40, by + 2);
         drawText(p, "13", PW - 35, by - 3, fontBold, 5.5);
+        drawText(p, contrData?.representative || "", PW - 275, by, font, 8.5); // Add representative at bottom #13
 
-        by += lh;
+        by += lh + 10;
         drawLine(p, 60, by + 2, 260, by + 2);
         drawText(p, "11", 265, by - 3, fontBold, 5.5);
-        drawLine(p, PW - 260, by + 2, PW - 60, by + 2);
-        drawText(p, "14", PW - 55, by - 3, fontBold, 5.5);
+        drawText(p, mainRole, 65, by, font, 8); // Add mainRole at bottom #11
+        drawLine(p, PW - 280, by + 2, PW - 40, by + 2);
+        drawText(p, "14", PW - 35, by - 3, fontBold, 5.5);
+        drawText(p, "President", PW - 275, by, font, 8); // Add "President" at bottom #14
 
-        by += lh;
+        by += lh + 10;
+        drawText(p, "Highway and Transportation Authority", 80, by + 10, fontBold, 8);
         drawLine(p, 60, by + 2, 260, by + 2);
-        drawText(p, "Highway and Transportation Authority", 160, by + 10, fontBold, 9, true);
-        drawLine(p, PW - 260, by + 2, PW - 60, by + 2);
-        drawText(p, "12", PW - 55, by - 3, fontBold, 5.5);
+        drawLine(p, PW - 280, by + 2, PW - 40, by + 2);
+        drawText(p, "12", PW - 35, by - 3, fontBold, 5.5);
+        drawText(p, contrData?.name || "", PW - 275, by, font, 8.5); // Add contract name at #12
 
-        by += lh;
-        drawText(p, "660-43-3808", 160, by + 10, fontBold, 9, true);
-        drawLine(p, PW - 260, by + 2, PW - 60, by + 2);
-        drawText(p, "25", PW - 55, by - 3, fontBold, 5.5);
+        by += lh + 15;
+        drawText(p, "Seguro Social Patronal del Contratista:", PW - 280, by - 12, font, 7.5);
+        drawLine(p, PW - 280, by + 2, PW - 40, by + 2);
+        drawText(p, contrData?.ss_patronal || "", PW - 275, by, font, 8.5);
+        drawText(p, "25", PW - 35, by - 3, fontBold, 5.5);
 
-        by += lh;
-        drawLine(p, PW - 260, by + 2, PW - 60, by + 2);
-        drawText(p, "26", PW - 55, by - 3, fontBold, 5.5);
+        by += lh + 15;
+        drawText(p, "Correo electrónico:", PW - 280, by - 12, font, 7.5);
+        drawLine(p, PW - 280, by + 2, PW - 40, by + 2);
+        drawText(p, contrData?.email || "", PW - 275, by, font, 8.5);
+        drawText(p, "26", PW - 35, by - 3, fontBold, 5.5);
 
         // Distribution area
         const distY = PH - 65; 
