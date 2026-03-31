@@ -222,7 +222,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 }
             }
 
-            const { id, created_at, updated_at, ...restData } = formData;
+            const { id, created_at, updated_at, ...restData } = formData as any;
             const dataToSave = {
                 ...restData,
                 num_act: finalNumAct,
