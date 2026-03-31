@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "npm run build && cross-env CSC_SKIP_SIGNING=true electron-builder"
+    "electron:build": "cross-env BUILD_FOR=electron npm run build && cross-env CSC_SKIP_SIGNING=true electron-builder"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
