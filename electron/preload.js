@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sendEmail: (data) => ipcRenderer.invoke('send-email', data),
     parsePdf: (filePath) => ipcRenderer.invoke('parse-pdf', filePath),
     parsePdfBase64: (base64Data) => ipcRenderer.invoke('parse-pdf-base64', base64Data),
-    readFileBinary: (filePath) => ipcRenderer.invoke('read-file-binary', filePath)
+    readFileBinary: (filePath) => ipcRenderer.invoke('read-file-binary', filePath),
+    analyzeDocument: (data) => ipcRenderer.invoke('analyze-document', data)
 });

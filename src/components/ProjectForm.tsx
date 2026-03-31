@@ -684,26 +684,37 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                             } else if (aiPrompt.trim().length > 0) {
                                                                 setAiResponse("Consultando Asistente AI (Visión)...");
                                                                 try {
-                                                                    const response = await fetch('/api/analyze-document', {
-                                                                        method: 'POST',
-                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ 
-                                                                            text: fullExtractedText, 
-                                                                            prompt: aiPrompt,
-                                                                            image: allImages.length > 0 ? allImages : undefined
-                                                                        })
-                                                                    });
-                                                                    if (!response.ok) {
-                                                                        const errText = await response.text();
-                                                                        console.error("Error API Analyze:", response.status, errText);
-                                                                        setAiResponse(`Error del servidor AI (${response.status})`);
-                                                                        return;
-                                                                    }
-                                                                    const aiData = await response.json();
-                                                                    if (aiData.result) {
-                                                                        setAiResponse(aiData.result);
-                                                                    } else if (aiData.error) {
-                                                                        setAiResponse("Error AI: " + aiData.error);
+                                                                    const payload = { 
+                                                                        text: fullExtractedText, 
+                                                                        prompt: aiPrompt,
+                                                                        image: allImages.length > 0 ? allImages : undefined
+                                                                    };
+                                                                    
+                                                                    if (win.electronAPI?.analyzeDocument) {
+                                                                        const aiData = await win.electronAPI.analyzeDocument(payload);
+                                                                        if (aiData.success && aiData.result) {
+                                                                            setAiResponse(aiData.result);
+                                                                        } else {
+                                                                            setAiResponse("Error AI: " + (aiData.error || "Desconocido"));
+                                                                        }
+                                                                    } else {
+                                                                        const response = await fetch('/api/analyze-document', {
+                                                                            method: 'POST',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify(payload)
+                                                                        });
+                                                                        if (!response.ok) {
+                                                                            const errText = await response.text();
+                                                                            console.error("Error API Analyze:", response.status, errText);
+                                                                            setAiResponse(`Error del servidor AI (${response.status})`);
+                                                                            return;
+                                                                        }
+                                                                        const aiData = await response.json();
+                                                                        if (aiData.result) {
+                                                                            setAiResponse(aiData.result);
+                                                                        } else if (aiData.error) {
+                                                                            setAiResponse("Error AI: " + aiData.error);
+                                                                        }
                                                                     }
                                                                 } catch(err: any) {
                                                                     console.error("AI Fetch Failure:", err);
