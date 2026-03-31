@@ -658,14 +658,14 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                             const pagesToProcess = Math.min(pdfDoc.numPages, 3);
                                                                             for (let i = 1; i <= pagesToProcess; i++) {
                                                                                 const page = await pdfDoc.getPage(i);
-                                                                                const viewport = page.getViewport({ scale: 1.2 });
+                                                                                const viewport = page.getViewport({ scale: 0.8 });
                                                                                 const canvas = document.createElement('canvas');
                                                                                 const context = canvas.getContext('2d');
                                                                                 if (context) {
                                                                                     canvas.height = viewport.height;
                                                                                     canvas.width = viewport.width;
                                                                                     await page.render({ canvasContext: context, viewport }).promise;
-                                                                                    allImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                                                                                    allImages.push(canvas.toDataURL('image/jpeg', 0.6));
                                                                                 }
                                                                             }
                                                                         } catch(err) {
@@ -704,9 +704,15 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                             body: JSON.stringify(payload)
                                                                         });
                                                                         if (!response.ok) {
-                                                                            const errText = await response.text();
-                                                                            console.error("Error API Analyze:", response.status, errText);
-                                                                            setAiResponse(`Error del servidor AI (${response.status})`);
+                                                                            try {
+                                                                                const errorData = await response.json();
+                                                                                console.error("Error API Analyze json:", response.status, errorData);
+                                                                                setAiResponse(`Error AI: ${errorData.error || 'Server error ' + response.status}`);
+                                                                            } catch (parseError) {
+                                                                                const errText = await response.text();
+                                                                                console.error("Error API Analyze raw:", response.status, errText);
+                                                                                setAiResponse(`Error AI (${response.status}): ${errText.substring(0, 100)}`);
+                                                                            }
                                                                             return;
                                                                         }
                                                                         const aiData = await response.json();
