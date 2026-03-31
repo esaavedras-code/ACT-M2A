@@ -60,7 +60,7 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
 
         const fmt = (v: number) => {
             if (v === null || v === undefined || isNaN(v)) return "";
-            if (Math.abs(v) < 0.001) return "0.00";
+            if (Math.abs(v) < 0.0001) return "0.00";
             const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             return v < 0 ? `(${s})` : s;
         };
@@ -89,10 +89,10 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
                 let color = rgb(0, 0, 0);
                 const cleanS = s.trim();
 
-                // Check if it's a negative amount: starts with -, ($, or $-
+                // Check if it's a negative amount: starts with -, ($, or (
                 // and has at least one digit to avoid false positives with IDs like ACT-117B
                 const hasDigits = /[0-9]/.test(cleanS);
-                const isNegative = cleanS.startsWith('-') || cleanS.startsWith('($') || (cleanS.startsWith('$') && cleanS.includes('-'));
+                const isNegative = cleanS.startsWith('-') || cleanS.startsWith('($') || cleanS.startsWith('(') || (cleanS.startsWith('$') && cleanS.includes('-'));
 
                 if (hasDigits && isNegative) {
                     color = rgb(1, 0, 0); // Red
@@ -153,7 +153,7 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
 
             const ly = 115;
             const fieldH = 18;
-            const drawField = (num: string, label: string, x: number, y: number, lineLen: number, value: any, shaded = false) => {
+            const drawField = (num: string, label: string, x: number, y: number, lineLen: number, value: any, shaded = false, forceComplete = false) => {
                 const fullLbl = `${num}. ${label}`;
                 drawText(fullLbl, x, y, 9, true);
                 const lblW = fontBold.widthOfTextAtSize(fullLbl, 9);
@@ -162,9 +162,9 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
                 if (shaded) drawRect(lineX, y - 10, lineW, 14);
                 else drawLine(lineX, y + 2, lineLen, y + 2);
                 
-                // Truncate if too long
+                // Truncate if too long (unless forced complete)
                 let sVal = value?.toString() || "";
-                if (font.widthOfTextAtSize(sVal, 9) > lineW - 10) {
+                if (!forceComplete && font.widthOfTextAtSize(sVal, 9) > lineW - 10) {
                     while (sVal.length > 0 && font.widthOfTextAtSize(sVal + "...", 9) > lineW - 10) {
                         sVal = sVal.slice(0, -1);
                     }
@@ -173,18 +173,19 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
                 drawText(sVal, lineX + 5, y, 9);
             };
 
-            const midX = 310; // Reducido por ~2 cm (aprox 56 pts)
+            const midX = 310; 
+            const midXReduced = midX - 56.7; // Reducido por 2 cm (56.7 pts)
             drawField("1", "Project Name", 40, ly, midX, projData.name);
             drawField("2", "Project Number", 40, ly + fieldH, midX, projData.num_act);
-            drawField("3", "Provider", 40, ly + fieldH * 2, midX, provider);
+            drawField("3", "Provider", 40, ly + fieldH * 2, midXReduced, provider);
             drawField("4", "Item Num.", 40, ly + fieldH * 3, 145, itemNum);
-            drawField("5", "Description", 40, ly + fieldH * 4, midX, itemData?.description);
+            drawField("5", "Description", 40, ly + fieldH * 4, midXReduced, itemData?.description);
             drawField("6", "Contract Quantity", 40, ly + fieldH * 5, 220, fmt(parseFloat(itemData?.quantity || 0)));
             drawField("7", "Contract Unit Price", 40, ly + fieldH * 6, 220, fmt(itemData?.unit_price), true);
             drawField("8", "75% Cont. Unit Price", 40, ly + fieldH * 7, 220, fmt(field8_75PercentUP), true);
 
-            const rx = 330; // Alineado
-            drawField("9", "Invoice Num.", rx, ly + fieldH * 2, 575, invoiceNum);
+            const rx = 330; 
+            drawField("9", "Invoice Num.", rx, ly + fieldH * 2, 575, invoiceNum, false, true);
             drawField("10", "Lot Num.", rx, ly + fieldH * 3, 575, lotNum);
             drawField("11", "Unit", rx, ly + fieldH * 4, 575, itemData?.unit);
 
@@ -305,9 +306,11 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
             drawText(fmt(tx.amt), cols[4] - 5, rowY + 3.5, 8, false, false, true);
             
             // Col 20 & 21: Balance
-            const isZeroQty = Math.abs(cumulativeQty) < 0.001;
-            drawText(fmt(cumulativeQty), cols[5] - 5, rowY + 3.5, isZeroQty ? 9 : 8, isZeroQty, false, true);
-            drawText(fmt(cumulativeAmount), cols[6] - 5, rowY + 3.5, isZeroQty ? 9 : 8, isZeroQty, false, true);
+            const isZeroQty = Math.abs(cumulativeQty) < 0.0001;
+            const balanceSize = isZeroQty ? 9 : 8;
+            const balanceBold = isZeroQty;
+            drawText(fmt(cumulativeQty), cols[5] - 5, rowY + 3.5, balanceSize, balanceBold, false, true);
+            drawText(fmt(cumulativeAmount), cols[6] - 5, rowY + 3.5, balanceSize, balanceBold, false, true);
             drawText(tx.remark, cols[6] + 5, rowY + 3.5, 8, false);
 
             if (tx.cert.id === certId) {
@@ -333,7 +336,9 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
         drawLine(305, by2 + 2, 360, by2 + 2);
         drawText(currentCert.cert_num, 332.5, by2, 9.5, false, true);
         drawLine(415, by2 + 2, 550, by2 + 2);
-        drawText(fmt(cumulativeAmount), 482.5, by2, 11, true, true);
+        
+        const isSumZero = Math.abs(cumulativeAmount) < 0.0001;
+        drawText(fmt(cumulativeAmount), 482.5, by2, isSumZero ? 12 : 11, true, true);
 
         // --- PAGE NUMBERING ---
         const pages = pdfDoc.getPages();

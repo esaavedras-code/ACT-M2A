@@ -5,7 +5,23 @@ import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
 
 export const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val || 0);
+    if (val === null || val === undefined || isNaN(val)) return "$0.00";
+    const formatted = new Intl.NumberFormat('en-US', { 
+        style: 'currency', 
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(Math.abs(val));
+    return val < 0 ? `(${formatted})` : formatted;
+};
+
+export const formatNum = (val: number, decimals: number = 2) => {
+    if (val === null || val === undefined || isNaN(val)) return "0.00";
+    const formatted = Math.abs(val).toLocaleString('en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
+    return val < 0 ? `(${formatted})` : formatted;
 };
 
 export const formatDate = (dateStr: string) => {
@@ -612,35 +628,52 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
                 b.item_num,
                 b.description,
                 b.unit,
-                b.origQty.toFixed(4),
-                b.choQty.toFixed(4),
-                b.totalQty.toFixed(4),
-                (b.certQty * -1).toFixed(4),
-                b.balance.toFixed(4)
+                formatNum(b.origQty, 4),
+                formatNum(b.choQty, 4),
+                formatNum(b.totalQty, 4),
+                formatNum(b.certQty * -1, 4),
+                formatNum(b.balance, 4)
+            ]);
+            
+            // Línea de balance total por partida (item)
+            reportData.push([
+                '',
+                '   TOTAL BALANCE DE ESTA PARTIDA:',
+                '',
+                '',
+                '',
+                '',
+                'QTY:',
+                formatNum(b.balance, 4)
             ]);
             reportData.push([
                 '',
-                '➔ Balance Total de la Partida:',
                 '',
                 '',
                 '',
-                `Qty: ${b.balance.toFixed(4)}`,
                 '',
-                `Amount: ${formatCurrency(b.balanceAmount)}`
+                '',
+                'AMOUNT:',
+                formatCurrency(b.balanceAmount)
             ]);
+            
             subtotalQty += b.balance;
             subtotalAmount += b.balanceAmount;
         });
 
         reportData.push([
-            'BALANCE TOTAL POR PARTIDA:', 
+            '-------------------------------------------', 
+            '', '', '', '', '', '', ''
+        ]);
+        reportData.push([
+            `BALANCE TOTAL PARA FUENTE: ${cleanSource}`, 
             '', 
             '', 
             '', 
             '', 
             '', 
-            'CANTIDAD:', 
-            subtotalQty.toFixed(4)
+            'TOTAL QTY:', 
+            formatNum(subtotalQty, 4)
         ]);
         reportData.push([
             '', 
@@ -649,7 +682,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
             '', 
             '', 
             '', 
-            'MONTO:', 
+            'TOTAL AMT:', 
             formatCurrency(subtotalAmount)
         ]);
         reportData.push(['', '', '', '', '', '', '', '']); // Espacio entre partidas

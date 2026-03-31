@@ -17,6 +17,16 @@ const DOC_STATUSES = ["Borrador", "En trámite", "Aprobado"];
 const TIME_EXT_STATUSES = ["Aprobada", "Pendiente"];
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 
+const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
+    <button 
+        type="button" 
+        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
+        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/50 hover:bg-white text-[10px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
+    >
+        HOY
+    </button>
+);
+
 const calculateChoBreakdown = (items: any[]) => {
     let fed = 0, act = 0;
     (items || []).forEach((it: any) => {
@@ -255,7 +265,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                     ...rest,
                     project_id: projectId,
                     proposed_change: total,
-                    is_change_of_contract: c.is_change_of_contract || false,
+                    is_change_of_contract: (c.items || []).some((it: any) => !it.is_new),
                     is_new_item: (c.items || []).some((it: any) => it.is_new),
                     is_time_extension: c.is_time_extension || (c.time_extension_days > 0),
                     items: c.items || []
@@ -409,9 +419,12 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                             <span className="text-lg text-slate-400 font-bold">{cho.amendment_letter}</span>
                                         </div>
                                     </div>
-                                    <div className="space-y-1">
+                                    <div className="space-y-1 relative">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha</label>
-                                        <input suppressHydrationWarning type="date" className="input-field text-xs font-bold bg-white dark:bg-slate-900 w-32" style={{ backgroundColor: '#66FF99' }} value={cho.cho_date || ""} onChange={(e) => updateCHO(idx, 'cho_date', e.target.value)} />
+                                        <div className="relative">
+                                            <input suppressHydrationWarning type="date" className="input-field text-xs font-bold bg-white dark:bg-slate-900 w-36 pr-12" style={{ backgroundColor: '#66FF99' }} value={cho.cho_date || ""} onChange={(e) => updateCHO(idx, 'cho_date', e.target.value)} />
+                                            <TodayButton onSelect={(date) => updateCHO(idx, 'cho_date', date)} />
+                                        </div>
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ext. Días</label>
@@ -439,8 +452,8 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             
                             <div className="flex gap-4 items-center bg-white/50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
                                 <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" checked={cho.is_change_of_contract || false} onChange={(e) => updateCHO(idx, 'is_change_of_contract', e.target.checked)} />
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider group-hover:text-primary transition-colors">Change of Contract Items</span>
+                                    <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" checked={(cho.items || []).some((it: any) => !it.is_new)} readOnly disabled />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Change of Contract Items</span>
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer group">
                                     <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" checked={(cho.items || []).some((it: any) => it.is_new)} readOnly disabled />

@@ -79,8 +79,8 @@ export async function generateAct122(projectId: string, choId: string) {
 
         // Identificar Items de Contrato vs Items Nuevos basándose en el checkbox is_new de cada item
         const allChoItems = Array.isArray(choData.items) ? choData.items : [];
-        const contractChoItems = allChoItems.filter((it: any) => !it.is_new && !choData.is_new_item);
-        const newChoItems = allChoItems.filter((it: any) => it.is_new || choData.is_new_item);
+        const contractChoItems = allChoItems.filter((it: any) => !it.is_new);
+        const newChoItems = allChoItems.filter((it: any) => it.is_new);
 
         const pdfDoc = await PDFDocument.create();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);

@@ -8,6 +8,16 @@ import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 import { formatCurrency } from "@/lib/utils";
 
+const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
+    <button 
+        type="button" 
+        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
+        className="absolute right-1 top-1/2 -translate-y-1/2 px-1.5 py-0.5 bg-white/80 hover:bg-white text-[9px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
+    >
+        HOY
+    </button>
+);
+
 const defaultFaDetails = {
     // Calculables manuales de MO
     mo_operadores: 0, mo_operadores_pct: 0,
@@ -51,8 +61,8 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         const { data } = await supabase.from("force_accounts")
             .select("*")
             .eq("project_id", projectId)
-            .order("fecha_inicio", { ascending: false })
-            .order("created_at", { ascending: false });
+            .order("fecha_inicio", { ascending: true })
+            .order("created_at", { ascending: true });
         if (data) setForceAccounts(data);
         setLoading(false);
     };
@@ -118,7 +128,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         setCurrentFA({
             ...fa,
             fa_details: { ...defaultFaDetails, ...(fa.fa_details || {}) },
-            labor: laborRes.data || [],
+            labor: (laborRes.data || []).sort((a: any, b: any) => (a.fecha || "").localeCompare(b.fecha || "")),
             equipment: equipRes.data || [],
             materials: matRes.data || []
         });
@@ -378,8 +388,20 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                             <div className="space-y-1"><label className="text-[10px] uppercase font-black">EWO #</label><input className="input-field" value={currentFA.ewo_num || ""} onChange={e => setCurrentFA({...currentFA, ewo_num: e.target.value})} /></div>
                             
                             <hr className="md:col-span-2 my-4" />
-                            <div className="space-y-1"><label className="text-[10px] uppercase font-black">Fecha Incio FA</label><input type="date" className="input-field" value={currentFA.fecha_inicio||""} onChange={e=>setCurrentFA({...currentFA, fecha_inicio: e.target.value})}/></div>
-                            <div className="space-y-1"><label className="text-[10px] uppercase font-black">Fecha Fín FA</label><input type="date" className="input-field" value={currentFA.fecha_fin||""} onChange={e=>setCurrentFA({...currentFA, fecha_fin: e.target.value})}/></div>
+                            <div className="space-y-1 relative">
+                                <label className="text-[10px] uppercase font-black">Fecha Incio FA</label>
+                                <div className="relative">
+                                    <input type="date" className="input-field pr-12" value={currentFA.fecha_inicio||""} onChange={e=>setCurrentFA({...currentFA, fecha_inicio: e.target.value})}/>
+                                    <TodayButton onSelect={(date) => setCurrentFA({...currentFA, fecha_inicio: date})} />
+                                </div>
+                            </div>
+                            <div className="space-y-1 relative">
+                                <label className="text-[10px] uppercase font-black">Fecha Fín FA</label>
+                                <div className="relative">
+                                    <input type="date" className="input-field pr-12" value={currentFA.fecha_fin||""} onChange={e=>setCurrentFA({...currentFA, fecha_fin: e.target.value})}/>
+                                    <TodayButton onSelect={(date) => setCurrentFA({...currentFA, fecha_fin: date})} />
+                                </div>
+                            </div>
                         </div>
                     )}
                                      {/* ===== MANO DE OBRA ===== */}
@@ -634,12 +656,23 @@ function TableEditor({ items, setItems, columns }: any) {
                         {items.map((item: any, idx: number) => (
                             <tr key={idx} className="border-b focus-within:bg-blue-50">
                                 {columns.map((col: any) => (
-                                    <td key={col.key} className="p-0 border-r min-w-[80px]">
-                                        <input type={col.type==="number"?"text":col.type} className="w-full outline-none text-xs px-2 py-2.5 bg-transparent" value={item[col.key]} onChange={e => {
+                                    <td key={col.key} className="p-0 border-r min-w-[80px] relative">
+                                        <input type={col.type==="number"?"text":col.type} className={`w-full outline-none text-xs px-2 py-2.5 bg-transparent ${col.type === "date" ? "pr-12" : ""}`} value={item[col.key]} onChange={e => {
                                             const newItems = [...items];
                                             newItems[idx][col.key] = col.type === 'number' ? (parseFloat(e.target.value) || 0) : e.target.value;
+                                            if (col.key === 'fecha') {
+                                                newItems.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
+                                            }
                                             setItems(newItems);
                                         }} />
+                                        {col.type === "date" && (
+                                            <TodayButton onSelect={(date) => {
+                                                const newItems = [...items];
+                                                newItems[idx].fecha = date;
+                                                newItems.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
+                                                setItems(newItems);
+                                            }} />
+                                        )}
                                     </td>
                                 ))}
                                 <td className="px-2 text-center"><button onClick={() => setItems(items.filter((_:any,i:number)=>i!==idx))} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button></td>
