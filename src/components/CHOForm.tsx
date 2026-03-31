@@ -477,6 +477,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 <th className="py-1 px-0.5 w-16 text-center"># Item</th>
                                                 <th className="py-1 px-0.5 w-24">Espec.</th>
                                                 <th className="py-1 px-0.5">Descripción</th>
+                                                <th className="py-1 px-0.5 w-32">Desc. Adicional</th>
                                                 <th className="py-1 px-0.5 w-20 text-center">Unit</th>
                                                 <th className="py-1 px-0.5 w-20 text-right">Qty</th>
                                                 <th className="py-1 px-0.5 w-24 text-right">Unit Price</th>
@@ -496,10 +497,13 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         <input type="text" maxLength={20} className="input-field text-xs text-center p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" className="input-field text-xs p-1 h-7" value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} />
+                                                        <input type="text" className="input-field text-xs p-1 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                         <input type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
+                                                    </td>
+                                                    <td className="py-0.5 px-0.5">
+                                                        <input type="text" className="input-field text-xs p-1 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.additional_description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} placeholder="..." />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                         <input type="text" className="input-field text-xs p-1 h-7 text-center" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} />
@@ -514,7 +518,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         {formatCurrency(roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2))}
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <select className="input-field text-[10px] font-bold py-1 px-2" value={item.fund_source || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'fund_source', e.target.value)}>
+                                                        <select className="input-field text-[10px] font-bold py-1 px-2" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.fund_source || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'fund_source', e.target.value)}>
                                                             {FUND_SOURCES.map(f => <option key={f} value={f}>{f}</option>)}
                                                         </select>
                                                     </td>
