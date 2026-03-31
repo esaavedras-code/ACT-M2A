@@ -1,0 +1,32 @@
+Row 0: Instrucciones para Completar el Formulario ACT-ZZZ “Supplementary Contract” |  |  | 
+Row 1: 1 | . | Número de proyecto (versión corta) según aparece en el contrato (código AC-XXXXXX). | 
+Row 2: 2 | . | Número “Oracle” del proyecto según aparece en el contrato (número de 22 dígitos). | 
+Row 3: 3 | . | Número federal del proyecto, si aplica.  De lo contrario, escribir N/A. | 
+Row 4: 4 | . | En proyectos de más antiguedad este número es el de Purshase Order (PO). Para proyectos recientes N/A | 
+Row 5: 5 | . | Número de Contrato de la Oficina del Contralor de PR | 
+Row 6: 6 | . | Número de cuenta correspondiente: | 
+Row 7:  |  | La Autoridad de Carreteras y Transportación (ACT) utiliza diferentes cuentas contables para los proyectos. Estas cuentas están identificadas en la Certificación de Fondos incluida en el contrato. Los proyectos, por lo general, pueden estar financiados con fondos federales, fondos estatales o una combinación de ambos. ej. 124001-007-00000 | 
+Row 8: 7 | . | Letra de la Enmienda - Se utiliza la letra de la enmienda correspondiente de acuerdo con la secuencia de los documentos registrados ante el contralor al momento de la preparación del documento. La letra "Z" no se utiliza en la secuencia de enmiendas registradas ante el Contralor. En esos casos, la secuencia continúa con "AA". | 
+Row 9: 8 | . | Favor de marcar todas las opciones que apliquen. Contract Items – modificación a partidas existente en el contrato; New Items – nuevas partidas creadas en este documento; Extensión de tiempo. | 
+Row 10: 9 | . | Se deja en blanco, una vez se aprueba el documento, se incluye la Fecha de aprobación, que es cuando entra en vigor el “Supplementary Contract” | 
+Row 11: 10 | . | Nombre de la persona que aprueba el documento en representación de ACT según la delegación de firmas : | 
+Row 12:  |  | a. | Director Área de Construcción - Hasta $50,000.00 y no sobrepasen 10 % de aumento acumulado en costo, 100% Deductivos
+Row 13:  |  | b. | Subdirector Ejecutivo - Desde $50,000.01 hasta $250,000.00 y que no sobrepasen 25 % de aumento acumulado en costo; o si 100% de las partidas tienen participación federal (proyectos federales)
+Row 14:  |  | c. | Director Ejecutivo - Todos los documentos que sobrepasen los $250,000.01, que sobrepasen 25% de aumento acumulado en costo y todos los que incluyan aumento en tiempo
+Row 15: 11 | . | Posición de la persona que firma el documento en representación de ACT | 
+Row 16: 12 | . | Nombre de la compañía contratista (nombre legal según consta en el Registro Único de Licitadores - RUL). | 
+Row 17: 13 | . | Nombre del Representante del Contratista (nombre con sus 2 apellidos). La persona que firma debe estar autorizada en el RUL. De no ser así, deben presentar la resolución corporativa autorizando a la persona que firmará por parte del contratista. | 
+Row 18: 14 | . | Posición del Representante del Contratista | 
+Row 19: 15 | . | Fecha cuando se firma el contrato original del proyecto (fecha otorgamiento).  Ver forma ACT-375 incluida en el contrato. | 
+Row 20: 16 | . | Nombre del proyecto | 
+Row 21: 17 | . | Cantidad total del CHO | 
+Row 22: 18 | . | Total de días aprobados en la Extensión de Tiempo | 
+Row 23: 19 | . | Fecha de terminación contractual, según documentos aprobados. | 
+Row 24: 20 | . | Nueva fecha de terminación (fecha proyectada incluyendo el tiempo en este documento y todas las extensiones de tiempo previamente aprobadas). | 
+Row 25: 21 | . | Fecha de Vigencia en el Contralor | 
+Row 26: 22 | . | Fecha de Vigencia en el Contralor Revisada con este documento (Fecha de terminación revisada más (+) 730 días) | 
+Row 27: 23 | . | Firma de la persona que aprueba el documento en representación de ACT según la delegación de firmas | 
+Row 28: 24 | . | Firma del representante del Contratista autorizado a firmar el documento | 
+Row 29: 25 | . | Seguro Social Patronal del Contratista | 
+Row 30: 26 | . | Correo electrónico del representante del Contratista que firma el documento | 
+Row 31: 27 | . | Distribución de las copias de este documento. | 

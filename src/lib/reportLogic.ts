@@ -743,7 +743,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
 
     const sortedItemNums = Array.from(allItemNums).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-    const reportData: any[][] = [['ITEM', 'SPEC.', 'DESCRIPTION / ACTIVITY', 'QUANTITY', 'UNIT', 'BALANCE', 'UNIT PRICE', 'AMOUNT']];
+    const reportData: any[][] = [['ITEM', 'SPEC.', 'DESCRIPTION / ACTIVITY', 'QUANTITY', 'BALANCE QUANTITY', 'UNIT', 'UNIT PRICE', 'AMOUNT', 'BALANCE AMOUNT']];
 
     sortedItemNums.forEach(itemNum => {
         const baseItem = items.find(i => i.item_num === itemNum);
@@ -765,12 +765,12 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
             }
         }
 
-        reportData.push([itemNum, spec || '', fullDescription || '', '', '', '', '', '']);
+        reportData.push([itemNum, spec || '', fullDescription || '', '', '', '', '', '', '']);
         
         if (baseItem) {
             const origQty = parseFloat(baseItem.quantity) || 0;
             currentBalance += origQty;
-            reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(4), unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2))]);
+            reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(4), currentBalance.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2)), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
         }
 
         const itemChos = filteredChos.filter(c => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === itemNum));
@@ -779,7 +779,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
             if (i) {
                 const choQty = parseFloat(i.proposed_change !== undefined ? i.proposed_change : i.quantity) || 0;
                 currentBalance += choQty;
-                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''} (${formatDate(c.cho_date)})`, choQty.toFixed(4), unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2))]);
+                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''} (${formatDate(c.cho_date)})`, choQty.toFixed(4), currentBalance.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2)), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
             }
         });
 
@@ -790,13 +790,13 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
                 const certQty = parseFloat(i.quantity) || 0;
                 currentBalance -= certQty;
                 const amt = roundedAmt(certQty * uPrice, 2);
-                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, (-certQty).toFixed(4), unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), `-${formatCurrency(amt)}`]);
+                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, (-certQty).toFixed(4), currentBalance.toFixed(4), unit || '', formatCurrency(uPrice), `-${formatCurrency(amt)}`, formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
             }
         });
-        reportData.push(['', '', '', '', '', '', '', '']);
+        reportData.push(['', '', '', '', '', '', '', '', '']);
     });
 
-    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [38, 50, 160, 60, 35, 60, 75, 75], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`, endDate);
+    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [38, 45, 140, 50, 50, 30, 55, 60, 60], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`, endDate);
 };
 
 export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -1439,6 +1439,16 @@ export const generateAct122ReportLogic = async (projectId: string, choId: string
     }
 };
 
+export const generateAct123BReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    const { project } = await fetchAllReportData(projectId);
+    if (!project) return;
+    if (format === 'excel') throw new Error("ACT-123B no disponible en Excel.");
+    
+    // dynamically import to avoid top-level import issues
+    const { generateAct123B } = await import("./generateAct123B");
+    const blob = await generateAct123B(projectId, choId);
+    if (blob) await downloadBlob(blob, `ACT-123B_CHO_${choId}_${project.num_act}.pdf`);
+};
 export const generateAct123ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
     const { project, chos } = await fetchAllReportData(projectId);
     const cho = chos?.find(c => c.id === choId);

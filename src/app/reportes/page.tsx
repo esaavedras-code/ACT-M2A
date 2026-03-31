@@ -27,6 +27,7 @@ import {
     generateAct117BReportLogic,
     generateAct122ReportLogic,
     generateAct123ReportLogic,
+    generateAct123BReportLogic,
     generateAct124ReportLogic,
     generateRoaReportLogic,
     generateCCMLReportLogic,
@@ -254,6 +255,7 @@ function ReportesContent() {
     const [projectNum, setProjectNum] = useState<string>("");
     const [mounted, setMounted] = useState(false);
     const [showNoMissingMsg, setShowNoMissingMsg] = useState(false);
+    const [reminderMsg, setReminderMsg] = useState<string | null>(null);
     const [reportFormat, setReportFormat] = useState<'pdf' | 'excel'>('pdf');
     const [endDate, setEndDate] = useState<string>("");
     const [reportFolderPath, setReportFolderPath] = useState<string | null>(null);
@@ -366,6 +368,24 @@ function ReportesContent() {
                             className="mt-8 bg-red-600 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest hover:bg-red-700 transition-all active:scale-95"
                         >
                             ENTENDIDO
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {reminderMsg && (
+                <div className="fixed inset-0 flex items-center justify-center z-[1000] bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-slate-900 border border-slate-700 p-12 rounded-[40px] shadow-[0_30px_70px_rgba(0,0,0,0.5)] animate-in zoom-in duration-300 text-center max-w-2xl mx-4">
+                        <AlertCircle size={80} className="text-amber-400 mx-auto mb-6 animate-pulse" />
+                        <h2 className="text-4xl md:text-5xl font-black text-amber-400 uppercase tracking-tighter leading-none mb-4">
+                            ¡RECORDATORIO!
+                        </h2>
+                        <p className="text-slate-300 font-bold text-xl">{reminderMsg}</p>
+                        <button 
+                            onClick={() => setReminderMsg(null)}
+                            className="mt-8 bg-amber-500 text-slate-950 px-8 py-3 rounded-2xl font-black uppercase tracking-widest hover:bg-amber-400 transition-all active:scale-95"
+                        >
+                            ENTENDIDO Y CONTINUAR
                         </button>
                     </div>
                 </div>
@@ -700,6 +720,31 @@ function ReportesContent() {
                         }}
                     />
 
+                    <SelectiveReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'act123b-selective',
+                            label: '3. ACT-123B (Supplementary Form B)',
+                            description: 'Seleccione las órdenes de cambio para generar el formulario suplementario ACT-123B.',
+                            icon: <FileCheck size={18} className="text-purple-600" />,
+                            selectLabel: "Elegir CHO",
+                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
+                            onGenerate: async (ids) => {
+                                try {
+                                    for(const id of ids) {
+                                        await generateAct123BReportLogic(projectId, id, reportFormat);
+                                    }
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    />
+
                     {/* ACT-124 UI Block */}
                     <StandardReportItem
                         onAction={handleAction}
@@ -985,7 +1030,7 @@ function ReportesContent() {
                             description: 'Certificación oficial de materiales, muestreo y pruebas de aceptación.',
                             icon: <FileCheck size={18} className="text-orange-600" />,
                             action: () => {
-                                alert("Recordatorio: Este documento de certificación de materiales es para solicitar las firmas correspondientes del administrador y de la Oficina de Materiales");
+                                setReminderMsg("Este documento de certificación de materiales es para solicitar las firmas correspondientes del administrador y de la Oficina de Materiales");
                                 return generateMaterialCertificationReportLogic(projectId, reportFormat)
                                     .then(() => setStatus("Reporte generado."))
                                     .catch(e => {
@@ -1005,7 +1050,7 @@ function ReportesContent() {
                             description: 'Certificación oficial de participación y esfuerzos de buena fe de empresas DBE.',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             action: () => {
-                                alert("Recordatorio: Junto con este reporte, se debe adjuntar la certificación DBA del contratista.");
+                                setReminderMsg("Junto con este reporte, se debe adjuntar la certificación DBA del contratista.");
                                 return generateDbeCertificationReportLogic(projectId, reportFormat)
                                     .then(() => setStatus("Reporte generado."))
                                     .catch(e => {
