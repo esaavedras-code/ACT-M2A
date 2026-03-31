@@ -210,7 +210,8 @@ export const createPdfBlob = async (
     data.forEach((row, rowIndex) => {
         const isHeader = rowIndex === 0;
         const isEmpty = row.every(cell => !cell || cell.toString().trim() === '');
-        const isPartida = row[0]?.toString().startsWith('PARTIDA:');
+        const isPartida = row[0]?.toString().startsWith('PARTIDA') || row[0]?.toString().startsWith('BALANCE TOTAL PARA FUENTE');
+        const isSubtitleRow = !isHeader && row[0] && row.slice(1).every(cell => !cell || cell.toString().trim() === '');
 
         if (isEmpty) {
             y -= 10;
@@ -226,7 +227,10 @@ export const createPdfBlob = async (
 
         const cellLines = row.map((text, idx) => {
             const textStr = (text?.toString() || '').trim();
-            const width = colWidths[idx] || 50;
+            let width = colWidths[idx] || 50;
+            if (isSubtitleRow && idx === 0) {
+                width = totalTableWidth;
+            }
             
             const isSubtitle = /^\s*\d+\.\s+[A-ZÁÉÍÓÚÑ]/.test(textStr);
             const isItemNum = !isHeader && idx === 0 && row[0] && /^\d+([-(A-Z]|$)/.test(textStr);
@@ -329,11 +333,13 @@ export const createPdfBlob = async (
 
         let currX = marginX;
         cellLines.forEach((cellData, cellIdx) => {
+            if (isSubtitleRow && cellIdx > 0) return;
+
             let textColor = isHeader ? rgb(1, 1, 1) : rgb(0, 0, 0);
             if (!isHeader && cellData.isRed) {
                 textColor = rgb(0.8, 0, 0); // Rojo
             }
-            const currentColWidth = colWidths[cellIdx] || 50;
+            const currentColWidth = (isSubtitleRow && cellIdx === 0) ? totalTableWidth : (colWidths[cellIdx] || 50);
 
             cellData.lines.forEach((line, lineIdx) => {
                 const rgx = /(\d{3}-[A-Z0-9a-z]+)/g;
@@ -359,12 +365,14 @@ export const createPdfBlob = async (
             });
 
             // Vertical Border
-            page.drawLine({
-                start: { x: currX, y },
-                end: { x: currX, y: y - rowHeight },
-                thickness: 0.5,
-                color: rgb(0.8, 0.8, 0.8),
-            });
+            if (!isSubtitleRow) {
+                page.drawLine({
+                    start: { x: currX, y },
+                    end: { x: currX, y: y - rowHeight },
+                    thickness: 0.5,
+                    color: rgb(0.8, 0.8, 0.8),
+                });
+            }
 
             currX += currentColWidth;
         });
