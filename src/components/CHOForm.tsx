@@ -476,14 +476,13 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 <th className="py-1 px-0.5 w-10 text-center">Nuevo</th>
                                                 <th className="py-1 px-0.5 w-16 text-center"># Item</th>
                                                 <th className="py-1 px-0.5 w-24">Espec.</th>
-                                                <th className="py-1 px-0.5">Descripción</th>
-                                                <th className="py-1 px-0.5 w-32">Desc. Adicional</th>
+                                                <th className="py-1 px-0.5 min-w-[250px]">Descripción</th>
                                                 <th className="py-1 px-0.5 w-20 text-center">Unit</th>
                                                 <th className="py-1 px-0.5 w-20 text-right">Qty</th>
                                                 <th className="py-1 px-0.5 w-24 text-right">Unit Price</th>
                                                 <th className="py-1 px-0.5 w-24 text-right">Amount</th>
                                                 <th className="py-1 px-0.5 w-40">Fondos</th>
-                                                <th className="py-1 px-0.5 w-10 text-center">Cert.</th>
+                                                <th className="py-1 px-0.5 w-10 text-center" style={{ backgroundColor: '#66FF99' }}>CM</th>
                                                 <th className="py-1 px-0.5 w-8"></th>
                                             </tr>
                                         </thead>
@@ -500,10 +499,10 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         <input type="text" className="input-field text-xs p-1 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
-                                                    </td>
-                                                    <td className="py-0.5 px-0.5">
-                                                        <input type="text" className="input-field text-xs p-1 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.additional_description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} placeholder="..." />
+                                                        <div className="space-y-1">
+                                                            <input type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
+                                                            <input type="text" className="input-field text-[10px] p-1 h-6 opacity-70" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.additional_description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                        </div>
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                         <input type="text" className="input-field text-xs p-1 h-7 text-center" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} />
