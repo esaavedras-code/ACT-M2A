@@ -120,13 +120,18 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
         const currentRetention = totalRetentionToDate - previousRetention;
         const subTotalValue = wpCurrent - currentRetention;
-        const netPaymentValue = subTotalValue + (materialBalance - (prevCerts.reduce((acc, c) => {
+
+        const prevMOSBalance = (prevCerts || []).reduce((acc, c) => {
              let cMOS = 0;
-             (Array.isArray(c.items) ? c.items : (c.items?.list || [])).forEach((it: any) => {
+             const cItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+             cItems.forEach((it: any) => {
                  cMOS += (it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0) - ((parseFloat(it.qty_from_mos) || 0) * (parseFloat(it.mos_unit_price) || (parseFloat(it.unit_price) || 0)));
              });
              return acc + cMOS;
-        }, 0)));
+        }, 0);
+
+        const currentMOSChange = materialBalance - prevMOSBalance;
+        const netPaymentValue = subTotalValue + currentMOSChange;
 
         // 3. Document Setup
         const pdfDoc = await PDFDocument.create();
@@ -351,7 +356,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             field("11", "Work Performed up to:", rx, ry + lh * 2, rEnd, formatDate(currentCert?.wp_up_to || certDate));
             field("12", "Contract Beginning Date:", rx, ry + lh * 3, rEnd, formatDate(projData.date_project_start));
             field("13", "Contract Completion Date:", rx, ry + lh * 4, rEnd, formatDate(projData.date_orig_completion));
-            field("14", "Revised Completion Date:", rx, ry + lh * 5, rEnd, formatDate(projData.date_rev_completion));
+            field("14", "Revised Completion Date:", rx, ry + lh * 5, rEnd, certDate ? formatDate(certDate) : formatDate(new Date()));
             field("15", "Project Original Amount:", rx, ry + lh * 6, rEnd, fmt(calcOriginalAmount, 2, true));
             field("16", "Project Revised Amount:", rx, ry + lh * 7, rEnd, fmt(totalProjectAmount, 2, true));
 
@@ -395,7 +400,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 drawText(specCode, 117.5, rowY, 7, false, true);
                 
                 // Column 20: % Federal participation
-                const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('100%') ? '100.00%' : '0%');
+                const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('FHWA') ? '100.00%' : '0%');
                 drawText(fedP, 157.5, rowY, 7, false, true);
                 
                 const matchCi = items?.find((i: any) => i.item_num === it.item_num);
@@ -479,7 +484,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 ["27", "5% Retained (WP):", fmt(-currentRetention, 2, true)],
                 ["28", "Reimbursement (WP)(+/-):", fmt(0, 2, true)],
                 ["29", "Sub Total:", fmt(subTotalValue, 2, true)],
-                ["30", "Material on Site (+/-):", fmt(materialBalance, 2, true)],
+                ["30", "Material on Site (+/-):", fmt(currentMOSChange, 2, true)],
                 ["31", "Liquidated Damages (LQD)(-):", fmt(0, 2, true)],
                 ["32", "Reimbursement (LqD)(+):", fmt(0, 2, true)],
                 ["33", "Extra Retainage (+/-):", fmt(0, 2, true)],

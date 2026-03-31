@@ -105,7 +105,7 @@ export async function generateContractFinalReportLogic(projectId: string) {
             { label: "Original contract completion date", val: utilsFormatDate(proj.date_orig_completion) },
             { label: "Completion date extended to", val: utilsFormatDate(proj.date_rev_completion || proj.date_orig_completion) },
             { label: "Project completed on", val: utilsFormatDate(proj.date_real_completion) },
-            { label: "Final inspection and acceptance date", val: utilsFormatDate(proj.date_acceptance) }
+            { label: "Final inspection and acceptance date", val: utilsFormatDate(proj.date_substantial || proj.date_acceptance) }
         ];
 
         dateFields.forEach(f => {
@@ -223,20 +223,28 @@ export async function generateContractFinalReportLogic(projectId: string) {
         // Left Column
         TXT("Prepared by:", ML, Y, 8, true);
         LINE(ML, sigY, ML + sigW, sigY);
+        TXT("Date:", ML + sigW + 10, sigY, 8);
+        LINE(ML + sigW + 35, sigY, ML + sigW + 100, sigY);
         TXT("LIQUIDATOR", ML + sigW / 2, sigY + 12, 8, true, 'center');
         TXT(proj.liquidador_name || '_________________________', ML + sigW / 2, sigY - 5, 9, false, 'center');
 
         // Center Column
-        TXT("Reviewed by:", PW / 2 - sigW / 2, Y, 8, true);
-        LINE(PW / 2 - sigW / 2, sigY, PW / 2 + sigW / 2, sigY);
+        const CX_MID = PW / 2 - sigW / 2;
+        TXT("Reviewed by:", CX_MID, Y, 8, true);
+        LINE(CX_MID, sigY, CX_MID + sigW, sigY);
+        TXT("Date:", CX_MID + sigW + 5, sigY, 8);
+        LINE(CX_MID + sigW + 28, sigY, CX_MID + sigW + 80, sigY);
         TXT("PROJECT ADMINISTRATOR", PW / 2, sigY + 12, 8, true, 'center');
         TXT(proj.admin_name || '_________________________', PW / 2, sigY - 5, 9, false, 'center');
 
         // Right Column
-        TXT("Approved by:", PW - MR - sigW, Y, 8, true);
-        LINE(PW - MR - sigW, sigY, PW - MR, sigY);
-        TXT("CONTRACTOR REPRESENTATIVE", PW - MR - sigW / 2, sigY + 12, 8, true, 'center');
-        TXT(proj.contractor_name || '_________________________', PW - MR - sigW / 2, sigY - 5, 9, false, 'center');
+        const RX_START = PW - MR - sigW;
+        TXT("Approved by:", RX_START, Y, 8, true);
+        LINE(RX_START, sigY, PW - MR, sigY);
+        TXT("Date:", RX_START + sigW - 30, sigY + 15, 8); // Moved date slightly for space
+        LINE(RX_START + sigW - 10, sigY + 15, PW - MR, sigY + 15);
+        TXT("CONTRACTOR REPRESENTATIVE", RX_START + sigW / 2, sigY + 12, 8, true, 'center');
+        TXT(proj.contractor_name || '_________________________', RX_START + sigW / 2, sigY - 5, 9, false, 'center');
 
         Y = sigY + 60;
         TXT("Executive Director", PW / 2, Y + 40, 9, true, 'center');

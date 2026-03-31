@@ -215,6 +215,7 @@ export async function generateAct124(projectId: string, choId: string, selectedI
         drawSignature("Distric Director or Program Manager", sigY + 120, personnelMap["Director Regional"]);
 
         const pdfBytes = await pdfDoc.save();
+        alert("Recordatorio: En el documento PDF generado, asegúrese de marcar los cuadritos que sean necesarios.");
         return new Blob([pdfBytes as any], { type: 'application/pdf' });
     } catch (err: any) {
         console.error("Error generating ACT-124:", err);

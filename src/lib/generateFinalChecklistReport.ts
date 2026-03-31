@@ -76,37 +76,69 @@ export async function generateFinalAcceptanceReport(projectId: string) {
             }
         } catch (e) { console.warn("Logo PRHTA no cargado"); }
 
-        // FHWA Text (Left)
-        TXT("U.S. Department of", ML, 70, 7.5, false);
-        TXT("Transportation", ML, 78, 7.5, false);
-        TXT("Federal Highway", ML, 88, 9, true);
-        TXT("Administration", ML, 98, 9, true);
+        // FHWA Logo (Left)
+        try {
+            const logoResp = await fetch(`${window.location.origin}/dot_logo.png`);
+            if (logoResp.ok) {
+                const logoBytes = await logoResp.arrayBuffer();
+                const logoImg = await pdfDoc.embedPng(logoBytes);
+                const dims = logoImg.scale(1);
+                const targetHeight = 40;
+                const targetWidth = (dims.width / dims.height) * targetHeight;
+                pg.drawImage(logoImg, {
+                    x: ML,
+                    y: PH - 25 - targetHeight,
+                    width: targetWidth,
+                    height: targetHeight
+                });
+            } else {
+                 // Fallback to text if image not found
+                TXT("U.S. Department of", ML, 70, 7.5, false);
+                TXT("Transportation", ML, 78, 7.5, false);
+                TXT("Federal Highway", ML, 88, 9, true);
+                TXT("Administration", ML, 98, 9, true);
+            }
+        } catch (e) { 
+            console.warn("Logo FHWA no cargado"); 
+            TXT("U.S. Department of", ML, 70, 7.5, false);
+            TXT("Transportation", ML, 78, 7.5, false);
+            TXT("Federal Highway", ML, 88, 9, true);
+            TXT("Administration", ML, 98, 9, true);
+        }
 
         // Main Title (Center)
         TXT("FINAL ACCEPTANCE CHECKLIST", PW / 2, 50, 18, true, 'center');
         TXT("FOR FEDERAL-AID PROJECTS", PW / 2, 72, 18, true, 'center');
 
         // 4. Project Information Grid
-        let Y = 130;
-        TXT("Project Information:", ML, Y, 10, true);
-        Y += 15;
-        RECT(ML, Y, PW - ML - MR, 20); // State No / Federal No box
+        let Y = 120;
+        
+        // Description box FIRST
+        RECT(ML, Y, PW - ML - MR, 45); 
+        TXT("Project Description:", ML + 5, Y + 12, 8.5, true);
+        const desc = proj.description || proj.name || 'N/A';
+        const wrappedDesc = desc.match(/.{1,110}/g) || [];
+        wrappedDesc.slice(0, 2).forEach((line: string, i: number) => {
+            TXT(line, ML + 5, Y + 25 + (i * 10), 9);
+        });
+        
+        Y += 45;
+        // Route Line
+        RECT(ML, Y, PW - ML - MR, 20);
+        TXT("Route (Municipality, Road #, Km):", ML + 5, Y + 13, 8.5, true);
+        TXT(proj.location || "N/A", ML + 135, Y + 13, 9);
+
+        Y += 20;
+        // State No / Federal No box
+        RECT(ML, Y, PW - ML - MR, 20); 
         LINE(PW / 2, Y, PW / 2, Y + 20);
         TXT("State No.", ML + 5, Y + 12, 8.5, true);
-        TXT(proj.num_act, ML + 50, Y + 12, 9);
+        const cleanStateNo = proj.num_act ? proj.num_act.replace(/^AC-/, '') : 'N/A';
+        TXT(cleanStateNo, ML + 50, Y + 12, 9);
         TXT("Federal-Aid No.", PW / 2 + 5, Y + 12, 8.5, true);
         TXT(proj.num_federal || 'N/A', PW / 2 + 75, Y + 12, 9);
 
         Y += 20;
-        RECT(ML, Y, PW - ML - MR, 40); // Description box
-        TXT("Project Description:", ML + 5, Y + 12, 8.5, true);
-        const desc = proj.description || proj.name || 'N/A';
-        const wrappedDesc = desc.match(/.{1,100}/g) || [];
-        wrappedDesc.slice(0, 2).forEach((line: string, i: number) => {
-            TXT(line, ML + 5, Y + 25 + (i * 10), 9);
-        });
-
-        Y += 40;
         RECT(ML, Y, PW - ML - MR, 20); // Awarded / Approved
         LINE(PW / 2, Y, PW / 2, Y + 20);
         TXT("Date Awarded:", ML + 5, Y + 12, 8.5, true);
@@ -126,7 +158,8 @@ export async function generateFinalAcceptanceReport(projectId: string) {
         RECT(ML, Y, PW - ML - MR, 20); // Contract Days / Working Days
         LINE(PW / 2, Y, PW / 2, Y + 20);
         TXT("Contract Days:", ML + 5, Y + 12, 8.5, true);
-        TXT(proj.contract_days?.toString(), ML + 75, Y + 12, 9);
+        const contractDays = proj.contract_days || proj.days_contract || '---';
+        TXT(contractDays.toString(), ML + 75, Y + 12, 9);
         TXT("Final No. Working Days:", PW / 2 + 5, Y + 12, 8.5, true);
         TXT(proj.final_working_days?.toString() || '---', PW / 2 + 105, Y + 12, 9);
 
@@ -136,12 +169,12 @@ export async function generateFinalAcceptanceReport(projectId: string) {
         TXT("Completion Date:", ML + 5, Y + 12, 8.5, true);
         TXT(utilsFormatDate(proj.date_rev_completion || proj.date_orig_completion), ML + 80, Y + 12, 9);
         TXT("State Acceptance Date:", PW / 2 + 5, Y + 12, 8.5, true);
-        TXT(utilsFormatDate(proj.date_acceptance), PW / 2 + 105, Y + 12, 9);
+        TXT(utilsFormatDate(proj.date_substantial || proj.date_acceptance), PW / 2 + 105, Y + 12, 9);
 
         Y += 20;
         RECT(ML, Y, PW - ML - MR, 20); // Liquidated Damages
         TXT("Liquidated Damages (No. of days and total amount):", ML + 5, Y + 12, 8.5, true);
-        TXT("--- days at $ ---. Total: $ ---", ML + 215, Y + 12, 9);
+        TXT(`${proj.liquidated_days || '---'} days at $ ${proj.liquidated_rate || '---'}. Total: $ ${proj.liquidated_amount || '---'}`, ML + 215, Y + 12, 9);
 
         // 5. Submittals Table
         Y += 30;
@@ -170,6 +203,7 @@ export async function generateFinalAcceptanceReport(projectId: string) {
             "Environmental Commitments Completed"
         ];
 
+        const form = pdfDoc.getForm();
         const ROW_H = 26;
         items.forEach((item, i) => {
             const rY = Y + 20 + (i * ROW_H);
@@ -184,11 +218,29 @@ export async function generateFinalAcceptanceReport(projectId: string) {
             if (i === 7) TXT("(Participating and Non-Participating)", ML + 5, rY + 22, 6, false);
             if (i === 8) TXT("(Participating & Non-Participating)", ML + 5, rY + 22, 6, false);
 
-            // Yes/No/N/A text
-            const optX = ML + COL1 + 20;
+            // Yes/No/N/A with Checkboxes
+            const optX = ML + COL1 + 5;
+            const cbSize = 10;
+
+            // Yes
             TXT("Yes", optX, rY + 13, 8, false);
-            TXT("No", optX + 60, rY + 13, 8, false);
-            TXT("N/A", optX + 115, rY + 13, 8, false);
+            const cbYes = form.createCheckBox(`subm_yes_${i}`);
+            cbYes.addToPage(pg, { x: optX + 22, y: PH - rY - 18, width: cbSize, height: cbSize });
+
+            // No
+            TXT("No", optX + 55, rY + 13, 8, false);
+            const cbNo = form.createCheckBox(`subm_no_${i}`);
+            cbNo.addToPage(pg, { x: optX + 75, y: PH - rY - 18, width: cbSize, height: cbSize });
+
+            // N/A
+            TXT("N/A", optX + 110, rY + 13, 8, false);
+            const cbNa = form.createCheckBox(`subm_na_${i}`);
+            cbNa.addToPage(pg, { x: optX + 135, y: PH - rY - 18, width: cbSize, height: cbSize });
+
+            // Date space
+            const dateX = ML + COL1 + COL2 + 5;
+            const dateW = TBL_W - COL1 - COL2 - 10;
+            LINE(dateX, rY + 18, dateX + dateW, rY + 18, 0.4);
         });
 
         // 6. Footer Notes
@@ -207,7 +259,7 @@ export async function generateFinalAcceptanceReport(projectId: string) {
             TXT(`${compliance.length} issues noted in system.`, ML + 5, Y + 18, 7.5);
         }
 
-        TXT("(Original -- Project File cc -- FHWA -- with Proposed Final Estimate)", ML, Y, 7.5, false);
+        TXT("(Original -- Project File cc -- FHWA -- with Proposed Final Estimate)", ML, PH - 40, 7.5, false);
 
         // 7. Page numbering
         const pages = pdfDoc.getPages();

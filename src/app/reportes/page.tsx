@@ -985,7 +985,7 @@ function ReportesContent() {
                             description: 'Certificación oficial de materiales, muestreo y pruebas de aceptación.',
                             icon: <FileCheck size={18} className="text-orange-600" />,
                             action: () => {
-                                alert("Recordatorio: Este documento de certificación de materiales no sustituye las firmas requeridas en los documentos originales firmados por el inspector.");
+                                alert("Recordatorio: Este documento de certificación de materiales es para solicitar las firmas correspondientes del administrador y de la Oficina de Materiales");
                                 return generateMaterialCertificationReportLogic(projectId, reportFormat)
                                     .then(() => setStatus("Reporte generado."))
                                     .catch(e => {

@@ -48,18 +48,34 @@ export async function generateFinalAcceptanceReportOfficial(projectId: string) {
             pg.drawRectangle({ x, y: PH - y - h, width: w, height: h, borderWidth: thick, borderColor: BK });
         };
 
-        // 3. Header Section
         // Logo FHWA (Left)
         try {
-            const logoResp = await fetch(`${window.location.origin}/act_logo.png`); // Using ACT logo for now as placeholder or if found elsewhere
-            // In the image, left is DOT/FHWA. I'll use text for now and maybe icon.png if it looks like DOT
-        } catch (e) { }
-
-        // Left Text
-        TXT("U.S. Department of", ML + 35, 60, 7.5, false);
-        TXT("Transportation", ML + 35, 68, 7.5, false);
-        TXT("Federal Highway", ML, 82, 9, true);
-        TXT("Administration", ML, 92, 9, true);
+            const logoResp = await fetch(`${window.location.origin}/dot_logo.png`);
+            if (logoResp.ok) {
+                const logoBytes = await logoResp.arrayBuffer();
+                const logoImg = await pdfDoc.embedPng(logoBytes);
+                const dims = logoImg.scale(1);
+                const targetHeight = 40;
+                const targetWidth = (dims.width / dims.height) * targetHeight;
+                pg.drawImage(logoImg, {
+                    x: ML,
+                    y: PH - 25 - targetHeight,
+                    width: targetWidth,
+                    height: targetHeight
+                });
+            } else {
+                TXT("U.S. Department of", ML + 35, 60, 7.5, false);
+                TXT("Transportation", ML + 35, 68, 7.5, false);
+                TXT("Federal Highway", ML, 82, 9, true);
+                TXT("Administration", ML, 92, 9, true);
+            }
+        } catch (e) {
+            console.warn("Logo FHWA no cargado");
+            TXT("U.S. Department of", ML + 35, 60, 7.5, false);
+            TXT("Transportation", ML + 35, 68, 7.5, false);
+            TXT("Federal Highway", ML, 82, 9, true);
+            TXT("Administration", ML, 92, 9, true);
+        }
 
         // Center Title
         TXT("FINAL ACCEPTANCE REPORT", PW / 2, 60, 16, true, 'center');
@@ -101,7 +117,7 @@ export async function generateFinalAcceptanceReportOfficial(projectId: string) {
         TXT("DATE OF FINAL", ML + 2 * COLW + 5, Y + 10, 8, true);
         TXT("INSPECTION", ML + 2 * COLW + 5, Y + 18, 8, true);
         TXT("REPORT", ML + 2 * COLW + 5, Y + 26, 8, true);
-        TXT(utilsFormatDate(proj.date_acceptance), ML + 2 * COLW + 55, Y + 25, 9);
+        TXT(utilsFormatDate(proj.date_substantial || proj.date_acceptance), ML + 2 * COLW + 55, Y + 25, 9);
 
         TXT("PROJECT NO.", ML + 3 * COLW + 5, Y + 12, 8, true);
         TXT(proj.num_federal || proj.num_act, ML + 3 * COLW + 5, Y + 25, 9);
@@ -116,12 +132,25 @@ export async function generateFinalAcceptanceReportOfficial(projectId: string) {
 
         TXT("ACCEPTANCE BY", ML + 2 * COLW + 5, Y + 12, 8, true);
         TXT("DTOP", ML + 2 * COLW + 5, Y + 22, 8, true);
-        TXT(utilsFormatDate(proj.date_acceptance), ML + 2 * COLW + 45, Y + 25, 9);
+        TXT(utilsFormatDate(proj.date_substantial || proj.date_acceptance), ML + 2 * COLW + 45, Y + 25, 9);
 
         TXT("TIME ELAPSED", ML + 3 * COLW + 5, Y + 12, 8, true);
         TXT(proj.final_working_days?.toString() || "---", ML + 3 * COLW + 5, Y + 25, 9);
 
-        // 5. Location & Scope
+        // 5. Location & Scope (translated if needed)
+        const translateText = async (txt: string) => {
+            if (!txt || !txt.trim()) return txt;
+            try {
+                const encoded = encodeURIComponent(txt);
+                const transRes = await fetch(`https://api.mymemory.translated.net/get?q=${encoded}&langpair=es|en`);
+                if (transRes.ok) {
+                    const transData = await transRes.json();
+                    if (transData?.responseData?.translatedText) return transData.responseData.translatedText;
+                }
+                return txt;
+            } catch (e) { return txt; }
+        };
+
         Y += 33;
         RECT(ML, Y, CW, 30);
         TXT("LOCATION:", ML + 5, Y + 15, 9, true);
@@ -130,7 +159,10 @@ export async function generateFinalAcceptanceReportOfficial(projectId: string) {
         Y += 30;
         RECT(ML, Y, CW, 160);
         TXT("SCOPE OF PROJECT:", ML + 5, Y + 15, 9, true);
-        const scope = proj.description || proj.name || "";
+        
+        let scope = proj.description || proj.name || "";
+        scope = await translateText(scope);
+
         const wrappedScope = scope.match(/.{1,110}/g) || [];
         wrappedScope.slice(0, 10).forEach((line: string, i: number) => {
             TXT(line, ML + 5, Y + 35 + (i * 12), 9);

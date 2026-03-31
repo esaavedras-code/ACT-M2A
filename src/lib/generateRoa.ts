@@ -45,8 +45,8 @@ export async function generateRoa(projectId: string, choId: string) {
 
         const contractItemNums = new Set(contractItems?.map(ci => ci.item_num) || []);
         const allChoItems = Array.isArray(choData.items) ? choData.items : [];
-        const contractChoItems = allChoItems.filter((it: any) => contractItemNums.has(it.item_num));
-        const newChoItems = allChoItems.filter((it: any) => !contractItemNums.has(it.item_num));
+        const contractChoItems = allChoItems.filter((it: any) => it.is_new === false || (it.is_new === undefined && contractItemNums.has(it.item_num)));
+        const newChoItems = allChoItems.filter((it: any) => it.is_new === true || (it.is_new === undefined && !contractItemNums.has(it.item_num)));
 
         const pdfDoc = await PDFDocument.create();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -471,6 +471,8 @@ export async function generateRoa(projectId: string, choId: string) {
                         drawText(pageTable, q.toString(), (cols[5]+cols[6])/2, curRowY + 11, font, 7, true);
                         drawText(pageTable, formatCurrency(up).replace('$', ''), cols[7] - 4, curRowY + 11, font, 7, false, true);
                         drawText(pageTable, formatCurrency(q*up).replace('$', ''), cols[8] - 4, curRowY + 11, font, 7, false, true);
+                        const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('FHWA') ? '100.00%' : '0%');
+                        drawText(pageTable, fedP, (cols[8] + cols[9]) / 2, curRowY + 11, font, 7, true);
                     }
                     // Bottom border of each row
                     drawLine(pageTable, 20, curRowY + 16, PW - 20, curRowY + 16, 0.5);
@@ -497,6 +499,7 @@ export async function generateRoa(projectId: string, choId: string) {
         }
 
         const pdfBytes = await pdfDoc.save();
+        alert("Recordatorio: Recuerde que en el documento PDF hay datos pendientes que usted debe completar manualmente.");
         return new Blob([pdfBytes as any], { type: 'application/pdf' });
     } catch (err: any) { console.error("Error generating ROA:", err); throw err; }
 }
