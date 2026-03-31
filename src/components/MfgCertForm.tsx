@@ -346,9 +346,9 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     <Factory className="text-primary" /> 8. Certificados de Manufactura
                 </h2>
                 <div className="flex gap-2">
-                    <button onClick={handleFileUpload} disabled={loading || parsing} className="bg-emerald-100 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 text-emerald-700 hover:bg-emerald-200 transition-colors">
+                    <button onClick={handleFileUpload} disabled={loading || parsing} className="bg-emerald-100 px-4 py-2 rounded-full font-black text-[11px] uppercase flex items-center gap-2 text-emerald-700 hover:bg-emerald-200 transition-all border border-emerald-200 shadow-sm">
                         {parsing ? <Loader2 size={16} className="animate-spin" /> : <FileSearch size={16} />} 
-                        {parsing ? "Leyendo..." : "Subir y Evaluar PDFs"}
+                        {parsing ? "Leyendo..." : "Cert. Manuf."}
                     </button>
                     <button onClick={() => exportSectionToJSON("mfg_certs", certs)} className="p-2 border rounded-lg hover:bg-slate-50"><Download size={18}/></button>
                 </div>
@@ -358,83 +358,175 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar certificados al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />
 
-            <div className="card overflow-x-auto p-0 border-none shadow-sm">
-                <table className="w-full text-left border-collapse min-w-full">
-                    <thead className="bg-slate-50 text-slate-500 uppercase text-[9px] font-extrabold border-b">
-                        <tr>
-                            <th className="px-2 py-2 w-8">#</th>
-                            <th className="px-2 py-2 w-[25%]">Partida</th>
-                            <th className="px-2 py-2 w-16 text-center">Und.</th>
-                            <th className="px-2 py-2">Fabricante</th>
-                            <th className="px-2 py-2 w-24 text-center">Cantidad</th>
-                            <th className="px-2 py-2 w-36 text-center">Fecha Cert.</th>
-                            <th className="px-2 py-2 w-20 text-center">Validación</th>
-                            <th className="px-2 py-2 w-16 text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {certs.map((c, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50/50">
-                                <td className="px-2 py-2 text-center text-xs text-slate-400">{idx+1}</td>
-                                <td className="px-2 py-2">
-                                    <div className="flex flex-col gap-1 w-full relative">
-                                        {c.is_multiple ? (
-                                            <div className="relative group/multi">
-                                                <div className="input-field text-[10px] font-bold !py-1 min-h-[32px] text-black bg-[#66FF99] flex items-center">
-                                                    {c.item_ids?.length || 0} partidas sel.
-                                                </div>
-                                                <div className="absolute top-full left-0 w-64 max-h-48 overflow-y-auto bg-white border shadow-xl rounded-xl z-50 hidden group-hover/multi:block p-2">
-                                                    {contractItems.filter(it => it.requires_mfg_cert).map(item => (
-                                                        <label key={item.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 text-[10px] font-bold">
-                                                            <input type="checkbox" checked={c.item_ids?.includes(item.id)} onChange={e => {
+            <div className="flex flex-col space-y-3">
+                {/* Header Row (Optional for reference) */}
+                <div className="hidden md:flex items-center gap-4 px-4 text-[10px] font-black text-slate-400 uppercase">
+                    <div className="w-6">#</div>
+                    <div className="flex-1 min-w-[200px]">Partida / Item</div>
+                    <div className="w-16 text-center">Unidad</div>
+                    <div className="flex-1 min-w-[150px]">Fabricante / Referencia</div>
+                    <div className="w-24 text-center">Cantidad</div>
+                    <div className="w-36 text-center">Fecha Cert.</div>
+                    <div className="w-8"></div>
+                    <div className="w-28"></div>
+                    <div className="w-28"></div>
+                </div>
+
+                {certs.map((c, idx) => {
+                    const selectedItem = contractItems.find(it => it.id === c.item_id);
+                    return (
+                        <div key={idx} className="flex flex-wrap md:flex-nowrap items-center gap-3 p-4 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+                            {/* Index */}
+                            <div className="text-sm font-bold text-slate-300 w-6">{idx + 1}</div>
+
+                            {/* Item Selector */}
+                            <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                                {c.is_multiple ? (
+                                    <div className="relative group/multi">
+                                        <div className="w-full bg-[#66FF99] text-emerald-900 rounded-full px-4 py-2.5 text-xs font-black flex items-center justify-between cursor-pointer">
+                                            <span>{c.item_ids?.length || 0} PARTIDAS SELECCIONADAS</span>
+                                            <Plus size={14} />
+                                        </div>
+                                        <div className="absolute top-full left-0 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-800 border dark:border-slate-700 shadow-2xl rounded-2xl mt-1 z-50 hidden group-hover/multi:block p-3">
+                                            <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">Seleccionar partidas:</p>
+                                            <div className="grid grid-cols-1 gap-1">
+                                                {contractItems.filter(it => it.requires_mfg_cert).map(item => (
+                                                    <label key={item.id} className="flex items-center gap-3 p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg cursor-pointer transition-colors">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            className="w-4 h-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
+                                                            checked={c.item_ids?.includes(item.id)} 
+                                                            onChange={e => {
                                                                 const newList = [...certs];
                                                                 if(!newList[idx].item_ids) newList[idx].item_ids = [];
                                                                 if(e.target.checked) newList[idx].item_ids.push(item.id);
                                                                 else newList[idx].item_ids = newList[idx].item_ids.filter((id:any)=>id!==item.id);
                                                                 setCerts(newList);
-                                                            }} /> Pt. {item.item_num}
-                                                        </label>
-                                                    ))}
-                                                </div>
+                                                            }} 
+                                                        /> 
+                                                        <span className="text-[11px] font-bold">Pt. {item.item_num}: {item.description}</span>
+                                                    </label>
+                                                ))}
                                             </div>
-                                        ) : (
-                                            <select className="input-field text-[10px] font-bold bg-[#66FF99]" value={c.item_id || ""} onChange={e => {
-                                                const m = contractItems.find(it => it.id === e.target.value);
-                                                const nl = [...certs]; nl[idx].item_id = e.target.value; if(m) nl[idx]._unit = m.unit; setCerts(nl);
-                                            }}>
-                                                <option value="">Elegir...</option>
-                                                {contractItems.filter(it => it.requires_mfg_cert).map(it => <option key={it.id} value={it.id}>Pt. {it.item_num}</option>)}
-                                            </select>
-                                        )}
-                                        <label className="text-[8px] font-bold flex gap-1"><input type="checkbox" checked={!!c.is_multiple} onChange={e => {const nl = [...certs]; nl[idx].is_multiple = e.target.checked; setCerts(nl);}} /> Múltiples</label>
+                                        </div>
                                     </div>
-                                </td>
-                                <td className="px-2 py-2 text-center text-[10px] font-bold">{c._unit || "—"}</td>
-                                <td className="px-2 py-2">
-                                    <input className="input-field text-[10px] font-bold bg-[#66FF99]" value={c.manufacturer_name || ""} onChange={e=>updateCert(idx, 'manufacturer_name', e.target.value)} />
-                                </td>
-                                <td className="px-2 py-2">
-                                    <input type="number" className="input-field text-[10px] font-bold bg-[#66FF99] text-center" value={c.quantity} onChange={e=>updateCert(idx, 'quantity', parseFloat(e.target.value))} />
-                                </td>
-                                <td className="px-2 py-2 relative">
+                                ) : (
                                     <div className="relative">
-                                        <input type="date" className="input-field text-[10px] font-bold bg-[#66FF99] text-center pr-10" value={c.cert_date || ""} onChange={e=>updateCert(idx, 'cert_date', e.target.value)} />
+                                        <select 
+                                            className="w-full appearance-none bg-[#66FF99] text-emerald-900 rounded-full px-4 py-2.5 text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all pr-8"
+                                            value={c.item_id || ""} 
+                                            onChange={e => {
+                                                const m = contractItems.find(it => it.id === e.target.value);
+                                                const nl = [...certs]; 
+                                                nl[idx].item_id = e.target.value; 
+                                                if(m) nl[idx]._unit = m.unit; 
+                                                setCerts(nl);
+                                            }}
+                                        >
+                                            <option value="" className="bg-white">SELECCIONAR PARTIDA...</option>
+                                            {contractItems.filter(it => it.requires_mfg_cert).map(it => (
+                                                <option key={it.id} value={it.id} className="bg-white">Pt. {it.item_num}: {it.description}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-700">
+                                            <Plus size={14} className="rotate-45" />
+                                        </div>
+                                    </div>
+                                )}
+                                <label className="flex items-center gap-2 px-3 cursor-pointer group">
+                                    <div className="relative flex items-center justify-center">
+                                        <input 
+                                            type="checkbox" 
+                                            className="peer h-3 w-3 cursor-pointer appearance-none rounded border border-slate-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all"
+                                            checked={!!c.is_multiple} 
+                                            onChange={e => {const nl = [...certs]; nl[idx].is_multiple = e.target.checked; setCerts(nl);}} 
+                                        />
+                                        <CheckCircle2 size={8} className="absolute text-white transition-opacity opacity-0 peer-checked:opacity-100" />
+                                    </div>
+                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-emerald-500 uppercase transition-colors">Múltiples Ítems</span>
+                                </label>
+                            </div>
+
+                            {/* Unit */}
+                            <div className="w-16 flex justify-center">
+                                <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg px-2 py-1 text-[10px] font-black uppercase border border-slate-200 dark:border-slate-700">
+                                    {c._unit || selectedItem?.unit || "—"}
+                                </span>
+                            </div>
+
+                            {/* Manufacturer Info */}
+                            <div className="flex-1 min-w-[150px]">
+                                <input 
+                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-700 transition-all placeholder:text-slate-300"
+                                    placeholder="Nombre del fabricante..."
+                                    value={c.manufacturer_name || ""} 
+                                    onChange={e=>updateCert(idx, 'manufacturer_name', e.target.value)} 
+                                />
+                                {c.material_description && <p className="mt-1 px-3 text-[8px] font-bold text-slate-400 uppercase truncate max-w-[200px]">{c.material_description}</p>}
+                            </div>
+
+                            {/* Quantity */}
+                            <div className="w-24">
+                                <input 
+                                    type="number" 
+                                    className="w-full bg-[#66FF99] text-emerald-900 rounded-full px-3 py-2.5 text-xs font-black text-center focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                                    value={c.quantity} 
+                                    onChange={e=>updateCert(idx, 'quantity', parseFloat(e.target.value))} 
+                                />
+                            </div>
+
+                            {/* Date */}
+                            <div className="w-36 flex flex-col gap-1">
+                                <div className="relative group/date">
+                                    <input 
+                                        type="date" 
+                                        className="w-full bg-[#66FF99] text-emerald-900 rounded-full px-4 py-2.5 text-xs font-black text-center focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all cursor-pointer pr-8"
+                                        value={c.cert_date || ""} 
+                                        onChange={e=>updateCert(idx, 'cert_date', e.target.value)} 
+                                    />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-700">
                                         <TodayButton onSelect={(d) => updateCert(idx, 'cert_date', d)} />
                                     </div>
-                                </td>
-                                <td className="px-2 py-2 text-center">
-                                    <button onClick={()=>setShowValidationIdx(showValidationIdx === idx ? null : idx)} className={`px-2 py-1 rounded-full text-[9px] font-black uppercase ${c.validation?.isValid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                        {c.validation?.isValid ? "CUMPLE" : "REVISAR"}
-                                    </button>
-                                </td>
-                                <td className="px-2 py-2 text-center">
-                                    <button onClick={()=>removeCert(idx)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                <button onClick={addCert} className="m-4 text-xs font-bold text-primary flex items-center gap-1"><Plus size={14}/> Añadir Certificado</button>
+                                </div>
+                            </div>
+
+                            {/* Upload Button */}
+                            <button className="p-2.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-full transition-all">
+                                <Upload size={18} />
+                            </button>
+
+                            {/* Review Button */}
+                            <button 
+                                onClick={()=>setShowValidationIdx(showValidationIdx === idx ? null : idx)} 
+                                className={`w-28 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border-2 transition-all font-black text-[10px] uppercase shadow-sm ${
+                                    c.validation?.isValid 
+                                    ? 'border-emerald-500 text-emerald-600 bg-white hover:bg-emerald-50' 
+                                    : 'border-orange-400 text-orange-500 bg-white hover:bg-orange-50'
+                                }`}
+                            >
+                                <Info size={14} className={c.validation?.isValid ? 'text-emerald-500' : 'text-orange-400'} />
+                                {c.validation?.isValid ? "VÁLIDO" : "REVISAR"}
+                            </button>
+
+                            {/* Delete Button */}
+                            <button 
+                                onClick={()=>removeCert(idx)} 
+                                className="w-28 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border-2 border-red-400 text-red-500 bg-white hover:bg-red-50 transition-all font-black text-[10px] uppercase shadow-sm"
+                            >
+                                <Trash2 size={14} />
+                                BORRAR
+                            </button>
+                        </div>
+                    );
+                })}
+
+                <button 
+                    onClick={addCert} 
+                    className="flex mt-4 items-center justify-center gap-2 px-6 py-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 hover:border-emerald-300 hover:text-emerald-500 dark:hover:border-emerald-900/50 transition-all font-black text-xs uppercase"
+                >
+                    <Plus size={16} /> 
+                    Añadir Nuevo Certificado
+                </button>
             </div>
         </div>
     );

@@ -173,16 +173,19 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
 
     const saveData = async (silent = false) => {
         // Validar formato del número de proyecto (AC-XXXXXX o AC-XXXXXXX, opcionalmente con letra)
-        const numActRegex = /^AC-[0-9]{6,7}[A-Z]?$/;
-        if (!numActRegex.test(formData.num_act)) {
-            if (!silent) alert("El número de proyecto estatal debe tener el formato AC-XXXXXX o AC-XXXXXXX (6 o 7 dígitos después del prefijo AC-, opcionalmente seguido de una letra).");
+        // Ampliamos a 4-10 dígitos para ser más flexibles y consistentes con la DB
+        const numActRegex = /^AC-[0-9]{4,10}[A-Z]?$/;
+        const currentNumAct = (formData.num_act || "").trim();
+        
+        if (!numActRegex.test(currentNumAct)) {
+            if (!silent) alert("El número de proyecto estatal debe tener el formato AC-XXXXXX o similar (4 a 10 dígitos después del prefijo AC-, opcionalmente seguido de una letra).");
             setLoading(false);
             return;
         }
 
         setLoading(true);
         try {
-            let finalNumAct = formData.num_act;
+            let finalNumAct = currentNumAct;
             
             // Check for duplicates if it's a new project
             if (!projectId && !silent) {
@@ -829,7 +832,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Núm. AC</label>
                     <input
                         type="text"
-                        maxLength={9}
+                        maxLength={13}
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         placeholder="AC-000000"
@@ -840,9 +843,10 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 val = "AC-" + val.replace(/[^0-9A-Z]/g, "");
                             } else {
                                 const digits = val.substring(3).replace(/[^0-9A-Z]/g, "");
-                                val = "AC-" + digits.substring(0, 7);
+                                // Permitimos hasta 10 dígitos (AC-XXXXXXXXXX)
+                                val = "AC-" + digits.substring(0, 10);
                             }
-                            setFormData({ ...formData, num_act: val });
+                            setFormData(prev => ({ ...prev, num_act: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -856,7 +860,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_federal || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, num_federal: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, num_federal: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -871,7 +876,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             style={{ backgroundColor: '#66FF99' }}
                             value={formData.name || ""}
                             onChange={(e) => {
-                                setFormData({ ...formData, name: e.target.value });
+                                const val = e.target.value;
+                                setFormData(prev => ({ ...prev, name: val }));
                                 if (onDirty) onDirty();
                             }}
                         />
@@ -887,7 +893,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_oracle || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, num_oracle: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, num_oracle: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -901,7 +908,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_contrato || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, num_contrato: e.target.value.replace(/[^0-9]/g, "") });
+                            const val = e.target.value.replace(/[^0-9]/g, "");
+                            setFormData(prev => ({ ...prev, num_contrato: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -915,7 +923,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.no_cuenta || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, no_cuenta: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, no_cuenta: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -955,7 +964,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.region || "Norte"}
                         onChange={(e) => {
-                            setFormData({ ...formData, region: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, region: val }));
                             if (onDirty) onDirty();
                         }}
                     >
@@ -1000,7 +1010,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             placeholder="Ej. C:\Proyectos\ACT-2024-001"
                             value={formData.folder_path || ""}
                             onChange={(e) => {
-                                setFormData({ ...formData, folder_path: e.target.value });
+                                const val = e.target.value;
+                                setFormData(prev => ({ ...prev, folder_path: val }));
                                 if (onDirty) onDirty();
                             }}
                         />
@@ -1048,7 +1059,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_ocpr || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, num_ocpr: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, num_ocpr: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -1062,7 +1074,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.designer || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, designer: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, designer: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -1077,7 +1090,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.municipios || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, municipios: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, municipios: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -1092,7 +1106,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.carreteras || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, carreteras: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, carreteras: val }));
                             if (onDirty) onDirty();
                         }}
                     />
@@ -1106,7 +1121,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.scope || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, scope: e.target.value });
+                            const val = e.target.value;
+                            setFormData(prev => ({ ...prev, scope: val }));
                             if (onDirty) onDirty();
                         }}
                     ></textarea>
@@ -1134,7 +1150,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_contract_sign || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, date_contract_sign: e.target.value });
+                                        const val = e.target.value;
+                                        setFormData(prev => ({ ...prev, date_contract_sign: val }));
                                         if (onDirty) onDirty();
                                     }}
                                 />
@@ -1150,7 +1167,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_project_start || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, date_project_start: e.target.value });
+                                        const val = e.target.value;
+                                        setFormData(prev => ({ ...prev, date_project_start: val }));
                                         if (onDirty) onDirty();
                                     }}
                                 />
@@ -1166,7 +1184,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_orig_completion || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, date_orig_completion: e.target.value });
+                                        const val = e.target.value;
+                                        setFormData(prev => ({ ...prev, date_orig_completion: val }));
                                         if (onDirty) onDirty();
                                     }}
                                 />
@@ -1182,7 +1201,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_rev_completion || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, date_rev_completion: e.target.value });
+                                        const val = e.target.value;
+                                        setFormData(prev => ({ ...prev, date_rev_completion: val }));
                                         if (onDirty) onDirty();
                                     }}
                                 />
@@ -1209,7 +1229,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_est_completion || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, date_est_completion: e.target.value });
+                                        const val = e.target.value;
+                                        setFormData(prev => ({ ...prev, date_est_completion: val }));
                                         if (onDirty) onDirty();
                                     }}
                                 />
@@ -1225,7 +1246,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_real_completion || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, date_real_completion: e.target.value });
+                                        const val = e.target.value;
+                                        setFormData(prev => ({ ...prev, date_real_completion: val }));
                                         if (onDirty) onDirty();
                                     }}
                                 />
@@ -1321,7 +1343,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 className="input-field"
                                 style={{ backgroundColor: '#66FF99' }}
                                 value={formData.project_manager_name || ""}
-                                onChange={(e) => handleChange('project_manager_name', e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, project_manager_name: val }));
+                                    if (onDirty) onDirty();
+                                }}
                                 placeholder="Nombre completo..."
                             />
                         </div>
@@ -1332,7 +1358,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 className="input-field"
                                 style={{ backgroundColor: '#66FF99' }}
                                 value={formData.admin_name || ""}
-                                onChange={(e) => handleChange('admin_name', e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, admin_name: val }));
+                                    if (onDirty) onDirty();
+                                }}
                                 placeholder="Nombre completo..."
                             />
                         </div>
@@ -1343,7 +1373,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 className="input-field"
                                 style={{ backgroundColor: '#66FF99' }}
                                 value={formData.contractor_name || ""}
-                                onChange={(e) => handleChange('contractor_name', e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, contractor_name: val }));
+                                    if (onDirty) onDirty();
+                                }}
                                 placeholder="Nombre de la empresa..."
                             />
                         </div>
@@ -1354,7 +1388,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 className="input-field"
                                 style={{ backgroundColor: '#66FF99' }}
                                 value={formData.liquidador_name || ""}
-                                onChange={(e) => handleChange('liquidador_name', e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, liquidador_name: val }));
+                                    if (onDirty) onDirty();
+                                }}
                                 placeholder="Nombre completo..."
                             />
                         </div>
@@ -1365,7 +1403,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 className="input-field"
                                 style={{ backgroundColor: '#66FF99' }}
                                 value={formData.regional_director || ""}
-                                onChange={(e) => handleChange('regional_director', e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, regional_director: val }));
+                                    if (onDirty) onDirty();
+                                }}
                                 placeholder="Director Regional..."
                             />
                         </div>
@@ -1376,7 +1418,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 className="input-field"
                                 style={{ backgroundColor: '#66FF99' }}
                                 value={formData.chief_project_control || ""}
-                                onChange={(e) => handleChange('chief_project_control', e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, chief_project_control: val }));
+                                    if (onDirty) onDirty();
+                                }}
                                 placeholder="Chief Project Control Division..."
                             />
                         </div>
@@ -1387,7 +1433,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 className="input-field"
                                 style={{ backgroundColor: '#66FF99' }}
                                 value={formData.dir_construction || ""}
-                                onChange={(e) => handleChange('dir_construction', e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, dir_construction: val }));
+                                    if (onDirty) onDirty();
+                                }}
                                 placeholder="Director, Construction Area..."
                             />
                         </div>

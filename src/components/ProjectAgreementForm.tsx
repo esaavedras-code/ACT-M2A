@@ -161,8 +161,12 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
 
             if (error) throw error;
             if(!silent) alert("Información del Project Agreement guardada con éxito.");
+            return { success: true };
         } catch (err: any) {
-            if(!silent) alert("Error al guardar: " + err.message);
+            console.error("Error saving funds:", err);
+            if(!silent) alert("Error al guardar fondos: " + err.message);
+            // Re-lanzamos el error para que ProjectForm pueda capturarlo si es llamado desde allí
+            throw err;
         } finally {
             setLoading(false);
         }
