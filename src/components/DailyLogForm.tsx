@@ -474,8 +474,67 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                     },
                     ...(currentLog.id ? [{
                         label: "Imprimir PDF",
-// ─────────────────────────────────────────────────────────────
-// IA Voice Processing Helper
+                        icon: <Printer />,
+                        onClick: handlePrint,
+                        description: "Generar un archivo PDF profesional con toda la información del reporte diario para imprimir o archivar.",
+                        variant: 'secondary' as const,
+                        disabled: loading
+                    }] : []),
+                    {
+                        label: isDirty ? "Guardar Cambios" : "Guardado",
+                        position: "bottom-right" as const,
+                        icon: loading ? <Loader2 className="animate-spin" /> : (isDirty ? <Save /> : <Check />),
+                        onClick: () => saveData(),
+                        description: isDirty ? "Sincronizar y guardar permanentemente todos los datos ingresados en la base de datos." : "Todos los cambios han sido guardados correctamente.",
+                        variant: isDirty ? 'primary' : 'success',
+                        disabled: loading || !isDirty
+                    }
+                ]}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div className="lg:col-span-1">
+                    <nav className="flex flex-col gap-2 sticky top-52">
+                        {TAB_LIST.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setEditTab(tab.id)}
+                                className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-bold text-sm transition-all duration-300 ${
+                                    editTab === tab.id
+                                        ? "bg-primary text-white shadow-lg shadow-primary/25 translate-x-2"
+                                        : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:translate-x-1"
+                                }`}
+                            >
+                                <span className={`${editTab === tab.id ? "text-white" : "text-primary opacity-60"}`}>{tab.icon}</span>
+                                {tab.label}
+                                {tab.id === "partidas" && currentLog.partidas_data?.length > 0 && (
+                                    <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full ${editTab === tab.id ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                                        {currentLog.partidas_data.length}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+
+                <div className="lg:col-span-3">
+                    <div className="card p-8 min-h-[600px] shadow-xl shadow-slate-200/50 dark:shadow-none border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-right-4 duration-500">
+                        <TabContent 
+                            id={editTab} 
+                            data={currentLog} 
+                            update={handleInputChange} 
+                            projectId={projectId} 
+                            contractItems={contractItems} 
+                            projectDefaults={projectDefaults} 
+                            setProjectDefaults={setProjectDefaults}
+                            onDirty={onDirty}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+});
 function SmartDictationButton({ context, contractItems, onResult }: any) {
     const [isListening, setIsListening] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -1165,3 +1224,5 @@ function MediaSection({ items, setItems, fullGallery, projectId }: any) {
         </div>
     );
 }
+
+export default DailyLogForm;
