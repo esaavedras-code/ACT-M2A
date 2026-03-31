@@ -508,6 +508,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input 
                                     type="file" 
                                     className="hidden" 
+                                    accept=".pdf,image/*"
                                     disabled={!projectId || uploadingDoc}
                                     onChange={(e) => {
                                         const file = e.target.files?.[0];
@@ -592,15 +593,18 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                             const updated = { ...formData };
                                                             const itemsToInsert: any[] = [];
                                                             let fullExtractedText = "";
+                                                            let imageBase64 = "";
                                                             
                                                             const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
                                                                 const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
                                                             });
                                                             
                                                             for (const doc of dbDocs) {
-                                                                if (!doc.storage_path || !doc.storage_path.toLowerCase().endsWith('.pdf')) continue;
+                                                                const isPdf = doc.storage_path?.toLowerCase().endsWith('.pdf');
+                                                                const isImg = /\.(jpe?g|png|webp)$/i.test(doc.storage_path || "");
+                                                                if (!isPdf && !isImg) continue;
                                                                 
-                                                                setAiResponse(`Extrayendo texto: ${doc.file_name}...`);
+                                                                setAiResponse(`Procesando: ${doc.file_name}...`);
                                                                 const { data: blob, error: downloadErr } = await supabase.storage.from('project-documents').download(doc.storage_path);
                                                                 
                                                                 if (downloadErr || !blob) {
@@ -608,46 +612,52 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                     continue;
                                                                 }
 
-                                                                if (blob.size > 4500000 && !win.electronAPI) {
-                                                                    setAiResponse(`Error: ${doc.file_name} es muy grande (>4.5MB). Vercel no permite procesar archivos tan grandes en la versión web.`);
-                                                                    console.warn("File too large for Vercel:", doc.file_name, blob.size);
-                                                                    continue;
-                                                                }
-
-                                                                const res = await parsePdf(await blobToBase64(blob));
-                                                                if (res.success && res.text) {
-                                                                    fullExtractedText += "\n\n" + res.text;
-                                                                    const txt = res.text.replace(/\s+/g, ' ');
-                                                                    const act = txt.match(/AC-\d{6}[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[0].toUpperCase(); count++; }
-                                                                    const fed = txt.match(/(?:Federal(?: Aid)?(?:\s+Project)?(?: No| Number)?)\s*[:=]?\s*(PR-\d{4}\(\d{3}\)|PR-[A-Z0-9]+)/i); if (fed && !updated.num_federal) { updated.num_federal = fed[1]; count++; }
-                                                                    const cost = txt.match(/(?:Total\s*Cost|Contract\s*Amount|Monto|Total\s*a\s*Pagar|Contract\s*Price)\s*[:=\$]*\s*\$?\s*([\d,]+\.\d{2})/i); if (cost && !updated.cost_original) { const v = parseFloat(cost[1].replace(/,/g, '')); if (!isNaN(v)) { updated.cost_original = v; count++; } }
-                                                                    const lines = res.text.split("\n");
-                                                                    const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
-                                                                    for (const l of lines) {
-                                                                        const m = pat.exec(l);
-                                                                        if (m) {
-                                                                            const n = m[1].padStart(3, '0');
-                                                                            if (!itemsToInsert.some(it => it.item_num === n)) {
-                                                                                itemsToInsert.push({ project_id: projectId, item_num: n, specification: m[2].trim(), description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[m[2].trim()] });
-                                                                                items++;
+                                                                if (isPdf) {
+                                                                    if (blob.size > 4500000 && !win.electronAPI) {
+                                                                        setAiResponse(`Error: ${doc.file_name} es muy grande (>4.5MB). Vercel no permite procesar PDFs tan grandes en la versión web.`);
+                                                                        continue;
+                                                                    }
+                                                                    const res = await parsePdf(await blobToBase64(blob));
+                                                                    if (res.success && res.text) {
+                                                                        fullExtractedText += "\n\n" + res.text;
+                                                                        // Lógica básica de extracción
+                                                                        const txt = res.text.replace(/\s+/g, ' ');
+                                                                        const act = txt.match(/AC-\d{6}[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[0].toUpperCase(); count++; }
+                                                                        const fed = txt.match(/(?:Federal(?: Aid)?(?:\s+Project)?(?: No| Number)?)\s*[:=]?\s*(PR-\d{4}\(\d{3}\)|PR-[A-Z0-9]+)/i); if (fed && !updated.num_federal) { updated.num_federal = fed[1]; count++; }
+                                                                        const cost = txt.match(/(?:Total\s*Cost|Contract\s*Amount|Monto|Total\s*a\s*Pagar|Contract\s*Price)\s*[:=\$]*\s*\$?\s*([\d,]+\.\d{2})/i); if (cost && !updated.cost_original) { const v = parseFloat(cost[1].replace(/,/g, '')); if (!isNaN(v)) { updated.cost_original = v; count++; } }
+                                                                        const lines = res.text.split("\n");
+                                                                        const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
+                                                                        for (const l of lines) {
+                                                                            const m = pat.exec(l);
+                                                                            if (m) {
+                                                                                const n = m[1].padStart(3, '0');
+                                                                                if (!itemsToInsert.some(it => it.item_num === n)) {
+                                                                                    itemsToInsert.push({ project_id: projectId, item_num: n, specification: m[2].trim(), description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[m[2].trim()] });
+                                                                                    items++;
+                                                                                }
                                                                             }
                                                                         }
                                                                     }
+                                                                } else if (isImg) {
+                                                                    imageBase64 = await blobToBase64(blob);
                                                                 }
                                                             }
                                                             if (itemsToInsert.length) await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
                                                             setFormData(updated);
 
-                                                            if (fullExtractedText.length === 0) {
-                                                                setAiResponse("No se encontró texto procesable en los documentos.");
-                                                                alert("No se pudo extraer texto de los documentos. Verifique que sean archivos PDF legibles.");
+                                                            if (fullExtractedText.length === 0 && !imageBase64) {
+                                                                setAiResponse("No se encontró texto o imagen procesable.");
                                                             } else if (aiPrompt.trim().length > 0) {
-                                                                setAiResponse("Consultando Asistente AI...");
+                                                                setAiResponse("Consultando Asistente AI (Visión)...");
                                                                 try {
                                                                     const response = await fetch('/api/analyze-document', {
                                                                         method: 'POST',
                                                                         headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ text: fullExtractedText, prompt: aiPrompt })
+                                                                        body: JSON.stringify({ 
+                                                                            text: fullExtractedText, 
+                                                                            prompt: aiPrompt,
+                                                                            image: imageBase64 || undefined
+                                                                        })
                                                                     });
                                                                     if (!response.ok) {
                                                                         const errText = await response.text();
@@ -667,8 +677,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                 }
                                                             } else {
                                                                 alert(`Extracción Finalizada: ${count} campos completados y ${items} partidas importadas.`);
-                                                                setAiResponse("");
                                                             }
+                                                            setAiResponse("");
                                                         } catch (e: any) { 
                                                             console.error("AI Error:", e);
                                                             alert("Error durante el análisis: " + e.message);

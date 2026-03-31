@@ -2,13 +2,34 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
     try {
-        const { text, prompt } = await req.json();
+        const { text, prompt, image } = await req.json();
 
         if (!process.env.GROQ_API_KEY) {
             return NextResponse.json({ error: 'Configuración incompleta de IA (falta GROQ_API_KEY)' }, { status: 500 });
         }
 
-        const systemMessage = "Eres un asistente experto en analizar documentos de proyectos de construcción de carreteras y contratos gubernamentales (ej. ACT, FHWA). El usuario te proporcionará el texto extraído de un documento PDF (Proposal, Contrato, etc.) y una instrucción específica sobre qué información extraer. Busca cuidadosamente en el texto y responde de forma profesional y clara únicamente con la información solicitada.";
+        const systemMessage = "Eres un asistente experto en analizar documentos de proyectos de construcción de carreteras y contratos gubernamentales (ej. ACT, FHWA). El usuario te proporcionará texto o una imagen de un documento y una instrucción específica sobre qué información extraer. Responde de forma profesional y clara únicamente con la información solicitada.";
+
+        const messages: any[] = [{ role: "system", content: systemMessage }];
+
+        if (image) {
+            // Soporte para visión con Groq (Llama 3.2 Vision)
+            messages.push({
+                role: "user",
+                content: [
+                    { type: "text", text: `Instrucción del usuario: "${prompt}"` },
+                    { 
+                        type: "image_url", 
+                        image_url: { url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}` } 
+                    }
+                ]
+            });
+        } else {
+            messages.push({ 
+                role: "user", 
+                content: `A continuación el texto del documento para analizar:\n\n---\n${(text || "").substring(0, 45000)}\n---\n\nInstrucción del usuario: "${prompt}"` 
+            });
+        }
 
         const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
@@ -17,12 +38,9 @@ export async function POST(req: Request) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                temperature: 0.2, // Baja temperatura para mayor rigor en la extracción
-                messages: [
-                    { role: "system", content: systemMessage },
-                    { role: "user", content: `A continuación el texto del documento para analizar:\n\n---\n${text.substring(0, 45000)}\n---\n\nInstrucción del usuario: "${prompt}"` }
-                ]
+                model: image ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile",
+                temperature: 0.2,
+                messages: messages
             })
         });
 
