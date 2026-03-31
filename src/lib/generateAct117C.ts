@@ -529,16 +529,18 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
         // --- PAGE NUMBERING ---
         const pages = pdfDoc.getPages();
-        pages.forEach((p, i) => {
-            const { width } = p.getSize();
-            p.drawText(`Page ${i + 1} of ${pages.length}`, {
-                x: width - 80,
-                y: 10, // Move down to avoid overlap
-                size: 8,
-                font: font,
-                color: rgb(0, 0, 0)
+        if (pages.length > 1) {
+            pages.forEach((p, i) => {
+                const { width } = p.getSize();
+                p.drawText(`Page ${i + 1} of ${pages.length}`, {
+                    x: width - 80,
+                    y: 10, // Move down to avoid overlap
+                    size: 8,
+                    font: font,
+                    color: rgb(0, 0, 0)
+                });
             });
-        });
+        }
 
         const pdfBytes = await pdfDoc.save();
         return new Blob([pdfBytes as any], { type: 'application/pdf' });

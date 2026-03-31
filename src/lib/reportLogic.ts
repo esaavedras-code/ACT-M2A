@@ -244,7 +244,10 @@ export const createPdfBlob = async (
                 lines: splitTextIntoLines(textStr === '' ? '' : text, width, cellFont, displayFontSize),
                 font: cellFont,
                 useBold,
-                isRed: !isHeader && (textStr.startsWith('-') || textStr.startsWith('(') || (idx === 7 && parseFloat(textStr.replace(/[^0-9.-]/g, '')) < 0) || (idx === 6 && parseFloat(textStr.replace(/[^0-9.-]/g, '')) < 0)),
+                isRed: !isHeader && (
+                    (/^\(?[$-]?[0-9,.]+\)?$/.test(textStr)) && 
+                    (textStr.startsWith('-') || textStr.startsWith('(') || parseFloat(textStr.replace(/[^0-9.-]/g, '')) < 0)
+                ),
                 displayFontSize
             };
         });

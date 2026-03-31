@@ -473,15 +473,17 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
     // ── 4. Guardar y descargar ─────────────────────────────────
     // Numeración global al pie
     const pages = pdfDoc.getPages();
-    pages.forEach((p, i) => {
-        p.drawText(`Page ${i + 1} of ${pages.length}`, {
-            x: PW - MR - 60,
-            y: 15,
-            size: 8,
-            font: fR,
-            color: BK
+    if (pages.length > 1) {
+        pages.forEach((p, i) => {
+            p.drawText(`Page ${i + 1} of ${pages.length}`, {
+                x: PW - MR - 60,
+                y: 15,
+                size: 8,
+                font: fR,
+                color: BK
+            });
         });
-    });
+    }
 
     const pdfBytes = await pdfDoc.save();
     return new Blob([pdfBytes as any], { type: 'application/pdf' });

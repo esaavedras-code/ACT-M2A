@@ -467,9 +467,11 @@ export async function generateAct122(projectId: string, choId: string) {
 
         // Numeración de páginas global
         const pages = pdfDoc.getPages();
-        pages.forEach((p, idx) => {
-            drawText(p, `Page      ${idx + 1}      of      ${pages.length}`, PW / 2, PH - 25, font, 9.5, true);
-        });
+        if (pages.length > 1) {
+            pages.forEach((p, idx) => {
+                drawText(p, `Page      ${idx + 1}      of      ${pages.length}`, PW / 2, PH - 25, font, 9.5, true);
+            });
+        }
 
         const pdfBytes = await pdfDoc.save();
         return new Blob([pdfBytes as any], { type: 'application/pdf' });

@@ -85,16 +85,17 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
                 if (center) finalX = x - (textWidth / 2);
                 else if (right) finalX = x - textWidth;
 
-                // Determine color: Red for negative numbers, black otherwise
+                // Determine color: Red for pure negative numbers/amounts, black otherwise
                 let color = rgb(0, 0, 0);
                 const cleanS = s.trim();
 
-                // Check if it's a negative amount: starts with -, ($, or (
-                // and has at least one digit to avoid false positives with IDs like ACT-117B
+                // Only red if it looks like a negative currency/number:
+                // Starts with ( or - AND contains digits AND NO letters
                 const hasDigits = /[0-9]/.test(cleanS);
-                const isNegative = cleanS.startsWith('-') || cleanS.startsWith('($') || cleanS.startsWith('(') || (cleanS.startsWith('$') && cleanS.includes('-'));
+                const hasLetters = /[a-zA-Z]/.test(cleanS);
+                const isNegativePattern = cleanS.startsWith('-') || cleanS.startsWith('($') || (cleanS.startsWith('(') && cleanS.endsWith(')'));
 
-                if (hasDigits && isNegative) {
+                if (hasDigits && !hasLetters && isNegativePattern) {
                     color = rgb(1, 0, 0); // Red
                 }
 
@@ -342,16 +343,18 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
 
         // --- PAGE NUMBERING ---
         const pages = pdfDoc.getPages();
-        pages.forEach((p, i) => {
-            const { width } = p.getSize();
-            p.drawText(`Page ${i + 1} of ${pages.length}`, {
-                x: width - 80,
-                y: 20,
-                size: 8,
-                font: font,
-                color: rgb(0, 0, 0)
+        if (pages.length > 1) {
+            pages.forEach((p, i) => {
+                const { width } = p.getSize();
+                p.drawText(`Page ${i + 1} of ${pages.length}`, {
+                    x: width - 80,
+                    y: 20,
+                    size: 8,
+                    font: font,
+                    color: rgb(0, 0, 0)
+                });
             });
-        });
+        }
 
         const pdfBytes = await pdfDoc.save();
         return new Blob([pdfBytes as any], { type: 'application/pdf' });

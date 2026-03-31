@@ -179,12 +179,14 @@ export async function generateRoa(projectId: string, choId: string) {
             drawText(page, "RECORD OF AUTHORIZATION TO PROCEED WITH CONTRACT REVISION", PW / 2, 22, fontBold, 11, true);
             drawText(page, "FAX: 787-766-5924", PW / 2, 40, fontBold, 10, true);
             
-            drawText(page, "Page", PW - 130, 60, fontBold, 9);
-            drawLine(page, PW - 105, 62, PW - 70, 62, 0.8);
-            drawText(page, pageNum.toString(), PW - 87, 60, font, 9, true);
-            drawText(page, "of", PW - 60, 60, fontBold, 9);
-            drawLine(page, PW - 50, 62, PW - 20, 62, 0.8);
-            drawText(page, totalPages.toString(), PW - 35, 60, font, 9, true);
+            if (totalPages > 1) {
+                drawText(page, "Page", PW - 130, 60, fontBold, 9);
+                drawLine(page, PW - 105, 62, PW - 70, 62, 0.8);
+                drawText(page, pageNum.toString(), PW - 87, 60, font, 9, true);
+                drawText(page, "of", PW - 60, 60, fontBold, 9);
+                drawLine(page, PW - 50, 62, PW - 20, 62, 0.8);
+                drawText(page, totalPages.toString(), PW - 35, 60, font, 9, true);
+            }
 
             const boxY = 75, boxH = 45;
             drawLine(page, 20, boxY, PW - 20, boxY, 1.2);

@@ -153,15 +153,17 @@ export async function generateDbeCertificationReport(projectId: string) {
 
         // 8. Page numbering
         const pages = pdfDoc.getPages();
-        pages.forEach((p, i) => {
-            p.drawText(`Page ${i + 1} of ${pages.length}`, {
-                x: PW - MR - 60,
-                y: 20,
-                size: 8,
-                font: fR,
-                color: BK
+        if (pages.length > 1) {
+            pages.forEach((p, i) => {
+                p.drawText(`Page ${i + 1} of ${pages.length}`, {
+                    x: PW - MR - 60,
+                    y: 20,
+                    size: 8,
+                    font: fR,
+                    color: BK
+                });
             });
-        });
+        }
 
         // 9. Finalize
         const pdfBytes = await pdfDoc.save();
