@@ -172,10 +172,10 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     };
 
     const saveData = async (silent = false) => {
-        // Validar formato del número de proyecto (AC-XXXXXX o AC-XXXXXXA)
-        const numActRegex = /^AC-[0-9]{6}[A-Z]?$/;
+        // Validar formato del número de proyecto (AC-XXXXXX o AC-XXXXXXX, opcionalmente con letra)
+        const numActRegex = /^AC-[0-9]{6,7}[A-Z]?$/;
         if (!numActRegex.test(formData.num_act)) {
-            if (!silent) alert("El número de proyecto estatal debe tener el formato AC-XXXXXX (Exactamente 6 dígitos después del prefijo AC-, opcionalmente seguido de una letra).");
+            if (!silent) alert("El número de proyecto estatal debe tener el formato AC-XXXXXX o AC-XXXXXXX (6 o 7 dígitos después del prefijo AC-, opcionalmente seguido de una letra).");
             setLoading(false);
             return;
         }
@@ -222,8 +222,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 }
             }
 
+            const { id, created_at, updated_at, ...restData } = formData;
             const dataToSave = {
-                ...formData,
+                ...restData,
                 num_act: finalNumAct,
                 municipios: formData.municipios ? formData.municipios.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
                 carreteras: formData.carreteras ? formData.carreteras.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
@@ -241,10 +242,15 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 eligible_toll_credits: formData.eligible_toll_credits,
                 pay_items_er_funds: formData.pay_items_er_funds,
                 project_manager_name: formData.project_manager_name || null,
+                admin_name: formData.admin_name || null,
+                contractor_name: formData.contractor_name || null,
+                liquidador_name: formData.liquidador_name || null,
                 regional_director: formData.regional_director || null,
                 chief_project_control: formData.chief_project_control || null,
                 dir_construction: formData.dir_construction || null,
             };
+
+            console.log("Saving project data:", dataToSave);
 
             let result;
             if (projectId) {

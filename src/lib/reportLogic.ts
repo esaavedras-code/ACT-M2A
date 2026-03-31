@@ -396,20 +396,22 @@ export const createPdfBlob = async (
         y -= rowHeight;
     });
 
-    // Add Page Numbers
+    // Add Page Numbers only if more than one page
     const pages = pdfDoc.getPages();
-    pages.forEach((p, idx) => {
-        const { width: pW } = p.getSize();
-        const pageNumText = `Página ${idx + 1} de ${pages.length}`;
-        const pNumWidth = timesRomanFont.widthOfTextAtSize(pageNumText, 8);
-        p.drawText(pageNumText, {
-            x: (pW - pNumWidth) / 2,
-            y: 20,
-            size: 8,
-            font: timesRomanFont,
-            color: rgb(0.4, 0.4, 0.4)
+    if (pages.length > 1) {
+        pages.forEach((p, idx) => {
+            const { width: pW } = p.getSize();
+            const pageNumText = `Página ${idx + 1} de ${pages.length}`;
+            const pNumWidth = timesRomanFont.widthOfTextAtSize(pageNumText, 8);
+            p.drawText(pageNumText, {
+                x: (pW - pNumWidth) / 2,
+                y: 20,
+                size: 8,
+                font: timesRomanFont,
+                color: rgb(0.4, 0.4, 0.4)
+            });
         });
-    });
+    }
 
     let pdfBytes;
     try {

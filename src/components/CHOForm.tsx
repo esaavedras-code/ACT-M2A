@@ -229,7 +229,8 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             quantity: 0, // Original quantity is 0 since it comes from CHO
                             unit: item.unit || "",
                             unit_price: item.unit_price || 0,
-                            fund_source: item.fund_source || FUND_SOURCES[0]
+                            fund_source: item.fund_source || FUND_SOURCES[0],
+                            requires_mfg_cert: item.requires_mfg_cert || false
                         });
                     }
                 }
@@ -481,6 +482,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 <th className="py-1 px-0.5 w-24 text-right">Unit Price</th>
                                                 <th className="py-1 px-0.5 w-24 text-right">Amount</th>
                                                 <th className="py-1 px-0.5 w-40">Fondos</th>
+                                                <th className="py-1 px-0.5 w-10 text-center">Cert.</th>
                                                 <th className="py-1 px-0.5 w-8"></th>
                                             </tr>
                                         </thead>
@@ -515,6 +517,17 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         <select className="input-field text-[10px] font-bold py-1 px-2" value={item.fund_source || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'fund_source', e.target.value)}>
                                                             {FUND_SOURCES.map(f => <option key={f} value={f}>{f}</option>)}
                                                         </select>
+                                                    </td>
+                                                    <td className="py-0.5 px-0.5 text-center">
+                                                        {item.is_new && (
+                                                            <input 
+                                                                type="checkbox" 
+                                                                className="w-4 h-4 rounded border-slate-300 text-primary" 
+                                                                checked={item.requires_mfg_cert || false} 
+                                                                onChange={(e) => updateCHOItem(idx, itIdx, 'requires_mfg_cert', e.target.checked)} 
+                                                                title="¿Requiere Certificado de Manufactura?"
+                                                            />
+                                                        )}
                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-center">
                                                         <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500">
