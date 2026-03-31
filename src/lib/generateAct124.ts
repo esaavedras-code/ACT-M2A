@@ -52,26 +52,6 @@ export async function generateAct124(projectId: string, choId: string, selectedI
 
         const page = pdfDoc.addPage([PW, PH]);
 
-        // Logo ACT - Top Left
-        let logoImage: any = null;
-        try {
-            const logoUrl = `${window.location.origin}/act_logo.png`;
-            const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
-            logoImage = await pdfDoc.embedPng(logoBytes);
-            
-            const dims = logoImage.scale(1);
-            const targetHeight = 40;
-            const targetWidth = (dims.width / dims.height) * targetHeight;
-            page.drawImage(logoImage, {
-                x: 35,
-                y: PH - 15 - targetHeight,
-                width: targetWidth,
-                height: targetHeight
-            });
-        } catch (e) {
-            console.error("No se pudo cargar el logo:", e);
-        }
-
         // Header - Subido 0.5cm adicionales (aprox 14pt)
         drawText(page, "Government of Puerto Rico", PW / 2, 21, font, 9, true);
         drawText(page, "Department of Transportation and Public Works", PW / 2, 36, font, 9, true);

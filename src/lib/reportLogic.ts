@@ -211,7 +211,11 @@ export const createPdfBlob = async (
         const isHeader = rowIndex === 0;
         const isEmpty = row.every(cell => !cell || cell.toString().trim() === '');
         const isPartida = row[0]?.toString().startsWith('PARTIDA') || row[0]?.toString().startsWith('BALANCE TOTAL PARA FUENTE');
-        const isSubtitleRow = !isHeader && row[0] && row.slice(1).every(cell => !cell || cell.toString().trim() === '');
+        // isSubtitleRow: first cell has content and the rest are empty OR the first cell is all-caps section title
+        const restEmpty = row.slice(1).every(cell => !cell || cell.toString().trim() === '');
+        const firstCellText = (row[0]?.toString() || '').trim();
+        const isAllCapsTitle = restEmpty && firstCellText.length > 4 && firstCellText === firstCellText.toUpperCase() && /[A-Z]/.test(firstCellText);
+        const isSubtitleRow = !isHeader && row[0] && (restEmpty);
 
         if (isEmpty) {
             y -= 10;
@@ -326,6 +330,12 @@ export const createPdfBlob = async (
                 width: totalTableWidth, height: rowHeight,
                 color: rgb(0.05, 0.2, 0.45),
             });
+        } else if (isSubtitleRow) {
+            page.drawRectangle({
+                x: marginX, y: y - rowHeight,
+                width: totalTableWidth, height: rowHeight,
+                color: rgb(0.18, 0.32, 0.55),
+            });
         } else if (isPartida) {
             page.drawRectangle({
                 x: marginX, y: y - rowHeight,
@@ -338,8 +348,8 @@ export const createPdfBlob = async (
         cellLines.forEach((cellData, cellIdx) => {
             if (isSubtitleRow && cellIdx > 0) return;
 
-            let textColor = isHeader ? rgb(1, 1, 1) : rgb(0, 0, 0);
-            if (!isHeader && cellData.isRed) {
+            let textColor = (isHeader || isSubtitleRow) ? rgb(1, 1, 1) : rgb(0, 0, 0);
+            if (!isHeader && !isSubtitleRow && cellData.isRed) {
                 textColor = rgb(0.8, 0, 0); // Rojo
             }
             const currentColWidth = (isSubtitleRow && cellIdx === 0) ? totalTableWidth : (colWidths[cellIdx] || 50);
@@ -681,6 +691,10 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
         ]);
         reportData.push([
             `BALANCE TOTAL PARA FUENTE: ${cleanSource}`, 
+            '', '', '', '', '', '', ''
+        ]);
+        reportData.push([
+            '', 
             '', 
             '', 
             '', 
