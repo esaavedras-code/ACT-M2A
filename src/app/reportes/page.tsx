@@ -428,17 +428,31 @@ function ReportesContent() {
                          <FileDigit size={16} /> EXCEL
                     </button>
                 </div>
-                <div className="flex flex-col items-center gap-2 mb-6 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-xs">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="flex flex-col items-center gap-2 mb-6 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-sm relative">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-full">
                         Fecha de Corte (Opcional)
                     </label>
-                    <input 
-                        type="date" 
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-1 focus:ring-primary transition-all cursor-pointer"
-                    />
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Si se deja vacío, se usa la fecha de hoy</p>
+                    <div className="flex gap-2 w-full">
+                        <input 
+                            type="date" 
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-1 focus:ring-primary transition-all cursor-pointer"
+                        />
+                        <button 
+                            title="Seleccionar hoy"
+                            onClick={() => {
+                                const localDate = new Date();
+                                const offset = localDate.getTimezoneOffset();
+                                const adjustedDate = new Date(localDate.getTime() - (offset*60*1000));
+                                setEndDate(adjustedDate.toISOString().split('T')[0]);
+                            }}
+                            className="bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30 transition-colors rounded-xl px-4 flex items-center justify-center font-bold text-[10px] uppercase tracking-widest border border-primary/20"
+                        >
+                            HOY
+                        </button>
+                    </div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center mt-1">Si se deja vacío, se usa la fecha de hoy</p>
                 </div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Seleccione el formato preferido para sus reportes</p>
 
