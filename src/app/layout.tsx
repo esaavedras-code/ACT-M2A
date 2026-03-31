@@ -12,7 +12,6 @@ import MobileMenu from "@/components/MobileMenu";
 import BottomNav from "@/components/BottomNav";
 import QuickHelpModal from "@/components/QuickHelpModal";
 import AIChat from "@/components/AIChat";
-import FastDateFiller from "@/components/FastDateFiller";
 import UserPresenceTracker from "@/components/UserPresenceTracker";
 import MaintenanceGuard from "@/components/MaintenanceGuard";
 import "./globals.css";
@@ -91,7 +90,6 @@ export default function RootLayout({
                             <QuickHelpModal />
                             <BottomNav />
                             <AIChat />
-                            <FastDateFiller />
                         </Suspense>
                     </div>
                 </TranslationProvider>

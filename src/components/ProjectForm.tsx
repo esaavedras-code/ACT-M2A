@@ -459,8 +459,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 </div>
             )}
 
-            <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-                <h2 className="text-2xl font-bold flex items-center gap-3">
+            <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-start gap-4 mb-6">
+                <h2 className="text-2xl font-bold flex items-center gap-3 shrink-0">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                         <FileText className="text-primary" size={24} />
                     </div>
@@ -469,21 +469,36 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         <span>Información del Proyecto</span>
                     </div>
                 </h2>
-                <div className="flex gap-3 w-full sm:w-auto">
-                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
+                
+                {projectId && (
+                    <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={loading}
+                        className="ml-[3in] hidden lg:flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm hover:shadow-red-200 disabled:opacity-50 disabled:grayscale"
+                    >
+                        <Trash2 size={14} />
+                        Eliminar Proyecto
+                    </button>
+                )}
+
+                <div className="flex gap-3 w-full sm:w-auto lg:hidden">
+                    {projectId && (
+                         <button
+                            type="button"
+                            onClick={handleDelete}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-[10px] font-bold uppercase transition-all"
+                        >
+                            <Trash2 size={14} />
+                            Eliminar
+                        </button>
+                    )}
                 </div>
             </div>
 
             <FloatingFormActions
                 actions={[
-                    ...(projectId ? [{
-                        label: "Eliminar Proyecto",
-                        icon: <Trash2 />,
-                        onClick: handleDelete,
-                        description: "Borrar este proyecto permanentemente de la base de datos",
-                        variant: 'danger' as const,
-                        disabled: loading
-                    }] : []),
                     {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,

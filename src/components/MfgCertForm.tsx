@@ -346,10 +346,6 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     <Factory className="text-primary" /> 8. Certificados de Manufactura
                 </h2>
                 <div className="flex gap-2">
-                    <button onClick={handleFileUpload} disabled={loading || parsing} className="bg-emerald-100 px-4 py-2 rounded-full font-black text-[11px] uppercase flex items-center gap-2 text-emerald-700 hover:bg-emerald-200 transition-all border border-emerald-200 shadow-sm">
-                        {parsing ? <Loader2 size={16} className="animate-spin" /> : <FileSearch size={16} />} 
-                        {parsing ? "Leyendo..." : "Cert. Manuf."}
-                    </button>
                     <button onClick={() => exportSectionToJSON("mfg_certs", certs)} className="p-2 border rounded-lg hover:bg-slate-50"><Download size={18}/></button>
                 </div>
             </div>
@@ -368,8 +364,6 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     <div className="w-24 text-center">Cantidad</div>
                     <div className="w-36 text-center">Fecha Cert.</div>
                     <div className="w-8"></div>
-                    <div className="w-28"></div>
-                    <div className="w-28"></div>
                 </div>
 
                 {certs.map((c, idx) => {
@@ -490,23 +484,6 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                 </div>
                             </div>
 
-                            {/* Upload Button */}
-                            <button className="p-2.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-full transition-all">
-                                <Upload size={18} />
-                            </button>
-
-                            {/* Review Button */}
-                            <button 
-                                onClick={()=>setShowValidationIdx(showValidationIdx === idx ? null : idx)} 
-                                className={`w-28 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border-2 transition-all font-black text-[10px] uppercase shadow-sm ${
-                                    c.validation?.isValid 
-                                    ? 'border-emerald-500 text-emerald-600 bg-white hover:bg-emerald-50' 
-                                    : 'border-orange-400 text-orange-500 bg-white hover:bg-orange-50'
-                                }`}
-                            >
-                                <Info size={14} className={c.validation?.isValid ? 'text-emerald-500' : 'text-orange-400'} />
-                                {c.validation?.isValid ? "VÁLIDO" : "REVISAR"}
-                            </button>
 
                             {/* Delete Button */}
                             <button 
