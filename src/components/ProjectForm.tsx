@@ -593,7 +593,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                             const updated = { ...formData };
                                                             const itemsToInsert: any[] = [];
                                                             let fullExtractedText = "";
-                                                            let imageBase64 = "";
+                                                            const allImages: string[] = [];
                                                             
                                                             const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
                                                                 const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
@@ -618,7 +618,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                         continue;
                                                                     }
                                                                     const res = await parsePdf(await blobToBase64(blob));
-                                                                    if (res.success && res.text) {
+                                                                    if (res.success && res.text && res.text.trim().length > 50) {
                                                                         fullExtractedText += "\n\n" + res.text;
                                                                         // Lógica básica de extracción
                                                                         const txt = res.text.replace(/\s+/g, ' ');
@@ -637,15 +637,49 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                                 }
                                                                             }
                                                                         }
+                                                                    } else {
+                                                                        // Es un PDF escaneado o sin texto, usar Visión AI
+                                                                        setAiResponse(`Escaneo detectado en ${doc.file_name}. Preparando Visión AI...`);
+                                                                        try {
+                                                                            // @ts-ignore
+                                                                            const pdfjsLib = await import('pdfjs-dist/build/pdf.min.mjs');
+                                                                            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+                                                                            
+                                                                            const b64 = await blobToBase64(blob);
+                                                                            const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
+                                                                            const binary = atob(base64Data);
+                                                                            const len = binary.length;
+                                                                            const bufferArray = new Uint8Array(len);
+                                                                            for (let i = 0; i < len; i++) bufferArray[i] = binary.charCodeAt(i);
+                                                                            
+                                                                            const loadingTask = pdfjsLib.getDocument({ data: bufferArray });
+                                                                            const pdfDoc = await loadingTask.promise;
+                                                                            
+                                                                            const pagesToProcess = Math.min(pdfDoc.numPages, 3);
+                                                                            for (let i = 1; i <= pagesToProcess; i++) {
+                                                                                const page = await pdfDoc.getPage(i);
+                                                                                const viewport = page.getViewport({ scale: 1.2 });
+                                                                                const canvas = document.createElement('canvas');
+                                                                                const context = canvas.getContext('2d');
+                                                                                if (context) {
+                                                                                    canvas.height = viewport.height;
+                                                                                    canvas.width = viewport.width;
+                                                                                    await page.render({ canvasContext: context, viewport }).promise;
+                                                                                    allImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                                                                                }
+                                                                            }
+                                                                        } catch(err) {
+                                                                            console.error("Error procesando PDF a imagen:", err);
+                                                                        }
                                                                     }
                                                                 } else if (isImg) {
-                                                                    imageBase64 = await blobToBase64(blob);
+                                                                    allImages.push(await blobToBase64(blob));
                                                                 }
                                                             }
                                                             if (itemsToInsert.length) await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
                                                             setFormData(updated);
 
-                                                            if (fullExtractedText.length === 0 && !imageBase64) {
+                                                            if (fullExtractedText.length === 0 && allImages.length === 0) {
                                                                 setAiResponse("No se encontró texto o imagen procesable.");
                                                             } else if (aiPrompt.trim().length > 0) {
                                                                 setAiResponse("Consultando Asistente AI (Visión)...");
@@ -656,7 +690,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                         body: JSON.stringify({ 
                                                                             text: fullExtractedText, 
                                                                             prompt: aiPrompt,
-                                                                            image: imageBase64 || undefined
+                                                                            image: allImages.length > 0 ? allImages : undefined
                                                                         })
                                                                     });
                                                                     if (!response.ok) {

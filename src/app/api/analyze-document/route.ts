@@ -14,15 +14,22 @@ export async function POST(req: Request) {
 
         if (image) {
             // Soporte para visión con Groq (Llama 3.2 Vision)
+            const imagesArray = Array.isArray(image) ? image : [image];
+            
+            const contentArray: any[] = [
+                { type: "text", text: `Instrucción del usuario: "${prompt}"` }
+            ];
+            
+            imagesArray.forEach((imgBase64) => {
+                contentArray.push({
+                    type: "image_url",
+                    image_url: { url: imgBase64.startsWith('data:') ? imgBase64 : `data:image/jpeg;base64,${imgBase64}` }
+                });
+            });
+
             messages.push({
                 role: "user",
-                content: [
-                    { type: "text", text: `Instrucción del usuario: "${prompt}"` },
-                    { 
-                        type: "image_url", 
-                        image_url: { url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}` } 
-                    }
-                ]
+                content: contentArray
             });
         } else {
             messages.push({ 
