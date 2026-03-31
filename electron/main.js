@@ -247,7 +247,7 @@ function createWindow() {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    model: image ? "llama-3.2-90b-vision-instruct" : "llama-3.3-70b-versatile",
+                    model: image ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile",
                     temperature: 0.2,
                     messages: messages
                 })
