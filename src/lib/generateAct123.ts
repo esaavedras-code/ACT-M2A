@@ -7,7 +7,11 @@ const PH = 792; // 11"
 
 const drawText = (p: any, txt: any, x: number, y: number, font: any, size = 8, center = false, right = false) => {
     if (txt === undefined || txt === null) return;
-    const s = txt.toString().replace(/\t/g, ' ');
+    // Fix WinAnsi encoding error (0x2011 is non-breaking hyphen)
+    const s = txt.toString()
+        .replace(/[\u2010-\u2015]/g, '-') // Replace special hyphens/dashes with standard minus
+        .replace(/\t/g, ' ');
+
     const textWidth = font.widthOfTextAtSize(s, size);
     let finalX = x;
     if (center) finalX = x - (textWidth / 2);
@@ -15,6 +19,28 @@ const drawText = (p: any, txt: any, x: number, y: number, font: any, size = 8, c
 
     let textColor = rgb(0, 0, 0);
     p.drawText(s, { x: finalX, y: PH - y, size, font, color: textColor });
+};
+
+const drawWrappedText = (p: any, txt: string, x: number, y: number, maxWidth: number, font: any, size = 8, lineHeight = 10) => {
+    if (!txt) return y;
+    const cleanTxt = txt.toString().replace(/[\u2010-\u2015]/g, '-').replace(/\t/g, ' ');
+    const words = cleanTxt.split(' ');
+    let line = '';
+    let currentY = y;
+
+    for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const testWidth = font.widthOfTextAtSize(testLine, size);
+        if (testWidth > maxWidth && n > 0) {
+            drawText(p, line, x, currentY, font, size);
+            line = words[n] + ' ';
+            currentY += lineHeight;
+        } else {
+            line = testLine;
+        }
+    }
+    drawText(p, line, x, currentY, font, size);
+    return currentY;
 };
 
 const drawLine = (p: any, x1: number, y1: number, x2: number, y2: number, thickness = 0.5) => {
@@ -202,12 +228,13 @@ export async function generateAct123(projectId: string, choId: string) {
         drawText(p, "11", 235, by - 3, fontBold, 5.5);
         drawText(p, "; and", 245, by, font, fs);
         drawLine(p, 270, by + 2, 530, by + 2);
-        drawText(p, contrData?.name || "", 275, by, font, fs);
+        const contractorNameEnd = drawWrappedText(p, contrData?.name || "", 275, by, 255, font, fs, 9);
         drawText(p, "12", 535, by - 3, fontBold, 5.5);
         drawText(p, ", hereinafter referred to as the", 540, by, font, fs - 1.5);
+        by = Math.max(by, contractorNameEnd);
 
         // Line 4
-        by += lh + 6;
+        by += lh + 2;
         drawText(p, "\"Contractor\", represented by", 40, by, font, fs);
         drawLine(p, 160, by + 2, 380, by + 2);
         drawText(p, contrData?.representative || "", 165, by, font, fs);
@@ -218,36 +245,37 @@ export async function generateAct123(projectId: string, choId: string) {
         drawText(p, "14", 540, by - 3, fontBold, 5.5);
 
         // WITNESSETH
-        by += lh * 1.6;
+        by += lh * 1.3;
         drawText(p, "WITNESSETH THAT:", PW / 2, by, fontBold, 10.5, true);
 
         // Line 5
-        by += lh * 1.6;
+        by += lh * 1.3;
         drawText(p, "Whereas, on", 40, by, font, fs);
         drawLine(p, 95, by + 2, 210, by + 2);
         drawText(p, formatDate(projData.date_contract_sign) || "", 105, by, font, fs);
         drawText(p, "15", 215, by - 3, fontBold, 5.5);
         drawText(p, ", the Parties entered into a contract for the construction of project", 225, by, font, fs);
 
-        // Line 6
-        by += lh + 4;
+        // Line 6 (NAME WRAP)
+        by += lh + 1;
         drawLine(p, 40, by + 2, 540, by + 2);
-        drawText(p, projData.name || "", 45, by, font, fs);
+        const nameEnd = drawWrappedText(p, projData.name || "", 45, by, 490, font, fs, 9);
         drawText(p, "16", 545, by - 3, fontBold, 5.5);
         drawText(p, ".", 542, by, font, fs);
+        by = Math.max(by, nameEnd); // Adjust 'by' in case of wrap
 
         // Line 7
-        by += lh + 4;
+        by += lh + 1;
         drawText(p, "Whereas, said Parties have agreed on the performance of certain change order at the above mentioned project.", 40, by, font, fs);
 
         // Line 8
-        by += lh * 1.6;
+        by += lh * 1.2;
         drawText(p, "Now, therefore, the Parties hereto in consideration of the terms, covenants, agreements hereinafter contained and the", 40, by, font, fs);
-        by += lh;
+        by += lh - 3;
         drawText(p, "faithful performance thereof hereby mutually agree as follows:", 40, by, font, fs);
 
         // Line 9
-        by += lh * 1.6;
+        by += lh * 1.3;
         drawText(p, "First: That the Contractor agrees to perform the change order at the amount of", 40, by, font, fs);
         drawLine(p, 360, by + 2, 510, by + 2);
         const amtText = choData.proposed_change && parseFloat(choData.proposed_change) !== 0 ? "$" + formatCurrency(choData.proposed_change) : "$0.00";
@@ -256,7 +284,7 @@ export async function generateAct123(projectId: string, choId: string) {
         drawText(p, "and", 522, by, font, fs);
 
         // Line 10
-        by += lh + 4;
+        by += lh + 1;
         drawLine(p, 40, by + 2, 110, by + 2);
         drawText(p, (choData.time_extension_days || 0).toString(), 50, by, font, fs);
         drawText(p, "18", 120, by - 3, fontBold, 5.5);
@@ -267,7 +295,7 @@ export async function generateAct123(projectId: string, choId: string) {
         drawText(p, "to", 545, by, font, fs);
 
         // Line 11
-        by += lh + 4;
+        by += lh + 1;
         drawLine(p, 40, by + 2, 140, by + 2);
         drawText(p, formatDate(dateNewBox20) || "", 45, by, font, fs);
         drawText(p, "20", 145, by - 3, fontBold, 5.5);
@@ -282,14 +310,14 @@ export async function generateAct123(projectId: string, choId: string) {
         drawText(p, "for", 555, by, font, fs);
 
         // Line 12
-        by += lh + 4;
+        by += lh + 1;
         drawText(p, "the contract.", 40, by, font, fs);
 
         // Second
-        by += lh * 1.6;
+        by += lh * 1.3;
         drawText(p, "Second: That all documents forming part of the original contract are also a part of this supplementary contract.", 40, by, font, fs);
 
-        by += 55;
+        by += 40;
         
         // Signatures Section
         drawText(p, "The Authority", 160, by, fontBold, 10.5, true);
