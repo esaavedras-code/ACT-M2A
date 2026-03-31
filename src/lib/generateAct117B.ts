@@ -320,6 +320,36 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
             filledInPage++;
         }
 
+        // Add the "BALANCE TOTAL EN INVENTARIO (MOS):" row
+        if (allTransactions.length > 0) {
+            if (filledInPage >= rowsPerPage) {
+                const newStuff = createNewPage();
+                page = newStuff.page;
+                drawText = newStuff.drawText;
+                drawLine = newStuff.drawLine;
+                drawRect = newStuff.drawRect;
+                filledInPage = 0;
+                currentPageNum++;
+                await drawHeader(currentPageNum, totalPages);
+                drawTableOutline(0, rowsPerPage);
+            }
+
+            const rowY = ty + th + (filledInPage * rowH) + rowH / 2;
+            
+            // Labels spread across the first 4 columns
+            drawText("BALANCE", (cols[0] + cols[1]) / 2, rowY + 3.5, 8, true, true);
+            drawText("TOTAL EN", (cols[1] + cols[2]) / 2, rowY + 3.5, 7.5, true, true);
+            drawText("INVENTARIO", (cols[2] + cols[3]) / 2, rowY + 3.5, 8, true, true);
+            drawText("(MOS):", cols[4] - 5, rowY + 3.5, 8, true, false, true);
+
+            // Final Balances in Cols 5 and 6
+            const isZeroQty = Math.abs(cumulativeQty) < 0.0001;
+            drawText(fmt(cumulativeQty), cols[5] - 5, rowY + 3.5, isZeroQty ? 9 : 8, true, false, true);
+            drawText(fmt(cumulativeAmount), cols[6] - 5, rowY + 3.5, isZeroQty ? 9 : 8, true, false, true);
+            
+            filledInPage++;
+        }
+
         // Bottom Summary on the LAST page
         const by = ty + th + (rowsPerPage * rowH) + 25;
         drawText(`23. Amount to Pay/Deduct for Item#`, 40, by, 10, true);
