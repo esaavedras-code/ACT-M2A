@@ -163,7 +163,7 @@ export const createPdfBlob = async (
     centerText('Sistema de Control de Proyectos', timesRomanFont, 10, y);
     y -= 15;
     if (projectInfo) {
-        centerText(`Proyecto: ${projectInfo.name || 'N/A'} - AC: ${projectInfo.num_act || 'N/A'}`, timesRomanBoldFont, 10, y);
+        centerText(`Proyecto: ${projectInfo.name || 'N/A'} - ${projectInfo.num_act || 'N/A'}`, timesRomanBoldFont, 10, y);
         y -= 22;
     }
     centerText(title, timesRomanBoldFont, 14, y);
@@ -219,14 +219,19 @@ export const createPdfBlob = async (
             }
 
             const width = colWidths[idx] || 50;
-            const useBold = isHeader || isPartida || text.trim().endsWith(':') ||
-                text === 'Rol / Puesto' || text === 'Nombre' || text === 'Contacto' || text === 'Oficina' || text === 'Celular' || text === 'Email';
+            const textStr = text.trim();
+            const isSubtitle = /^\d+\.\s[A-ZÁÉÍÓÚÑ]/.test(textStr);
+            const isItemNum = !isHeader && idx === 0 && row[0] && /^\d+([-(A-Z]|$)/.test(textStr);
+            const useBold = isHeader || isPartida || isSubtitle || isItemNum || textStr.endsWith(':') ||
+                textStr === 'Rol / Puesto' || textStr === 'Nombre' || textStr === 'Contacto' || textStr === 'Oficina' || textStr === 'Celular' || textStr === 'Email';
             const cellFont = useBold ? timesRomanBoldFont : timesRomanFont;
+            const displayFontSize = (isSubtitle || isItemNum) ? fontSize + 1 : fontSize;
             return {
-                lines: splitTextIntoLines(text.trim() === '' ? '' : text, width, cellFont, fontSize),
+                lines: splitTextIntoLines(textStr === '' ? '' : text, width, cellFont, displayFontSize),
                 font: cellFont,
                 useBold,
-                isRed
+                isRed,
+                displayFontSize
             };
         });
 
@@ -330,15 +335,16 @@ export const createPdfBlob = async (
                     const isMatch = rgx.test(part);
                     rgx.lastIndex = 0; // reset
                     const currentFont = isMatch && !isHeader ? timesRomanBoldFont : cellData.font;
+                    const finalFontSize = (cellData as any).displayFontSize || fontSize;
                     
                     page.drawText(part, {
                         x: currentTextX,
                         y: y - (lineIdx + 1) * lineHeight - 5,
-                        size: fontSize,
+                        size: finalFontSize,
                         font: currentFont,
                         color: textColor,
                     });
-                    currentTextX += currentFont.widthOfTextAtSize(part, fontSize);
+                    currentTextX += currentFont.widthOfTextAtSize(part, finalFontSize);
                 });
             });
 
@@ -426,7 +432,7 @@ export const createExcelBlob = async (
     // Combine title and data for better excel layout
     const excelData = [
         [title],
-        [projectInfo ? `Proyecto: ${projectInfo.name} - ACT: ${projectInfo.num_act}` : ""],
+        [projectInfo ? `Proyecto: ${projectInfo.name} - ${projectInfo.num_act}` : ""],
         ...dateHeader,
         [],
         ...data
@@ -594,7 +600,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
             b.origQty.toFixed(4),
             b.choQty.toFixed(4),
             b.totalQty.toFixed(4),
-            b.certQty.toFixed(4),
+            (-b.certQty).toFixed(4),
             b.balance.toFixed(4)
         ])
     ];
@@ -672,7 +678,8 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
             if (i) {
                 const certQty = parseFloat(i.quantity) || 0;
                 currentBalance -= certQty;
-                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, certQty.toFixed(4), unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), formatCurrency(roundedAmt(certQty * uPrice, 2))]);
+                const amt = roundedAmt(certQty * uPrice, 2);
+                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, (-certQty).toFixed(4), unit || '', currentBalance.toFixed(4), formatCurrency(uPrice), `-${formatCurrency(amt)}`]);
             }
         });
         reportData.push(['', '', '', '', '', '', '', '']);
@@ -1019,7 +1026,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
 
     const reportData: any[][] = [
         ['SECCIÓN / CAMPO', 'INFORMACIÓN', '', ''],
-        ['1. RESUMEN DE TIEMPO', `(Reporte al: ${endDate || 'Hoy'})`, '', ''],
+        ['1. RESUMEN DE TIEMPO', '', '', ''],
         ['Fecha de Comienzo:', formatDate(proj.date_project_start), 'Term. Original:', formatDate(proj.date_orig_completion)],
         ['Term. Revisada:', formatDate(proj.date_rev_completion), 'Term. Sustancial:', formatDate(proj.date_substantial_completion)],
         ['FMIS End Date:', formatDate(proj.fmis_end_date), '', ''],
