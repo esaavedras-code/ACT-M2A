@@ -223,8 +223,9 @@ function createWindow() {
 
             if (image) {
                 const imagesArray = Array.isArray(image) ? image : [image];
+                const limitedImages = imagesArray.slice(0, 5);
                 const contentArray = [{ type: "text", text: `Instrucción del usuario: "${prompt}"` }];
-                imagesArray.forEach((imgBase64) => {
+                limitedImages.forEach((imgBase64) => {
                     contentArray.push({
                         type: "image_url",
                         image_url: { url: imgBase64.startsWith('data:') ? imgBase64 : `data:image/jpeg;base64,${imgBase64}` }

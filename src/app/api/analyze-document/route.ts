@@ -15,12 +15,13 @@ export async function POST(req: Request) {
         if (image) {
             // Soporte para visión con Groq (Llama 3.2 Vision)
             const imagesArray = Array.isArray(image) ? image : [image];
+            const limitedImages = imagesArray.slice(0, 5);
             
             const contentArray: any[] = [
                 { type: "text", text: `Instrucción del usuario: "${prompt}"` }
             ];
             
-            imagesArray.forEach((imgBase64) => {
+            limitedImages.forEach((imgBase64) => {
                 contentArray.push({
                     type: "image_url",
                     image_url: { url: imgBase64.startsWith('data:') ? imgBase64 : `data:image/jpeg;base64,${imgBase64}` }

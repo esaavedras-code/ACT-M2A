@@ -687,7 +687,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                     const payload = { 
                                                                         text: fullExtractedText, 
                                                                         prompt: aiPrompt,
-                                                                        image: allImages.length > 0 ? allImages : undefined
+                                                                        image: allImages.length > 0 ? allImages.slice(0, 5) : undefined
                                                                     };
                                                                     
                                                                     if (win.electronAPI?.analyzeDocument) {
