@@ -249,7 +249,6 @@ function ProjectDetailContent() {
 
             <div className="flex flex-col lg:flex-row gap-8 items-start relative">
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
-                {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
                 <div className="lg:fixed lg:top-[256px] lg:left-[max(0.5rem,calc(50%-888px))] z-[40] w-full lg:w-[280px] shrink-0 transition-all duration-300">
                     <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2.5 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-5 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] dark:shadow-none max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
                         {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
