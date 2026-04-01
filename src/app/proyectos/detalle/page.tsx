@@ -189,7 +189,7 @@ function ProjectDetailContent() {
     );
 
     return (
-        <div className="py-2 space-y-4 animate-in fade-in duration-500">
+        <div className="py-2 animate-in fade-in duration-500">
             {/* Modal: Datos sin guardar */}
             {dirtyDialog.show && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -230,73 +230,79 @@ function ProjectDetailContent() {
                     </div>
                 </div>
             )}
-            {/* Encabezado del proyecto y pestañas (Sticky) */}
-            <div className="sticky top-16 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 pt-2 pb-4 -mx-4 px-4 shadow-sm backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <Link href="/proyectos" className="p-2.5 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100 group bg-slate-100 dark:bg-slate-800">
-                            <ChevronLeft size={24} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
-                        </Link>
-                        <div>
-                            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase line-clamp-1">{projectName || "Nuevo Proyecto"}</h1>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">ACT: {numAct || "N/A"}</span>
-                                <span className="text-[10px] font-black bg-slate-100 text-slate-400 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">{role === 'A' ? 'Administrador' : 'Colaborador'}</span>
-                            </div>
+
+            {/* Encabezado Superior (Proyecto y Botón Atrás) */}
+            <div className="sticky top-0 z-50 bg-[#F8FAFC]/80 dark:bg-[#020617]/80 backdrop-blur-md pt-4 pb-4 border-b border-slate-200 dark:border-slate-800 mb-6 px-4 -mx-4">
+                <div className="flex items-center gap-4">
+                    <Link href="/proyectos" className="p-2.5 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100 group bg-slate-100 dark:bg-slate-800">
+                        <ChevronLeft size={24} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
+                    </Link>
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase line-clamp-1">{projectName || "Nuevo Proyecto"}</h1>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">ACT: {numAct || "N/A"}</span>
+                            <span className="text-[10px] font-black bg-slate-100 text-slate-400 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">{role === 'A' ? 'Administrador' : 'Colaborador'}</span>
                         </div>
                     </div>
                 </div>
-
-                {/* Pestañas pequeñas con flex-wrap para que no requieran scroll */}
-                <div className="flex flex-wrap gap-1.5">
-                    {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => handleTabChange(tab.id)}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl font-black text-[9px] uppercase tracking-[0.1em] transition-all whitespace-nowrap active:scale-95 ${
-                                activeTab === tab.id 
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 ring-1 ring-blue-600 ring-offset-1' 
-                                : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50/50'
-                            }`}
-                        >
-                            <span className={activeTab === tab.id ? 'text-white' : 'text-blue-400'}>{tab.icon}</span>
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] p-4 md:p-8 shadow-2xl shadow-blue-900/5 border border-white relative w-full">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
-                <div className="relative z-10">
-                    <div className="mb-6 px-4 py-2 border-l-4 border-blue-500 bg-blue-50/50 rounded-r shadow-sm flex items-center gap-2">
-                        <Info size={16} className="text-blue-600 shrink-0" />
-                        <span className="text-xs font-semibold text-blue-800">{getReportNote(activeTab)}</span>
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+                {/* Botones de Navegación Lateral (Flotantes) */}
+                <div className="lg:sticky lg:top-24 z-40 w-full lg:w-[260px] shrink-0">
+                    <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2 bg-slate-50/50 dark:bg-slate-900/50 p-3 rounded-[2rem] border border-slate-100 dark:border-slate-800 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
+                        {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => handleTabChange(tab.id)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.1em] transition-all whitespace-nowrap lg:whitespace-normal text-left active:scale-95 group ${
+                                    activeTab === tab.id 
+                                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/25 ring-1 ring-blue-600 ring-offset-1' 
+                                    : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-300 hover:text-blue-500 hover:bg-white shadow-sm'
+                                }`}
+                            >
+                                <span className={`shrink-0 ${activeTab === tab.id ? 'text-white' : 'text-blue-400 group-hover:scale-110 transition-transform'}`}>{tab.icon}</span>
+                                <span className="line-clamp-2">{tab.label}</span>
+                            </button>
+                        ))}
                     </div>
+                </div>
 
-                    <Suspense fallback={<div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-blue-500" size={32} /><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preparando sección...</span></div>}>
-                        {activeTab === "dashboard"   && <SummaryDashboard projectId={id} />}
-                        {activeTab === "project"     && (
-                            <div className="space-y-8">
-                                <ProjectForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
-                                <ContractorForm projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                {/* Área de Contenido Principal */}
+                <div className="flex-1 w-full min-w-0">
+                    <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-4 md:p-10 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+                        <div className="relative z-10">
+                            <div className="mb-8 px-6 py-3 border-l-4 border-blue-500 bg-blue-50/30 dark:bg-blue-900/10 rounded-r shadow-sm flex items-center gap-3">
+                                <Info size={18} className="text-blue-600 shrink-0" />
+                                <span className="text-xs font-bold text-blue-800 dark:text-blue-300 leading-relaxed">{getReportNote(activeTab)}</span>
                             </div>
-                        )}
-                        {activeTab === "personnel"   && <PersonnelForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "items"       && <ItemsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "materials"   && <MaterialsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "compliance"  && <ComplianceForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "cho"         && <CHOForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "payment"     && <PaymentCertForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "mfg"         && <MfgCertForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "minutes"     && <MinutesForm projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "logs"        && <DailyLogForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "inspection"  && <InspectionForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "force"       && <ForceAccountForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "liquidation" && <LiquidationForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "ccml"        && <CCMLModificationsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                        {activeTab === "files"       && <ProjectFilesExplorer projectId={id} />}
-                    </Suspense>
+
+                            <Suspense fallback={<div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-blue-500" size={32} /><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preparando sección...</span></div>}>
+                                {activeTab === "dashboard"   && <SummaryDashboard projectId={id} />}
+                                {activeTab === "project"     && (
+                                    <div className="space-y-12">
+                                        <ProjectForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                                        <ContractorForm projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                                    </div>
+                                )}
+                                {activeTab === "personnel"   && <PersonnelForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "items"       && <ItemsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "materials"   && <MaterialsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "compliance"  && <ComplianceForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "cho"         && <CHOForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "payment"     && <PaymentCertForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "mfg"         && <MfgCertForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "minutes"     && <MinutesForm projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "logs"        && <DailyLogForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "inspection"  && <InspectionForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "force"       && <ForceAccountForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "liquidation" && <LiquidationForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "ccml"        && <CCMLModificationsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "files"       && <ProjectFilesExplorer projectId={id} />}
+                            </Suspense>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
