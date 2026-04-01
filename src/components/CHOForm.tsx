@@ -496,6 +496,8 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 <th className="py-1 px-0.5 w-24 text-right">Amount</th>
                                                 <th className="py-1 px-0.5 w-40">Fondos</th>
                                                 <th className="py-1 px-0.5 w-10 text-center" style={{ backgroundColor: '#66FF99' }}>CM</th>
+                                                <th className="py-1 px-0.5 w-16 text-center">Cant. CM</th>
+                                                <th className="py-1 px-0.5 min-w-[150px]">Descr. CM</th>
                                                 <th className="py-1 px-0.5 w-8"></th>
                                             </tr>
                                         </thead>
@@ -546,6 +548,31 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         )}
                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-center">
+                                                        {(item.requires_mfg_cert && (item.unit === 'LS' || item.unit === 'LUMP SUM' || item.unit === 'LUMP-SUM')) && (
+                                                            <input 
+                                                                type="number" 
+                                                                className="input-field text-[10px] text-center font-bold h-7 !p-1 border-amber-300"
+                                                                style={{ backgroundColor: '#FFFBEB' }}
+                                                                value={item.mfg_cert_qty ?? 1}
+                                                                onChange={(e) => updateCHOItem(idx, itIdx, 'mfg_cert_qty', parseInt(e.target.value) || 1)}
+                                                                title="Cantidad de Certificados de Manufactura Requeridos"
+                                                            />
+                                                        )}
+                                                    </td>
+                                                    <td className="py-0.5 px-0.5">
+                                                        {(item.requires_mfg_cert && (item.unit === 'LS' || item.unit === 'LUMP SUM' || item.unit === 'LUMP-SUM')) && (
+                                                            <input 
+                                                                type="text" 
+                                                                className="input-field text-[10px] h-7 !p-1 border-amber-300"
+                                                                style={{ backgroundColor: '#FFFBEB' }}
+                                                                value={item.mfg_cert_description ?? ""}
+                                                                onChange={(e) => updateCHOItem(idx, itIdx, 'mfg_cert_description', e.target.value)}
+                                                                placeholder="Describa el certificado requerido..."
+                                                                title="Descripción de lo que necesita el certificado de manufactura"
+                                                            />
+                                                        )}
+                                                    </td>
+                                                    <td className="py-0.5 px-0.5 text-center">
                                                         <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500">
                                                             <Trash2 size={12} />
                                                         </button>
@@ -553,7 +580,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 </tr>
                                             ))}
                                             <tr>
-                                                <td colSpan={10} className="py-2">
+                                                <td colSpan={12} className="py-2">
                                                     <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
                                                         <Plus size={14} /> Añadir item
                                                     </button>

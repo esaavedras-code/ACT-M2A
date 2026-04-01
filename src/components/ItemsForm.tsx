@@ -432,10 +432,11 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 <React.Fragment key={idx}>
                                     <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                                         <td className="px-1 py-1.5">
-                                            <input
+                                            <div className="relative group flex justify-center">
+                                                <input
                                                 type="text"
                                                 maxLength={3}
-                                                className="input-field text-xs text-center font-bold h-8 !py-1"
+                                                className={`input-field text-xs text-center font-bold h-8 !py-1 transition-all ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
                                                 style={{ backgroundColor: '#66FF99' }}
                                                 value={item.item_num || ""}
                                                 onChange={(e) => updateItem(idx, 'item_num', e.target.value)}
@@ -445,7 +446,13 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                         updateItem(idx, 'item_num', val.padStart(3, '0'));
                                                     }
                                                 }}
-                                            />
+                                                />
+                                                {parseFloat(item.quantity) === 0 && choQty > 0 && (
+                                                    <span className="absolute -top-2 -right-1 px-1 py-0.5 bg-blue-600 text-white text-[7px] font-black rounded shadow-sm animate-pulse whitespace-nowrap z-10 border border-white leading-none">
+                                                        CHO
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <input type="text" className="input-field text-xs text-center h-8 !py-1" value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
