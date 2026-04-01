@@ -194,7 +194,7 @@ export const createPdfBlob = async (
                         cutDate.getMonth() === today.getMonth() && 
                         cutDate.getDate() === today.getDate();
         
-        if (!isToday && !title.includes('INFORMACIÓN PRINCIPAL')) {
+        if (cutOffDate) {
             centerText(`Fecha de Corte de Información: ${utilsFormatDate(cutDate)}`, timesRomanFont, 9, y);
             y -= 12;
         }
@@ -458,7 +458,7 @@ export const createExcelBlob = async (
         [`Fecha de Impresión: ${todayStr}`]
     ];
 
-    if (cutStr && cutStr !== todayStr) {
+    if (cutStr) {
         dateHeader.push([`Fecha de Corte: ${cutStr}`]);
     }
 
