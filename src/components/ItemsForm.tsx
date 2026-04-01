@@ -243,7 +243,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 <div className="space-y-1">
                     <h2 className="text-2xl font-bold flex items-center gap-2 font-geist tracking-tight">
                         <ListChecks className="text-primary" />
-                        3. Partidas del Contrato (Plan Original)
+                        Todas las partidas
                     </h2>
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total del Contrato (Revisado):</span>
@@ -383,7 +383,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             <th className="px-1 py-2 min-w-[80px] text-right">Cant. Orig.</th>
                             <th className="px-1 py-2 min-w-[80px] text-right text-blue-600">Cant. CHO</th>
                             <th className="px-1 py-2 min-w-[80px] text-right font-black">Cant. Total</th>
-                            <th className="px-1 py-2 min-w-[80px] text-center">Unid.</th>
+                            <th className="px-1 py-2 min-w-[80px] text-center" style={{fontSize:'9px'}}>Unid.</th>
                             <th className="px-1 py-2 min-w-[96px] text-right">U.P. ($)</th>
                             <th className="px-1 py-2 min-w-[120px] text-right">Amount Final ($)</th>
                             <th className="px-1 py-2 min-w-[110px] text-center">Fondos</th>
@@ -437,7 +437,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                 type="text"
                                                 maxLength={3}
                                                 className={`input-field text-xs text-center font-bold h-8 !py-1 transition-all ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
-                                                style={{ backgroundColor: '#66FF99' }}
+                                                style={{ backgroundColor: 'white' }}
                                                 value={item.item_num || ""}
                                                 onChange={(e) => updateItem(idx, 'item_num', e.target.value)}
                                                 onBlur={(e) => {
@@ -455,16 +455,16 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="text" className="input-field text-xs text-center h-8 !py-1" value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
+                                            <input type="text" className="input-field text-xs text-center h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <div className="space-y-1">
-                                                <input type="text" className="input-field text-xs h-8 !py-1" value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
-                                                <input type="text" className="input-field text-[10px] h-6 !py-0.5 opacity-70" style={{ backgroundColor: '#66FF99' }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                <input type="text" className="input-field text-xs h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
+                                                <input type="text" className="input-field text-[10px] h-6 !py-0.5 opacity-70" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="number" className="input-field text-xs text-right h-8 !py-1" style={{ backgroundColor: '#66FF99' }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
+                                            <input type="number" className="input-field text-xs text-right h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
                                         </td>
                                         <td className="px-1 py-1.5 text-right text-xs font-bold text-blue-600 pr-4">
                                             {choQty !== 0 ? formatNumber(choQty) : "-"}
@@ -473,14 +473,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             {formatNumber(totalQty)}
                                         </td>
                                         <td className="px-1 py-1.5 text-center">
-                                            <input type="text" className="input-field text-xs uppercase h-8 !py-1 text-center px-1" value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
+                                            <input type="text" className="input-field uppercase h-8 !py-1 text-center px-1" style={{ fontSize: '9px', backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <input 
                                                 type="number" 
                                                 step="0.0001" 
                                                 className="input-field text-xs text-right font-medium h-8 !py-1" 
-                                                style={{ backgroundColor: '#66FF99' }} 
+                                                style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} 
                                                 list={`prices-${idx}`}
                                                 value={isNaN(item.unit_price) ? "" : item.unit_price} 
                                                 onChange={(e) => updateItem(idx, 'unit_price', e.target.value === "" ? 0 : parseFloat(e.target.value))} 
@@ -497,7 +497,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                         <td className="px-1 py-1.5">
                                             <select
                                                 className="input-field text-[10px] font-bold h-8 !py-1"
-                                                style={{ backgroundColor: '#66FF99' }}
+                                                style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }}
                                                 value={item.fund_source || ""}
                                                 onChange={(e) => updateItem(idx, 'fund_source', e.target.value)}
                                                 onKeyDown={(e) => {
@@ -516,7 +516,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                     ? 'bg-amber-500 border-amber-500 text-white'
                                                     : 'border-slate-300 hover:border-amber-400'
                                                     }`}
-                                                style={!item.requires_mfg_cert ? { backgroundColor: '#66FF99' } : {}}
+                                                style={!item.requires_mfg_cert ? { backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' } : {}}
                                             >
                                                 <input
                                                     type="checkbox"

@@ -46,22 +46,22 @@ function ProjectDetailContent() {
     //        → Cumplimiento → Change Orders → Pagos → Cert CM → Minutas → Actividades
     //        → Inspección → Force Account → Liquidación
     const tabs = [
-        { id: "dashboard",   label: "0. Resumen",        icon: <LayoutDashboard size={12} /> },
+        { id: "dashboard",   label: "Resumen",        icon: <LayoutDashboard size={12} /> },
         ...(role !== 'E' ? [{ id: "files",       label: "📁 Archivos",        icon: <FolderOpen size={12} /> }] : []),
-        { id: "project",     label: "1. Datos Proyecto",       icon: <FileText size={12} /> },
-        { id: "personnel",   label: "2. Firmas ACT",     icon: <Users size={12} /> },
-        { id: "items",       label: "3. Partidas contrato",  icon: <ListChecks size={12} /> },
-        { id: "materials",   label: "4. Mat. on Site",   icon: <PackageSearch size={12} /> },
-        { id: "compliance",  label: "5. Cumplimiento",   icon: <ShieldCheck size={12} /> },
-        { id: "cho",         label: "6. Change Orders",  icon: <FileEdit size={12} /> },
-        { id: "payment",     label: "7. Pagos",          icon: <FileCheck size={12} /> },
-        { id: "mfg",         label: "8. Cert. CM",       icon: <Factory size={12} /> },
-        { id: "minutes",     label: "9. Minutas",        icon: <Mic size={12} /> },
-        { id: "logs",        label: "10. Actividades",   icon: <Cloud size={12} /> },
-        { id: "inspection",  label: "11. Inspección",    icon: <FileCheck size={12} /> },
-        { id: "force",       label: "12. Force Account", icon: <Calculator size={12} /> },
-        { id: "liquidation", label: "13. Liquidación",   icon: <TrendingUp size={12} /> },
-        { id: "ccml",        label: "14. Cambios al CCML", icon: <FileEdit size={12} /> },
+        { id: "project",     label: "Datos Proyecto",       icon: <FileText size={12} /> },
+        { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
+        { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
+        { id: "materials",   label: "Mat. on Site",   icon: <PackageSearch size={12} /> },
+        { id: "compliance",  label: "Cumplimiento",   icon: <ShieldCheck size={12} /> },
+        { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
+        { id: "payment",     label: "Pagos",          icon: <FileCheck size={12} /> },
+        { id: "mfg",         label: "Cert. CM",       icon: <Factory size={12} /> },
+        { id: "minutes",     label: "Minutas",        icon: <Mic size={12} /> },
+        { id: "logs",        label: "Actividades",   icon: <Cloud size={12} /> },
+        { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} /> },
+        { id: "force",       label: "Force Account", icon: <Calculator size={12} /> },
+        { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
+        { id: "ccml",        label: "Cambios al CCML", icon: <FileEdit size={12} /> },
     ];
 
     const handleTabChange = (newTab: string) => {
@@ -249,7 +249,7 @@ function ProjectDetailContent() {
 
             <div className="flex flex-col lg:flex-row gap-8 items-start relative">
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
-                <div className="lg:fixed lg:top-[179px] lg:left-[max(0.5rem,calc(50%-936px))] z-[40] w-full lg:w-[280px] shrink-0 transition-all duration-300">
+                <div className="lg:fixed lg:top-[131px] lg:left-[max(0.5rem,calc(50%-936px))] z-[40] w-full lg:w-[280px] shrink-0 transition-all duration-300">
                     <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2.5 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-5 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] dark:shadow-none max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
                         {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
                             <button

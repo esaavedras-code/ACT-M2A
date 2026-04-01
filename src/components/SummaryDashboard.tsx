@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Clock, DollarSign, PieChart, Activity, AlertCircle, Layers, ShieldAlert } from "lucide-react";
-import { formatCurrency, roundedAmt, formatDate } from "@/lib/utils";
+import { formatCurrency, roundedAmt, formatDate, formatNumber } from "@/lib/utils";
 
 export default function SummaryDashboard({ projectId, numAct }: { projectId?: string, numAct?: string }) {
     const [metrics, setMetrics] = useState({
@@ -404,10 +404,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <MetricRow label="Terminación Administrativa" value={metrics.dates.administrative} color="text-amber-800 font-bold" />
                         <MetricRow label="FMIS End Date" value={metrics.dates.fmis} color="text-emerald-700" />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Tiempo Contrato" value={`${metrics.time.total} días`} />
-                        <MetricRow label="Tiempo Revisado" value={`${metrics.time.revised} días`} />
-                        <MetricRow label="Tiempo Usado" value={`${metrics.time.used} días`} />
-                        <MetricRow label="Balance de Tiempo" value={`${metrics.time.balance} días`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} />
+                        <MetricRow label="Tiempo Contrato" value={`${formatNumber(metrics.time.total)} días`} />
+                        <MetricRow label="Tiempo Revisado" value={`${formatNumber(metrics.time.revised)} días`} />
+                        <MetricRow label="Tiempo Usado" value={`${formatNumber(metrics.time.used)} días`} />
+                        <MetricRow label="Balance de Tiempo" value={`${formatNumber(metrics.time.balance)} días`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} />
                         <div className="pt-2">
                             <div className="flex justify-between text-xs mb-1 font-bold text-slate-800 dark:text-slate-200">
                                 <span>Progreso de Tiempo</span>
@@ -461,15 +461,15 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <div className="flex justify-between items-center py-1">
                             <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase">Total Partidas</span>
                             <div className="bg-white dark:bg-slate-800 border border-slate-400 dark:border-slate-600 px-3 py-1 rounded shadow-inner font-mono font-black text-slate-900 dark:text-slate-100 italic">
-                                {metrics.liquidation.totalItems}
+                                {formatNumber(metrics.liquidation.totalItems)}
                             </div>
                         </div>
                         <div className="mt-2 space-y-1">
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Firmadas por:</span>
                             <div className="pl-2 space-y-1">
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span><span className="font-mono text-sm font-bold">{metrics.liquidation.adminSigned}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span><span className="font-mono text-sm font-bold">{metrics.liquidation.contractorSigned}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span><span className="font-mono text-sm font-bold">{metrics.liquidation.liquidatorSigned}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.adminSigned)}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.contractorSigned)}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.liquidatorSigned)}</span></div>
                             </div>
                         </div>
                         <hr className="my-3 border-slate-200 dark:border-slate-800" />

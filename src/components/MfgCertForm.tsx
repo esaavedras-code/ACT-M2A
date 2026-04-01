@@ -459,7 +459,12 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     <div className="mt-3 space-y-2 p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/20">
                                         <p className="text-[8px] font-black text-emerald-600 uppercase mb-2">Cantidades por Partida:</p>
                                         <div className="grid grid-cols-1 gap-2">
-                                            {c.item_ids.map((itemId: string) => {
+                                            {([...(c.item_ids || [])]).sort((a, b) => {
+                                                const itemA = contractItems.find(it => it.id === a);
+                                                const itemB = contractItems.find(it => it.id === b);
+                                                if (!itemA || !itemB) return 0;
+                                                return (parseInt(itemA.item_num) || 0) - (parseInt(itemB.item_num) || 0);
+                                            }).map((itemId: string) => {
                                                 const item = contractItems.find(it => it.id === itemId);
                                                 if (!item) return null;
                                                 return (

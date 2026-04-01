@@ -229,11 +229,11 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                             <tr key={idx}>
                                 {/* Unit name */}
                                 <td className="border p-0.5">
-                                    <input type="text" className="w-full bg-transparent border-none p-0.5" value={row.unit_name} onChange={(e) => handleChange(idx, 'unit_name', e.target.value)} />
+                                    <input type="text" className="w-full bg-transparent border-none p-0.5 min-w-[120px]" value={row.unit_name} onChange={(e) => handleChange(idx, 'unit_name', e.target.value)} />
                                 </td>
                                 {/* Fed Share % */}
                                 <td className="border p-0.5" style={{ backgroundColor: '#66FF99' }}>
-                                    <input type="number" className="w-full bg-transparent border-none p-0.5 text-right" value={row.federal_share_pct} onChange={(e) => handleChange(idx, 'federal_share_pct', parseFloat(e.target.value))} />
+                                    <input type="number" className="w-full bg-transparent border-none p-0.5 text-right min-w-[100px]" value={row.federal_share_pct} onChange={(e) => handleChange(idx, 'federal_share_pct', parseFloat(e.target.value))} />
                                 </td>
                                 {/* Celdas monetarias */}
                                 <MoneyCell fieldKey={`participating_${idx}`} rowIdx={idx} field="participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} />

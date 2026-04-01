@@ -325,7 +325,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                                     <input
                                                         type="date"
                                                         className="input-field text-[10px] min-h-[30px] !py-0.5 w-full text-center"
-                                                        value={p.active_from || ""}
+                                                        value={p.active_from || (!p.active_to && projectStartDate) || ""}
                                                         onChange={(e) => updateItem(idx, 'active_from', e.target.value)}
                                                     />
                                                 </div>

@@ -179,13 +179,13 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     };
 
     const saveData = async (silent = false) => {
-        // Validar formato del número de proyecto (AC-XXXXXX o AC-XXXXXXX, opcionalmente con letra)
-        // Ampliamos a 4-10 dígitos para ser más flexibles y consistentes con la DB
-        const numActRegex = /^AC-[0-9]{4,10}[A-Z]?$/;
+        // Validar formato del número de proyecto (AC-XXXXXX o similares)
+        // Ampliamos para ser más flexibles con proyectos existentes
+        const numActRegex = /^(AC-|ACT-)[0-9A-Z]{2,12}[A-Z]?$|^[0-9A-Z-]{4,15}$/i;
         const currentNumAct = (formData.num_act || "").trim();
         
-        if (!numActRegex.test(currentNumAct)) {
-            if (!silent) alert("El número de proyecto estatal debe tener el formato AC-XXXXXX o similar (4 a 10 dígitos después del prefijo AC-, opcionalmente seguido de una letra).");
+        if (!currentNumAct || currentNumAct.length < 3) {
+            if (!silent) alert("El número de proyecto estatal no puede estar vacío.");
             setLoading(false);
             return;
         }
@@ -246,6 +246,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 date_real_completion: formData.date_real_completion || null,
                 date_substantial_completion: formData.date_substantial_completion || null,
                 date_final_inspection: formData.date_final_inspection || null,
+                date_admin_term: terminacionAdministrativa || null,
                 fmis_end_date: formData.fmis_end_date || null,
                 created_by_email: formData.created_by_email || null,
                 reached_substantial_completion: formData.reached_substantial_completion,
@@ -269,10 +270,10 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 result = { data, error };
                 
                 if (error) {
-                    console.error("Supabase update error:", error);
-                    alert("Error al actualizar proyecto: " + error.message);
+                    console.error("Supabase update error detail:", error);
+                    // El error se mostrará más abajo, evitar doble alert
                 } else {
-                    console.log("Project update successful:", data);
+                    console.log("Project update successful. Data returned:", data);
                 }
                 
                 // Guardar también la sección de fondos si existe
@@ -483,7 +484,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         <FileText className="text-primary" size={24} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 1</span>
+                        <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Información General</span>
                         <span>Información del Proyecto</span>
                     </div>
                 </h2>
@@ -547,7 +548,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             </div>
                             <div className="flex flex-col">
                                 <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
-                                    1. Documentación Crítica del Proyecto
+                                    Documentación Crítica del Proyecto
                                 </h3>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold italic opacity-70">Asocie los documentos legales y contractuales base para el control del proyecto.</p>
                             </div>
@@ -1173,7 +1174,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
 
 
                 <div className="md:col-span-2 lg:col-span-3 mt-4">
-                    <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4">Fechas Relevantes</h3>
+                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4">Fechas Relevantes</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hoy (Automática)</label>
@@ -1254,7 +1255,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider text-[10px] xl:text-xs">
-                                Terminación Administrativa (730 días)
+                                Termin. Administrativa (+2 Años)
                             </label>
                             <input
                                 type="date"
@@ -1377,114 +1378,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         </div>
                     </div>
 
-                    <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 border-b pb-2 mb-4 mt-6">Personal del Proyecto</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Project Manager</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.project_manager_name || ""}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setFormData(prev => ({ ...prev, project_manager_name: val }));
-                                    if (onDirty) onDirty();
-                                }}
-                                placeholder="Nombre completo..."
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Administrador de Proy.</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.admin_name || ""}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setFormData(prev => ({ ...prev, admin_name: val }));
-                                    if (onDirty) onDirty();
-                                }}
-                                placeholder="Nombre completo..."
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contratista</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.contractor_name || ""}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setFormData(prev => ({ ...prev, contractor_name: val }));
-                                    if (onDirty) onDirty();
-                                }}
-                                placeholder="Nombre de la empresa..."
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Oficial Liquidador</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.liquidador_name || ""}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setFormData(prev => ({ ...prev, liquidador_name: val }));
-                                    if (onDirty) onDirty();
-                                }}
-                                placeholder="Nombre completo..."
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Regional Director</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.regional_director || ""}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setFormData(prev => ({ ...prev, regional_director: val }));
-                                    if (onDirty) onDirty();
-                                }}
-                                placeholder="Director Regional..."
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chief Project Control</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.chief_project_control || ""}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setFormData(prev => ({ ...prev, chief_project_control: val }));
-                                    if (onDirty) onDirty();
-                                }}
-                                placeholder="Chief Project Control Division..."
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dir. Construcción</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                style={{ backgroundColor: '#66FF99' }}
-                                value={formData.dir_construction || ""}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setFormData(prev => ({ ...prev, dir_construction: val }));
-                                    if (onDirty) onDirty();
-                                }}
-                                placeholder="Director, Construction Area..."
-                            />
-                        </div>
-                    </div>
+
 
                     {projectId && (
                         <div className="mt-12 border-t pt-8">
