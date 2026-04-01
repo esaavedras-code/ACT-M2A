@@ -262,11 +262,22 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
 
             console.log("Saving project data:", dataToSave);
 
-            let result;
+            let result: any;
             if (projectId) {
-                result = await supabase.from("projects").update(dataToSave).eq("id", projectId).select();
+                console.log("Executing update for projectId:", projectId);
+                const { data, error } = await supabase.from("projects").update(dataToSave).eq("id", projectId).select();
+                result = { data, error };
+                
+                if (error) {
+                    console.error("Supabase update error:", error);
+                    alert("Error al actualizar proyecto: " + error.message);
+                } else {
+                    console.log("Project update successful:", data);
+                }
+                
                 // Guardar también la sección de fondos si existe
                 if (agreementRef.current) {
+                    console.log("Calling agreementRef.current.save()...");
                     await agreementRef.current.save();
                 }
             } else {

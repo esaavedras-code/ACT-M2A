@@ -65,7 +65,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Building2 className="text-primary" />
-                    2. Información del Contratista
+                    Información del Contratista
                 </h2>
                 {/* El botón de guardar ahora es flotante */}
             </div>

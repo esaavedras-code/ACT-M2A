@@ -94,7 +94,7 @@ const MoneyCell = ({
             <input
                 type="text"
                 suppressHydrationWarning
-                className="w-full bg-transparent border-none p-0.5 text-right min-w-[90px]"
+                className="w-full bg-transparent border-none p-0.5 text-right min-w-[120px]"
                 value={isEditing ? tempValue : formatMoney(numVal)}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
@@ -194,7 +194,7 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
     return (
         <div className="space-y-4">
             <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">2. Fondos Originales (Project Agreement)</h3>
+                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">Fondos Originales (Project Agreement)</h3>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <button type="button" onClick={addUnit} className="btn-secondary flex-1 sm:flex-none py-1.5 px-3 text-[10px] flex items-center justify-center gap-1">
                         <Plus size={14} /> Añadir Unidad

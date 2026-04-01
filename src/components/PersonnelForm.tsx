@@ -77,11 +77,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
      *  - Si no hay registros aún en la tabla, usa la fecha de inicio del proyecto
      */
     const getDefaultActiveFrom = (): string => {
-        if (personnel.length === 0 || personnel.every(p => !p.name?.trim())) {
-            // Primer registro del proyecto
-            return projectStartDate || new Date().toISOString().split('T')[0];
-        }
-        return new Date().toISOString().split('T')[0];
+        return projectStartDate || new Date().toISOString().split('T')[0];
     };
 
     const addItem = () => {
@@ -234,7 +230,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
                 <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
                     <Users className="text-primary" size={24} />
-                    <span>2. Firmas ACT</span>
+                    <span>Firmas ACT</span>
                 </h2>
                 <div className="flex gap-2 w-full sm:w-auto">
                     {/* Los botones ahora son flotantes para mayor accesibilidad */}
