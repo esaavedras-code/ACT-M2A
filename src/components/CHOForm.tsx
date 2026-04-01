@@ -127,6 +127,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
         newList[choIdx].items.push({
             item_num: "",
             is_new: false,
+            is_admin_amendment: false,
             specification: "",
             description: "",
             additional_description: "",
@@ -148,6 +149,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
         newList[choIdx].items.splice(itemIdx + 1, 0, {
             item_num: nextNum,
             is_new: false,
+            is_admin_amendment: false,
             specification: "",
             description: "",
             additional_description: "",
@@ -486,7 +488,8 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     <table className="w-full text-left border-collapse">
                                         <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                             <tr>
-                                                <th className="py-1 px-0.5 w-10 text-center">Nuevo</th>
+                                                <th className="py-1 px-0.5 w-10 text-center text-blue-600">Nuevo</th>
+                                                <th className="py-1 px-0.5 w-10 text-center text-amber-600" title="Enmienda Administrativa">Adm.</th>
                                                 <th className="py-1 px-0.5 w-16 text-center"># Item</th>
                                                 <th className="py-1 px-0.5 w-24">Espec.</th>
                                                 <th className="py-1 px-0.5 min-w-[250px]">Descripción</th>
@@ -505,34 +508,37 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                             {(cho.items || []).map((item: any, itIdx: number) => (
                                                 <tr key={itIdx}>
                                                     <td className="py-0.5 px-0.5 text-center">
-                                                        <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-primary" checked={item.is_new || false} onChange={(e) => updateCHOItem(idx, itIdx, 'is_new', e.target.checked)} />
+                                                        <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-primary" checked={item.is_new || false} onChange={(e) => updateCHOItem(idx, itIdx, 'is_new', e.target.checked)} disabled={item.is_admin_amendment} />
+                                                    </td>
+                                                    <td className="py-0.5 px-0.5 text-center">
+                                                        <input type="checkbox" className="w-4 h-4 rounded border-amber-300 text-amber-600" checked={item.is_admin_amendment || false} onChange={(e) => updateCHOItem(idx, itIdx, 'is_admin_amendment', e.target.checked)} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" maxLength={20} className="input-field text-xs text-center p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} />
+                                                        <input type="text" maxLength={20} className="input-field text-xs text-center p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" className="input-field text-xs p-1 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} />
+                                                        <input type="text" className="input-field text-xs p-1 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                         <div className="space-y-1">
-                                                            <input type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} />
-                                                            <input type="text" className="input-field text-[10px] p-1 h-6 opacity-70" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.additional_description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                            <input type="text" className="input-field text-xs p-1 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} disabled={item.is_admin_amendment} />
+                                                            <input type="text" className="input-field text-[10px] p-1 h-6 opacity-70" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.additional_description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." disabled={item.is_admin_amendment} />
                                                         </div>
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" className="input-field text-xs p-1 h-7 text-center" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} />
+                                                        <input type="text" className="input-field text-xs p-1 h-7 text-center" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" className="input-field text-xs text-right p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.quantity ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'quantity', e.target.value)} />
+                                                        <input type="text" className="input-field text-xs text-right p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.quantity ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'quantity', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="number" step="0.0001" className="input-field text-xs text-right p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.unit_price ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)} />
+                                                        <input type="number" step="0.0001" className="input-field text-xs text-right p-1 h-7" style={{ backgroundColor: '#66FF99' }} value={item.unit_price ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-right text-xs font-bold text-primary">
                                                         {formatCurrency(roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2))}
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <select className="input-field text-[10px] font-bold py-1 px-2" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.fund_source || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'fund_source', e.target.value)}>
+                                                        <select className="input-field text-[10px] font-bold py-1 px-2" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.fund_source || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'fund_source', e.target.value)} disabled={item.is_admin_amendment}>
                                                             {FUND_SOURCES.map(f => <option key={f} value={f}>{f}</option>)}
                                                         </select>
                                                     </td>
@@ -580,7 +586,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 </tr>
                                             ))}
                                             <tr>
-                                                <td colSpan={12} className="py-2">
+                                                <td colSpan={13} className="py-2">
                                                     <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
                                                         <Plus size={14} /> Añadir item
                                                     </button>
