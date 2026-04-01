@@ -475,14 +475,14 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         type="button"
                         onClick={handleDelete}
                         disabled={loading}
-                        className="ml-[3in] hidden lg:flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm hover:shadow-red-200 disabled:opacity-50 disabled:grayscale"
+                        className="ml-auto hidden lg:flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm hover:shadow-red-200 disabled:opacity-50 disabled:grayscale"
                     >
                         <Trash2 size={14} />
                         Eliminar Proyecto
                     </button>
                 )}
 
-                <div className="flex gap-3 w-full sm:w-auto lg:hidden">
+                <div className="flex gap-3 w-full sm:ml-auto sm:w-auto lg:hidden justify-end">
                     {projectId && (
                          <button
                             type="button"
