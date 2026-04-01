@@ -167,7 +167,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         if (!formData.date_rev_completion) return "";
         const revDate = new Date(formData.date_rev_completion);
         if (isNaN(revDate.getTime())) return "";
-        revDate.setFullYear(revDate.getFullYear() + 2);
+        revDate.setDate(revDate.getDate() + 730);
         return revDate.toISOString().split("T")[0];
     };
 
@@ -681,7 +681,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                                         fullExtractedText += "\n\n" + res.text;
                                                                         // Lógica básica de extracción
                                                                         const txt = res.text.replace(/\s+/g, ' ');
-                                                                        const act = txt.match(/AC-(\d{6})[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[1]; count++; }
+                                                                        const act = txt.match(/AC-\d{4,10}[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[0].toUpperCase(); count++; }
                                                                         const fed = txt.match(/(?:Federal(?: Aid)?(?:\s+Project)?(?: No| Number)?)\s*[:=]?\s*(PR-\d{4}\(\d{3}\)|PR-[A-Z0-9]+)/i); if (fed && !updated.num_federal) { updated.num_federal = fed[1]; count++; }
                                                                         const cost = txt.match(/(?:Total\s*Cost|Contract\s*Amount|Monto|Total\s*a\s*Pagar|Contract\s*Price)\s*[:=\$]*\s*\$?\s*([\d,]+\.\d{2})/i); if (cost && !updated.cost_original) { const v = parseFloat(cost[1].replace(/,/g, '')); if (!isNaN(v)) { updated.cost_original = v; count++; } }
                                                                         
@@ -1243,7 +1243,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         </div>
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider text-[10px] xl:text-xs">
-                                Termin. Administrativa (+2 Años)
+                                Terminación Administrativa (730 días)
                             </label>
                             <input
                                 type="date"

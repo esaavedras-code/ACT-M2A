@@ -79,7 +79,7 @@ export default function FloatingFormActions({ actions }: FloatingFormActionsProp
         </div>
       )}
       {bottomActions.length > 0 && (
-        <div className="fixed bottom-8 right-8 z-[60] flex flex-col gap-4 items-end pointer-events-none">
+        <div className="fixed bottom-20 right-8 z-[60] flex flex-col gap-4 items-end pointer-events-none">
           {bottomActions.map(renderAction)}
         </div>
       )}
