@@ -437,6 +437,19 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                             {DOC_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                     </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Importe Total</label>
+                                        <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex items-center px-3 h-[30px] border-emerald-500/30 text-emerald-600 min-w-[100px]">
+                                            {(() => {
+                                                const total = (cho.items || []).reduce((acc: number, item: any) => {
+                                                    const q = parseFloat(item.quantity) || 0;
+                                                    const p = parseFloat(item.unit_price) || 0;
+                                                    return roundedAmt(acc + roundedAmt(q * p, 2), 2);
+                                                }, 0);
+                                                return formatCurrency(total);
+                                            })()}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <button onClick={() => toggleExpand(cho.id)} className="bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
