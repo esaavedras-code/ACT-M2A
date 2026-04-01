@@ -269,7 +269,7 @@ function ProjectDetailContent() {
                 </div>
 
                 {/* Área de Contenido Principal */}
-                <div className="flex-1 w-full min-w-0 lg:ml-4 xl:ml-8">
+                <div className="flex-1 w-full min-w-0 lg:ml-[112px] xl:ml-[128px]">
                     <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-4 md:p-10 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
                         <div className="relative z-10">
