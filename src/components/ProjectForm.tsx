@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, FileSearch } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
@@ -75,19 +75,37 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     const [aiResponse, setAiResponse] = useState("");
     const agreementRef = useRef<{ save: () => Promise<void> }>(null);
 
+    // Memorizar funciones de carga para evitar re-ejecuciones de efectos innecesarias
+    const fetchDocuments = useCallback(async () => {
+        if (!projectId) return;
+        const { data, error } = await supabase.from("project_documents")
+            .select("*")
+            .eq("project_id", projectId);
+        if (data) setDocuments(data);
+    }, [projectId]);
+
+    const fetchProject = useCallback(async () => {
+        if (!projectId) return;
+        const { data, error } = await supabase.from("projects")
+            .select("*")
+            .eq("id", projectId)
+            .single();
+        if (data) {
+            setFormData({
+                ...data,
+                municipios: data.municipios ? data.municipios.join(", ") : "",
+                carreteras: data.carreteras ? data.carreteras.join(", ") : "",
+            });
+        }
+    }, [projectId]);
+
     useEffect(() => {
         setMounted(true);
         if (projectId) {
             fetchProject();
             fetchDocuments();
         }
-    }, [projectId]);
-
-    const fetchDocuments = async () => {
-        if (!projectId) return;
-        const { data, error } = await supabase.from("project_documents").select("*").eq("project_id", projectId);
-        if (data) setDocuments(data);
-    };
+    }, [projectId, fetchProject, fetchDocuments]);
 
     const handleFileUpload = async (file: File) => {
         if (!projectId) {
@@ -141,17 +159,6 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             alert("Error al eliminar documento: " + err.message);
         } finally {
             setUploadingDoc(false);
-        }
-    };
-
-    const fetchProject = async () => {
-        const { data, error } = await supabase.from("projects").select("*").eq("id", projectId).single();
-        if (data) {
-            setFormData({
-                ...data,
-                municipios: data.municipios ? data.municipios.join(", ") : "",
-                carreteras: data.carreteras ? data.carreteras.join(", ") : "",
-            });
         }
     };
 
@@ -519,25 +526,35 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 </div>
             )}
 
-            {/* Nueva Sección de Documentación */}
-            <div className="bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 mb-6 shadow-sm">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div className="space-y-4 flex-1 w-full">
-                        <div className="flex items-center gap-2">
-                            <Upload className="text-primary" size={20} />
-                            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Documentación Crítica del Proyecto</h3>
+            {/* Sección de Documentación Crítica - WOW Glassmorphism */}
+            <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-8 rounded-[2rem] border border-slate-200/50 dark:border-slate-800/50 mb-10 shadow-lg shadow-slate-200/20 dark:shadow-none transition-all hover:shadow-xl">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
+                    <div className="space-y-5 flex-1 w-full">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-primary/10 rounded-xl">
+                                <Upload className="text-primary" size={24} />
+                            </div>
+                            <div className="flex flex-col">
+                                <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                                    1. Documentación Crítica del Proyecto
+                                </h3>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold italic opacity-70">Asocie los documentos legales y contractuales base para el control del proyecto.</p>
+                            </div>
                         </div>
                         
-                        <div className="flex flex-col sm:flex-row items-end gap-3">
-                            <div className="space-y-1 flex-1 min-w-[240px]">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Seleccionar Tipo de Documento</label>
+                        <div className="flex flex-col sm:flex-row items-end gap-4 pt-2">
+                            <div className="space-y-1.5 flex-1 w-full max-w-md">
+                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                    Tipo de Documento
+                                </label>
                                 <select 
-                                    className="input-field py-2 h-11 text-sm bg-slate-50 dark:bg-slate-800/50 border-slate-200"
+                                    className="w-full px-4 py-3 h-12 text-sm font-bold bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer shadow-sm"
                                     value={selectedDocType}
                                     onChange={(e) => setSelectedDocType(e.target.value)}
                                     disabled={!projectId || uploadingDoc}
                                 >
-                                    {DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                    {DOC_TYPES.map(t => <option key={t} value={t} className="font-bold">{t}</option>)}
                                 </select>
                             </div>
                             <label className={`btn-primary py-2.5 px-6 text-sm flex items-center justify-center gap-2 cursor-pointer h-11 transition-all ${(!projectId || uploadingDoc) ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-[1.02] active:scale-[0.98]'}`}>

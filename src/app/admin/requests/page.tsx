@@ -720,8 +720,7 @@ export default function AdminRequestsPage() {
             )}
 
             {viewMode === 'requests' ? (
-                <>
-                    <AccessRequestLegend />
+                <div className="space-y-6">
                     <div className="card overflow-hidden border-none shadow-2xl shadow-slate-200 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem]">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
@@ -873,7 +872,7 @@ export default function AdminRequestsPage() {
                             </table>
                         </div>
                     </div>
-                </>
+                </div>
             ) : (
                 <div className="card overflow-hidden border-none shadow-2xl shadow-slate-200 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem]">
                     <div className="overflow-x-auto">
@@ -1108,21 +1107,3 @@ function MultiProjectDropdown({
     );
 }
 
-function AccessRequestLegend() {
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-            <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-primary font-bold text-xs italic">1</div>
-                <p className="text-[10px] font-medium text-slate-500">Pulsa el botón <span className="text-primary font-black uppercase tracking-widest mx-1 font-sans border-b-2 border-primary/20">Corregir</span> para cambiar el proyecto o el rol de la solicitud.</p>
-            </div>
-            <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-primary font-bold text-xs italic">2</div>
-                <p className="text-[10px] font-medium text-slate-500">Haz clic en <span className="text-primary font-black uppercase tracking-widest mx-1 font-sans border-b-2 border-primary/20">Guardar</span> cuando termines de hacer los cambios.</p>
-            </div>
-            <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-primary font-bold text-xs italic">3</div>
-                <p className="text-[10px] font-medium text-slate-500">Pulsa el botón de <span className="text-green-600 font-black uppercase tracking-widest mx-1 font-sans border-b-2 border-green-200">Aprobar</span> para dar de alta al usuario.</p>
-            </div>
-        </div>
-    );
-}

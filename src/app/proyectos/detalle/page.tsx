@@ -282,7 +282,19 @@ function ProjectDetailContent() {
                                 {activeTab === "dashboard"   && <SummaryDashboard projectId={id} />}
                                 {activeTab === "project"     && (
                                     <div className="space-y-12">
-                                        <ProjectForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                                        <ProjectForm 
+                    projectId={id} 
+                    onSaved={(newId) => {
+                      setIsDirty(false);
+                      if (newId && !id) {
+                        // Si es un proyecto nuevo, redirigimos a la misma página pero con el ID real
+                        window.location.search = `?id=${newId}`;
+                      } else {
+                        // Si era edición, solo quitamos el estado sucio (o podrías recargar si es necesario)
+                      }
+                    }} 
+                    onDirty={() => setIsDirty(true)} 
+                  />
                                         <ContractorForm projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
                                     </div>
                                 )}
