@@ -249,7 +249,8 @@ function ProjectDetailContent() {
 
             <div className="flex flex-col lg:flex-row gap-8 items-start relative">
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
-                <div className="lg:fixed lg:top-[160px] lg:left-[max(1rem,calc(50%-792px))] z-[40] w-full lg:w-[280px] shrink-0 transition-all duration-300">
+                {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
+                <div className="lg:fixed lg:top-[160px] lg:left-[max(0.5rem,calc(50%-888px))] z-[40] w-full lg:w-[280px] shrink-0 transition-all duration-300">
                     <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2.5 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-5 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] dark:shadow-none max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
                         {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
                             <button
@@ -269,7 +270,7 @@ function ProjectDetailContent() {
                 </div>
 
                 {/* Área de Contenido Principal */}
-                <div className="flex-1 w-full min-w-0 lg:ml-[160px] xl:ml-[220px]">
+                <div className="flex-1 w-full min-w-0 lg:ml-[64px] xl:ml-[120px]">
                     <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-4 md:p-10 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
                         <div className="relative z-10">
