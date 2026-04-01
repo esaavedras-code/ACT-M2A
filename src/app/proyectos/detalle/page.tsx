@@ -247,22 +247,25 @@ function ProjectDetailContent() {
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-8 items-start">
+            <div className="flex flex-col lg:flex-row gap-8 items-start relative">
                 {/* Botones de Navegación Lateral (Flotantes) */}
-                <div className="lg:sticky lg:top-24 z-40 w-full lg:w-[260px] shrink-0">
-                    <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2 bg-slate-50/50 dark:bg-slate-900/50 p-3 rounded-[2rem] border border-slate-100 dark:border-slate-800 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
+                <div className="lg:sticky lg:top-32 z-[40] w-full lg:w-[260px] shrink-0">
+                    <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2.5 bg-white/70 dark:bg-slate-900/80 backdrop-blur-xl p-4 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar transition-all duration-500">
                         {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id)}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-[0.1em] transition-all whitespace-nowrap lg:whitespace-normal text-left active:scale-95 group ${
+                                className={`flex items-center gap-3.5 px-5 py-3.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.12em] transition-all whitespace-nowrap lg:whitespace-normal text-left active:scale-95 group relative overflow-hidden ${
                                     activeTab === tab.id 
-                                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/25 ring-1 ring-blue-600 ring-offset-1' 
-                                    : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-300 hover:text-blue-500 hover:bg-white shadow-sm'
+                                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 ring-1 ring-blue-600 ring-offset-2 ring-offset-white' 
+                                    : 'bg-white/50 dark:bg-slate-800/50 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-400 hover:text-blue-600 hover:bg-white shadow-sm hover:shadow-md'
                                 }`}
                             >
-                                <span className={`shrink-0 ${activeTab === tab.id ? 'text-white' : 'text-blue-400 group-hover:scale-110 transition-transform'}`}>{tab.icon}</span>
-                                <span className="line-clamp-2">{tab.label}</span>
+                                <span className={`shrink-0 transition-all duration-300 ${activeTab === tab.id ? 'text-white scale-110' : 'text-blue-500 group-hover:scale-125'}`}>{tab.icon}</span>
+                                <span className={`line-clamp-2 transition-all duration-300 ${activeTab === tab.id ? 'translate-x-1' : 'group-hover:translate-x-1'}`}>{tab.label}</span>
+                                {activeTab === tab.id && (
+                                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-white/30"></div>
+                                )}
                             </button>
                         ))}
                     </div>
