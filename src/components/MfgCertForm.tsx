@@ -393,8 +393,23 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                                             onChange={e => {
                                                                 const newList = [...certs];
                                                                 if(!newList[idx].item_ids) newList[idx].item_ids = [];
-                                                                if(e.target.checked) newList[idx].item_ids.push(item.id);
-                                                                else newList[idx].item_ids = newList[idx].item_ids.filter((id:any)=>id!==item.id);
+                                                                if(!newList[idx].multiple_quantities) newList[idx].multiple_quantities = {};
+                                                                
+                                                                if(e.target.checked) {
+                                                                    newList[idx].item_ids.push(item.id);
+                                                                    // Inicializar cantidad para este ítem si no existe
+                                                                    if (newList[idx].multiple_quantities[item.id] === undefined) {
+                                                                        newList[idx].multiple_quantities[item.id] = 0;
+                                                                    }
+                                                                } else {
+                                                                    newList[idx].item_ids = newList[idx].item_ids.filter((id:any)=>id!==item.id);
+                                                                    delete newList[idx].multiple_quantities[item.id];
+                                                                }
+                                                                
+                                                                // Actualizar cantidad total como suma de las partes
+                                                                const total = Object.values(newList[idx].multiple_quantities).reduce((acc: number, q: any) => acc + (parseFloat(q) || 0), 0);
+                                                                newList[idx].quantity = total;
+                                                                
                                                                 setCerts(newList);
                                                             }} 
                                                         /> 
@@ -439,6 +454,45 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     </div>
                                     <span className="text-[9px] font-black text-slate-400 group-hover:text-emerald-500 uppercase transition-colors">Múltiples Ítems</span>
                                 </label>
+
+                                {c.is_multiple && c.item_ids?.length > 0 && (
+                                    <div className="mt-3 space-y-2 p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/20">
+                                        <p className="text-[8px] font-black text-emerald-600 uppercase mb-2">Cantidades por Partida:</p>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {c.item_ids.map((itemId: string) => {
+                                                const item = contractItems.find(it => it.id === itemId);
+                                                if (!item) return null;
+                                                return (
+                                                    <div key={itemId} className="flex items-center justify-between gap-4">
+                                                        <span className="text-[10px] font-bold text-slate-600 truncate flex-1" title={item.description}>Pt. {item.item_num}: {item.description}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <input 
+                                                                type="number"
+                                                                step="0.0001"
+                                                                className="w-20 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-900/30 rounded-full px-3 py-1 text-[10px] font-black text-center focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all"
+                                                                value={c.multiple_quantities?.[itemId] ?? 0}
+                                                                onChange={e => {
+                                                                    const nl = [...certs];
+                                                                    if (!nl[idx].multiple_quantities) nl[idx].multiple_quantities = {};
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    nl[idx].multiple_quantities[itemId] = val;
+                                                                    
+                                                                    // Actualizar cantidad total
+                                                                    const total = Object.values(nl[idx].multiple_quantities).reduce((acc: number, q: any) => acc + (parseFloat(q) || 0), 0);
+                                                                    nl[idx].quantity = total;
+                                                                    
+                                                                    setCerts(nl);
+                                                                    if (onDirty) onDirty();
+                                                                }}
+                                                            />
+                                                            <span className="text-[8px] font-bold text-slate-400">{item.unit}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Unit */}
