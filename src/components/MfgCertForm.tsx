@@ -351,6 +351,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             </div>
 
             <FloatingFormActions actions={[
+                { label: "Añadir CM", description: "Añadir nuevo certificado de manufactura", icon: <Plus />, onClick: addCert, variant: 'secondary' },
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar certificados al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />
 
@@ -547,22 +548,16 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                             {/* Delete Button */}
                             <button 
                                 onClick={()=>removeCert(idx)} 
-                                className="w-28 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border-2 border-red-400 text-red-500 bg-white hover:bg-red-50 transition-all font-black text-[10px] uppercase shadow-sm"
+                                className="flex items-center justify-center w-9 h-9 rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-400 transition-all shadow-sm"
+                                title="Eliminar certificado"
                             >
-                                <Trash2 size={14} />
-                                BORRAR
+                                <Trash2 size={15} />
                             </button>
                         </div>
                     );
                 })}
 
-                <button 
-                    onClick={addCert} 
-                    className="flex mt-4 items-center justify-center gap-2 px-6 py-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 hover:border-emerald-300 hover:text-emerald-500 dark:hover:border-emerald-900/50 transition-all font-black text-xs uppercase"
-                >
-                    <Plus size={16} /> 
-                    Añadir Nuevo Certificado
-                </button>
+
             </div>
         </div>
     );

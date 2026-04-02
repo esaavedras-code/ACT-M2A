@@ -188,7 +188,15 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 4</span>
-                            <span>Inventario Material on Site</span>
+                            <div className="flex items-center gap-3">
+                                <span>Inventario Material on Site</span>
+                                <span className="text-lg px-3 py-0.5 rounded-lg border bg-slate-50 text-slate-700 border-slate-200">
+                                    {formatCurrency(groupsList.reduce((acc, group) => {
+                                        const actLen = group.activities.length;
+                                        return acc + (actLen > 0 ? (group.activities[actLen - 1]?.runningBalance || 0) : 0);
+                                    }, 0))}
+                                </span>
+                            </div>
                         </div>
                     </h2>
                 </div>
@@ -308,18 +316,6 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                     </table>
                 </div>
             </div>
-            <FloatingFormActions
-                actions={[
-                    {
-                        label: loading ? "Guardando..." : "Guardar cambios",
-                        icon: <Save />,
-                        onClick: () => saveData(false),
-                        description: "Actualizar balances de inventario y ajustes de precios de Material on Site",
-                        variant: 'primary' as const,
-                        disabled: loading
-                    }
-                ]}
-            />
         </div>
     );
 });
