@@ -140,10 +140,10 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
     };
 
     const handleChange = (index: number, field: keyof FundRow, value: any) => {
-        const newFunds = [...(fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds)];
-        (newFunds[index] as any)[field] = value;
-        setFunds(newFunds);
-        fundsRef.current = newFunds;
+        const nextFunds = [...(fundsRef.current.length > 0 ? fundsRef.current : funds)];
+        (nextFunds[index] as any)[field] = value;
+        setFunds(nextFunds);
+        fundsRef.current = nextFunds;
     };
 
     const addUnit = () => {

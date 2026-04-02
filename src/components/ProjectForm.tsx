@@ -237,8 +237,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         }
                         
                         finalNumAct = suggestedNumAct;
-                        setFormData(prev => ({ ...prev, num_act: finalNumAct }));
-                        formDataRef.current = { ...currentData, num_act: finalNumAct };
+                        const nextData = { ...currentData, num_act: finalNumAct };
+                        setFormData(nextData);
+                        formDataRef.current = nextData;
                     }
                 }
             }
@@ -417,7 +418,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             } else if ('showDirectoryPicker' in window) {
                 // @ts-ignore
                 const handle = await window.showDirectoryPicker();
-                setFormData(prev => ({ ...prev, folder_path: handle.name }));
+                const nextData = { ...formDataRef.current, folder_path: handle.name };
+                setFormData(nextData);
+                formDataRef.current = nextData;
                 setTempPath(handle.name);
             }
         } catch (e) {
@@ -533,18 +536,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 </div>
             </div>
 
-            <FloatingFormActions
-                actions={[
-                    {
-                        label: loading ? "Guardando..." : "Guardar cambios",
-                        icon: <Save />,
-                        onClick: () => saveData(false),
-                        description: "Actualizar y sincronizar la informacion de los datos del proyecto",
-                        variant: 'primary' as const,
-                        disabled: loading
-                    }
-                ]}
-            />
+            {/* El botón de guardar ha sido eliminado por solicitud del usuario */}
 
             {formData.num_act && (
                 <div className="flex items-center gap-2 -mt-4 mb-4">
@@ -904,11 +896,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 val = "AC-" + val.replace(/[^0-9A-Z]/g, "");
                             } else {
                                 const digits = val.substring(3).replace(/[^0-9A-Z]/g, "");
-                                // Permitimos hasta 10 dígitos (AC-XXXXXXXXXX)
                                 val = "AC-" + digits.substring(0, 10);
                             }
-                            setFormData(prev => ({ ...prev, num_act: val }));
-                            if (onDirty) onDirty();
+                            handleChange('num_act', val);
                         }}
                     />
                 </div>
@@ -920,11 +910,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_federal || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, num_federal: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('num_federal', e.target.value)}
                     />
                 </div>
                 <div className="space-y-1">
@@ -936,11 +922,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             className="input-field flex-1"
                             style={{ backgroundColor: '#66FF99' }}
                             value={formData.name || ""}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setFormData(prev => ({ ...prev, name: val }));
-                                if (onDirty) onDirty();
-                            }}
+                            onChange={(e) => handleChange('name', e.target.value)}
                         />
 
                     </div>
@@ -953,11 +935,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_oracle || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, num_oracle: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('num_oracle', e.target.value)}
                     />
                 </div>
                 <div className="space-y-1">
@@ -968,11 +946,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_contrato || ""}
-                        onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, "");
-                            setFormData(prev => ({ ...prev, num_contrato: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('num_contrato', e.target.value.replace(/[^0-9]/g, ""))}
                     />
                 </div>
                 <div className="space-y-1">
@@ -983,11 +957,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.no_cuenta || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, no_cuenta: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('no_cuenta', e.target.value)}
                     />
                 </div>
                 <div className="space-y-1">
@@ -1024,11 +994,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.region || "Norte"}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, region: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('region', e.target.value)}
                     >
                         <option>Norte</option>
                         <option>Sur</option>
@@ -1070,11 +1036,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             style={{ backgroundColor: '#66FF99' }}
                             placeholder="Ej. C:\Proyectos\ACT-2024-001"
                             value={formData.folder_path || ""}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setFormData(prev => ({ ...prev, folder_path: val }));
-                                if (onDirty) onDirty();
-                            }}
+                            onChange={(e) => handleChange('folder_path', e.target.value)}
                         />
                         <button
                             type="button"
@@ -1119,11 +1081,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.num_ocpr || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, num_ocpr: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('num_ocpr', e.target.value)}
                     />
                 </div>
                 <div className="space-y-1">
@@ -1134,11 +1092,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.designer || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, designer: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('designer', e.target.value)}
                     />
                 </div>
                 <div className="space-y-1 md:col-span-2 lg:col-span-1 border-b md:border-none pb-4 md:pb-0">
@@ -1150,11 +1104,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.municipios || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, municipios: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('municipios', e.target.value)}
                     />
                 </div>
                 <div className="space-y-1 md:col-span-2 lg:col-span-2 border-b md:border-none pb-4 md:pb-0">
@@ -1166,11 +1116,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.carreteras || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, carreteras: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('carreteras', e.target.value)}
                     />
                 </div>
                 <div className="space-y-1 md:col-span-2 lg:col-span-3">
@@ -1181,11 +1127,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
                         value={formData.scope || ""}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setFormData(prev => ({ ...prev, scope: val }));
-                            if (onDirty) onDirty();
-                        }}
+                        onChange={(e) => handleChange('scope', e.target.value)}
                     ></textarea>
                 </div>
 
@@ -1211,9 +1153,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_contract_sign || ""}
                                     onChange={(e) => {
-                                        const val = e.target.value;
-                                        setFormData(prev => ({ ...prev, date_contract_sign: val }));
-                                        if (onDirty) onDirty();
+                                        handleChange('date_contract_sign', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('date_contract_sign', d)} />
@@ -1228,9 +1168,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_project_start || ""}
                                     onChange={(e) => {
-                                        const val = e.target.value;
-                                        setFormData(prev => ({ ...prev, date_project_start: val }));
-                                        if (onDirty) onDirty();
+                                        handleChange('date_project_start', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('date_project_start', d)} />
@@ -1245,9 +1183,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_orig_completion || ""}
                                     onChange={(e) => {
-                                        const val = e.target.value;
-                                        setFormData(prev => ({ ...prev, date_orig_completion: val }));
-                                        if (onDirty) onDirty();
+                                        handleChange('date_orig_completion', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('date_orig_completion', d)} />
@@ -1262,9 +1198,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_rev_completion || ""}
                                     onChange={(e) => {
-                                        const val = e.target.value;
-                                        setFormData(prev => ({ ...prev, date_rev_completion: val }));
-                                        if (onDirty) onDirty();
+                                        handleChange('date_rev_completion', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('date_rev_completion', d)} />
@@ -1290,9 +1224,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_est_completion || ""}
                                     onChange={(e) => {
-                                        const val = e.target.value;
-                                        setFormData(prev => ({ ...prev, date_est_completion: val }));
-                                        if (onDirty) onDirty();
+                                        handleChange('date_est_completion', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('date_est_completion', d)} />
@@ -1307,9 +1239,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_real_completion || ""}
                                     onChange={(e) => {
-                                        const val = e.target.value;
-                                        setFormData(prev => ({ ...prev, date_real_completion: val }));
-                                        if (onDirty) onDirty();
+                                        handleChange('date_real_completion', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('date_real_completion', d)} />
@@ -1324,8 +1254,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_substantial_completion || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, date_substantial_completion: e.target.value });
-                                        if (onDirty) onDirty();
+                                        handleChange('date_substantial_completion', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('date_substantial_completion', d)} />
@@ -1340,8 +1269,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.date_final_inspection || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, date_final_inspection: e.target.value });
-                                        if (onDirty) onDirty();
+                                        handleChange('date_final_inspection', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('date_final_inspection', d)} />
@@ -1358,8 +1286,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     style={{ backgroundColor: '#66FF99' }}
                                     value={formData.fmis_end_date || ""}
                                     onChange={(e) => {
-                                        setFormData({ ...formData, fmis_end_date: e.target.value });
-                                        if (onDirty) onDirty();
+                                        handleChange('fmis_end_date', e.target.value);
                                     }}
                                 />
                                 <TodayButton onSelect={(d) => handleChange('fmis_end_date', d)} />
