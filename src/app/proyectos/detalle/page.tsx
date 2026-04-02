@@ -8,9 +8,11 @@ import {
     FileText, Building2, ChevronLeft, Loader2, 
     ListChecks, Users, PackageSearch, ShieldCheck, 
     FileCheck, FileEdit, LayoutDashboard, Calculator,
-    Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle
+    Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle,
+    Save
 } from "lucide-react";
 import { getLocalStorageItem } from "@/lib/utils";
+import FloatingFormActions from "@/components/FloatingFormActions";
 
 import ProjectForm from "@/components/ProjectForm";
 import ContractorForm from "@/components/ContractorForm";
@@ -41,6 +43,30 @@ function ProjectDetailContent() {
     const [isDirty, setIsDirty] = useState(false);
     const [role, setRole] = useState("C");
     const [dirtyDialog, setDirtyDialog] = useState<{ show: boolean; targetTab: string }>({ show: false, targetTab: "" });
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Refs para guardado unificado en Datos Proyecto
+    const projectFormRef = useRef<any>(null);
+    const contractorFormRef = useRef<any>(null);
+
+    const saveProjectSection = async () => {
+        setIsSaving(true);
+        try {
+            // Guardar ambos formularios en paralelo
+            const results = await Promise.all([
+                projectFormRef.current?.save(),
+                contractorFormRef.current?.save()
+            ]);
+            
+            // Si ambos tuvieron éxito (o al menos se intentaron)
+            setIsDirty(false);
+            alert("Información de la sección Datos Proyecto actualizada correctamente.");
+        } catch (error) {
+            console.error("Error al guardar sección:", error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     // Orden: Resumen → Proyecto (incluye Contratista) → Firmas ACT → Partidas → Materiales
     //        → Cumplimiento → Change Orders → Pagos → Cert CM → Minutas → Actividades
@@ -283,6 +309,7 @@ function ProjectDetailContent() {
                                 {activeTab === "project"     && (
                                     <div className="space-y-12">
                                         <ProjectForm 
+                    ref={projectFormRef}
                     projectId={id} 
                     onSaved={(newId) => {
                       setIsDirty(false);
@@ -295,7 +322,22 @@ function ProjectDetailContent() {
                     }} 
                     onDirty={() => setIsDirty(true)} 
                   />
-                                        <ContractorForm projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                                        <ContractorForm 
+                                            ref={contractorFormRef}
+                                            projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                                        
+                                        <FloatingFormActions
+                                            actions={[
+                                                {
+                                                    label: isSaving ? "Guardando..." : "Guardar cambios",
+                                                    icon: <Save />,
+                                                    onClick: saveProjectSection,
+                                                    description: "Actualizar y sincronizar toda la información de los datos del proyecto y el contratista",
+                                                    variant: 'primary' as const,
+                                                    disabled: isSaving
+                                                }
+                                            ]}
+                                        />
                                     </div>
                                 )}
                                 {activeTab === "personnel"   && <PersonnelForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}

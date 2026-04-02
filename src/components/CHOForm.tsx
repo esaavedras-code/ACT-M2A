@@ -232,7 +232,9 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             unit: item.unit || "",
                             unit_price: item.unit_price || 0,
                             fund_source: item.fund_source || FUND_SOURCES[0],
-                            requires_mfg_cert: item.requires_mfg_cert || false
+                            requires_mfg_cert: item.requires_mfg_cert || false,
+                            mfg_cert_qty: item.mfg_cert_qty || 1,
+                            mfg_cert_description: item.mfg_cert_description || ""
                         });
                     }
                 }
@@ -489,7 +491,12 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                         <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                             <tr>
                                                 <th className="py-1 px-0.5 w-10 text-center text-blue-600">Nuevo</th>
-                                                <th className="py-1 px-0.5 w-10 text-center text-amber-600" title="Enmienda Administrativa">Adm.</th>
+                                                <th className="py-1 px-0.5 w-10 text-center text-amber-600 leading-[0.8] align-middle" title="Enmienda Administrativa">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="text-[8px] font-black">Enm.</span>
+                                                        <span className="text-[8px] font-black">Adm.</span>
+                                                    </div>
+                                                </th>
                                                 <th className="py-1 px-0.5 w-16 text-center"># Item</th>
                                                 <th className="py-1 px-0.5 w-24">Espec.</th>
                                                 <th className="py-1 px-0.5 min-w-[250px]">Descripción</th>
@@ -554,26 +561,26 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         )}
                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-center">
-                                                        {(item.requires_mfg_cert && (item.unit === 'LS' || item.unit === 'LUMP SUM' || item.unit === 'LUMP-SUM')) && (
+                                                        {(item.requires_mfg_cert && (item.unit?.toUpperCase().includes('LS') || item.unit?.toUpperCase().includes('LUMP'))) && (
                                                             <input 
                                                                 type="number" 
-                                                                className="input-field text-[10px] text-center font-bold h-7 !p-1 border-amber-300"
-                                                                style={{ backgroundColor: '#FFFBEB' }}
+                                                                className="input-field text-[10px] text-center font-bold h-7 !p-1 border-emerald-300"
+                                                                style={{ backgroundColor: '#D1FAE5' }} // Un verde clarito para que resalte
                                                                 value={item.mfg_cert_qty ?? 1}
-                                                                onChange={(e) => updateCHOItem(idx, itIdx, 'mfg_cert_qty', parseInt(e.target.value) || 1)}
+                                                                onChange={(e) => updateCHOItem(idx, itIdx, 'mfg_cert_qty', parseFloat(e.target.value) || 1)}
                                                                 title="Cantidad de Certificados de Manufactura Requeridos"
                                                             />
                                                         )}
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        {(item.requires_mfg_cert && (item.unit === 'LS' || item.unit === 'LUMP SUM' || item.unit === 'LUMP-SUM')) && (
+                                                        {(item.requires_mfg_cert && (item.unit?.toUpperCase().includes('LS') || item.unit?.toUpperCase().includes('LUMP'))) && (
                                                             <input 
                                                                 type="text" 
-                                                                className="input-field text-[10px] h-7 !p-1 border-amber-300"
-                                                                style={{ backgroundColor: '#FFFBEB' }}
+                                                                className="input-field text-[10px] h-7 !p-1 border-emerald-300 min-w-[200px]"
+                                                                style={{ backgroundColor: '#D1FAE5' }} // Un verde clarito
                                                                 value={item.mfg_cert_description ?? ""}
                                                                 onChange={(e) => updateCHOItem(idx, itIdx, 'mfg_cert_description', e.target.value)}
-                                                                placeholder="Describa el certificado requerido..."
+                                                                placeholder="Describa el o los certificados requeridos..."
                                                                 title="Descripción de lo que necesita el certificado de manufactura"
                                                             />
                                                         )}
