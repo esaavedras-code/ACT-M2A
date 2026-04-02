@@ -45,6 +45,7 @@ import {
     generateMaterialCertificationReportLogic,
     generateDbeCertificationReportLogic,
     generateSignedItemsReportLogic,
+    generateMissingSignaturesReportLogic,
     generateFaResumenAnualLogic,
     generateFaResumenMensualLogic,
     generateFaInformeDiarioLogic,
@@ -975,6 +976,27 @@ function ReportesContent() {
                             }
                         }}
                     />
+                    <SelectiveReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'cert-desglose-selective',
+                            label: '2. Desglose Financiero de Certificación',
+                            description: 'Reporte detallado con todos los valores positivos y negativos de la certificación seleccionada.',
+                            icon: <Calculator size={18} className="text-cyan-700" />,
+                            items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
+                            onGenerate: async (ids) => {
+                                try {
+                                    await generateCertReportLogic(projectId, ids, reportFormat);
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    />
                 </DropdownGroup>
 
                 {/* 7. Liquidación */}
@@ -1149,8 +1171,22 @@ function ReportesContent() {
                         onAction={handleAction}
                         loading={loading}
                         option={{
+                            id: 'firmas-pendientes',
+                            label: '12. Partidas con Firmas Pendientes',
+                            description: 'Lista de ítems que aún no tienen todas las firmas requeridas (Admin, Contratista, Liquidador).',
+                            icon: <BadgeAlert size={18} className="text-rose-500" />,
+                            action: () => generateMissingSignaturesReportLogic(projectId, reportFormat)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch((e: any) => setStatus(`Error: ${e.message}`))
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
                             id: 'environmental-review',
-                            label: '12. Environmental Review Certification',
+                            label: '13. Environmental Review Certification',
                             description: 'Certificación de cumplimiento con las revisiones ambientales y compromisos de construcción.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             action: () => generateEnvironmentalReviewReportLogic(projectId, reportFormat)

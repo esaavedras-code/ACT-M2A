@@ -185,7 +185,9 @@ export const createPdfBlob = async (
     }
     centerText(title, timesRomanBoldFont, 14, y);
     y -= 18;
-    centerText(`Fecha de impresión del reporte: ${utilsFormatDate(new Date())}`, timesRomanFont, 9, y);
+    const nowForPrint = new Date();
+    const timeStr = nowForPrint.toLocaleTimeString('es-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    centerText(`Fecha de impresión del reporte: ${utilsFormatDate(nowForPrint)} ${timeStr}`, timesRomanFont, 9, y);
     y -= 12;
     if (cutOffDate) {
         const cutDate = new Date(cutOffDate);
@@ -1012,6 +1014,7 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
         reportData.push([`CERTIFICACIÓN DE PAGO #${cert.cert_num}`, `Fecha: ${formatDate(cert.cert_date)}`, '', '', '', '']);
         const items = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         let subtotal = 0;
+        let mosDelta = 0;
         items.forEach((it: any) => {
             const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
             const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
@@ -1020,14 +1023,38 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
             const total = qty * pu;
             subtotal += total;
             reportData.push([it.item_num || '', fullDesc || '', qty.toFixed(4), it.unit || '', formatCurrency(pu), formatCurrency(total)]);
+            // MOS
+            if (it.has_material_on_site) mosDelta += parseFloat(it.mos_invoice_total) || 0;
+            if (parseFloat(it.qty_from_mos) > 0) {
+                const mosPU = parseFloat(it.mos_unit_price) || pu;
+                mosDelta -= (parseFloat(it.qty_from_mos) || 0) * mosPU;
+            }
         });
         const grossRetention = cert.skip_retention ? 0 : (subtotal * 0.05);
         const returnedAmount = parseFloat(cert.retention_return_amount) || 0;
         const netRetention = grossRetention - returnedAmount;
-        const totalNeto = subtotal - (cert.skip_retention ? 0 : netRetention);
-        reportData.push(['SUBTOTAL:', '', '', '', '', formatCurrency(subtotal)]);
-        if (!cert.skip_retention || returnedAmount > 0) reportData.push(['RETENCIÓN (5% Net):', '', '', '', '', netRetention > 0 ? `-${formatCurrency(netRetention)}` : formatCurrency(Math.abs(netRetention))]);
-        reportData.push(['TOTAL NETO:', '', '', '', '', formatCurrency(totalNeto)]);
+        const refund = parseFloat(cert.refund) || 0;
+        const extraRetention = parseFloat(cert.extra_retention) || 0;
+        const priceAdj = parseFloat(cert.price_adjustment) || 0;
+        const insuranceFines = parseFloat(cert.insurance_fines) || 0;
+        const otherPenalties = parseFloat(cert.other_penalties) || 0;
+        const liqDamages = parseFloat(cert.liquidated_damages) || 0;
+        const totalNeto = subtotal - (cert.skip_retention ? 0 : netRetention) + mosDelta
+            + refund - extraRetention + priceAdj - insuranceFines - otherPenalties - liqDamages;
+
+        reportData.push(['', '', '', '', '', '']);
+        reportData.push(['DESGLOSE DE MONTOS', '', '', '', '', '']);
+        reportData.push(['+ Trabajo Ejecutado (WP):', '', '', '', '', formatCurrency(subtotal)]);
+        if (mosDelta !== 0) reportData.push([`${mosDelta >= 0 ? '+' : ''} Ajuste MOS (Neto):`, '', '', '', '', formatCurrency(mosDelta)]);
+        if (!cert.skip_retention) reportData.push(['- 5% Retenido:', '', '', '', '', `-${formatCurrency(grossRetention)}`]);
+        if (returnedAmount > 0) reportData.push(['+ Devolución Retención:', '', '', '', '', formatCurrency(returnedAmount)]);
+        if (liqDamages > 0) reportData.push(['- Daños Líquidos:', '', '', '', '', `-${formatCurrency(liqDamages)}`]);
+        if (refund !== 0) reportData.push([`${refund >= 0 ? '+' : ''} Reembolso:`, '', '', '', '', formatCurrency(refund)]);
+        if (extraRetention !== 0) reportData.push(['- Extra Retenido:', '', '', '', '', `-${formatCurrency(extraRetention)}`]);
+        if (priceAdj !== 0) reportData.push([`${priceAdj >= 0 ? '+' : ''} Ajuste de Precio:`, '', '', '', '', formatCurrency(priceAdj)]);
+        if (insuranceFines !== 0) reportData.push(['- Multas Seguro:', '', '', '', '', `-${formatCurrency(insuranceFines)}`]);
+        if (otherPenalties !== 0) reportData.push(['- Otras Penalidades:', '', '', '', '', `-${formatCurrency(otherPenalties)}`]);
+        reportData.push(['TOTAL NETO DE ESTA CERTIFICACIÓN:', '', '', '', '', formatCurrency(totalNeto)]);
         reportData.push(['', '', '', '', '', '']);
     });
     const certNums = selectedCerts.map(c => c.cert_num).join('-');
@@ -1143,6 +1170,23 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     const liqDamages = Math.max(0, (usedDays - revisedDaysTotal) * damageAmt);
     const retNet = roundedAmt(totalRetentionDeducted - totalRetentionReturned, 2);
 
+    // Accumulate cert-level penalties from all filtered certs
+    let totalRefund = 0;
+    let totalExtraRetention = 0;
+    let totalPriceAdj = 0;
+    let totalInsuranceFines = 0;
+    let totalOtherPenalties = 0;
+    filteredCerts.forEach((cert) => {
+        totalRefund += parseFloat(cert.refund) || 0;
+        totalExtraRetention += parseFloat(cert.extra_retention) || 0;
+        totalPriceAdj += parseFloat(cert.price_adjustment) || 0;
+        totalInsuranceFines += parseFloat(cert.insurance_fines) || 0;
+        totalOtherPenalties += parseFloat(cert.other_penalties) || 0;
+    });
+    const totalRetainedWithPenalties = roundedAmt(
+        retNet + liqDamages + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalRefund - totalPriceAdj, 2
+    );
+
     const reportData: any[][] = [
         ['SECCIÓN / CAMPO', 'INFORMACIÓN', '', ''],
         ['1. RESUMEN DE TIEMPO', '', '', ''],
@@ -1157,15 +1201,18 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
         ['Costo Original:', formatCurrency(originalCost), 'Total CHOs (Aprob.):', formatCurrency(approvedCHO)],
         ['Presupuesto Ajustado:', formatCurrency(adjustedCost), 'Total Certificado:', formatCurrency(totalCertified)],
         ['Balance Actual:', formatCurrency(budgetBalance), '% de Obra Ejecutada:', `${percentObra.toFixed(2)}%`],
-        ['Material en Sitio (MOS):', formatCurrency(Math.max(0, mosBalance)), 'Daños Líquidos (Dlq):', formatCurrency(liqDamages)],
-        ['Fondo ACT:', formatCurrency(actTotal), 'Fondo FHWA:', formatCurrency(fhwaTotal)],
+        ['Material en Sitio (MOS):', formatCurrency(Math.max(0, mosBalance)), 'Fondo ACT:', formatCurrency(actTotal)],
+        ['Fondo FHWA:', formatCurrency(fhwaTotal), '', ''],
         ['', '', '', ''],
         ['3. PRESUPUESTO PROYECTADO POR FONDOS ($)', '', '', ''],
         ['Provision ACT:', formatCurrency(actProjected), 'Provision FHWA:', formatCurrency(fhwaProjected)],
         ['', '', '', ''],
-        ['4. RETENCIÓN ($)', '', '', ''],
+        ['4. RETENCIÓN Y PENALIDADES ($)', '', '', ''],
         ['5% Retenido (Bruto):', formatCurrency(totalRetentionDeducted), 'Retención Devuelta:', formatCurrency(totalRetentionReturned)],
-        ['Retención Neta Actual:', formatCurrency(retNet), '', ''],
+        ['Daños Líquidos (Dlq):', formatCurrency(liqDamages), 'Reembolso:', formatCurrency(totalRefund)],
+        ['Extra Retenido:', formatCurrency(totalExtraRetention), 'Ajuste de Precio:', formatCurrency(totalPriceAdj)],
+        ['Multas Seguro:', formatCurrency(totalInsuranceFines), 'Otras Penalidades:', formatCurrency(totalOtherPenalties)],
+        ['Total Retenido (Neto):', formatCurrency(totalRetainedWithPenalties), '', ''],
         ['', '', '', ''],
         ['5. ÓRDENES DE CAMBIO (CHOs)', '', '', ''],
         ['Aprobados:', formatCurrency(approvedCHO), 'En Trámite:', formatCurrency(pendingCHO)],
@@ -1176,7 +1223,8 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
         ['Representante:', contractor?.representative || 'N/A', 'Email:', contractor?.email || 'N/A'],
         ['Oficina:', contractor?.phone_office || 'N/A', 'Celular:', contractor?.phone_mobile || 'N/A'],
         ['', '', '', ''],
-        ['7. PERSONAL ACT RESPONSABLE', 'Rol / Puesto', 'Nombre', 'Contacto'],
+        ['7. PERSONAL ACT RESPONSABLE', '', '', ''],
+        ['', 'Rol / Puesto', 'Nombre', 'Contacto'],
     ];
 
     personnel?.forEach(p => {
@@ -1579,6 +1627,51 @@ export const generateSignedItemsReportLogic = async (projectId: string, format: 
     } else {
         downloadBlob(blob, 'Reporte_Firmas_Partidas.pdf');
     }
+};
+
+export const generateMissingSignaturesReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    const { project, items } = await fetchAllReportData(projectId);
+    if (!project || !items) return;
+
+    const { data: projData } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
+    const liquidatedItems: any[] = projData?.liquidation_data?.liquidated_items || [];
+
+    // Find items missing at least one signature
+    const missingItems = items.filter((item: any) => {
+        const liqInfo = liquidatedItems.find((li: any) => li.item_num === item.item_num) || {};
+        return !liqInfo.signed_by_admin || !liqInfo.signed_by_contractor || !liqInfo.signed_by_liquidator;
+    });
+
+    if (missingItems.length === 0) {
+        alert('¡Todas las partidas tienen sus firmas completas!');
+        return;
+    }
+
+    const reportData: any[][] = [
+        ['Item #', 'Especificación', 'Descripción', 'Admin', 'Contratista', 'Liquidador'],
+        ...missingItems.map((item: any) => {
+            const liqInfo = liquidatedItems.find((li: any) => li.item_num === item.item_num) || {};
+            return [
+                item.item_num,
+                item.specification || '',
+                [item.description, item.additional_description].filter(Boolean).join(' - '),
+                liqInfo.signed_by_admin ? 'SÍ' : 'FALTA',
+                liqInfo.signed_by_contractor ? 'SÍ' : 'FALTA',
+                liqInfo.signed_by_liquidator ? 'SÍ' : 'FALTA',
+            ];
+        })
+    ];
+
+    const projectInfo = { name: project.name, num_act: project.num_act };
+    await generateReport(
+        'PARTIDAS CON FIRMAS PENDIENTES - LIQUIDACIÓN',
+        reportData,
+        projectInfo,
+        [50, 70, 230, 60, 70, 72],
+        'landscape',
+        format,
+        `Firmas_Pendientes_${project.num_act || projectId}.pdf`
+    );
 };
 
 export const generateMinuteReportLogic = async (projectId: string, minuteId: string, format: 'pdf' | 'excel' = 'pdf') => {

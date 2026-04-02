@@ -41,11 +41,14 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [chos, setChos] = useState<any[]>([]);
     const [mfgCerts, setMfgCerts] = useState<any[]>([]);
+    const [projectData, setProjectData] = useState<any>(null);
+    const [timeExtension, setTimeExtension] = useState(0);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
         if (projectId) {
+            fetchProject();
             fetchCerts();
             fetchSummary();
             fetchContractItems();
@@ -54,6 +57,11 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         }
     }, [projectId]);
 
+    const fetchProject = async () => {
+        const { data } = await supabase.from("projects").select("*").eq("id", projectId).single();
+        if (data) setProjectData(data);
+    };
+
     const fetchContractItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
         if (data) setContractItems(data);
@@ -61,7 +69,11 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
     const fetchCHOs = async () => {
         const { data } = await supabase.from("chos").select("*").eq("project_id", projectId);
-        if (data) setChos(data);
+        if (data) {
+            setChos(data);
+            const ext = data.filter((c: any) => c.doc_status === "Aprobado").reduce((acc: number, c: any) => acc + (c.time_extension_days || 0), 0);
+            setTimeExtension(ext);
+        }
     };
 
     const fetchMfgCerts = async () => {
@@ -504,11 +516,13 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
 
     // Cálculos financieros memoizados para evitar lentitud al escribir
-    const { liveExecuted, liveRetention, liveMOS, livePaid, totalProjectGrossRetention } = React.useMemo(() => {
+    const { liveExecuted, liveRetention, liveMOS, livePaid, liveLiquidated, totalProjectGrossRetention } = React.useMemo(() => {
         let executed = 0;
         let retentionTotal = 0;
         let mosTotal = 0;
         let grossRetention = 0;
+        let totalLiquidated = 0;
+        let extrasTotal = 0;
 
         certs.forEach((c, cIdx) => {
             const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
@@ -539,17 +553,40 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             if (c.show_retention_return && c.retention_return_amount) {
                 currentCertRetention -= parseFloat(c.retention_return_amount) || 0;
             }
-            retentionTotal += currentCertRetention;
+            retentionTotal += (currentCertRetention + (parseFloat(c.extra_retention) || 0));
+
+            // Daños Líquidos: override manual o cálculo automático
+            let certLiq = parseFloat(c.liquidated_damages) || 0;
+            if (certLiq === 0 && projectData && c.wp_up_to) {
+                const startDate = projectData.date_project_start ? new Date(projectData.date_project_start) : null;
+                const origEndDate = projectData.date_orig_completion ? new Date(projectData.date_orig_completion) : null;
+                const currentAt = new Date(c.wp_up_to);
+                if (startDate && origEndDate) {
+                    const totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+                    const usedDays = Math.ceil((currentAt.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+                    const revisedDays = (totalDays || 0) + timeExtension;
+                    if (usedDays > revisedDays) certLiq = (usedDays - revisedDays) * (parseFloat(projectData.liquidated_damages_per_day) || 500);
+                }
+            }
+            totalLiquidated += certLiq;
+
+            // Otros ajustes positivos/negativos a nivel de cert
+            extrasTotal += (parseFloat(c.refund) || 0)
+                - (parseFloat(c.extra_retention) || 0)
+                + (parseFloat(c.price_adjustment) || 0)
+                - (parseFloat(c.insurance_fines) || 0)
+                - (parseFloat(c.other_penalties) || 0);
         });
 
         return {
             liveExecuted: executed,
             liveRetention: -retentionTotal,
             liveMOS: mosTotal,
-            livePaid: executed - retentionTotal + mosTotal,
+            livePaid: executed - retentionTotal + mosTotal - totalLiquidated + extrasTotal,
+            liveLiquidated: totalLiquidated,
             totalProjectGrossRetention: grossRetention
         };
-    }, [certs]);
+    }, [certs, projectData, timeExtension]);
 
     if (!mounted) return null;
 
@@ -635,7 +672,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 />
                 <SummaryItem
                     label="Daños Líquidos"
-                    value={summary.liquidated}
+                    value={liveLiquidated}
                     icon={<Timer size={16} />}
                     color="text-red-600"
                     bgColor="bg-red-50 dark:bg-red-900/20"
@@ -806,6 +843,92 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                     >
                                         {expandedCert === c.cert_num ? "Ocultar Partidas" : "Ver / Añadir Partidas"}
                                     </button>
+                                </div>
+                            </div>
+
+                            {/* Ajustes y Penalidades */}
+                            <div className="px-4 py-3 bg-rose-50/30 dark:bg-rose-900/5 border-b border-rose-100 dark:border-rose-900/30">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 flex items-center gap-1.5 mb-3">
+                                    <ShieldAlert size={12} /> Daño Líquido, Ajustes y Penalidades
+                                </span>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-extrabold text-rose-500 uppercase tracking-widest block">Daño Líquido ($)</label>
+                                        <div className="text-sm font-black text-rose-600 tabular-nums">{formatCurrency(
+                                            (() => {
+                                                let liq = parseFloat(c.liquidated_damages) || 0;
+                                                if (liq === 0 && projectData && c.wp_up_to) {
+                                                    const s = projectData.date_project_start ? new Date(projectData.date_project_start) : null;
+                                                    const e = projectData.date_orig_completion ? new Date(projectData.date_orig_completion) : null;
+                                                    const cur = new Date(c.wp_up_to);
+                                                    if (s && e) {
+                                                        const tot = Math.ceil((e.getTime() - s.getTime()) / (1000*3600*24)) + 1;
+                                                        const used = Math.ceil((cur.getTime() - s.getTime()) / (1000*3600*24)) + 1;
+                                                        const rev = tot + timeExtension;
+                                                        if (used > rev) liq = (used - rev) * (parseFloat(projectData.liquidated_damages_per_day) || 500);
+                                                    }
+                                                }
+                                                return liq;
+                                            })()
+                                        )}</div>
+                                        <input
+                                            type="number" step="0.01" min="0"
+                                            placeholder="Override manual"
+                                            className="w-full h-7 text-[10px] font-bold border border-rose-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-rose-400 outline-none"
+                                            value={c.liquidated_damages || ""}
+                                            onChange={(e) => updateCert(certIdx, 'liquidated_damages', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-extrabold text-emerald-600 uppercase tracking-widest block">+ Reembolso ($)</label>
+                                        <input
+                                            type="number" step="0.01" min="0"
+                                            placeholder="0.00"
+                                            className="w-full h-8 text-xs font-bold border border-emerald-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-emerald-400 outline-none"
+                                            value={c.refund || ""}
+                                            onChange={(e) => updateCert(certIdx, 'refund', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-extrabold text-amber-600 uppercase tracking-widest block">− Extra Retenido ($)</label>
+                                        <input
+                                            type="number" step="0.01" min="0"
+                                            placeholder="0.00"
+                                            className="w-full h-8 text-xs font-bold border border-amber-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-amber-400 outline-none"
+                                            value={c.extra_retention || ""}
+                                            onChange={(e) => updateCert(certIdx, 'extra_retention', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-extrabold text-blue-600 uppercase tracking-widest block">± Ajuste de Precio ($)</label>
+                                        <input
+                                            type="number" step="0.01"
+                                            placeholder="0.00"
+                                            className="w-full h-8 text-xs font-bold border border-blue-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-blue-400 outline-none"
+                                            value={c.price_adjustment || ""}
+                                            onChange={(e) => updateCert(certIdx, 'price_adjustment', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-extrabold text-red-500 uppercase tracking-widest block">− Multas Seguro ($)</label>
+                                        <input
+                                            type="number" step="0.01" min="0"
+                                            placeholder="0.00"
+                                            className="w-full h-8 text-xs font-bold border border-red-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-red-400 outline-none"
+                                            value={c.insurance_fines || ""}
+                                            onChange={(e) => updateCert(certIdx, 'insurance_fines', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest block">− Otras Penalidades ($)</label>
+                                        <input
+                                            type="number" step="0.01" min="0"
+                                            placeholder="0.00"
+                                            className="w-full h-8 text-xs font-bold border border-slate-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-slate-400 outline-none"
+                                            value={c.other_penalties || ""}
+                                            onChange={(e) => updateCert(certIdx, 'other_penalties', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
