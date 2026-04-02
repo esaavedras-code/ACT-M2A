@@ -209,7 +209,7 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                         <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                             <th className="border p-1">Units</th>
                             <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Fed Share %</th>
-                            <th className="border p-1">Participating</th>
+                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Participating</th>
                             <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Contingencies (Participating)</th>
                             <th className="border p-1">Payroll/Mileage and Diets</th>
                             <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>F.A. Fund Requested</th>
@@ -236,7 +236,7 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                                     <input type="number" className="w-full bg-transparent border-none p-0.5 text-right min-w-[100px]" value={row.federal_share_pct} onChange={(e) => handleChange(idx, 'federal_share_pct', parseFloat(e.target.value))} />
                                 </td>
                                 {/* Celdas monetarias */}
-                                <MoneyCell fieldKey={`participating_${idx}`} rowIdx={idx} field="participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} />
+                                <MoneyCell fieldKey={`participating_${idx}`} rowIdx={idx} field="participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
                                 <MoneyCell fieldKey={`cont_part_${idx}`} rowIdx={idx} field="contingencies_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
                                 <MoneyCell fieldKey={`payroll_${idx}`} rowIdx={idx} field="payroll_mileage_diets" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} />
                                 {/* F.A. Requested — verde */}
