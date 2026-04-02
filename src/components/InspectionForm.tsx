@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import {
     Save, Plus, Trash2, Users, Search,
@@ -23,7 +23,9 @@ const INSPECTION_TABS = [
     { id: "visitantes",    label: "Visitantes",    icon: <Users size={18} /> },
 ];
 
-export default function InspectionForm({ projectId, onSaved, onDirty }: { projectId?: string, onSaved?: () => void, onDirty?: () => void }) {
+import type { FormRef } from "./ProjectForm";
+
+const InspectionForm = forwardRef<FormRef, { projectId?: string, onSaved?: () => void, onDirty?: () => void }>(function InspectionForm({ projectId, onSaved, onDirty }, ref) {
     const [selectedDate, setSelectedDate] = useState("");
     const [currentLog, setCurrentLog] = useState<any>(null);
     const [loading, setLoading] = useState(false);
@@ -163,6 +165,8 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
             alert("El Asistente de Inspección ha procesado y categorizado su dictado correctamente.");
         }
     };
+
+    useImperativeHandle(ref, () => ({ save: () => handleSave() }));
 
     const handleSave = async () => {
         if (!currentLog || !projectId) return;
@@ -336,7 +340,7 @@ export default function InspectionForm({ projectId, onSaved, onDirty }: { projec
             </div>
         </div>
     );
-}
+});
 
 function InspectionTabContent({ id, data, update }: any) {
     if (!data) return null;
@@ -530,3 +534,6 @@ function SmartDictationButton({ context, contractItems, onResult }: any) {
         </button>
     );
 }
+
+
+export default InspectionForm;

@@ -45,24 +45,61 @@ function ProjectDetailContent() {
     const [dirtyDialog, setDirtyDialog] = useState<{ show: boolean; targetTab: string }>({ show: false, targetTab: "" });
     const [isSaving, setIsSaving] = useState(false);
 
-    // Refs para guardado unificado en Datos Proyecto
+    // Refs para guardado unificado
     const projectFormRef = useRef<any>(null);
     const contractorFormRef = useRef<any>(null);
+    const activeRef = useRef<any>(null);
+
+    const saveActiveTab = async () => {
+        setIsSaving(true);
+        try {
+            if (activeTab === "project") {
+                await Promise.all([
+                    projectFormRef.current?.save(),
+                    contractorFormRef.current?.save()
+                ]);
+            } else {
+                if (activeRef.current?.save) {
+                    await activeRef.current.save();
+                } else {
+                    console.warn("La pestaña actual no soporta guardado remoto (activeRef.current.save no existe)");
+                }
+            }
+            
+            setIsDirty(false);
+            
+            // Si el diálogo estaba abierto, lo cerramos y navegamos a la pestaña objetivo
+            if (dirtyDialog.show) {
+                const target = dirtyDialog.targetTab;
+                setDirtyDialog({ show: false, targetTab: "" });
+                if (target) setActiveTab(target);
+            }
+        } catch (error) {
+            console.error("Error al guardar sección:", error);
+            alert("Hubo un error al intentar guardar los cambios automáticamente.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const saveProjectSection = async () => {
         setIsSaving(true);
         try {
-            // Guardar ambos formularios en paralelo
-            const results = await Promise.all([
+            // Guardar todos los formularios de la sección en paralelo
+            // Esto incluye: 
+            // 1. ProjectForm -> (Fechas, CCML, Documentación Crítica)
+            // 2. ProjectAgreementForm (vía ref interna de ProjectForm) -> (Fondos Originales)
+            // 3. ContractorForm -> (Información del Contratista)
+            await Promise.all([
                 projectFormRef.current?.save(),
                 contractorFormRef.current?.save()
             ]);
             
-            // Si ambos tuvieron éxito (o al menos se intentaron)
             setIsDirty(false);
-            alert("Información de la sección Datos Proyecto actualizada correctamente.");
+            alert("Se ha actualizado correctamente toda la información de 'Datos Proyecto' (Documentación, Fechas, CCML, Fondos y Contratista).");
         } catch (error) {
             console.error("Error al guardar sección:", error);
+            alert("Error al intentar guardar la información de la sección.");
         } finally {
             setIsSaving(false);
         }
@@ -247,10 +284,11 @@ function ProjectDetailContent() {
                                 No quiero guardar los cambios
                             </button>
                             <button
-                                onClick={() => { setDirtyDialog({ show: false, targetTab: "" }); }}
-                                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 transition-colors"
+                                onClick={saveActiveTab}
+                                disabled={isSaving}
+                                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
                             >
-                                OK
+                                {isSaving ? "Grabando..." : "Grabar"}
                             </button>
                         </div>
                     </div>
@@ -332,7 +370,7 @@ function ProjectDetailContent() {
                                                     label: isSaving ? "Guardando..." : "Guardar cambios",
                                                     icon: <Save />,
                                                     onClick: saveProjectSection,
-                                                    description: "Actualizar y sincronizar toda la información de los datos del proyecto y el contratista",
+                                                    description: "Actualizando la información de Datos proyecto",
                                                     variant: 'primary' as const,
                                                     disabled: isSaving
                                                 }
@@ -340,19 +378,19 @@ function ProjectDetailContent() {
                                         />
                                     </div>
                                 )}
-                                {activeTab === "personnel"   && <PersonnelForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "items"       && <ItemsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "materials"   && <MaterialsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "compliance"  && <ComplianceForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "cho"         && <CHOForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "payment"     && <PaymentCertForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "mfg"         && <MfgCertForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "minutes"     && <MinutesForm projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "logs"        && <DailyLogForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "inspection"  && <InspectionForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "force"       && <ForceAccountForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "liquidation" && <LiquidationForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "ccml"        && <CCMLModificationsForm projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "personnel"   && <PersonnelForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "items"       && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "materials"   && <MaterialsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "compliance"  && <ComplianceForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "cho"         && <CHOForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "payment"     && <PaymentCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "mfg"         && <MfgCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "minutes"     && <MinutesForm ref={activeRef} projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "logs"        && <DailyLogForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "inspection"  && <InspectionForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "force"       && <ForceAccountForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "liquidation" && <LiquidationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "ccml"        && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "files"       && <ProjectFilesExplorer projectId={id} />}
                             </Suspense>
                         </div>

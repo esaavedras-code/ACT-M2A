@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Info, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
@@ -17,7 +17,9 @@ interface CCMLMod {
 
 const ROWS_COUNT = 11; // 0 for Original, 1-10 for modifications
 
-export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: { projectId: string, onSaved?: () => void, onDirty?: () => void }) {
+import type { FormRef } from "./ProjectForm";
+
+const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?: () => void, onDirty?: () => void }>(({ projectId, onSaved, onDirty }, ref) => {
     const [mods, setMods] = useState<CCMLMod[]>([]);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
@@ -67,6 +69,8 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
         setMods(newMods);
         if (onDirty) onDirty();
     };
+
+    useImperativeHandle(ref, () => ({ save: () => saveMods() }));
 
     const saveMods = async () => {
         setLoading(true);
@@ -264,4 +268,7 @@ export default function CCMLModificationsForm({ projectId, onSaved, onDirty }: {
             />
         </div>
     );
-}
+
+});
+
+export default CCMLModificationsForm;

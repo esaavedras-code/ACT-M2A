@@ -544,7 +544,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
         return {
             liveExecuted: executed,
-            liveRetention: retentionTotal,
+            liveRetention: -retentionTotal,
             liveMOS: mosTotal,
             livePaid: executed - retentionTotal + mosTotal,
             totalProjectGrossRetention: grossRetention
@@ -737,7 +737,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                             </div>
                                             <div className="flex items-end gap-3 flex-wrap">
                                                 <span className={`text-lg xl:text-xl font-black ${c.skip_retention ? 'text-slate-400 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
-                                                    {formatCurrency(c.skip_retention ? 0 : certRetention)}
+                                                    {formatCurrency(c.skip_retention ? 0 : -certRetention)}
                                                 </span>
                                                 {c.show_retention_return && (
                                                     <div className="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-900/10 p-1.5 rounded-lg border border-blue-100 dark:border-blue-800/50 w-full mt-1">

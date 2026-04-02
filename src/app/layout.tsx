@@ -14,6 +14,7 @@ import QuickHelpModal from "@/components/QuickHelpModal";
 import AIChat from "@/components/AIChat";
 import UserPresenceTracker from "@/components/UserPresenceTracker";
 import MaintenanceGuard from "@/components/MaintenanceGuard";
+import PlatformIndicator from "@/components/PlatformIndicator";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,6 +31,7 @@ export default function RootLayout({
         <html lang="es" suppressHydrationWarning>
             <body className="antialiased min-h-screen relative font-sans text-slate-900 bg-slate-50" suppressHydrationWarning>
                 <TranslationProvider>
+                    <PlatformIndicator />
                     <UserPresenceTracker />
                     <Suspense fallback={null}>
                         <MaintenanceGuard />
