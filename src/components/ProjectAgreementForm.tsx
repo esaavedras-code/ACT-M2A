@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Plus, Trash2, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
@@ -107,6 +107,7 @@ const MoneyCell = ({
 
 const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectId, hideActions = false }: { projectId: string, hideActions?: boolean }, ref) {
     const [funds, setFunds] = useState<FundRow[]>([]);
+    const fundsRef = useRef<FundRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [editingField, setEditingField] = useState<string | null>(null);
 
@@ -127,37 +128,46 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
         
         if (data && data.length > 0) {
             setFunds(data);
+            fundsRef.current = data;
         } else {
-            setFunds([
+            const initialFunds = [
                 { unit_name: "Unit 1", federal_share_pct: 100, participating: 0, contingencies_participating: 0, payroll_mileage_diets: 0, fa_funds_requested: 0, contingencies_federal: 0, calc_toll_credits: 0, contingencies_toll: 0, state_share_federal: 0, contingencies_state_share: 0, not_participating_state: 0, contingencies_not_participating: 0, payroll_mileage_diets_state: 0 },
                 { unit_name: "Unit 2", federal_share_pct: 100, participating: 0, contingencies_participating: 0, payroll_mileage_diets: 0, fa_funds_requested: 0, contingencies_federal: 0, calc_toll_credits: 0, contingencies_toll: 0, state_share_federal: 0, contingencies_state_share: 0, not_participating_state: 0, contingencies_not_participating: 0, payroll_mileage_diets_state: 0 }
-            ]);
+            ];
+            setFunds(initialFunds);
+            fundsRef.current = initialFunds;
         }
     };
 
     const handleChange = (index: number, field: keyof FundRow, value: any) => {
-        const newFunds = [...funds];
+        const newFunds = [...(fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds)];
         (newFunds[index] as any)[field] = value;
         setFunds(newFunds);
+        fundsRef.current = newFunds;
     };
 
     const addUnit = () => {
-        setFunds([...funds, { 
-            unit_name: `Unit ${funds.length + 1}`, 
+        const currentFunds = fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds;
+        const newFunds = [...currentFunds, { 
+            unit_name: `Unit ${currentFunds.length + 1}`, 
             federal_share_pct: 100, 
             participating: 0, contingencies_participating: 0, payroll_mileage_diets: 0, 
             fa_funds_requested: 0, contingencies_federal: 0, calc_toll_credits: 0, contingencies_toll: 0, 
             state_share_federal: 0, contingencies_state_share: 0, not_participating_state: 0, 
             contingencies_not_participating: 0, payroll_mileage_diets_state: 0 
-        }]);
+        }];
+        setFunds(newFunds);
+        fundsRef.current = newFunds;
     };
 
     const saveFunds = async (silent = false) => {
         setLoading(true);
+        // Evitamos guardar con un ref.current vacío si no se montó completamente antes de la acción rápida
+        const currentFunds = fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds;
         try {
             const { error } = await supabase
                 .from('project_agreement_funds')
-                .upsert(funds.map(f => ({ ...f, project_id: projectId })));
+                .upsert(currentFunds.map(f => ({ ...f, project_id: projectId })));
 
             if (error) throw error;
             if(!silent) alert("Información del Project Agreement guardada con éxito.");
@@ -183,6 +193,7 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                 return { ...rest, project_id: projectId };
             });
             setFunds(cleanedData);
+            fundsRef.current = cleanedData;
             alert("Datos importados correctamente. No olvide Guardar para confirmar los cambios.");
         } else {
             alert("Error al importar: " + (result.error || "Formato no válido"));
@@ -257,7 +268,12 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                                 <MoneyCell fieldKey={`payroll_mileage_diets_state_${idx}`} rowIdx={idx} field="payroll_mileage_diets_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-gray-50/50 dark:bg-gray-900/10" />
                                 {/* Acciones */}
                                 <td className="border p-0.5 text-center">
-                                    <button type="button" onClick={() => setFunds(funds.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700">
+                                    <button type="button" onClick={() => {
+                                        const currentFunds = fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds;
+                                        const newList = currentFunds.filter((_, i) => i !== idx);
+                                        setFunds(newList);
+                                        fundsRef.current = newList;
+                                    }} className="text-red-500 hover:text-red-700">
                                         <Trash2 size={12} />
                                     </button>
                                 </td>

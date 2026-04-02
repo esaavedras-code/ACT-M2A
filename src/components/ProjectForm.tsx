@@ -61,6 +61,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         chief_project_control: "",
         dir_construction: "",
     });
+    const formDataRef = useRef(formData);
     const [mounted, setMounted] = useState(false);
     const [todayDate, setTodayDate] = useState("");
     const [loading, setLoading] = useState(false);
@@ -91,11 +92,13 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             .eq("id", projectId)
             .single();
         if (data) {
-            setFormData({
+            const fetchedData = {
                 ...data,
                 municipios: data.municipios ? data.municipios.join(", ") : "",
                 carreteras: data.carreteras ? data.carreteras.join(", ") : "",
-            });
+            };
+            setFormData(fetchedData);
+            formDataRef.current = fetchedData;
         }
     }, [projectId]);
 
@@ -174,24 +177,31 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
     const terminacionAdministrativa = getTerminacionAdministrativa();
 
     const handleChange = (field: string, value: any) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData(prev => {
+            const nextData = { ...prev, [field]: value };
+            formDataRef.current = nextData;
+            return nextData;
+        });
         if (onDirty) onDirty();
     };
 
     const saveData = async (silent = false) => {
-        // Validar formato del número de proyecto (AC-XXXXXX o similares)
-        // Ampliamos para ser más flexibles con proyectos existentes
-        const numActRegex = /^(AC-|ACT-)[0-9A-Z]{2,12}[A-Z]?$|^[0-9A-Z-]{4,15}$/i;
-        const currentNumAct = (formData.num_act || "").trim();
-        
-        if (!currentNumAct || currentNumAct.length < 3) {
-            if (!silent) alert("El número de proyecto estatal no puede estar vacío.");
-            setLoading(false);
-            return;
-        }
-
-        setLoading(true);
         try {
+            // Evaluamos la info más reciente
+            const currentData = formDataRef.current;
+            
+            // Validar formato del número de proyecto (AC-XXXXXX o similares)
+            // Ampliamos para ser más flexibles con proyectos existentes
+            const numActRegex = /^(AC-|ACT-)[0-9A-Z]{2,12}[A-Z]?$|^[0-9A-Z-]{4,15}$/i;
+            const currentNumAct = (currentData.num_act || "").trim();
+        
+            if (!currentNumAct || currentNumAct.length < 3) {
+                if (!silent) alert("El número de proyecto estatal no puede estar vacío.");
+                setLoading(false);
+                return;
+            }
+
+            setLoading(true);
             let finalNumAct = currentNumAct;
             
             // Check for duplicates if it's a new project
@@ -228,37 +238,40 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         
                         finalNumAct = suggestedNumAct;
                         setFormData(prev => ({ ...prev, num_act: finalNumAct }));
+                        formDataRef.current = { ...currentData, num_act: finalNumAct };
                     }
                 }
             }
+            
+            const finalNumActUpper = finalNumAct.toUpperCase();
 
-            const { id, created_at, updated_at, ...restData } = formData as any;
+            const { id, created_at, updated_at, ...restData } = currentData as any;
             const dataToSave = {
                 ...restData,
-                num_act: finalNumAct,
-                municipios: formData.municipios ? formData.municipios.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
-                carreteras: formData.carreteras ? formData.carreteras.split(",").map((s) => s.trim()).filter((s) => s !== "") : [],
-                date_contract_sign: (typeof formData.date_contract_sign === 'string' && formData.date_contract_sign.trim() !== "") ? formData.date_contract_sign : null,
-                date_project_start: (typeof formData.date_project_start === 'string' && formData.date_project_start.trim() !== "") ? formData.date_project_start : null,
-                date_orig_completion: (typeof formData.date_orig_completion === 'string' && formData.date_orig_completion.trim() !== "") ? formData.date_orig_completion : null,
-                date_rev_completion: (typeof formData.date_rev_completion === 'string' && formData.date_rev_completion.trim() !== "") ? formData.date_rev_completion : null,
-                date_est_completion: (typeof formData.date_est_completion === 'string' && formData.date_est_completion.trim() !== "") ? formData.date_est_completion : null,
-                date_real_completion: (typeof formData.date_real_completion === 'string' && formData.date_real_completion.trim() !== "") ? formData.date_real_completion : null,
-                date_substantial_completion: (typeof formData.date_substantial_completion === 'string' && formData.date_substantial_completion.trim() !== "") ? formData.date_substantial_completion : null,
-                date_final_inspection: (typeof formData.date_final_inspection === 'string' && formData.date_final_inspection.trim() !== "") ? formData.date_final_inspection : null,
+                num_act: finalNumActUpper,
+                municipios: currentData.municipios ? currentData.municipios.split(",").map((s: string) => s.trim()).filter((s: string) => s !== "") : [],
+                carreteras: currentData.carreteras ? currentData.carreteras.split(",").map((s: string) => s.trim()).filter((s: string) => s !== "") : [],
+                date_contract_sign: (typeof currentData.date_contract_sign === 'string' && currentData.date_contract_sign.trim() !== "") ? currentData.date_contract_sign : null,
+                date_project_start: (typeof currentData.date_project_start === 'string' && currentData.date_project_start.trim() !== "") ? currentData.date_project_start : null,
+                date_orig_completion: (typeof currentData.date_orig_completion === 'string' && currentData.date_orig_completion.trim() !== "") ? currentData.date_orig_completion : null,
+                date_rev_completion: (typeof currentData.date_rev_completion === 'string' && currentData.date_rev_completion.trim() !== "") ? currentData.date_rev_completion : null,
+                date_est_completion: (typeof currentData.date_est_completion === 'string' && currentData.date_est_completion.trim() !== "") ? currentData.date_est_completion : null,
+                date_real_completion: (typeof currentData.date_real_completion === 'string' && currentData.date_real_completion.trim() !== "") ? currentData.date_real_completion : null,
+                date_substantial_completion: (typeof currentData.date_substantial_completion === 'string' && currentData.date_substantial_completion.trim() !== "") ? currentData.date_substantial_completion : null,
+                date_final_inspection: (typeof currentData.date_final_inspection === 'string' && currentData.date_final_inspection.trim() !== "") ? currentData.date_final_inspection : null,
                 date_admin_term: terminacionAdministrativa || null,
-                fmis_end_date: (typeof formData.fmis_end_date === 'string' && formData.fmis_end_date.trim() !== "") ? formData.fmis_end_date : null,
-                created_by_email: formData.created_by_email || null,
-                reached_substantial_completion: formData.reached_substantial_completion,
-                eligible_toll_credits: formData.eligible_toll_credits,
-                pay_items_er_funds: formData.pay_items_er_funds,
-                project_manager_name: formData.project_manager_name || null,
-                admin_name: formData.admin_name || null,
-                contractor_name: formData.contractor_name || null,
-                liquidador_name: formData.liquidador_name || null,
-                regional_director: formData.regional_director || null,
-                chief_project_control: formData.chief_project_control || null,
-                dir_construction: formData.dir_construction || null,
+                fmis_end_date: (typeof currentData.fmis_end_date === 'string' && currentData.fmis_end_date.trim() !== "") ? currentData.fmis_end_date : null,
+                created_by_email: currentData.created_by_email || null,
+                reached_substantial_completion: currentData.reached_substantial_completion,
+                eligible_toll_credits: currentData.eligible_toll_credits,
+                pay_items_er_funds: currentData.pay_items_er_funds,
+                project_manager_name: currentData.project_manager_name || null,
+                admin_name: currentData.admin_name || null,
+                contractor_name: currentData.contractor_name || null,
+                liquidador_name: currentData.liquidador_name || null,
+                regional_director: currentData.regional_director || null,
+                chief_project_control: currentData.chief_project_control || null,
+                dir_construction: currentData.dir_construction || null,
             };
 
             console.log("Saving project data:", dataToSave);
@@ -367,8 +380,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             isGlobalAdmin = userData?.role_global === "A";
         }
 
-        if (!isGlobalAdmin && formData.created_by_email && currentUserEmail !== formData.created_by_email) {
-            alert(`Acceso denegado: Solo el creador del proyecto (${formData.created_by_email}) o un administrador pueden eliminarlo.`);
+        if (!isGlobalAdmin && formDataRef.current.created_by_email && currentUserEmail !== formDataRef.current.created_by_email) {
+            alert(`Acceso denegado: Solo el creador del proyecto (${formDataRef.current.created_by_email}) o un administrador pueden eliminarlo.`);
             return;
         }
 
@@ -394,7 +407,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 // @ts-ignore
                 const path = await window.electronAPI.selectFolder();
                 if (path) {
-                    setFormData(prev => ({ ...prev, folder_path: path }));
+                    setFormData(prev => {
+                        const nextData = { ...prev, folder_path: path };
+                        formDataRef.current = nextData;
+                        return nextData;
+                    });
                     setTempPath(path);
                 }
             } else if ('showDirectoryPicker' in window) {
@@ -522,7 +539,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
-                        description: "Guardar toda la información del proyecto y crear respaldo",
+                        description: "Actualizar y sincronizar la informacion de los datos del proyecto",
                         variant: 'primary' as const,
                         disabled: loading
                     }
