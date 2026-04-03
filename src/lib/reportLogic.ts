@@ -1224,11 +1224,12 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
         ['Oficina:', contractor?.phone_office || 'N/A', 'Celular:', contractor?.phone_mobile || 'N/A'],
         ['', '', '', ''],
         ['7. PERSONAL ACT RESPONSABLE', '', '', ''],
-        ['', 'Rol / Puesto', 'Nombre', 'Contacto'],
+        ['', '', '', ''],
+        ['Rol / Puesto', 'Nombre', 'Contacto', ''],
     ];
 
     personnel?.forEach(p => {
-        reportData.push(['', p.role, p.name || 'N/A', (p.phone_mobile || p.email || 'N/A')]);
+        reportData.push([p.role, p.name || 'N/A', (p.phone_mobile || p.email || 'N/A'), '']);
     });
 
     const projectInfo = { name: proj.name, num_act: proj.num_act };
