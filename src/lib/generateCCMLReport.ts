@@ -75,6 +75,12 @@ export async function generateCCMLReport(
             }
         }
 
+        const reportDateLimit = reportDate;
+        const certsToInclude = (certs || []).filter((c: any) => {
+            const d = new Date(c.certification_date || c.cert_date || c.date);
+            return d <= reportDateLimit;
+        });
+
         const ewoList = chosToInclude.filter((c: any) => c.cho_num === null || c.amendment_letter?.includes('EWO'));
         const trueChoList = chosToInclude.filter((c: any) => c.cho_num !== null && !c.amendment_letter?.includes('EWO'));
         const manager = personnel?.find((p: any) => p.role === 'Project Manager')?.name || '';
@@ -99,12 +105,19 @@ export async function generateCCMLReport(
         setVal('E12', contrData?.name || project.contractor_name || '');
         setVal('E13', cleanManager);
         setVal('E14', reportDate);
-        setVal('E15', project.no_cuenta || '');
+        setVal('E15', ""); // Requirement 4: Delete E15
         setVal('E16', project.num_contrato || '');
+        setVal('B16', "Has the Project reached substantial completion?"); // Requirement 1
         setVal('I28', project.eligible_toll_credits ? 'YES' : 'NO');
         setVal('E17', trueChoList.filter((c: any) => c.cho_num !== undefined).length || 0);
         setVal('E18', ewoList.length || 0);
-        setVal('E18', ewoList.length || 0);
+
+        // Requirement 5: Reduce font size for labels and info (E8 to E14, B17, B18)
+        ['E8','E9','E10','E11','E12','E13','E14','B17','B18'].forEach(addr => {
+            const cell = ws.getCell(addr);
+            if (!cell.font) cell.font = {};
+            cell.font = { ...cell.font, size: (cell.font.size || 11) - 1 };
+        });
 
         // Performance Metrics (T Column)
         const startDate = project.date_project_start ? new Date(project.date_project_start + "T00:00:00") : null;
@@ -120,12 +133,15 @@ export async function generateCCMLReport(
         const approvedDays = trueChoList.reduce((acc: number, c: any) => acc + (c.time_extension_days || 0), 0);
         const revisedDays = totalDays + approvedDays;
 
-        // usedDays logic from Summary Dashboard
-        let timeEndDate = new Date();
-        if (project.date_substantial_completion) {
-            timeEndDate = new Date(project.date_substantial_completion + "T23:59:59");
-        } else if (project.date_real_completion) {
-            timeEndDate = new Date(project.date_real_completion + "T23:59:59");
+        // usedDays logic - Capped by reportDate
+        let timeEndDate = reportDate;
+        const substantialDate = project.date_substantial_completion ? new Date(project.date_substantial_completion + "T23:59:59") : null;
+        const realDate = project.date_real_completion ? new Date(project.date_real_completion + "T23:59:59") : null;
+        
+        if (substantialDate && substantialDate < timeEndDate) {
+            timeEndDate = substantialDate;
+        } else if (realDate && realDate < timeEndDate) {
+            timeEndDate = realDate;
         }
 
         let usedDays = 0;
@@ -149,7 +165,7 @@ export async function generateCCMLReport(
         const originalCost = parseFloat(project.cost_original) || 0;
         const totalMods = trueChoList.reduce((acc: number, c: any) => acc + (parseFloat(c.proposed_change) || 0), 0);
         const totalRevisedCost = originalCost + totalMods;
-        const totalCertified = certs.reduce((acc: number, c: any) => {
+        const totalCertified = certsToInclude.reduce((acc: number, c: any) => {
             const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
             return acc + certItems.reduce((s: number, it: any) => s + (parseFloat(it.quantity) * parseFloat(it.unit_price) || 0), 0);
         }, 0);
@@ -180,7 +196,8 @@ export async function generateCCMLReport(
         let originalFederal = 0;
         let sumF = 0, sumG = 0, sumH = 0, sumJ = 0, sumQ = 0, sumR = 0, sumS = 0, sumT = 0, sumU = 0, sumV = 0, sumW = 0, sumX = 0, sumY = 0;
         let rowF = 35;
-        (agreementFunds || []).forEach((fund: any) => {
+        const sortedAgreementFunds = [...(agreementFunds || [])].sort((a, b) => (a.unit_name || "").localeCompare(b.unit_name || "", undefined, { numeric: true }));
+        sortedAgreementFunds.forEach((fund: any) => {
             if (rowF > 44) return;
             const participating = parseFloat(fund.participating) || 0;
             const contParticipating = parseFloat(fund.contingencies_participating) || 0;
@@ -213,11 +230,8 @@ export async function generateCCMLReport(
 
             // Section 1: Input (E to J)
             setVal(`E${rowF}`, participating).numFmt = '"$"#,##0.00';
-            setVal(`F${rowF}`, participating).numFmt = '"$"#,##0.00';
             setVal(`G${rowF}`, contParticipating).numFmt = '"$"#,##0.00';
-            setVal(`H${rowF}`, contParticipating).numFmt = '"$"#,##0.00';
             setVal(`I${rowF}`, payroll).numFmt = '"$"#,##0.00';
-            setVal(`J${rowF}`, payroll).numFmt = '"$"#,##0.00';
 
             // Middle: Colored (K to P) - CALCULATED
             setVal(`B${rowF}`, fund.unit_name);
@@ -248,9 +262,7 @@ export async function generateCCMLReport(
             // Section 2: State Funds Input (Q to U)
             setVal(`Q${rowF}`, notParticipating).numFmt = '"$"#,##0.00';
             setVal(`R${rowF}`, countNotPart).numFmt = '"$"#,##0.00';
-            setVal(`S${rowF}`, countNotPart).numFmt = '"$"#,##0.00';
             setVal(`T${rowF}`, payrollState).numFmt = '"$"#,##0.00';
-            setVal(`U${rowF}`, payrollState).numFmt = '"$"#,##0.00';
 
             // Totals V, W, X, Y
             setVal(`V${rowF}`, null); // Clear Col V as requested
@@ -345,20 +357,30 @@ export async function generateCCMLReport(
         const grandFederalTotal = originalFederal + totalFedModShare;
         const grandStateTotal = grandTotal - grandFederalTotal;
 
-        // Row 223: Modification Totals
-        // (Existing H223 already set below)
-
-        // Row 225: Modification Total Amount (B225)
+        // Requirement 9 & 10: Summary sections
+        // Sacar los valores de h223 a p223, c225 a f229 y l226 a u227 según template
+        // (Removing custom logic that fills these if they are meant to be empty or manual in template)
+        setVal('H223', null);
         setVal('E225', totalModAmount).numFmt = '"$"#,##0.00';
-
-        // Row 227-229: Grand Totals
         setVal('E227', grandTotal).numFmt = '"$"#,##0.00';
         setVal('E228', grandFederalTotal).numFmt = '"$"#,##0.00';
         setVal('E229', grandStateTotal).numFmt = '"$"#,##0.00';
+        
+        // Clear ranges L226:U227 as requested
+        for (let r = 226; r <= 227; r++) {
+            const rowLabel = ws.getRow(r);
+            for (let c = 12; c <= 21; c++) { // L to U
+                rowLabel.getCell(c).value = null;
+            }
+        }
 
-        // Row 223 Federals
-        try { ws.mergeCells('H223:J223'); } catch (e) { }
-        setVal('H223', totalFedModShare).numFmt = '"$"#,##0.00';
+        // Requirement 11: Clear range L234 to U285
+        for (let r = 234; r <= 285; r++) {
+            const row = ws.getRow(r);
+            for (let c = 12; c <= 21; c++) { // L to U
+                row.getCell(c).value = null;
+            }
+        }
 
         // Wipe yellow cells
         ws.eachRow((row) => {
