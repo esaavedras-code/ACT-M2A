@@ -37,7 +37,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         },
         penalties: { liquidated: 0, dlqReimbursement: 0, security: 0, others: 0, total: 0 },
         retention: { fivePercent: 0, extra: 0, returned: 0, total: 0 },
-        liquidation: { totalItems: 0, adminSigned: 0, contractorSigned: 0, liquidatorSigned: 0, percent: 0 }
+        liquidation: { 
+            totalItems: 0, adminSigned: 0, contractorSigned: 0, liquidatorSigned: 0, percent: 0,
+            federalDocs: [] as string[]
+        }
     });
 
     const [expiredDocs, setExpiredDocs] = useState<{ doc_type: string; date_expiry: string }[]>([]);
@@ -305,7 +308,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     (proj?.liquidation_data?.admin_signed_count || 0) +
                     (proj?.liquidation_data?.contractor_signed_count || 0) +
                     (proj?.liquidation_data?.liquidator_signed_count || 0)
-                ) / (totalItemsCount * 3)) * 100) : 0
+                ) / (totalItemsCount * 3)) * 100) : 0,
+                federalDocs: proj?.liquidation_data?.federal_docs || []
             }
         });
     };
@@ -470,6 +474,22 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.adminSigned)}</span></div>
                                 <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.contractorSigned)}</span></div>
                                 <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.liquidatorSigned)}</span></div>
+                            </div>
+                        </div>
+                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
+                        <div className="space-y-2">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Documentos de Cierre Recibidos:</span>
+                            <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar pr-1">
+                                {metrics.liquidation.federalDocs.length > 0 ? (
+                                    metrics.liquidation.federalDocs.map((doc, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-1 rounded border border-emerald-100 dark:border-emerald-900/30">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]" />
+                                            <span className="truncate">{doc}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-[10px] text-slate-400 italic">No hay documentos marcados.</p>
+                                )}
                             </div>
                         </div>
                         <hr className="my-3 border-slate-200 dark:border-slate-800" />

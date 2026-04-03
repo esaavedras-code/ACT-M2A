@@ -159,7 +159,9 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
         });
     });
 
-    const groupsList = Array.from(groupedItems.values()).map(group => {
+    const groupsList = Array.from(groupedItems.values())
+        .sort((a, b) => a.item_num.localeCompare(b.item_num, undefined, { numeric: true }))
+        .map(group => {
         let runBal = 0;
         group.activities.forEach((act: any) => {
             if (act.type === 'addition') {

@@ -7,7 +7,7 @@ import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
-import { generateSignedItemsReportLogic } from "@/lib/reportLogic";
+import { generateSignedItemsReportLogic, generateMissingSignaturesReportLogic } from "@/lib/reportLogic";
 
 const FEDERAL_DOCS = [
     "Final Acceptance Checklist for Federal -Aid Projects",
@@ -44,6 +44,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     const [showPartidas, setShowPartidas] = useState(false);
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isGeneratingMissing, setIsGeneratingMissing] = useState(false);
 
     useEffect(() => {
         if (projectId) fetchLiquidation();
@@ -83,6 +84,21 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             setIsGenerating(false);
         }
     };
+
+    const handleGenerateMissingReport = async () => {
+        if (!projectId) return;
+        setIsGeneratingMissing(true);
+        try {
+            await generateMissingSignaturesReportLogic(projectId);
+        } catch (err) {
+            console.error("Error al generar reporte de firmas faltantes:", err);
+            alert("Error al generar el reporte.");
+        } finally {
+            setIsGeneratingMissing(false);
+        }
+    };
+
+
 
     const saveData = async (silent = false) => {
         if (!projectId) return;
@@ -186,6 +202,15 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     >
                         {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}
                         Reporte de Firmas
+                    </button>
+                    <button
+                        onClick={handleGenerateMissingReport}
+                        disabled={isGeneratingMissing}
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl border border-amber-200 font-bold text-sm transition-all disabled:opacity-50"
+                        title="Reporte de partidas que tienen alguna firma pendiente"
+                    >
+                        {isGeneratingMissing ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+                        Firmas Pendientes
                     </button>
                 </div>
             </div>

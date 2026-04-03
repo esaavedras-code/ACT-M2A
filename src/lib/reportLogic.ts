@@ -926,7 +926,9 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
 
     const reportData: any[][] = [['# Item', 'Especificación', 'Descripción', 'Cert #', 'Tipo', 'Cantidad', 'Unidad', 'Monto ($)', 'Balance ($)']];
     let totalFinalBalance = 0;
-    Array.from(groupedItems.values()).forEach(group => {
+    Array.from(groupedItems.values())
+        .sort((a, b) => a.item_num.localeCompare(b.item_num, undefined, { numeric: true }))
+        .forEach(group => {
         const it = (itemsRepo || []).find((i: any) => i.item_num === group.item_num);
         const unit = it?.unit || '';
         let itemBalance = 0;
