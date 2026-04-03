@@ -1629,7 +1629,7 @@ export const generateSignedItemsReportLogic = async (projectId: string, format: 
 
     // Añadir balance al final
     reportData.push(['', '', '', '', '']);
-    reportData.push(['RESUMEN DE PARTIDAS FIRMADAS:', '', `Admin: ${adminCount}`, `Contratista: ${contractorCount}`, `Liquidador: ${liquidatorCount}`]);
+    reportData.push(['RESUMEN DE PARTIDAS FIRMADAS:', '', adminCount.toString(), contractorCount.toString(), liquidatorCount.toString()]);
 
     // ContentWidth is 552 for portrait. Let's do widths that fit inside 552:
     // 60 + 252 + 80 + 80 + 80 = 552

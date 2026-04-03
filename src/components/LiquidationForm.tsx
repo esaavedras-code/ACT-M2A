@@ -14,6 +14,7 @@ const FEDERAL_DOCS = [
     "Final Acceptance Report (FHWA)",
     "Material Certification (Original)",
     "Payroll Certification",
+    "Labor compliance certification",
     "DBE Goals Certification",
     "Carta de aceptación del proyecto",
     "Informe de inspección Final de Proyecto",
@@ -22,7 +23,8 @@ const FEDERAL_DOCS = [
     "Substantial Completion Letter",
     "CCO's Summary Report",
     "Análisis de Tiempo",
-    "Enviromental Review Certification"
+    "Enviromental Review Certification",
+    "Otros"
 ];
 
 const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function LiquidationForm({ projectId, numAct, onDirty, onSaved }, ref) {
@@ -37,6 +39,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         notes: "",
         federal_docs: [],
         federal_attachments: {},
+        other_doc_name: "",
         liquidated_items: []
     });
     const [isFocused, setIsFocused] = useState(false);
@@ -98,8 +101,6 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         }
     };
 
-
-
     const saveData = async (silent = false) => {
         if (!projectId) return;
         setLoading(true);
@@ -120,7 +121,10 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         const docs = [...(formData.federal_docs || [])];
         const idx = docs.indexOf(doc);
         if (idx > -1) docs.splice(idx, 1);
-        else docs.push(doc);
+        else {
+            docs.push(doc);
+            alert("Recordatorio: Favor de subir el documento en formato digital (PDF u otros) usando la flecha de upload.");
+        }
         setFormData({ ...formData, federal_docs: docs });
         if (onDirty) onDirty();
     };
@@ -199,6 +203,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         onClick={handleGenerateReport}
                         disabled={isGenerating}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl border border-blue-200 font-bold text-sm transition-all disabled:opacity-50"
+                        title="Reporte de todas las partidas y su estatus de firmas"
                     >
                         {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}
                         Reporte de Firmas
@@ -283,47 +288,36 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             const attachments = formData.federal_attachments?.[doc] || [];
                             const isChecked = formData.federal_docs?.includes(doc);
 
-                            const noUploadDocs = [
-                                "Final Acceptance Checklist for Federal -Aid Projects",
-                                "Final Acceptance Report (FHWA)",
-                                "Material Certification (Original)",
-                                "Payroll Certification",
-                                "Final Construction Report",
-                                "Final Estimate",
-                                "CCO's Summary Report",
-                                "Análisis de Tiempo"
-                            ];
-
                             return (
-                                <div key={i} className={`flex items-center gap-2 p-1.5 rounded-lg border transition-all ${isChecked
+                                <div key={i} className={`flex flex-col gap-2 p-2 rounded-lg border transition-all ${isChecked
                                     ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800'
                                     : 'bg-white border-slate-100 hover:border-slate-200 dark:bg-slate-900 dark:border-slate-800'
                                     }`}>
-                                    <label className="flex items-start gap-2 cursor-pointer group flex-1">
-                                        <input
-                                            type="checkbox"
-                                            className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                                            checked={isChecked}
-                                            onChange={() => toggleDoc(doc)}
-                                        />
-                                        <span className={`text-[11px] font-medium leading-tight ${isChecked
-                                            ? 'text-emerald-900 dark:text-emerald-300'
-                                            : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200'
-                                            }`}>
-                                            {doc}
-                                        </span>
-                                    </label>
-
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        {attachments.length > 0 && (
-                                            <span className="flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md">
-                                                <FileText size={10} />
-                                                {attachments.length}
+                                    <div className="flex items-center gap-2">
+                                        <label className="flex items-start gap-2 cursor-pointer group flex-1">
+                                            <input
+                                                type="checkbox"
+                                                className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                                checked={isChecked}
+                                                onChange={() => toggleDoc(doc)}
+                                            />
+                                            <span className={`text-[11px] font-bold leading-tight ${isChecked
+                                                ? 'text-emerald-900 dark:text-emerald-300'
+                                                : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200'
+                                                }`}>
+                                                {doc}
                                             </span>
-                                        )}
+                                        </label>
 
-                                        {!noUploadDocs.includes(doc) && (
-                                            <label className="cursor-pointer p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-primary group/upload" title="Subir documento">
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {attachments.length > 0 && (
+                                                <span className="flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md">
+                                                    <FileText size={10} />
+                                                    {attachments.length}
+                                                </span>
+                                            )}
+
+                                            <label className="cursor-pointer p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-blue-500 hover:text-primary group/upload" title="Subir documento">
                                                 <input
                                                     type="file"
                                                     multiple
@@ -332,8 +326,22 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                 />
                                                 <Upload size={13} />
                                             </label>
-                                        )}
+                                        </div>
                                     </div>
+                                    {doc === "Otros" && isChecked && (
+                                        <div className="ml-5 mt-1 animate-in slide-in-from-left-2 duration-200">
+                                            <input
+                                                type="text"
+                                                placeholder="Nombre del documento personalizado..."
+                                                className="input-field py-1 text-[10px] h-7 bg-white/50 border-emerald-200 focus:border-emerald-500 placeholder:text-slate-400 italic"
+                                                value={formData.other_doc_name || ""}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, other_doc_name: e.target.value });
+                                                    if (onDirty) onDirty();
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}

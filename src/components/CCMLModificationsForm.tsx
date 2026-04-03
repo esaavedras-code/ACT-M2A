@@ -61,11 +61,6 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
     const handleChange = (idx: number, field: keyof CCMLMod, value: any) => {
         const newMods = [...mods];
         (newMods[idx] as any)[field] = value;
-        
-        // Auto-calculate State Funds if Total Cost or Federal Share changes?
-        // Let's keep it manual asrequested "pida la informacion de las celdas en blanco"
-        // although usually State Funds = Total Cost - Federal Share.
-        
         setMods(newMods);
         if (onDirty) onDirty();
     };
@@ -108,14 +103,12 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
                         <p className="text-slate-500 text-xs font-medium">Información de Cartas de Requerimiento de Modificación de Proyecto</p>
                     </div>
                 </div>
-                {/* El botón de guardar ahora es flotante */}
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800 flex items-start gap-3">
                 <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
-                <p className="text-[11px] text-blue-800 dark:text-blue-300 font-medium leading-relaxed italic">
-                    AS INDICATED IN THE PROJECT MODIFICATION REQUEST LETTERS (THE LETTERS ARE DEVELOPED BY THE PRHTA FEDERAL LIAISON OFFICE AND EVALUATED/APPROVED BY THE FHWA PR/USVI DIVISION. 
-                    FUNDS INFORMATION IN THE LETTERS WILL BE ACCESSED THROUGH A FOLDER IN A CLOUD PLATFORM):
+                <p className="text-[11px] text-blue-800 dark:text-blue-300 font-bold leading-relaxed italic">
+                    Nota: Esta información es actualizada por el departamento de Finanzas. Para los fines de este programa (PACT), la información se obtiene directamente del CCML del último documento aprobado.
                 </p>
             </div>
 
@@ -137,7 +130,6 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
                                 <td className="border p-3 bg-slate-50/30 dark:bg-slate-800/20 font-bold text-slate-700 dark:text-slate-300">
                                     {mod.label}
                                 </td>
-                                {/* Federal Share */}
                                 <td className="border p-1 text-right" style={{ backgroundColor: '#66FF99' }}>
                                     {editingField?.idx === idx && editingField?.field === 'federal_share' ? (
                                         <input
@@ -160,7 +152,6 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
                                         </div>
                                     )}
                                 </td>
-                                {/* Toll Credits */}
                                 <td className="border p-1 text-right" style={{ backgroundColor: '#66FF99' }}>
                                     {editingField?.idx === idx && editingField?.field === 'toll_credits' ? (
                                         <input
@@ -183,7 +174,6 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
                                         </div>
                                     )}
                                 </td>
-                                {/* State Funds */}
                                 <td className="border p-1 text-right" style={{ backgroundColor: '#66FF99' }}>
                                     {editingField?.idx === idx && editingField?.field === 'state_funds' ? (
                                         <input
@@ -208,7 +198,6 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
                                 </td>
                             </tr>
                         ))}
-                        {/* Revised Amount row */}
                         <tr className="bg-slate-900 text-white font-black">
                             <td className="border p-3 uppercase tracking-widest text-[10px]">Revised Amount</td>
                             <td className="border p-3 text-right text-orange-400">{formatCurrency(mods.reduce((acc, m) => acc + m.federal_share, 0))}</td>
@@ -268,7 +257,6 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
             />
         </div>
     );
-
 });
 
 export default CCMLModificationsForm;

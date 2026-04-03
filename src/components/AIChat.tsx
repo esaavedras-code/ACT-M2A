@@ -93,7 +93,9 @@ function AIChatContent() {
             const { data, error } = await supabase.functions.invoke('ai-assistant', {
                 body: { 
                     prompt: userMsg,
-                    context: projectId ? `Trabajando en el proyecto con ID ${projectId}` : 'General'
+                    context: projectId 
+                        ? `Trabajando en el proyecto con ID ${projectId}. IMPORTANTE: Siempre usa un formato visualmente atractivo con negrillas (**texto**) para resaltar puntos clave, usa viñetas si es necesario y separa frases con puntuación clara. Cuando cites proyectos, usa su número ACT y no IDs técnicos.` 
+                        : 'General. IMPORTANTE: Usa un formato atractivo con negrillas (**texto**) y puntuación clara.'
                 }
             });
 
@@ -109,6 +111,22 @@ function AIChatContent() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const renderMessage = (content: string) => {
+        // Simple markdown-like parser for bold and line breaks
+        const parts = content.split(/(\*\*.*?\*\*)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i} className="font-black text-blue-600 dark:text-blue-400">{part.slice(2, -2)}</strong>;
+            }
+            return part.split('\n').map((line, j) => (
+                <span key={`${i}-${j}`}>
+                    {line}
+                    {j < part.split('\n').length - 1 && <br />}
+                </span>
+            ));
+        });
     };
 
     if (!isOpen) {
@@ -192,7 +210,7 @@ function AIChatContent() {
                                         {m.role === 'user' ? <User size={14} className="text-slate-500" /> : <Bot size={14} className="text-blue-500" />}
                                     </div>
                                     <div className={`p-4 rounded-3xl text-[11px] leading-relaxed font-medium ${m.role === 'user' ? 'bg-slate-900 text-white rounded-tr-sm' : 'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-200 shadow-sm rounded-tl-sm'}`}>
-                                        {m.content}
+                                        {renderMessage(m.content)}
                                     </div>
                                 </div>
                             </div>
