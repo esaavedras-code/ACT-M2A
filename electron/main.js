@@ -295,7 +295,7 @@ app.whenReady().then(() => {
     log('App is ready');
     protocol.handle('app', (request) => {
         try {
-            let relativePath = request.url.replace('app://', '').split('?')[0];
+            let relativePath = decodeURIComponent(request.url.replace('app://', '').split('?')[0]);
 
             // Clean up leading paths like ./ or /
             while (relativePath.startsWith('.') || relativePath.startsWith('/')) {

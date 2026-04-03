@@ -492,7 +492,18 @@ export const downloadBlob = async (blob: Blob, filename: string) => {
         // --- Soporte para Electron con carpeta personalizada ---
         // @ts-ignore
         if (window.electronAPI) {
-            const defaultFolder = getLocalStorageItem("pact_reports_folder");
+            let defaultFolder = getLocalStorageItem("pact_reports_folder");
+            
+            if (!defaultFolder) {
+                // @ts-ignore
+                const selected = await window.electronAPI.selectFolder();
+                if (selected) {
+                    // @ts-ignore
+                    window.localStorage.setItem("pact_reports_folder", selected);
+                    defaultFolder = selected;
+                }
+            }
+
             if (defaultFolder) {
                 const reader = new FileReader();
                 reader.readAsDataURL(blob);

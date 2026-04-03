@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Plus, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign, Download } from "lucide-react";
+import { Plus, Search, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign, Download } from "lucide-react";
 import { formatCurrency, getLocalStorageItem } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -17,6 +17,7 @@ export default function Dashboard() {
     });
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         setMounted(true);
@@ -182,8 +183,19 @@ export default function Dashboard() {
                 </div>
                 <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group">
                     <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-                    Nuevo Proyecto
                 </Link>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative group">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={22} />
+                <input 
+                    type="text" 
+                    placeholder="BUSCAR PROYECTO POR NOMBRE O NÚMERO DE AC..." 
+                    className="w-full bg-white border-none shadow-xl shadow-blue-500/5 rounded-[2rem] py-5 pl-16 pr-8 text-sm font-black uppercase tracking-widest outline-none ring-2 ring-transparent focus:ring-blue-600/20 transition-all placeholder:text-slate-300"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -207,7 +219,12 @@ export default function Dashboard() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {!loading && stats.recentProjects.map((proj: any) => (
+                            {!loading && stats.recentProjects
+                                .filter((p: any) => 
+                                    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    p.num_act?.toLowerCase().includes(searchTerm.toLowerCase())
+                                )
+                                .map((proj: any) => (
                                 <tr key={proj.id} className="group hover:bg-blue-50/30 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
                                     <td className="px-8 py-6">
                                         <span className="font-bold text-slate-900 group-hover:text-blue-600">{proj.name}</span><br/>
