@@ -135,13 +135,12 @@ function AIChatContent() {
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleMouseDown}
                 onClick={() => !hasMoved && setIsOpen(true)}
-                className="fixed top-[2in] right-5 lg:right-10 w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all z-[100] group overflow-hidden cursor-move"
+                className={`fixed top-[2in] right-5 lg:right-10 w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all z-[100] group overflow-hidden cursor-move ${loading ? 'animate-pulse' : ''}`}
                 style={{
                     transform: `translate(${position.x}px, ${position.y}px)`,
                     transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
                 }}
             >
-                <div className="absolute inset-0 bg-gradient-to-tr from-blue-400/20 to-transparent animate-pulse" />
                 <Bot size={28} className="relative z-10 group-hover:scale-110 transition-transform" />
                 <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-4 border-white dark:border-slate-900 shadow-sm" />
             </button>

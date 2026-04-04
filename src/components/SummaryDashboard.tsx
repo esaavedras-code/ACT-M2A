@@ -327,7 +327,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <div className="flex flex-col">
                             <div className="flex items-center gap-3">
                                 <span className="text-slate-950 dark:text-white">0. Resumen</span>
-                                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 shadow-sm animate-pulse uppercase tracking-wider">
+                                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 shadow-sm uppercase tracking-wider">
                                     AQUÍ SE ENCUENTRA LA PRINCIPAL INFORMACIÓN DEL PROYECTO
                                 </span>
                             </div>

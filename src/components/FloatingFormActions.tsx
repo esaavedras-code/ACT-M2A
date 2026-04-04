@@ -28,7 +28,7 @@ export default function FloatingFormActions({ actions }: FloatingFormActionsProp
         {/* Tooltip Description */}
         <div className="absolute right-full mr-4 px-4 py-2.5 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0 whitespace-nowrap shadow-2xl backdrop-blur-xl pointer-events-none border border-white/10">
           <div className="flex items-center gap-2">
-            <div className={`w-1.5 h-1.5 rounded-full ${action.variant === 'info' ? 'bg-blue-400' : 'bg-slate-400'} animate-pulse`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${action.variant === 'info' ? 'bg-blue-400' : 'bg-slate-400'}`} />
             {action.description}
           </div>
           {/* Arrow */}

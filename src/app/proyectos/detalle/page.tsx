@@ -115,19 +115,25 @@ function ProjectDetailContent() {
         { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
         { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
         { id: "materials",   label: "Mat. on Site",   icon: <PackageSearch size={12} /> },
-        { id: "compliance",  label: "Cumplimiento",   icon: <ShieldCheck size={12} /> },
+        { id: "compliance",  label: "Cumplimiento",   icon: <ShieldCheck size={12} />, wip: true },
         { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
         { id: "payment",     label: "Pagos",          icon: <FileCheck size={12} /> },
-        { id: "mfg",         label: "Cert. CM",       icon: <Factory size={12} /> },
-        { id: "minutes",     label: "Minutas",        icon: <Mic size={12} /> },
-        { id: "logs",        label: "Actividades",   icon: <Cloud size={12} /> },
-        { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} /> },
-        { id: "force",       label: "Force Account", icon: <Calculator size={12} /> },
+        { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
+        { id: "minutes",     label: "Minutas",        icon: <Mic size={12} />, wip: true },
+        { id: "logs",        label: "Actividades",   icon: <Cloud size={12} />, wip: true },
+        { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} />, wip: true },
+        { id: "force",       label: "Force Account", icon: <Calculator size={12} />, wip: true },
         { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
         { id: "ccml",        label: "Cambios al CCML", icon: <FileEdit size={12} /> },
     ];
 
     const handleTabChange = (newTab: string) => {
+        const targetTab = tabs.find(t => t.id === newTab);
+        if (targetTab?.wip) {
+            alert(`La sección de '${targetTab.label}' se encuentra actualmente EN CONSTRUCCIÓN.`);
+            // No retornamos para dejarle ver qué hay, o podríamos retornar para bloquearlo.
+            // Según la instrucción de Enrique, solo pide poner el mensaje.
+        }
         if (newTab === activeTab) return;
         if (isDirty) {
             setDirtyDialog({ show: true, targetTab: newTab });
@@ -326,7 +332,10 @@ function ProjectDetailContent() {
                                 }`}
                             >
                                 <span className={`shrink-0 transition-all duration-500 ${activeTab === tab.id ? 'text-white scale-110 rotate-3' : 'text-blue-500 group-hover:scale-125 group-hover:-rotate-3'}`}>{tab.icon}</span>
-                                <span className={`line-clamp-2 transition-all duration-300 ${activeTab === tab.id ? 'translate-x-1 font-black' : 'group-hover:translate-x-1'}`}>{tab.label}</span>
+                                <span className={`line-clamp-2 transition-all duration-300 ${activeTab === tab.id ? 'translate-x-1 font-black' : 'group-hover:translate-x-1'}`}>
+                                    {tab.label}
+                                    {tab.wip && <span className="ml-2 bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[7px] font-black uppercase">WIP</span>}
+                                </span>
                             </button>
                         ))}
                     </div>

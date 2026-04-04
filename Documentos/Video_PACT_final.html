@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PACT - Presentación Oficial de Proyectos - Final</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
+
+        :root {
+            --primary: #1d4ed8;
+            --accent: #f59e0b;
+            --bg: #020617;
+            --text: #f8fafc;
+            --card-bg: rgba(30, 41, 59, 0.82);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Outfit', sans-serif; background-color: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+
+        #video-container {
+            position: relative;
+            width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            background: #000;
+        }
+
+        .slide {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            visibility: hidden; opacity: 0;
+            background-size: cover; background-position: center;
+        }
+
+        /* Pantalla de Inicio */
+        #start-overlay {
+            position: absolute; inset: 0; z-index: 5000;
+            background: radial-gradient(circle, #1e293b, #020617);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer;
+            transition: opacity 0.8s ease;
+        }
+        #start-overlay h2 { font-size: 3rem; font-weight: 900; letter-spacing: -2px; text-transform: uppercase; margin-bottom: 2rem; color: #3b82f6; }
+        #start-button {
+            padding: 1.5rem 4rem; background: #3b82f6; color: white; border-radius: 50px;
+            font-size: 1.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
+            box-shadow: 0 20px 40px rgba(59,130,246,0.4); border: none; cursor: pointer;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* Intro Logo Zoom (Invisible background) */
+        #intro-logo-container {
+            position: absolute; z-index: 3000; width: 100%; height: 100%;
+            background: #020617; display: none; justify-content: center; align-items: center;
+            opacity: 0;
+        }
+        #intro-logo {
+            width: 500px; height: 500px; object-fit: contain;
+            transform: scale(0);
+        }
+
+        .flowchart-container {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+            width: 95%; max-width: 1400px; z-index: 2;
+        }
+
+        .flow-step {
+            background: var(--card-bg); border: 2px solid rgba(255,255,255,0.05);
+            padding: 1.2rem; border-radius: 24px; text-align: center;
+            backdrop-filter: blur(15px); opacity: 0; transform: translateY(20px);
+        }
+
+        .flow-step.active {
+            border-color: var(--primary); background: rgba(29, 78, 216, 0.4);
+            transform: scale(1.05) translateY(0); box-shadow: 0 0 30px rgba(29, 78, 216, 0.4);
+        }
+
+        .step-num { width: 40px; height: 40px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.8rem; font-weight: 900; border: 3px solid rgba(255,255,255,0.2); }
+        .step-title { font-weight: 900; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.3rem; }
+        .step-desc { font-size: 0.8rem; opacity: 0.8; font-weight: 400; }
+
+        .compliance-box { position: absolute; top: 10%; width: 100%; display: flex; justify-content: center; gap: 1rem; transform: translateY(-50px); z-index: 100; }
+        .comp-cat { background: rgba(2, 6, 23, 0.95); padding: 1rem 1.2rem; border-radius: 20px; text-align: center; border-top: 3px solid var(--accent); min-width: 150px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .comp-cat h4 { color: var(--accent); text-transform: uppercase; margin-bottom: 0.3rem; font-weight: 900; font-size: 0.9rem; }
+        .comp-cat p { font-size: 0.75rem; font-weight: bold; color: white; }
+
+        #subtitles {
+            position: absolute; bottom: 40px; width: 100%;
+            display: flex; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .subtitle-box {
+            background: rgba(2, 6, 23, 0.9); padding: 1.5rem 3rem; border-radius: 30px;
+            border: 1px solid rgba(59, 130, 246, 0.5); font-size: 1.8rem; font-weight: 700;
+            text-align: center; max-width: 80%; line-height: 1.2;
+        }
+
+        #bg-pact-text {
+            position: absolute; font-size: 20rem; font-weight: 900; opacity: 0.03; color: white; z-index: 0; pointer-events: none;
+            display: none; /* Enrique quiere quitar el letrero de fondo */
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="bg-music" loop>
+        <source src="https://assets.mixkit.co/music/preview/mixkit-business-professional-684.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="video-container">
+        <!-- Letrero de fondo que Enrique quiere quitar (si existiera como elemento separado) -->
+        <div id="bg-pact-text">PACT</div>
+
+        <div id="start-overlay" onclick="startEverything()">
+            <h2>PRESENTACIÓN PACT</h2>
+            <button id="start-button">Comenzar Video</button>
+        </div>
+
+        <div id="intro-logo-container">
+            <img id="intro-logo" src="file:///C:/Users/Enrique%20Saavedra/Documents/PROGRAMAS%20AI/Programa%20ACT/public/icon.png">
+        </div>
+
+        <div id="subtitles" style="display: none;"><div class="subtitle-box" id="subtitle-text">Cargando...</div></div>
+
+        <!-- Escena 1: Snapshot -->
+        <div class="slide" id="scene1">
+             <img src="file:///C:/Users/Enrique%20Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/media__1775322733672.png" style="width: 85%; border-radius: 20px;">
+        </div>
+
+        <!-- Escena 2: Flowchart -->
+        <div class="slide" id="scene2">
+            <div class="flowchart-container">
+                <div class="flow-step" id="step-1"><div class="step-num">1</div><div class="step-title">DATOS PROYECTO</div><div class="step-desc">Maestro</div></div>
+                <div class="flow-step" id="step-2"><div class="step-num">2</div><div class="step-title">FIRMAS</div><div class="step-desc">Autoridades</div></div>
+                <div class="flow-step" id="step-3"><div class="step-num">3</div><div class="step-title">PARTIDAS</div><div class="step-desc">Ítems</div></div>
+                <div class="flow-step" id="step-4"><div class="step-num">4</div><div class="step-title">CUMPLIMIENTO</div><div class="step-desc">Laboral/Fiscal</div></div>
+                <div class="flow-step" id="step-5"><div class="step-num">5</div><div class="step-title">CHANGE ORDERS</div><div class="step-desc">Modificaciones</div></div>
+                <div class="flow-step" id="step-6"><div class="step-num">6</div><div class="step-title">PAGOS</div><div class="step-desc">Certificaciones</div></div>
+                <div class="flow-step" id="step-7"><div class="step-num">7</div><div class="step-title">MANUFACTURA</div><div class="step-desc">Materiales</div></div>
+                <div class="flow-step" id="step-8"><div class="step-num">8</div><div class="step-title">LIQUIDACIÓN</div><div class="step-desc">Cierre</div></div>
+            </div>
+            
+            <div class="compliance-box" id="comp-detail" style="opacity: 0;"></div>
+        </div>
+
+        <div class="slide" id="scene3">
+            <img src="file:///C:/Users/Enrique%20Saavedra/.gemini/antigravity/brain/6e60ff49-20b2-4b49-9c4e-eeed3b7fc010/legajo_liquidacion_pact_final_1775338779040.png" style="width: 75%; border-radius: 40px;">
+        </div>
+
+        <div class="slide" id="scene4">
+            <img src="file:///C:/Users/Enrique%20Saavedra/Documents/PROGRAMAS%20AI/Programa%20ACT/public/icon.png" style="width: 150px; margin-bottom: 2rem;">
+            <div style="background: rgba(255,255,255,0.05); padding: 3rem; border-radius: 40px; text-align: center;">
+                <p style="font-size: 2rem; font-weight: 800;">🌐 act-m2-a.vercel.app</p>
+                <p style="margin-top: 1rem; font-size: 1.2rem; opacity: 0.7;">esaavedra@m2a-group.com</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const subs = [
+            "Bienvenido a PACT.<br>La solución líder en Puerto Rico para el control de ingeniería.",
+            "Paso 1: Registramos los datos básicos del contrato.",
+            "Paso 2: Configuramos las firmas autorizadas.",
+            "Paso 3: Cargamos el presupuesto y partidas.",
+            "Paso 4: Validamos documentos de cumplimiento.",
+            "Paso 5: Gestionamos las órdenes de cambio detalladamente.",
+            "Paso 6: Procesamos las certificaciones de pago mensuales.",
+            "Paso 7: Controlamos los certificados de manufactura.",
+            "Paso 8: Generamos el legajo de liquidación final.",
+            "PACT: Modernizando la gestión de infraestructura en Puerto Rico."
+        ];
+
+        let synth = window.speechSynthesis;
+        let voice;
+        function loadVoices() {
+            voice = synth.getVoices().find(v => v.lang.startsWith('es'));
+        }
+        loadVoices();
+        synth.onvoiceschanged = loadVoices;
+
+        function speak(text) {
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.voice = voice;
+            document.getElementById('subtitle-text').innerHTML = text;
+            synth.speak(utter);
+        }
+
+        function startEverything() {
+            document.getElementById('start-overlay').style.opacity = 0;
+            setTimeout(() => document.getElementById('start-overlay').style.display = 'none', 800);
+            
+            const music = document.getElementById('bg-music');
+            music.volume = 0.2; music.play();
+            
+            document.getElementById('subtitles').style.display = 'flex';
+            
+            const intro = document.getElementById('intro-logo-container');
+            intro.style.display = 'flex';
+            gsap.to(intro, { opacity: 1, duration: 1 });
+            gsap.to("#intro-logo", { scale: 1, duration: 1.5, ease: "back.out", onComplete: () => {
+                setTimeout(() => {
+                    gsap.to(intro, { opacity: 0, duration: 1, onComplete: startMainTimeline });
+                }, 2000);
+            }});
+        }
+
+        function startMainTimeline() {
+            const tl = gsap.timeline();
+            
+            // Escena 1
+            tl.set("#scene1", { visibility: "visible", opacity: 1 })
+              .call(() => speak(subs[0]))
+              .to("#scene1", { opacity: 0, duration: 1 }, "+=5");
+
+            // Escena 2 (Flujo)
+            tl.set("#scene2", { visibility: "visible", opacity: 1 });
+
+            const steps = [
+                { id: 1, text: subs[1], detail: `
+                    <div class="comp-cat"><h4>Núm. AC</h4><p>ID Contrato</p></div>
+                    <div class="comp-cat"><h4>Num Federal</h4><p>ID Proyecto</p></div>
+                    <div class="comp-cat"><h4>Nombre del proyecto</h4><p>Título Oficial</p></div>
+                `},
+                { id: 2, text: subs[2], detail: `
+                    <div class="comp-cat" style="min-width:140px; padding:0.6rem;"><h4>Director Ejecutivo</h4></div>
+                    <div class="comp-cat" style="min-width:140px; padding:0.6rem;"><h4>Dir. Ejec. Infraestructura</h4></div>
+                    <div class="comp-cat" style="min-width:140px; padding:0.6rem;"><h4>Dir. Área Construcción</h4></div>
+                    <div class="comp-cat" style="min-width:140px; padding:0.6rem;"><h4>Director Finanzas</h4></div>
+                    <div class="comp-cat" style="min-width:140px; padding:0.6rem;"><h4>Director Regional</h4></div>
+                    <div class="comp-cat" style="min-width:140px; padding:0.6rem;"><h4>Supervisor de Área</h4></div>
+                    <div class="comp-cat" style="min-width:140px; padding:0.6rem;"><h4>Administrador del Proyecto</h4></div>
+                `},
+                { id: 3, text: subs[3], detail: `
+                    <div class="comp-cat" style="min-width:130px; padding:0.6rem;"><h4>Num Item</h4></div>
+                    <div class="comp-cat" style="min-width:130px; padding:0.6rem;"><h4>Especificacion</h4></div>
+                    <div class="comp-cat" style="min-width:130px; padding:0.6rem;"><h4>Descripcion</h4></div>
+                    <div class="comp-cat" style="min-width:130px; padding:0.6rem;"><h4>Cantidad/unidad</h4></div>
+                    <div class="comp-cat" style="min-width:130px; padding:0.6rem;"><h4>Precio Unitario</h4></div>
+                    <div class="comp-cat" style="min-width:130px; padding:0.6rem;"><h4>Amount total</h4></div>
+                `},
+                { id: 4, text: subs[4], detail: `
+                    <div class="comp-cat"><h4>Fianzas</h4><p>Cumplimiento</p></div>
+                    <div class="comp-cat"><h4>Fiscal</h4><p>Hacienda/CRIM</p></div>
+                    <div class="comp-cat"><h4>Laboral</h4><p>CFSE/Ambiental</p></div>
+                `},
+                { id: 5, text: subs[5], detail: `
+                    <div class="comp-cat" style="min-width:180px;"><h4>Formatos ACT</h4><p>ACT 122, 123, 124, 32</p></div>
+                    <div class="comp-cat" style="min-width:180px;"><h4>Registros</h4><p>Mod Log / ROA</p></div>
+                    <div class="comp-cat" style="min-width:180px;"><h4>Fondos</h4><p>Federal Aid Form</p></div>
+                    <div class="comp-cat" style="min-width:180px;"><h4>Soporte</h4><p>Justificación / Otros</p></div>
+                `},
+                { id: 6, text: subs[6], detail: `
+                    <div class="comp-cat"><h4>ACT-117A</h4><p>Worksheet</p></div>
+                    <div class="comp-cat"><h4>ACT-117B</h4><p>Balance</p></div>
+                    <div class="comp-cat"><h4>ACT-117C</h4><p>Progress</p></div>
+                `},
+                { id: 7, text: subs[7], detail: `
+                    <div class="comp-cat" style="min-width:180px;"><h4>Clausula Buy America</h4><p>Cumplimiento Federal</p></div>
+                    <div class="comp-cat" style="min-width:180px;"><h4>23 USC 313</h4><p>Referencia Legal</p></div>
+                    <div class="comp-cat" style="min-width:180px;"><h4>23 cfr 635.410</h4><p>Referencia Legal</p></div>
+                `},
+                { id: 8, text: subs[8], detail: `
+                    <div class="comp-cat" style="min-width:180px;"><h4>Aceptación Final</h4><p>Checklist / Report / Letter</p></div>
+                    <div class="comp-cat" style="min-width:180px;"><h4>Certificaciones</h4><p>Material / Payroll / DBE</p></div>
+                    <div class="comp-cat" style="min-width:180px;"><h4>Informes de Cierre</h4><p>Construction / Contract Final Rep.</p></div>
+                    <div class="comp-cat" style="min-width:180px;"><h4>Cronología</h4><p>Sustancialmente / Análisis de Tiempo</p></div>
+                ` }
+            ];
+
+            steps.forEach((s, i) => {
+                tl.to(`#step-${s.id}`, { opacity: 1, duration: 0.5, className: "+=active" })
+                  .call(() => {
+                      speak(s.text);
+                      if(s.detail) {
+                          const det = document.getElementById('comp-detail');
+                          det.innerHTML = s.detail;
+                          gsap.to(det, { opacity: 1, y: 0, duration: 0.5 });
+                      }
+                  })
+                  .to({}, { duration: 5 })
+                  .call(() => {
+                      if(s.detail) gsap.to("#comp-detail", { opacity: 0, y: -20, duration: 0.3 });
+                  })
+                  .to(`#step-${s.id}`, { className: "-=active", duration: 0.5 });
+            });
+
+            tl.to("#scene2", { opacity: 0, duration: 1 }, "+=0.5");
+
+            // Escena 3 (Liquidación)
+            tl.set("#scene3", { visibility: "visible", opacity: 1 })
+              .from("#scene3 img", { scale: 1.1, duration: 8 })
+              .to("#scene3", { opacity: 0, duration: 1 }, "-=1");
+
+            // Escena 4 (Cierre)
+            tl.set("#scene4", { visibility: "visible", opacity: 1 })
+              .call(() => speak(subs[9]))
+              .from("#scene4 p", { opacity: 0, y: 20, stagger: 0.3, duration: 1 });
+        }
+    </script>
+</body>
+</html>
