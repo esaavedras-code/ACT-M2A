@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Explicativo Programa ACT</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --accent: #f97316;
+            --bg: #0f172a;
+            --text: #f8fafc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 1920px;
+            max-height: 1080px;
+            aspect-ratio: 16/9;
+            background: #000;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            visibility: hidden;
+            opacity: 0;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.8));
+            z-index: 1;
+        }
+
+        .content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            padding: 2rem;
+            max-width: 80%;
+        }
+
+        h1 {
+            font-size: 5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, #60a5fa, #3b82f6, #2563eb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        p {
+            font-size: 1.8rem;
+            line-height: 1.6;
+            font-weight: 300;
+            opacity: 0.9;
+        }
+
+        .cta {
+            margin-top: 2rem;
+            padding: 1rem 2.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Elements */
+        #progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 6px;
+            background: var(--accent);
+            width: 0%;
+            z-index: 100;
+        }
+
+        #subtitles {
+            position: absolute;
+            bottom: 60px;
+            width: 100%;
+            text-align: center;
+            z-index: 110;
+            padding: 0 10%;
+        }
+
+        .subtitle-box {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.4rem;
+            display: inline-block;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #play-overlay {
+            position: absolute;
+            z-index: 1000;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .play-btn {
+            width: 100px;
+            height: 100px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .play-btn:hover {
+            transform: scale(1.1);
+            background: var(--primary-dark);
+            box-shadow: 0 0 30px rgba(37, 99, 235, 0.5);
+        }
+
+        .play-icon {
+            width: 0;
+            height: 0;
+            border-top: 20px solid transparent;
+            border-bottom: 20px solid transparent;
+            border-left: 35px solid white;
+            margin-left: 8px;
+        }
+
+        /* Scenes Specifics */
+        .img-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .img-container img {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="video-container">
+        <!-- Start Overlay -->
+        <div id="play-overlay" onclick="startVideo()">
+            <div class="play-btn">
+                <div class="play-icon"></div>
+            </div>
+            <h1>ACT: Vídeo Explicativo</h1>
+            <p>Haz clic para iniciar la experiencia</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div id="progress-bar"></div>
+
+        <!-- Subtitles -->
+        <div id="subtitles">
+            <div class="subtitle-box" id="subtitle-text">Iniciando...</div>
+        </div>
+
+        <!-- Scene 1: Intro -->
+        <div class="slide" id="scene1" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+            <div class="content">
+                <h1>ACT</h1>
+                <p id="t1">Gestión Administrativa Inteligente</p>
+            </div>
+        </div>
+
+        <!-- Scene 2: Problem -->
+        <div class="slide" id="scene2" style="background: #111;">
+            <div class="content">
+                <h1 style="color: #ef4444;">¿Demasiados Papeles?</h1>
+                <p>La montaña de datos puede ser abrumadora.</p>
+            </div>
+        </div>
+
+        <!-- Scene 3: Dashboard -->
+        <div class="slide" id="scene3">
+            <div class="overlay"></div>
+            <div class="img-container">
+                <img src="C:/Users/Enrique Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/act_dashboard_promo_1775317536326.png" alt="Dashboard ACT">
+            </div>
+        </div>
+
+        <!-- Scene 4: Documents -->
+        <div class="slide" id="scene4" style="background: #0f172a;">
+            <div class="content">
+                <h1>Documentación Rápida</h1>
+                <div style="display: flex; gap: 2rem; justify-content: center; margin-top: 2rem;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 2rem; border-radius: 15px;">
+                        <h2 style="color: var(--accent);">CHO</h2>
+                        <p>Change Orders</p>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 2rem; border-radius: 15px;">
+                        <h2 style="color: var(--accent);">ACT-117C</h2>
+                        <p>Certificaciones</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scene 5: Liquidation -->
+        <div class="slide" id="scene5">
+            <div class="overlay"></div>
+            <div class="img-container">
+                <img src="C:/Users/Enrique Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/legajo_liquidacion_act_1775317645746.png" alt="Legajo Liquidation">
+            </div>
+        </div>
+
+        <!-- Scene 6: Closing -->
+        <div class="slide" id="scene6">
+            <div class="img-container">
+                <img src="C:/Users/Enrique Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/act_closing_slide_1775317808816.png" alt="Closing Slide">
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const subtitles = [
+            { start: 0, end: 5, text: "¿Alguna vez ha sentido que la montaña de papeles lo sobrepasa?" },
+            { start: 5, end: 12, text: "La administración eficiente es el corazón de toda obra exitosa." },
+            { start: 12, end: 20, text: "ACT nace para resolver el caos en la gestión de datos." },
+            { start: 20, end: 35, text: "Es su aliado estratégico para mantener la información al día." },
+            { start: 35, end: 50, text: "Genere Ordenes de Cambio y Certificaciones en segundos." },
+            { start: 50, end: 65, text: "Todo bajo control, desde el inicio hasta la liquidación final." },
+            { start: 65, end: 85, text: "Arme su legajo de liquidación de forma automática y centralizada." },
+            { start: 85, end: 105, text: "ACT: Eficiencia, Control y Organización." },
+            { start: 105, end: 120, text: "¡Contáctenos hoy y simplifique su administración!" }
+        ];
+
+        function startVideo() {
+            document.getElementById('play-overlay').style.display = 'none';
+            playTimeline();
+        }
+
+        function playTimeline() {
+            const tl = gsap.timeline();
+            const DURATION = 120; // 2 minutes
+
+            // Progress Bar Animation
+            gsap.to("#progress-bar", { width: "100%", duration: DURATION, ease: "none" });
+
+            // Scene Transitions
+            tl.set("#scene1", { visibility: "visible", opacity: 1 })
+              .to("#scene1 h1", { scale: 1.2, duration: 10, ease: "power1.inOut" }, 0)
+              
+              .to("#scene1", { opacity: 0, duration: 1 }, 10)
+              .set("#scene2", { visibility: "visible", opacity: 0 })
+              .to("#scene2", { opacity: 1, duration: 1 })
+              .to("#scene2", { opacity: 0, duration: 1 }, 20)
+
+              .set("#scene3", { visibility: "visible", opacity: 0 })
+              .to("#scene3", { opacity: 1, duration: 1.5 })
+              .from("#scene3 img", { y: 100, opacity: 0, duration: 2 }, "-=1")
+              .to("#scene3", { opacity: 0, duration: 1 }, 45)
+
+              .set("#scene4", { visibility: "visible", opacity: 0 })
+              .to("#scene4", { opacity: 1, duration: 1 })
+              .to("#scene4", { opacity: 0, duration: 1 }, 70)
+
+              .set("#scene5", { visibility: "visible", opacity: 0 })
+              .to("#scene5", { opacity: 1, duration: 1.5 })
+              .from("#scene5 img", { scale: 0.8, duration: 20 }, "-=1")
+              .to("#scene5", { opacity: 0, duration: 1 }, 100)
+
+              .set("#scene6", { visibility: "visible", opacity: 0 })
+              .to("#scene6", { opacity: 1, duration: 2 });
+
+            // Subtitle Engine
+            let startTime = Date.now();
+            const subElem = document.getElementById('subtitle-text');
+            
+            const timer = setInterval(() => {
+                let elapsed = (Date.now() - startTime) / 1000;
+                if (elapsed >= DURATION) {
+                    clearInterval(timer);
+                    return;
+                }
+                
+                const currentSub = subtitles.find(s => elapsed >= s.start && elapsed < s.end);
+                if (currentSub) {
+                    if (subElem.innerText !== currentSub.text) {
+                        gsap.fromTo(subElem, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 });
+                        subElem.innerText = currentSub.text;
+                    }
+                } else {
+                    subElem.innerText = "";
+                }
+            }, 100);
+        }
+    </script>
+</body>
+</html>

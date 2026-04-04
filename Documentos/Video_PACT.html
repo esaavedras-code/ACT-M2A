@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Explicativo PACT</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;900&display=swap');
+
+        :root {
+            --primary: #1d4ed8;
+            --primary-dark: #1e3a8a;
+            --accent: #f59e0b;
+            --bg: #020617;
+            --text: #f8fafc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 1920px;
+            max-height: 1080px;
+            aspect-ratio: 16/9;
+            background: #000;
+            overflow: hidden;
+            box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.7);
+        }
+
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            visibility: hidden;
+            opacity: 0;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.1) 0%, rgba(2, 6, 23, 0.9) 100%);
+            z-index: 1;
+        }
+
+        .content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            padding: 4rem;
+            max-width: 90%;
+        }
+
+        h1 {
+            font-size: 6rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+            letter-spacing: -0.05em;
+            background: linear-gradient(to right, #60a5fa, #93c5fd, #2563eb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        h2 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+        }
+
+        p {
+            font-size: 2rem;
+            line-height: 1.4;
+            font-weight: 300;
+            color: #cbd5e1;
+        }
+
+        #progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 8px;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            width: 0%;
+            z-index: 100;
+        }
+
+        #subtitles {
+            position: absolute;
+            bottom: 80px;
+            width: 100%;
+            text-align: center;
+            z-index: 110;
+            padding: 0 15%;
+        }
+
+        .subtitle-box {
+            background: rgba(15, 23, 42, 0.85);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 20px;
+            font-size: 1.8rem;
+            font-weight: 500;
+            display: inline-block;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        #play-overlay {
+            position: absolute;
+            z-index: 1000;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #1e293b, #020623);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: opacity 0.5s ease;
+        }
+
+        .play-btn {
+            width: 150px;
+            height: 150px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 3rem;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 10px solid rgba(255,255,255,0.1);
+        }
+
+        .play-btn:hover {
+            transform: scale(1.1);
+            background: #2563eb;
+            box-shadow: 0 0 50px rgba(37, 99, 235, 0.6);
+        }
+
+        .play-icon {
+            width: 0;
+            height: 0;
+            border-top: 30px solid transparent;
+            border-bottom: 30px solid transparent;
+            border-left: 50px solid white;
+            margin-left: 10px;
+        }
+
+        .img-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+        }
+
+        .img-container img {
+            max-width: 85%;
+            max-height: 75%;
+            border-radius: 24px;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.8);
+            border: 2px solid rgba(255,255,255,0.1);
+            transform: rotateX(5deg);
+        }
+
+        .logo-badge {
+            position: absolute;
+            top: 40px;
+            right: 50px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 200;
+            background: rgba(255,255,255,0.05);
+            padding: 10px 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo-badge img { width: 40px; height: 40px; object-fit: contain; }
+        .logo-badge span { font-weight: 900; font-size: 1.5rem; letter-spacing: 2px; color: white; }
+
+        #mute-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="video-container">
+        <!-- Logo perma -->
+        <div class="logo-badge">
+            <img src="C:/Users/Enrique Saavedra/Documents/PROGRAMAS AI/Programa ACT/public/icon.png" alt="PACT Logo">
+            <span>PACT</span>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="play-overlay" onclick="startVideo()">
+            <div class="play-btn">
+                <div class="play-icon"></div>
+            </div>
+            <h1>PACT</h1>
+            <p style="font-weight: 600; color: white;">Presione para iniciar el video con sonido</p>
+        </div>
+
+        <!-- Audio Elements -->
+        <audio id="bg-music" loop>
+            <source src="https://assets.mixkit.co/music/preview/mixkit-tech-house-vibe-130.mp3" type="audio/mpeg">
+        </audio>
+
+        <!-- Progress Bar -->
+        <div id="progress-bar"></div>
+
+        <!-- Subtitles -->
+        <div id="subtitles">
+            <div class="subtitle-box" id="subtitle-text">Iniciando...</div>
+        </div>
+
+        <!-- Scene 1: Intro -->
+        <div class="slide" id="scene1" style="background: radial-gradient(circle at top right, #1e3a8a, #020617);">
+            <div class="content">
+                <h1 style="font-size: 8rem;">PACT</h1>
+                <h2>Sistema de Control de Proyectos</h2>
+                <p>Gestión de Ingeniería y Control de Carreteras</p>
+            </div>
+        </div>
+
+        <!-- Scene 2: Real Dashboard -->
+        <div class="slide" id="scene2">
+            <div class="overlay"></div>
+            <div class="img-container">
+                <img src="C:/Users/Enrique Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/pact_dashboard_empty_1775318835015.png" alt="Dashboard Real">
+            </div>
+        </div>
+
+        <!-- Scene 3: Precios / Data Updates -->
+        <div class="slide" id="scene3">
+            <div class="overlay"></div>
+            <div class="img-container">
+                <img src="C:/Users/Enrique Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/pact_precios_act_1775318860724.png" alt="Historial Precios Real">
+            </div>
+        </div>
+
+        <!-- Scene 4: About / Credits -->
+        <div class="slide" id="scene4">
+            <div class="overlay"></div>
+            <div class="img-container">
+                <img src="C:/Users/Enrique Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/pact_acerca_de_1775318902273.png" alt="Acerca de Real">
+            </div>
+        </div>
+
+        <!-- Scene 5: Contact & Web -->
+        <div class="slide" id="scene5" style="background: #020617;">
+            <div class="content">
+                <h1>CONTÁCTANOS</h1>
+                <div style="background: rgba(255,255,255,0.05); padding: 3rem; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); margin-top: 2rem;">
+                    <p style="font-weight: 800; color: white; border-bottom: 2px solid var(--primary); padding-bottom: 1rem; margin-bottom: 1rem;">Ing. Enrique Saavedra Sada, PE</p>
+                    <p style="color: var(--accent); font-size: 1.5rem; margin-bottom: 2rem;">M2A Group</p>
+                    <p style="font-size: 1.8rem; margin-bottom: 0.5rem;">📧 esaavedra@m2a-group.com</p>
+                    <p style="font-size: 1.8rem; font-weight: 900; color: #60a5fa; margin-top: 2rem;">🌐 act-m2-a.vercel.app</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const subtitles = [
+            { start: 0, end: 6, text: "Bienvenido a PACT, la plataforma definitiva para el control de ingeniería y gestión de proyectos." },
+            { start: 6, end: 12, text: "¿Siente que la montaña de datos lo sobrepasa? PACT es su aliado estratégico." },
+            { start: 12, end: 20, text: "Mantenga toda su información al día en un dashboard centralizado y profesional." },
+            { start: 20, end: 30, text: "Acceda a historiales de precios y certificaciones con total precisión y transparencia." },
+            { start: 30, end: 40, text: "Ordene su documentación administrativa desde el inicio de la operación hasta la liquidación final." },
+            { start: 40, end: 50, text: "Desarrollado con la experiencia técnica del Ingeniero Enrique Saavedra Sada para M2A Group." },
+            { start: 50, end: 60, text: "Simplifique sus procesos, ahorre tiempo y reduzca errores drásticamente." },
+            { start: 60, end: 70, text: "PACT: Eficiencia, Control y Organización al servicio de la infraestructura." },
+            { start: 70, end: 85, text: "Visite nuestra plataforma en act-m2-a.vercel.app para más información." }
+        ];
+
+        let synth = window.speechSynthesis;
+        let voice;
+
+        function findVoice() {
+            const voices = synth.getVoices();
+            // Try to find a nice Spanish voice
+            voice = voices.find(v => v.lang.startsWith('es') && v.name.includes('Google')) || voices.find(v => v.lang.startsWith('es'));
+        }
+        
+        synth.onvoiceschanged = findVoice;
+
+        function speak(text) {
+            if (synth.speaking) synth.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.voice = voice;
+            utter.pitch = 1.0;
+            utter.rate = 1.0;
+            synth.speak(utter);
+        }
+
+        function startVideo() {
+            document.getElementById('play-overlay').style.opacity = '0';
+            setTimeout(() => document.getElementById('play-overlay').style.display = 'none', 500);
+            
+            const music = document.getElementById('bg-music');
+            music.volume = 0.2;
+            music.play();
+            
+            playTimeline();
+        }
+
+        function playTimeline() {
+            const tl = gsap.timeline();
+            const DURATION = 90; // Reduced to 1.5 minutes for punchier feel
+
+            gsap.to("#progress-bar", { width: "100%", duration: DURATION, ease: "none" });
+
+            tl.set("#scene1", { visibility: "visible", opacity: 1 })
+              .to("#scene1 h1", { scale: 1.1, duration: 10, ease: "none" }, 0)
+              
+              .to("#scene1", { opacity: 0, duration: 1.5, ease: "power2.inOut" }, 10)
+              .set("#scene2", { visibility: "visible", opacity: 0 })
+              .to("#scene2", { opacity: 1, duration: 1.5 })
+              .to("#scene2 img", { scale: 1.1, rotateX: 0, duration: 15, ease: "none" }, "-=1.5")
+              
+              .to("#scene2", { opacity: 0, duration: 1.5 }, 30)
+              .set("#scene3", { visibility: "visible", opacity: 0 })
+              .to("#scene3", { opacity: 1, duration: 1.5 })
+              .to("#scene3 img", { filter: "brightness(1.2)", duration: 15, ease: "none" }, "-=1.5")
+
+              .to("#scene3", { opacity: 0, duration: 1.5 }, 50)
+              .set("#scene4", { visibility: "visible", opacity: 0 })
+              .to("#scene4", { opacity: 1, duration: 1.5 })
+
+              .to("#scene4", { opacity: 0, duration: 1.5 }, 70)
+              .set("#scene5", { visibility: "visible", opacity: 0 })
+              .to("#scene5", { opacity: 1, duration: 1.5 });
+
+            let startTime = Date.now();
+            const subElem = document.getElementById('subtitle-text');
+            
+            const timer = setInterval(() => {
+                let elapsed = (Date.now() - startTime) / 1000;
+                if (elapsed >= DURATION) {
+                    clearInterval(timer);
+                    return;
+                }
+                
+                const currentSub = subtitles.find(s => elapsed >= s.start && elapsed < s.end);
+                if (currentSub) {
+                    if (subElem.innerText !== currentSub.text) {
+                        gsap.fromTo(subElem, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 });
+                        subElem.innerText = currentSub.text;
+                        speak(currentSub.text);
+                    }
+                } else {
+                    subElem.innerText = "";
+                }
+            }, 100);
+        }
+
+        // Pre-fetch voices
+        findVoice();
+    </script>
+</body>
+</html>
