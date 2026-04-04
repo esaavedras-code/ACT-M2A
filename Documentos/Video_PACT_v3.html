@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video PACT v3.0 - Promocional</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700;900&display=swap');
+
+        :root {
+            --primary: #1d4ed8;
+            --accent: #f59e0b;
+            --bg: #020617;
+            --text: #f8fafc;
+            --card-bg: rgba(30, 41, 59, 0.7);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Outfit', sans-serif; background-color: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+
+        #video-container {
+            position: relative;
+            width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            background: #000;
+        }
+
+        .slide {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            visibility: hidden; opacity: 0;
+            background-size: cover; background-position: center;
+        }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, transparent 0%, rgba(2, 6, 23, 0.9) 100%);
+            z-index: 1;
+        }
+
+        /* Flowchart Styles */
+        .flowchart-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            width: 90%;
+            max-width: 1400px;
+            z-index: 2;
+        }
+
+        .flow-step {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 1.5rem;
+            border-radius: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .step-num {
+            width: 40px; height: 40px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1rem;
+            font-weight: 900;
+            font-size: 1.2rem;
+        }
+
+        .step-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--accent); }
+        .step-desc { font-size: 0.85rem; opacity: 0.8; line-height: 1.4; }
+
+        /* Compliance List */
+        .compliance-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            text-align: left;
+            margin-top: 1rem;
+        }
+        .comp-item { font-size: 0.75rem; border-left: 2px solid var(--primary); padding-left: 8px; margin-bottom: 5px; }
+
+        #subtitles {
+            position: absolute; bottom: 60px; width: 100%;
+            text-align: center; z-index: 110; padding: 0 15%;
+        }
+
+        .subtitle-box {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px 25px; border-radius: 15px;
+            font-size: 1.6rem; font-weight: 400;
+            display: inline-block;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-watermark {
+            position: absolute; top: 30px; right: 40px;
+            display: flex; align-items: center; gap: 0.8rem;
+            z-index: 200; opacity: 0.8;
+        }
+        .logo-watermark img { width: 35px; height: 35px; }
+        .logo-watermark span { font-weight: 900; font-size: 1.2rem; color: white; }
+
+        #play-overlay {
+            position: absolute; z-index: 1000; width: 100%; height: 100%;
+            background: rgba(2, 6, 23, 0.98);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer;
+        }
+
+        .play-btn {
+            width: 120px; height: 120px;
+            background: var(--primary); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            margin-bottom: 2rem; border: 8px solid rgba(255,255,255,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="video-container">
+        <div class="logo-watermark">
+            <img src="file:///C:/Users/Enrique%20Saavedra/Documents/PROGRAMAS%20AI/Programa%20ACT/public/icon.png" alt="Logo">
+            <span>PACT v3.0</span>
+        </div>
+
+        <div id="play-overlay" onclick="startVideo()">
+            <div class="play-btn"><div style="width:0; height:0; border-top:20px solid transparent; border-bottom:20px solid transparent; border-left:35px solid white; margin-left:8px;"></div></div>
+            <h1 style="font-size: 4rem; margin-bottom: 1rem;">PACT v3</h1>
+            <p>Haz clic para iniciar la presentación final</p>
+        </div>
+
+        <audio id="bg-music" loop>
+            <source src="https://assets.mixkit.co/music/preview/mixkit-tech-house-vibe-130.mp3" type="audio/mpeg">
+        </audio>
+
+        <div id="subtitles"><div class="subtitle-box" id="subtitle-text"></div></div>
+
+        <!-- SCENE 1: INTRO (Real Screenshot) -->
+        <div class="slide" id="scene1">
+            <div class="overlay"></div>
+            <img src="file:///C:/Users/Enrique%20Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/pact_v3_intro_png_1775320635441.png" style="width: 85%; border-radius: 20px; transform: scale(1.05);">
+            <div style="position: absolute; top: 15%; left: 10%; z-index: 2;">
+                <h1 style="font-size: 5rem; text-shadow: 0 10px 30px #000;">PACT</h1>
+                <p style="font-size: 2rem; color: var(--accent); font-weight: 700;">Administración y Gestión de Datos</p>
+            </div>
+        </div>
+
+        <!-- SCENE 2: FLOWCHART -->
+        <div class="slide" id="scene2" style="background: linear-gradient(135deg, #020617 0%, #1e293b 100%);">
+            <div class="flowchart-container">
+                <div class="flow-step" id="s1"><div class="step-num">1</div><div class="step-title">DATOS PROYECTO</div><div class="step-desc">Ingreso inicial de información básica del contrato.</div></div>
+                <div class="flow-step" id="s2"><div class="step-num">2</div><div class="step-title">AUTORIDADES ACT</div><div class="step-desc">Registro de firmantes oficiales y supervisión.</div></div>
+                <div class="flow-step" id="s3"><div class="step-num">3</div><div class="step-title">PARTIDAS</div><div class="step-desc">Carga completa de ítems y cantidades contractuales.</div></div>
+                <div class="flow-step" id="s4"><div class="step-num">4</div><div class="step-title">CUMPLIMIENTO</div><div class="step-desc">Documentación laboral, fianzas, seguros y permisos.</div></div>
+                <div class="flow-step" id="s5"><div class="step-num">5</div><div class="step-title">CHANGE ORDERS</div><div class="step-desc">Registro centralizado de enmiendas y órdenes de cambio.</div></div>
+                <div class="flow-step" id="s6"><div class="step-num">6</div><div class="step-title">PAGOS</div><div class="step-desc">Gestión de certificaciones de pago mensuales.</div></div>
+                <div class="flow-step" id="s7"><div class="step-num">7</div><div class="step-title">MANUFACTURA</div><div class="step-desc">Control de certificados de materiales certificados.</div></div>
+                <div class="flow-step" id="s8"><div class="step-num">8</div><div class="step-title">LIQUIDACIÓN</div><div class="step-desc">Compilación automática del legajo final.</div></div>
+            </div>
+        </div>
+
+        <!-- SCENE 3: COMPLIANCE DETAIL -->
+        <div class="slide" id="scene3" style="background: #020617;">
+            <div class="content" style="max-width: 95%;">
+                <h1 style="font-size: 3rem;">REQUISITOS PREVIOS E INICIO</h1>
+                <div class="compliance-grid">
+                    <div>
+                        <h3 style="color: var(--accent); margin-bottom: 0.5rem;">Fianzas y Seguros</h3>
+                        <div class="comp-item">Performance/Payment Bond 100%</div>
+                        <div class="comp-item">Pólizas CFSE / GL / Patronal</div>
+                        <div class="comp-item">Endosos de Asegurado Adicional</div>
+                    </div>
+                    <div>
+                        <h3 style="color: var(--accent); margin-bottom: 0.5rem;">Fiscales y Patronales</h3>
+                        <div class="comp-item">Hacienda / CRIM / ASUME</div>
+                        <div class="comp-item">Good Standing / Planillas 5 años</div>
+                        <div class="comp-item">Seguro Desempleo / Incapacidad</div>
+                    </div>
+                    <div>
+                        <h3 style="color: var(--accent); margin-bottom: 0.5rem;">Ambientales (OGPe/EPA)</h3>
+                        <div class="comp-item">Permiso Único Operacional</div>
+                        <div class="comp-item">Plan CES / SWPPP / NPDES</div>
+                        <div class="comp-item">Manejo de Desperdicios</div>
+                    </div>
+                    <div>
+                        <h3 style="color: var(--accent); margin-bottom: 0.5rem;">Técnicos (CIAPR)</h3>
+                        <div class="comp-item">Sellos CIAPR / Buy America</div>
+                        <div class="comp-item">Submittals / Shop Drawings</div>
+                        <div class="comp-item">Plan MOT (MUTCD)</div>
+                    </div>
+                    <div>
+                        <h3 style="color: var(--accent); margin-bottom: 0.5rem;">Laboral y Otros</h3>
+                        <div class="comp-item">Nóminas Certificadas (Davis-Bacon)</div>
+                        <div class="comp-item">Orientación Seguridad OSHA</div>
+                        <div class="comp-item">Estados Financieros Auditados</div>
+                    </div>
+                    <div style="background: var(--primary); padding: 1rem; border-radius: 15px; display: flex; align-items: center; justify-content: center;">
+                        <p style="font-weight: 900; color: white;">TODO CENTRALIZADO EN PACT</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCENE 4: LIQUIDATION FOLDER -->
+        <div class="slide" id="scene4">
+            <div class="overlay"></div>
+            <img src="file:///C:/Users/Enrique%20Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/legajo_liquidacion_act_1775317645746.png" style="width: 70%; border-radius: 30px;">
+            <div class="content" style="position: absolute; bottom: 15%;">
+                <h1 style="font-size: 4rem;">LIQUIDACIÓN SIMPLIFICADA</h1>
+                <p>Arme el legajo final con un solo clic.</p>
+            </div>
+        </div>
+
+        <!-- SCENE 5: CLOSING -->
+        <div class="slide" id="scene5">
+            <img src="file:///C:/Users/Enrique%20Saavedra/.gemini/antigravity/brain/cba4bd4e-b3ad-473a-99cc-d3f6cf91b6a8/act_closing_slide_1775317808816.png" style="width: 100%; height: 100%; object-fit: cover;">
+            <div class="content" style="position: absolute; bottom: 10%; background: rgba(0,0,0,0.6); padding: 2rem; border-radius: 30px; backdrop-filter: blur(10px);">
+                <p style="font-weight: 800; font-size: 1.5rem;">📧 esaavedra@m2a-group.com</p>
+                <p style="font-weight: 900; font-size: 2rem; color: #60a5fa;">🌐 act-m2-a.vercel.app</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const subs = [
+            { start: 0, end: 5, text: "Bienvenido a PACT, la solución integral para la administración y gestión de datos de ingeniería." },
+            { start: 5, end: 10, text: "El propósito es simple: resolver el caos documental y mantener su información siempre al día." },
+            { start: 10, end: 15, text: "Veamos cómo PACT organiza todo el proceso administrativo en ocho pasos clave." },
+            { start: 15, end: 18, text: "Paso 1: Ingrese los datos maestros del proyecto." },
+            { start: 18, end: 21, text: "Paso 2: Configure las autoridades y firmantes de la ACT." },
+            { start: 21, end: 24, text: "Paso 3: Registre las partidas y cantidades del contrato." },
+            { start: 24, end: 35, text: "Paso 4: Gestione todo el cumplimiento laboral, fianzas, seguros y permisos previo al inicio." },
+            { start: 35, end: 38, text: "Paso 5: Controle sus Change Orders o enmiendas." },
+            { start: 38, end: 41, text: "Paso 6: Procese sus certificaciones de pago mensuales." },
+            { start: 41, end: 44, text: "Paso 7: Valide los certificados de manufactura de materiales." },
+            { start: 44, end: 50, text: "Y finalmente, Paso 8: Obtenga una liquidación automática y sin errores." },
+            { start: 50, end: 65, text: "Desde fianzas hasta Shop Drawings, PACT centraliza cada documento requerido por el contrato." },
+            { start: 65, end: 75, text: "La liquidación final deja de ser un problema para convertirse en un proceso de un solo clic." },
+            { start: 75, end: 90, text: "PACT: Eficiencia, Control y Organización. Contáctenos hoy mismo." }
+        ];
+
+        let synth = window.speechSynthesis;
+        let voice;
+        function findVoice() {
+            const voices = synth.getVoices();
+            voice = voices.find(v => v.lang.startsWith('es') && v.name.includes('Google')) || voices.find(v => v.lang.startsWith('es'));
+        }
+        synth.onvoiceschanged = findVoice;
+        function speak(text) {
+            if (synth.speaking) synth.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.voice = voice; utter.pitch = 1.0; utter.rate = 1.0;
+            synth.speak(utter);
+        }
+
+        function startVideo() {
+            document.getElementById('play-overlay').style.display = 'none';
+            const music = document.getElementById('bg-music');
+            music.volume = 0.15; music.play();
+            playTimeline();
+        }
+
+        function playTimeline() {
+            const tl = gsap.timeline();
+            gsap.to("#progress-bar", { width: "100%", duration: 90, ease: "none" });
+
+            // SCENE 1
+            tl.set("#scene1", { visibility: "visible", opacity: 1 })
+              .to("#scene1 img", { scale: 1, duration: 15, ease: "none" }, 0)
+              .to("#scene1", { opacity: 0, duration: 1 }, 15)
+
+            // SCENE 2: FLOWCHART ANIM
+              .set("#scene2", { visibility: "visible", opacity: 1 })
+              .to(".flow-step", { opacity: 1, y: 0, stagger: 3, duration: 1 }, 15)
+              .to("#scene2", { opacity: 0, duration: 1 }, 15 + (8*3))
+
+            // SCENE 3: COMPLIANCE
+              .set("#scene3", { visibility: "visible", opacity: 1 }, 40)
+              .to("#scene3", { opacity: 0, duration: 1 }, 60)
+
+            // SCENE 4: LIQUIDATION
+              .set("#scene4", { visibility: "visible", opacity: 1 }, 61)
+              .to("#scene4 img", { scale: 1.1, duration: 14 }, 61)
+              .to("#scene4", { opacity: 0, duration: 1 }, 75)
+
+            // SCENE 5: CLOSING
+              .set("#scene5", { visibility: "visible", opacity: 1 }, 76);
+
+            let startTime = Date.now();
+            const subElem = document.getElementById('subtitle-text');
+            const timer = setInterval(() => {
+                let elapsed = (Date.now() - startTime) / 1000;
+                if (elapsed >= 90) { clearInterval(timer); return; }
+                const currentSub = subs.find(s => elapsed >= s.start && elapsed < s.end);
+                if (currentSub && subElem.innerText !== currentSub.text) {
+                    subElem.innerText = currentSub.text;
+                    speak(currentSub.text);
+                }
+            }, 100);
+        }
+        findVoice();
+    </script>
+</body>
+</html>

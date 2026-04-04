@@ -313,16 +313,16 @@ function ProjectDetailContent() {
 
             <div className="flex flex-col lg:flex-row gap-8 items-start relative">
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
-                <div className="lg:fixed lg:top-[131px] lg:left-[max(0.5rem,calc(50%-936px))] z-[40] w-full lg:w-[280px] shrink-0 transition-all duration-300">
-                    <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2.5 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-5 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.15)] dark:shadow-none max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
+                <div className="lg:fixed lg:top-[128px] lg:left-4 z-[40] w-full lg:w-[220px] shrink-0 transition-all duration-300">
+                    <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
                         {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id)}
-                                className={`flex items-center gap-4 px-6 py-4 rounded-[1.8rem] font-black text-[10px] uppercase tracking-[0.15em] transition-all whitespace-nowrap lg:whitespace-normal text-left active:scale-95 group relative overflow-hidden ${
+                                className={`flex items-center gap-3 px-4 py-3 rounded-[1.4rem] font-black text-[9px] uppercase tracking-[0.1em] transition-all whitespace-nowrap lg:whitespace-normal text-left active:scale-95 group relative overflow-hidden ${
                                     activeTab === tab.id 
-                                    ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/40 ring-2 ring-blue-600 ring-offset-2 ring-offset-white' 
-                                    : 'bg-white/60 dark:bg-slate-800/60 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 hover:bg-white shadow-sm hover:shadow-lg'
+                                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 ring-1 ring-blue-600 ring-offset-2 ring-offset-white' 
+                                    : 'bg-white/60 dark:bg-slate-800/60 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 hover:bg-white shadow-sm hover:shadow-md'
                                 }`}
                             >
                                 <span className={`shrink-0 transition-all duration-500 ${activeTab === tab.id ? 'text-white scale-110 rotate-3' : 'text-blue-500 group-hover:scale-125 group-hover:-rotate-3'}`}>{tab.icon}</span>
@@ -333,7 +333,7 @@ function ProjectDetailContent() {
                 </div>
 
                 {/* Área de Contenido Principal */}
-                <div className="flex-1 w-full min-w-0 lg:ml-[112px] xl:ml-[128px]">
+                <div className="flex-1 w-full min-w-0 lg:ml-[240px]">
                     <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-4 md:p-10 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
                         <div className="relative z-10">
