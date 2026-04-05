@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, ShieldCheck, Mail, Globe, Code2, Users, Building2, Award, Cpu, CalendarDays } from "lucide-react";
+import { Info, ShieldCheck, Mail, Globe, Code2, Users, Building2, Award, Cpu, CalendarDays, MapPin } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -62,9 +62,6 @@ export default function AboutPage() {
             {/* Company + Contact */}
             <div className="grid md:grid-cols-2 gap-8 mb-16">
                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-                    <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white mb-6">
-                        <Building2 size={24} />
-                    </div>
                     <h2 className="text-2xl font-bold text-slate-900 mb-4">M2A Group</h2>
                     <p className="text-slate-600 leading-relaxed mb-6 text-justify">
                         M2A Group, P.S.C. es una firma puertorriqueña de servicios profesionales de ingeniería y consultoría técnica, ubicada en San Juan, Puerto Rico, que opera principalmente en el área de servicios de construcción técnica, ingeniería y gerencia de proyectos.
@@ -72,15 +69,9 @@ export default function AboutPage() {
                     <div className="space-y-4">
                         <div className="flex items-center gap-3 text-slate-700 font-medium">
                             <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-                                <Users size={16} />
+                                <MapPin size={16} />
                             </div>
-                            Desarrollado para: Autoridad de Carreteras
-                        </div>
-                        <div className="flex items-center gap-3 text-slate-700 font-medium">
-                            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
-                                <Code2 size={16} />
-                            </div>
-                            Ingeniería de Software de Puerto Rico
+                            Vick Center, 867 Av. Luis Muñoz Rivera D-305, San Juan, 00925, Puerto Rico
                         </div>
                     </div>
                 </div>
@@ -102,6 +93,17 @@ export default function AboutPage() {
                                 <div className="font-medium">esaavedra@m2a-group.com</div>
                             </div>
                         </a>
+                        
+                        <div className="mt-8 flex justify-center">
+                            <div className="relative w-48 h-48 bg-white rounded-3xl p-4 border border-white/10 overflow-hidden shadow-2xl">
+                                <Image
+                                    src="/m2a_logo.png"
+                                    alt="M2A Logo"
+                                    fill
+                                    className="object-contain p-3"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
