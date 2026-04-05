@@ -95,12 +95,12 @@ export default function AboutPage() {
                         </a>
                         
                         <div className="mt-8 flex justify-center">
-                            <div className="relative w-48 h-48 bg-white rounded-3xl p-4 border border-white/10 overflow-hidden shadow-2xl">
+                            <div className="relative w-48 h-48 bg-white rounded-3xl p-2 border border-white/10 overflow-hidden shadow-2xl">
                                 <Image
                                     src="/m2a_logo.png"
                                     alt="M2A Logo"
                                     fill
-                                    className="object-contain p-3"
+                                    className="object-contain p-1"
                                 />
                             </div>
                         </div>
