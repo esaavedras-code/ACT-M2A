@@ -66,9 +66,8 @@ export default function AboutPage() {
                         <Building2 size={24} />
                     </div>
                     <h2 className="text-2xl font-bold text-slate-900 mb-4">M2A Group</h2>
-                    <p className="text-slate-600 leading-relaxed mb-6">
-                        Empresa líder en soluciones tecnológicas y consultoría de ingeniería en Puerto Rico.
-                        Nos especializamos en digitalizar procesos complejos para convertirlos en herramientas intuitivas y eficientes.
+                    <p className="text-slate-600 leading-relaxed mb-6 text-justify">
+                        M2A Group, P.S.C. es una firma puertorriqueña de servicios profesionales de ingeniería y consultoría técnica, ubicada en San Juan, Puerto Rico, que opera principalmente en el área de servicios de construcción técnica, ingeniería y gerencia de proyectos.
                     </p>
                     <div className="space-y-4">
                         <div className="flex items-center gap-3 text-slate-700 font-medium">

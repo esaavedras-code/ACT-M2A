@@ -104,21 +104,76 @@
 </head>
 <body>
 
-    <audio id="bg-music" loop>
-        <source src="https://assets.mixkit.co/music/preview/mixkit-business-professional-684.mp3" type="audio/mpeg">
-    </audio>
+    <!-- Audio generado por código (para evitar bloqueos de archivos locales) -->
+    <script>
+        let audioCtx;
+        function playCorporateMusic() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            function createPad(freq, startTime, duration, vol) {
+                const osc1 = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
+
+                osc1.type = 'sawtooth';
+                osc2.type = 'sine';
+                osc1.frequency.setValueAtTime(freq, startTime);
+                osc2.frequency.setValueAtTime(freq * 1.01, startTime); 
+
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(300, startTime);
+                filter.frequency.exponentialRampToValueAtTime(1000, startTime + duration/2);
+
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(vol, startTime + 2); 
+                gain.gain.linearRampToValueAtTime(0, startTime + duration); 
+
+                osc1.connect(filter);
+                osc2.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc1.start(startTime);
+                osc2.start(startTime);
+                osc1.stop(startTime + duration);
+                osc2.stop(startTime + duration);
+            }
+
+            const chords = [261.63, 329.63, 392.00, 440.00, 523.25]; 
+            let time = audioCtx.currentTime;
+            
+            // Ciclo de generación ambiental
+            setInterval(() => {
+                if (time < audioCtx.currentTime + 10) {
+                    const freq = chords[Math.floor(Math.random() * chords.length)];
+                    createPad(freq, time, 12, 0.01); 
+                    time += 6;
+                }
+            }, 2000);
+        }
+    </script>
 
     <div id="video-container">
-        <!-- Letrero de fondo que Enrique quiere quitar (si existiera como elemento separado) -->
-        <div id="bg-pact-text">PACT</div>
+        <!-- Letrero de fondo eliminado a petición de Enrique -->
+        <div id="bg-pact-text" style="display: none;"></div>
 
         <div id="start-overlay" onclick="startEverything()">
             <h2>PRESENTACIÓN PACT</h2>
             <button id="start-button">Comenzar Video</button>
         </div>
 
-        <div id="intro-logo-container">
-            <img id="intro-logo" src="file:///C:/Users/Enrique%20Saavedra/Documents/PROGRAMAS%20AI/Programa%20ACT/public/icon.png">
+        <!-- Escena 0: Intro con Bienvenida Mejorada -->
+        <div id="intro-scene" class="slide" style="display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; visibility: hidden; gap: 1.5rem; background: #020617;">
+            <div style="display: flex; flex-direction: row; gap: 3rem; align-items: center; justify-content: center;">
+                <img src="file:///C:/Users/Enrique%20Saavedra/Documents/PROGRAMAS%20AI/Programa%20ACT/public/dot_logo.png" style="width: 200px; height: auto;">
+                <img src="file:///C:/Users/Enrique%20Saavedra/Documents/PROGRAMAS%20AI/Programa%20ACT/public/act_logo.png" style="width: 200px; height: auto;">
+            </div>
+            <div style="text-align: center; margin-top: 1rem; width: 90%;">
+                <h1 style="font-size: 3.5rem; font-weight: 900; margin: 0; color: #ffffff; text-shadow: 0 4px 6px rgba(0,0,0,0.5);">Bienvenido a PACT</h1>
+                <p style="font-size: 2rem; font-weight: 700; color: #fbbf24; margin-top: 1rem; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Programa para administrar proyectos de la PRHTA</p>
+            </div>
         </div>
 
         <div id="subtitles" style="display: none;"><div class="subtitle-box" id="subtitle-text">Cargando...</div></div>
@@ -144,14 +199,17 @@
             <div class="compliance-box" id="comp-detail" style="opacity: 0;"></div>
         </div>
 
+        <!-- Escena 3: Liquidación Drawing -->
         <div class="slide" id="scene3">
             <img src="file:///C:/Users/Enrique%20Saavedra/.gemini/antigravity/brain/6e60ff49-20b2-4b49-9c4e-eeed3b7fc010/legajo_liquidacion_pact_final_1775338779040.png" style="width: 75%; border-radius: 40px;">
         </div>
 
+        <!-- Escena 4: Cierre con Créditos -->
         <div class="slide" id="scene4">
             <img src="file:///C:/Users/Enrique%20Saavedra/Documents/PROGRAMAS%20AI/Programa%20ACT/public/icon.png" style="width: 150px; margin-bottom: 2rem;">
             <div style="background: rgba(255,255,255,0.05); padding: 3rem; border-radius: 40px; text-align: center;">
                 <p style="font-size: 2rem; font-weight: 800;">🌐 act-m2-a.vercel.app</p>
+                <p style="margin-top: 1rem; font-size: 1.5rem; opacity: 0.9; color: #3b82f6;">Diseñador del programa:<br><b>Ing. Enrique Saavedra Sada, PE</b></p>
                 <p style="margin-top: 1rem; font-size: 1.2rem; opacity: 0.7;">esaavedra@m2a-group.com</p>
             </div>
         </div>
@@ -159,7 +217,7 @@
 
     <script>
         const subs = [
-            "Bienvenido a PACT.<br>La solución líder en Puerto Rico para el control de ingeniería.",
+            "La solución líder en Puerto Rico para el control de ingeniería.",
             "Paso 1: Registramos los datos básicos del contrato.",
             "Paso 2: Configuramos las firmas autorizadas.",
             "Paso 3: Cargamos el presupuesto y partidas.",
@@ -174,14 +232,19 @@
         let synth = window.speechSynthesis;
         let voice;
         function loadVoices() {
-            voice = synth.getVoices().find(v => v.lang.startsWith('es'));
+            const voices = synth.getVoices();
+            // Priorizamos voces "Google" o con nombre indicativo de mayor calidad ("Natural")
+            voice = voices.find(v => (v.name.includes('Google') || v.name.includes('Natural')) && v.lang.startsWith('es')) 
+                    || voices.find(v => v.lang.startsWith('es'));
         }
         loadVoices();
         synth.onvoiceschanged = loadVoices;
 
         function speak(text) {
-            const utter = new SpeechSynthesisUtterance(text);
+            const utter = new SpeechSynthesisUtterance(text.replace("<br>", " "));
             utter.voice = voice;
+            utter.rate = 0.95; // Reducimos ligeramente la velocidad para sonar más pausado y natural
+            utter.pitch = 1.0; // Tono natural
             document.getElementById('subtitle-text').innerHTML = text;
             synth.speak(utter);
         }
@@ -190,19 +253,18 @@
             document.getElementById('start-overlay').style.opacity = 0;
             setTimeout(() => document.getElementById('start-overlay').style.display = 'none', 800);
             
-            const music = document.getElementById('bg-music');
-            music.volume = 0.2; music.play();
+            playCorporateMusic();
             
             document.getElementById('subtitles').style.display = 'flex';
             
-            const intro = document.getElementById('intro-logo-container');
-            intro.style.display = 'flex';
-            gsap.to(intro, { opacity: 1, duration: 1 });
-            gsap.to("#intro-logo", { scale: 1, duration: 1.5, ease: "back.out", onComplete: () => {
-                setTimeout(() => {
-                    gsap.to(intro, { opacity: 0, duration: 1, onComplete: startMainTimeline });
-                }, 2000);
-            }});
+            const intro = document.getElementById('intro-scene');
+            gsap.set(intro, { visibility: "visible" });
+            gsap.to(intro, { opacity: 1, duration: 1.5 });
+            
+            // Animación de intro (3.5 segundos para que se lea bien el letrero)
+            setTimeout(() => {
+                gsap.to(intro, { opacity: 0, duration: 1, onComplete: startMainTimeline });
+            }, 3500);
         }
 
         function startMainTimeline() {
@@ -287,12 +349,11 @@
 
             tl.to("#scene2", { opacity: 0, duration: 1 }, "+=0.5");
 
-            // Escena 3 (Liquidación)
+            // Escena 3
             tl.set("#scene3", { visibility: "visible", opacity: 1 })
-              .from("#scene3 img", { scale: 1.1, duration: 8 })
-              .to("#scene3", { opacity: 0, duration: 1 }, "-=1");
+              .to("#scene3", { opacity: 0, duration: 1 }, "+=6");
 
-            // Escena 4 (Cierre)
+            // Escena 4
             tl.set("#scene4", { visibility: "visible", opacity: 1 })
               .call(() => speak(subs[9]))
               .from("#scene4 p", { opacity: 0, y: 20, stagger: 0.3, duration: 1 });
