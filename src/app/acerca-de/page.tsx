@@ -78,10 +78,7 @@ export default function AboutPage() {
 
                 <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl">
                     <h2 className="text-2xl font-bold mb-4">Contáctanos</h2>
-                    <div className="mb-8">
-                        <p className="text-blue-400 font-black uppercase tracking-widest text-[10px] mb-1">Professional Engineer</p>
-                        <p className="text-slate-300 font-bold text-sm">Autoridad de Carreteras y Transportación</p>
-                    </div>
+
                     
                     <div className="space-y-6">
                         <a href="mailto:esaavedra@m2a-group.com" className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all">
@@ -95,7 +92,7 @@ export default function AboutPage() {
                         </a>
                         
                         <div className="mt-8 flex justify-center">
-                            <div className="relative w-48 h-48 bg-white rounded-3xl p-2 border border-white/10 overflow-hidden shadow-2xl">
+                            <div className="relative w-48 h-24 bg-white rounded-3xl p-2 border border-white/10 overflow-hidden shadow-2xl">
                                 <Image
                                     src="/m2a_logo.png"
                                     alt="M2A Logo"
