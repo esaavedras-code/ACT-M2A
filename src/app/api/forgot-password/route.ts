@@ -32,8 +32,8 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "No se encontró una cuenta con ese correo electrónico." }, { status: 404 });
         }
 
-        // 2. Generar contraseña temporal (6 caracteres alfanuméricos)
-        const tempPassword = Math.random().toString(36).slice(-6).toUpperCase();
+        // 2. Generar contraseña temporal (empieza por PACT-)
+        const tempPassword = "PACT-" + Math.random().toString(36).slice(-6).toUpperCase();
         console.log(`Generada contraseña temporal para ${email}`);
 
         // 3. Actualizar contraseña en Supabase Auth usando el Admin SDK

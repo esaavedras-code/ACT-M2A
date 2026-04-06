@@ -1,6 +1,6 @@
 {
   "name": "programa-act",
-  "version": "3.26.0404",
+  "version": "3.26.0406",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
