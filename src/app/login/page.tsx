@@ -175,7 +175,10 @@ const LoginPage: NextPage = () => {
             });
             
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error al solicitar recuperación");
+            if (!res.ok) {
+                const technicalMsg = data.details ? `\nDetalles técnicos: ${data.details}` : "";
+                throw new Error((data.error || "Error al solicitar recuperación") + technicalMsg);
+            }
             
             setForgotSuccess(true);
             alert("✓ Se ha enviado una contraseña temporal a tu correo electrónico. Por favor, revísalo para iniciar sesión.");
