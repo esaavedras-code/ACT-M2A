@@ -24,6 +24,7 @@ const PROJECT_SECTIONS = [
     { id: "force",      label: "12. Force Account",        bucket: "project-documents" },
     { id: "liquidation",label: "13. Liquidación",          bucket: "project-documents" },
     { id: "presentations", label: "14. Presentaciones",      bucket: "project-documents" },
+    { id: "tables",     label: "15. Tablas",               bucket: "project-documents" },
     { id: "general",    label: "General / Sin clasificar", bucket: "project-documents" },
     { id: "photos",     label: "📸 Galería de Fotos",       bucket: "project-documents" },
 ];

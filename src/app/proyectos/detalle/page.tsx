@@ -9,7 +9,7 @@ import {
     ListChecks, Users, PackageSearch, ShieldCheck, 
     FileCheck, FileEdit, LayoutDashboard, Calculator,
     Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle,
-    Save, Presentation
+    Save, Presentation, RefreshCcw
 } from "lucide-react";
 import { getLocalStorageItem } from "@/lib/utils";
 import FloatingFormActions from "@/components/FloatingFormActions";
@@ -31,6 +31,7 @@ import InspectionForm from "@/components/InspectionForm";
 import CCMLModificationsForm from "@/components/CCMLModificationsForm";
 import ProjectFilesExplorer from "@/components/ProjectFilesExplorer";
 import MonthlyPresentations from "@/components/MonthlyPresentations";
+import UpdateTablesForm from "@/components/UpdateTablesForm";
 
 const SummaryDashboard = lazy(() => import("@/components/SummaryDashboard"));
 
@@ -127,6 +128,7 @@ function ProjectDetailContent() {
         { id: "force",       label: "Force Account", icon: <Calculator size={12} />, wip: true },
         { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
         { id: "ccml",        label: "Cambios al CCML", icon: <FileEdit size={12} /> },
+        { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} /> },
     ];
 
     const handleTabChange = (newTab: string) => {
@@ -405,6 +407,7 @@ function ProjectDetailContent() {
                                 {activeTab === "liquidation" && <LiquidationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "ccml"        && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "files"       && <ProjectFilesExplorer projectId={id} />}
+                                {activeTab === "update-tables" && <UpdateTablesForm projectId={id || ""} numAct={numAct} />}
                             </Suspense>
                         </div>
                     </div>
