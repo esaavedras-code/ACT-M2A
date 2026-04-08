@@ -9,7 +9,7 @@ import {
     ListChecks, Users, PackageSearch, ShieldCheck, 
     FileCheck, FileEdit, LayoutDashboard, Calculator,
     Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle,
-    Save
+    Save, Presentation
 } from "lucide-react";
 import { getLocalStorageItem } from "@/lib/utils";
 import FloatingFormActions from "@/components/FloatingFormActions";
@@ -30,6 +30,7 @@ import ForceAccountForm from "@/components/ForceAccountForm";
 import InspectionForm from "@/components/InspectionForm";
 import CCMLModificationsForm from "@/components/CCMLModificationsForm";
 import ProjectFilesExplorer from "@/components/ProjectFilesExplorer";
+import MonthlyPresentations from "@/components/MonthlyPresentations";
 
 const SummaryDashboard = lazy(() => import("@/components/SummaryDashboard"));
 
@@ -121,6 +122,7 @@ function ProjectDetailContent() {
         { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
         { id: "minutes",     label: "Minutas",        icon: <Mic size={12} />, wip: true },
         { id: "logs",        label: "Actividades",   icon: <Cloud size={12} />, wip: true },
+        { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} /> },
         { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} />, wip: true },
         { id: "force",       label: "Force Account", icon: <Calculator size={12} />, wip: true },
         { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
@@ -148,6 +150,7 @@ function ProjectDetailContent() {
             case "dashboard": return "El Dashboard Ejecutivo del proyecto pueden verlo en la pestaña de REPORTES, opción '1. Información General'.";
             case "project": return "La información del proyecto y del contratista se gestiona en esta sección.";
             case "personnel": return "El personal de ACT asignado al proyecto se gestiona en esta sección.";
+            case "presentations": return "Cree reportes ejecutivos mensuales con actividades y fotos para exportar a PowerPoint.";
             case "items": return "Los balances y modificaciones de partidas los pueden ver en la pestaña de REPORTES, opción '2. Gestión de Partidas'.";
             case "materials": return "El reporte oficial de materiales 'ACT-117B' lo pueden ver en la pestaña de REPORTES, opción '4. Material on Site (MOS)'.";
             case "compliance": return "La documentación de cumplimiento los pueden ver en la pestaña de REPORTES.";
@@ -394,9 +397,10 @@ function ProjectDetailContent() {
                                 {activeTab === "cho"         && <CHOForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "payment"     && <PaymentCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "mfg"         && <MfgCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "minutes"     && <MinutesForm ref={activeRef} projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "logs"        && <DailyLogForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "inspection"  && <InspectionForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                { activeTab === "minutes"     && <MinutesForm ref={activeRef} projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                { activeTab === "logs"        && <DailyLogForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                { activeTab === "presentations" && <MonthlyPresentations ref={activeRef} projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                { activeTab === "inspection"  && <InspectionForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "force"       && <ForceAccountForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "liquidation" && <LiquidationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "ccml"        && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}

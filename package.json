@@ -31,6 +31,7 @@
     "pdf-parse": "^2.4.5",
     "pdf2json": "^4.0.2",
     "pdfjs-dist": "^5.6.205",
+    "pptxgenjs": "^4.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.0.1",

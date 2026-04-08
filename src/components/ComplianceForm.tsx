@@ -344,7 +344,21 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-8">#</th>
-                                <th className="text-center px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-10" title="General (Ocultar Nombre)">G</th>
+                                <th className="text-center px-1 py-3 text-[9px] font-extrabold text-slate-400 uppercase tracking-tighter w-10" title="General (Ocultar Nombre)">
+                                    <div className="flex flex-col items-center leading-[0.8] py-1">
+                                        <span>C</span>
+                                        <span>O</span>
+                                        <span>N</span>
+                                        <span>T</span>
+                                        <span>R</span>
+                                        <span>A</span>
+                                        <span>T</span>
+                                        <span>I</span>
+                                        <span>S</span>
+                                        <span>T</span>
+                                        <span>A</span>
+                                    </div>
+                                </th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-48">Subcontratista</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Tipo de Documento</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-40">Fecha Recibido</th>
