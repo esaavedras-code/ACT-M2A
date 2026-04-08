@@ -105,19 +105,19 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             });
             setCerts(mapped);
         } else {
-            addCert();
+            addCert(true);
         }
         setHasLoaded(true);
     };
 
-    const addCert = () => {
+    const addCert = (silent = false) => {
         setCerts(prev => [...prev, {
             project_id: projectId,
             item_id: "",
             quantity: 0,
             cert_date: new Date().toISOString().split('T')[0],
         }]);
-        if (onDirty) onDirty();
+        if (!silent && onDirty) onDirty();
     };
 
     const updateCert = (idx: number, field: string, value: any) => {

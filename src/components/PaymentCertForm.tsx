@@ -152,18 +152,18 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             });
             setCerts(normalized);
         } else {
-            addCert();
+            addCert(true);
         }
     };
 
-    const addCert = () => {
+    const addCert = (silent = false) => {
         const nextNum = certs.length > 0 ? Math.max(...certs.map(c => c.cert_num)) + 1 : 1;
         setCerts([...certs, {
             project_id: projectId,
             cert_num: nextNum,
             cert_date: new Date().toISOString().split('T')[0],
         }]);
-        if (onDirty) onDirty();
+        if (!silent && onDirty) onDirty();
     };
 
     const removeCert = (idx: number) => {

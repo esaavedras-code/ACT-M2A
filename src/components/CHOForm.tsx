@@ -74,11 +74,11 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                 items: Array.isArray(c.items) ? c.items : []
             })));
         } else {
-            addCHO();
+            addCHO(true);
         }
     };
 
-    const addCHO = () => {
+    const addCHO = (silent = false) => {
         const lastNum = chos.length > 0 ? Math.max(...chos.map(c => c.cho_num)) : 0;
         const lastLetter = chos.length > 0 ? chos[chos.length - 1].amendment_letter : "";
         const nextLetter = lastLetter ? String.fromCharCode(lastLetter.charCodeAt(0) + 1) : "A";
@@ -106,7 +106,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             items: []
         }]);
         setExpandedCHO(newId);
-        if (onDirty) onDirty();
+        if (!silent && onDirty) onDirty();
     };
 
     const updateCHO = (index: number, field: string, value: any) => {
