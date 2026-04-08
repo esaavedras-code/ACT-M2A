@@ -19,7 +19,7 @@ import PriceHistoryLink from "@/components/PriceHistoryLink";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    title: "PACT - Sistema de Control de Proyectos",
+    title: "PACT-Administradores - Sistema de Control de Proyectos",
     description: "Gestión de contratos y control de proyectos",
 };
 
@@ -49,10 +49,13 @@ export default function RootLayout({
                                         <div className="h-6 w-6 md:h-8 md:w-8 relative overflow-hidden bg-white rounded-lg p-1 mr-2 shrink-0">
                                             <Image src="/icon.png" alt="Logo" fill className="object-contain" />
                                         </div>
-                                        <span className="truncate">PACT</span>
+                                        <span className="truncate">PACT-Administradores</span>
                                     </Link>
                                     <nav className="hidden lg:flex gap-2 xl:gap-6 items-center border-l border-white/20 pl-4 xl:pl-6 ml-1 xl:ml-2">
-                                        <Link href="/" className="text-[9px] xl:text-[10px] font-black uppercase tracking-[0.1em] xl:tracking-[0.2em] hover:text-blue-200 transition-colors shrink-0">Dashboard</Link>
+                                        <Link href="/" className="text-[9px] xl:text-[10px] font-black uppercase tracking-[0.05em] xl:tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0 leading-tight">
+                                            DASHBOARD <br />
+                                            <span className="text-[7px] xl:text-[8px] opacity-70 normal-case">(Proyectos)</span>
+                                        </Link>
 
                                         <PriceHistoryLink />
                                         <Suspense fallback={null}>

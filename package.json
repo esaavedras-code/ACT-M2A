@@ -1,6 +1,6 @@
 {
-  "name": "programa-act",
-  "version": "3.26.0409",
+  "name": "pact-administradores",
+  "version": "3.26.0408",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -57,7 +57,7 @@
   },
   "build": {
     "appId": "com.m2agroup.pact",
-    "productName": "Proyectos ACT",
+    "productName": "PACT-Administradores",
     "directories": {
       "output": "dist"
     },

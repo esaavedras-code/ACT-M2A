@@ -77,7 +77,7 @@ export default function MaintenanceGuard() {
                     <div>
                         <h1 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tighter mb-2">Sistema en Mantenimiento</h1>
                         <p className="text-slate-500 dark:text-slate-400 font-medium">
-                            El administrador ha suspendido temporalmente el acceso a la plataforma PACT para realizar actualizaciones o tareas críticas.
+                            El administrador ha suspendido temporalmente el acceso a la plataforma PACT-Administradores para realizar actualizaciones o tareas críticas.
                         </p>
                     </div>
                     

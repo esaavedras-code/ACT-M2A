@@ -102,7 +102,7 @@ export default function MobileMenu() {
             >
                 <div className="flex flex-col h-full">
                     <div className="p-6 bg-primary/5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                        <span className="font-black text-2xl tracking-tighter text-primary dark:text-blue-400">PACT</span>
+                        <span className="font-black text-2xl tracking-tighter text-primary dark:text-blue-400">PACT-Administradores</span>
                         <button onClick={toggleMenu} className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                             <X size={24} />
                         </button>
@@ -133,7 +133,12 @@ export default function MobileMenu() {
                                     }`}
                                 >
                                     <Icon size={24} className={isActive ? "text-white" : "text-primary dark:text-blue-400"} />
-                                    {item.name}
+                                    <div className="flex items-center justify-between flex-1">
+                                        <span>{item.name}</span>
+                                        {item.name === "Historial de precios" && (
+                                            <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full text-[8px] font-black uppercase">WIP</span>
+                                        )}
+                                    </div>
                                 </Link>
                             );
                         })}
@@ -198,7 +203,7 @@ export default function MobileMenu() {
                         
                         <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                M2A Group - PACT v3.2
+                                M2A Group - PACT-Administradores v3.26.0408
                             </p>
                         </div>
                     </div>
