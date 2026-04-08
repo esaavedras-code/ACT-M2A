@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import * as xlsx from 'xlsx';
-import pdf from 'pdf-parse';
-import mammoth from 'mammoth';
+// @ts-ignore
+const pdf = require('pdf-parse');
+// @ts-ignore
+const mammoth = require('mammoth');
 
 export async function POST(req: Request) {
     try {

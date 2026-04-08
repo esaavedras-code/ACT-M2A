@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { 
     Presentation, Save, Plus, Trash2, Calendar, 
     FileText, AlertTriangle, ImageIcon, Camera, 
-    Loader2, Download, ChevronLeft, ChevronRight
+    Loader2, Download, ChevronLeft, ChevronRight, X
 } from "lucide-react";
 // import pptxgen from "pptxgenjs"; // Removed for dynamic import
 import FloatingFormActions from "./FloatingFormActions";
