@@ -293,7 +293,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             if (uploadError) throw uploadError;
             
             // Register in project_documents so it shows up in explorer
-            await supabase.from("project_documents").upsert({
+            await supabase.from("project_documents").insert({
                 project_id: projectId,
                 doc_type: `Nota Certificación #${certs[certIdx].cert_num}`,
                 section: "payment",

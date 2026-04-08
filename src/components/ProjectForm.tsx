@@ -118,16 +118,20 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
 
         setUploadingDoc(true);
         try {
-            const storagePath = `projects/${projectId}/${file.name}`;
-            const { error: storageErr } = await supabase.storage.from('project-documents').upload(storagePath, file, { upsert: true });
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const dateFolder = new Date().toISOString().split('T')[0];
+            const timestamp = Date.now();
+            const storagePath = `${projectId}/project/${dateFolder}/${timestamp}_${safeName}`;
+            
+            const { error: storageErr } = await supabase.storage.from('project-documents').upload(storagePath, file);
 
-            const { error: dbErr } = await supabase.from("project_documents").upsert({
+            const { error: dbErr } = await supabase.from("project_documents").insert({
                 project_id: projectId,
                 doc_type: selectedDocType,
                 section: "project",
                 file_name: file.name,
                 storage_path: storageErr ? null : storagePath
-            }, { onConflict: 'project_id, doc_type' });
+            });
 
             if (dbErr) throw dbErr;
             await fetchDocuments();
