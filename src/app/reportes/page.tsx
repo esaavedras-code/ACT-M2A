@@ -424,9 +424,12 @@ function ReportesContent() {
                     </button>
                     <button 
                         onClick={() => setReportFormat('excel')}
-                        className={`px-6 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 ${reportFormat === 'excel' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                        className={`px-6 py-2.5 rounded-xl font-black text-xs transition-all flex flex-col items-center justify-center leading-none ${reportFormat === 'excel' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                     >
-                         <FileDigit size={16} /> EXCEL
+                         <div className="flex items-center gap-2">
+                            <FileDigit size={16} /> EXCEL
+                         </div>
+                         <span className="text-[8px] mt-1 opacity-80">(Algunos)</span>
                     </button>
                 </div>
                 <div className="flex flex-col items-center gap-2 mb-6 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-sm relative">

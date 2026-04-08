@@ -473,10 +473,10 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         disabled: loading
                     },
                     ...(currentLog.id ? [{
-                        label: "Imprimir PDF",
+                        label: "Imprimir (ACT-45)",
                         icon: <Printer />,
                         onClick: handlePrint,
-                        description: "Generar un archivo PDF profesional con toda la información del reporte diario para imprimir o archivar.",
+                        description: "Generar el reporte oficial ACT-45 en PDF con toda la información del reporte diario.",
                         variant: 'secondary' as const,
                         disabled: loading
                     }] : []),

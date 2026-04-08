@@ -10,6 +10,7 @@ import {
 
 // ─── Secciones del proyecto ────────────────────────────────────────
 const PROJECT_SECTIONS = [
+    { id: "photos",     label: "📸 Galería de Fotos",       bucket: "project-documents" },
     { id: "project",    label: "1. Datos del Proyecto",    bucket: "project-documents" },
     { id: "personnel",  label: "2. Firmas ACT",            bucket: "project-documents" },
     { id: "items",      label: "3. Partidas",              bucket: "project-documents" },
@@ -68,7 +69,7 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
     const [docs, setDocs] = useState<DocRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["project", "general"]));
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["photos", "project", "general"]));
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedSection, setSelectedSection] = useState("general");
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -197,8 +198,16 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
         ? docs.filter(d => d.file_name.toLowerCase().includes(searchTerm.toLowerCase()))
         : docs;
 
-    const getDocsForSection = (sectionId: string) =>
-        filtered.filter(d => (d.section || d.doc_type || "general") === sectionId);
+    const getDocsForSection = (sectionId: string) => {
+        if (sectionId === "photos") {
+            // Esta sección es una vista agregada de todas las fotos subidas en cualquier sección
+            return filtered.filter(d => {
+                const ext = (d.file_name.split(".").pop() || "").toLowerCase();
+                return ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
+            });
+        }
+        return filtered.filter(d => (d.section || d.doc_type || "general") === sectionId);
+    };
 
     const totalFiles = docs.length;
     const sectionsWithFiles = PROJECT_SECTIONS.filter(s => getDocsForSection(s.id).length > 0);
