@@ -7,7 +7,7 @@ import {
     FileText, AlertTriangle, ImageIcon, Camera, 
     Loader2, Download, ChevronLeft, ChevronRight
 } from "lucide-react";
-import pptxgen from "pptxgenjs";
+// import pptxgen from "pptxgenjs"; // Removed for dynamic import
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 
@@ -163,7 +163,8 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
             return;
         }
 
-        const pres = new pptxgen();
+        const PptxGenJS = (await import("pptxgenjs")).default;
+        const pres = new PptxGenJS();
         pres.layout = "LAYOUT_16x9";
 
         // Slide 1: Title
@@ -373,7 +374,18 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                 </div>
             </div>
 
-            <FloatingFormActions onSave={() => saveData(false)} loading={loading} />
+            <FloatingFormActions 
+                actions={[
+                    {
+                        label: loading ? "Guardando..." : "Guardar",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Guardar esta presentación mensual",
+                        variant: 'primary',
+                        disabled: loading
+                    }
+                ]} 
+            />
         </div>
     );
 });
