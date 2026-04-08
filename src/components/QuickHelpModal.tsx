@@ -155,8 +155,8 @@ export default function QuickHelpModal() {
                 }}
                 className="fixed z-[2000] bg-primary text-white p-4 rounded-full shadow-2xl hover:bg-blue-700 transition-all hover:scale-110 group animate-bounce touch-none"
                 style={{ 
-                    bottom: '40px', 
-                    left: '40px',
+                    top: 'calc(2in - 60px)', 
+                    right: '40px',
                     transform: `translate(${position.x}px, ${position.y}px)`,
                     cursor: 'grab'
                 }}

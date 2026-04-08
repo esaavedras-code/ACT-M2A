@@ -21,6 +21,69 @@ interface MonthlyPresentation {
     photo2_path: string | null;
 }
 
+const PhotoPickerModal = ({ projectId, onSelect, onClose }: { projectId: string, onSelect: (url: string) => void, onClose: () => void }) => {
+    const [photos, setPhotos] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchPhotos = async () => {
+            setLoading(true);
+            const { data } = await supabase
+                .from("project_documents")
+                .select("*")
+                .eq("project_id", projectId)
+                .eq("section", "photos");
+            if (data) setPhotos(data);
+            setLoading(false);
+        };
+        fetchPhotos();
+    }, [projectId]);
+
+    return (
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-6 bg-primary text-white flex justify-between items-center">
+                    <h3 className="font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                        <ImageIcon size={18} /> Galería de Fotos del Proyecto
+                    </h3>
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full"><X size={20} /></button>
+                </div>
+                <div className="flex-grow overflow-y-auto p-6">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>
+                    ) : photos.length === 0 ? (
+                        <div className="text-center py-20 text-slate-400 font-bold uppercase text-[10px]">No hay fotos en la galería del proyecto</div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {photos.map(p => (
+                                <button 
+                                    key={p.id}
+                                    onClick={() => {
+                                        const { data: { publicUrl } } = supabase.storage.from("project-documents").getPublicUrl(p.storage_path);
+                                        onSelect(publicUrl);
+                                    }}
+                                    className="group aspect-video relative rounded-xl overflow-hidden border border-slate-200 hover:border-primary transition-all hover:scale-105"
+                                >
+                                    <img src={supabase.storage.from("project-documents").getPublicUrl(p.storage_path).data.publicUrl} className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Plus className="text-white" size={32} />
+                                    </div>
+                                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 text-white text-[8px] font-bold truncate">
+                                        {p.file_name}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div className="p-4 border-t bg-slate-50 flex justify-end">
+                    <button onClick={onClose} className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold text-[10px] uppercase">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function MonthlyPresentations({ projectId, numAct, onDirty, onSaved }, ref) {
     const [presentations, setPresentations] = useState<MonthlyPresentation[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -36,6 +99,7 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
     const [isDirty, setIsDirty] = useState(false);
     const [uploading, setUploading] = useState<string | null>(null);
     const [projectName, setProjectName] = useState("");
+    const [showPicker, setShowPicker] = useState<'photo1_path' | 'photo2_path' | null>(null);
 
     useEffect(() => {
         if (projectId) {
@@ -101,13 +165,22 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
         try {
             const dateStr = new Date().toISOString().split('T')[0];
             const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
-            const storagePath = `${projectId}/presentations/${dateStr}/${Date.now()}_${safeName}`;
+            const storagePath = `${projectId}/Presentaciones/${dateStr}/${Date.now()}_${safeName}`;
             
             const { error: uploadError } = await supabase.storage
                 .from("project-documents")
                 .upload(storagePath, file);
 
             if (uploadError) throw uploadError;
+
+            // Register in project_documents so it shows in explorer
+            await supabase.from("project_documents").insert([{
+                project_id: projectId,
+                file_name: file.name,
+                doc_type: file.type,
+                section: "presentations",
+                storage_path: storagePath
+            }]);
 
             const { data: { publicUrl } } = supabase.storage.from("project-documents").getPublicUrl(storagePath);
 
@@ -216,7 +289,30 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
         }
 
         const fileName = `Presentacion_${numAct || "Proyecto"}_${formData.presentation_date}.pptx`;
+        
+        // Export to Blob for uploading
+        const blob = await pres.write({ outputType: "blob" }) as Blob;
+        
+        // Download for user
         pres.writeFile({ fileName });
+
+        // Upload to Supabase
+        if (projectId) {
+            const dateStr = formData.presentation_date;
+            const storagePath = `${projectId}/Presentaciones/${dateStr}/${fileName}`;
+            
+            await supabase.storage
+                .from("project-documents")
+                .upload(storagePath, blob, { upsert: true });
+
+            await supabase.from("project_documents").insert([{
+                project_id: projectId,
+                file_name: fileName,
+                doc_type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                section: "presentations",
+                storage_path: storagePath
+            }]);
+        }
     };
 
     return (
@@ -335,11 +431,21 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                                             </div>
                                         </>
                                     ) : (
-                                        <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-primary transition-colors">
-                                            {uploading === 'photo1_path' ? <Loader2 className="animate-spin" /> : <Plus size={32} />}
-                                            <span className="text-[10px] font-bold uppercase">Subir Foto 1</span>
-                                            <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'photo1_path')} />
-                                        </label>
+                                        <div className="flex flex-col items-center gap-3">
+                                            {uploading === 'photo1_path' ? <Loader2 className="animate-spin text-primary" /> : <Plus size={32} className="text-slate-300" />}
+                                            <div className="flex flex-col gap-2 w-full px-6">
+                                                <label className="cursor-pointer bg-primary text-white py-2 rounded-xl text-[9px] font-black uppercase text-center hover:bg-blue-700 transition-colors">
+                                                    Subir Foto 1
+                                                    <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'photo1_path')} />
+                                                </label>
+                                                <button 
+                                                    onClick={() => setShowPicker('photo1_path')}
+                                                    className="bg-emerald-500 text-white py-2 rounded-xl text-[9px] font-black uppercase hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <ImageIcon size={12} /> Galería PACT
+                                                </button>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -355,17 +461,30 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                                                     <Camera size={20} />
                                                     <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'photo2_path')} />
                                                 </label>
+                                                <button onClick={() => setShowPicker('photo2_path')} className="p-2 bg-white rounded-full text-emerald-500 hover:scale-110 transition-transform">
+                                                    <ImageIcon size={20} />
+                                                </button>
                                                 <button onClick={() => setFormData(p => ({...p, photo2_path: null}))} className="p-2 bg-white rounded-full text-rose-500 hover:scale-110 transition-transform">
                                                     <Trash2 size={20} />
                                                 </button>
                                             </div>
                                         </>
                                     ) : (
-                                        <label className="cursor-pointer flex flex-col items-center gap-2 text-slate-400 hover:text-primary transition-colors">
-                                            {uploading === 'photo2_path' ? <Loader2 className="animate-spin" /> : <Plus size={32} />}
-                                            <span className="text-[10px] font-bold uppercase">Subir Foto 2</span>
-                                            <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'photo2_path')} />
-                                        </label>
+                                        <div className="flex flex-col items-center gap-3">
+                                            {uploading === 'photo2_path' ? <Loader2 className="animate-spin text-primary" /> : <Plus size={32} className="text-slate-300" />}
+                                            <div className="flex flex-col gap-2 w-full px-6">
+                                                <label className="cursor-pointer bg-primary text-white py-2 rounded-xl text-[9px] font-black uppercase text-center hover:bg-blue-700 transition-colors">
+                                                    Subir Foto 2
+                                                    <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'photo2_path')} />
+                                                </label>
+                                                <button 
+                                                    onClick={() => setShowPicker('photo2_path')}
+                                                    className="bg-emerald-500 text-white py-2 rounded-xl text-[9px] font-black uppercase hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <ImageIcon size={12} /> Galería PACT
+                                                </button>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -386,6 +505,19 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                     }
                 ]} 
             />
+
+            {showPicker && (
+                <PhotoPickerModal 
+                    projectId={projectId || ""} 
+                    onSelect={(url) => {
+                        setFormData(p => ({ ...p, [showPicker]: url }));
+                        setIsDirty(true);
+                        setShowPicker(null);
+                        if (onDirty) onDirty();
+                    }}
+                    onClose={() => setShowPicker(null)}
+                />
+            )}
         </div>
     );
 });

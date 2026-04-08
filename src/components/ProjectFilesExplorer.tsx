@@ -10,7 +10,6 @@ import {
 
 // ─── Secciones del proyecto ────────────────────────────────────────
 const PROJECT_SECTIONS = [
-    { id: "photos",     label: "📸 Galería de Fotos",       bucket: "project-documents" },
     { id: "project",    label: "1. Datos del Proyecto",    bucket: "project-documents" },
     { id: "personnel",  label: "2. Firmas ACT",            bucket: "project-documents" },
     { id: "items",      label: "3. Partidas",              bucket: "project-documents" },
@@ -24,7 +23,9 @@ const PROJECT_SECTIONS = [
     { id: "inspection", label: "11. Inspección",           bucket: "project-documents" },
     { id: "force",      label: "12. Force Account",        bucket: "project-documents" },
     { id: "liquidation",label: "13. Liquidación",          bucket: "project-documents" },
+    { id: "presentations", label: "14. Presentaciones",      bucket: "project-documents" },
     { id: "general",    label: "General / Sin clasificar", bucket: "project-documents" },
+    { id: "photos",     label: "📸 Galería de Fotos",       bucket: "project-documents" },
 ];
 
 interface DocRecord {
