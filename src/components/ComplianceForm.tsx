@@ -18,6 +18,7 @@ const COMPLIANCE_DOCS = [
     "Permiso Único Incidental",
     "Registro Único de Licitadores",
     "Subcontratos",
+    "Otros",
 ];
 
 const COMPLIANCE_STATUSES = ["Aprobado", "Deficiente", "No requerido"];
@@ -32,6 +33,8 @@ type ComplianceRecord = {
     status: string;
     subcontractor_name?: string;
     is_sub_doc?: boolean; // New flag for hierarchical logic
+    is_general?: boolean;
+    custom_doc_name?: string;
     email_sent_14d?: boolean;
 };
 
@@ -73,7 +76,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
             // Si falta entre 0 y 14 días para expirar
             if (expiry >= today && expiry <= fourteenDaysFromNow) {
-                const docName = doc.subcontractor_name ? `${doc.doc_type} (${doc.subcontractor_name})` : doc.doc_type;
+                const docNameDetail = doc.doc_type === "Otros" ? doc.custom_doc_name : doc.doc_type;
+                const docName = doc.subcontractor_name ? `${docNameDetail} (${doc.subcontractor_name})` : docNameDetail;
 
                 try {
                     const emailData = {
@@ -141,6 +145,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                 date_received: r.date_received || "",
                 date_expiry: r.date_expiry || "",
                 date_validated: r.date_validated || "",
+                is_general: r.is_general || false,
+                custom_doc_name: r.custom_doc_name || "",
                 email_sent_14d: r.email_sent_14d || false,
             })));
             setTimeout(() => checkUpcomingExpiries(data), 2000); // Check shortly after loading
@@ -162,6 +168,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         status: COMPLIANCE_STATUSES[0],
         subcontractor_name: subName || "",
         is_sub_doc: isSub || false,
+        is_general: false,
+        custom_doc_name: "",
         email_sent_14d: false,
     });
 
@@ -244,6 +252,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     status: r.status,
                     subcontractor_name: r.subcontractor_name,
                     is_sub_doc: r.is_sub_doc,
+                    is_general: r.is_general || false,
+                    custom_doc_name: r.custom_doc_name || null,
                     email_sent_14d: r.email_sent_14d || false,
                 };
 
@@ -312,7 +322,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold flex items-center gap-2">
                     <ShieldCheck className="text-primary" />
-                    5. Cumplimiento Log (Labor/DBE/EEO)
+                    5. Cumplimiento (Labor/DBE/EEO)
                 </h2>
                 <div className="flex gap-2">
                     {/* Los botones ahora son flotantes para mayor accesibilidad */}
@@ -334,7 +344,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-8">#</th>
-                                <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-48">Contratista / Subcontratista</th>
+                                <th className="text-center px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-10" title="General (Ocultar Nombre)">G</th>
+                                <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-48">Subcontratista</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Tipo de Documento</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-40">Fecha Recibido</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-40">Fecha Vencimiento</th>
@@ -350,6 +361,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                 const expired = isExpired(r.date_expiry);
                                 const isLast = idx === records.length - 1;
                                 const isSubcontracts = r.doc_type === "Subcontratos";
+                                const isOtros = r.doc_type === "Otros";
                                 const isExpanded = expandedRows[idx];
 
                                 return (
@@ -360,41 +372,67 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                         >
                                             {/* Index */}
                                             <td className="px-4 py-2 text-slate-400 font-mono text-xs">{idx + 1}</td>
-
-                                            {/* Contratista (Empty for main docs) */}
-                                            <td className="px-4 py-2 text-primary font-bold">
+                                            
+                                            {/* G Checkbox */}
+                                            <td className="px-4 py-2 text-center text-primary font-bold">
                                                 <input
-                                                    type="text"
-                                                    placeholder={isSubcontracts ? "General / Subcontratos" : "Nombre de Contratista"}
-                                                    className={`input-field text-xs w-full text-black ${isSubcontracts ? 'font-black border-primary/20' : ''}`}
-                                                    style={{ backgroundColor: '#66FF99' }}
-                                                    value={r.subcontractor_name || ""}
-                                                    onChange={(e) => updateRecord(idx, 'subcontractor_name', e.target.value)}
+                                                    type="checkbox"
+                                                    className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                                                    checked={r.is_general || false}
+                                                    onChange={(e) => updateRecord(idx, 'is_general', e.target.checked)}
                                                 />
+                                            </td>
+
+                                            {/* Subcontratista */}
+                                            <td className="px-4 py-2 text-primary font-bold">
+                                                {!r.is_general && (
+                                                    <input
+                                                        type="text"
+                                                        placeholder={isSubcontracts ? "General / Subcontratos" : "Subcontratista"}
+                                                        className={`input-field text-xs w-full text-black ${isSubcontracts ? 'font-black border-primary/20' : ''}`}
+                                                        style={{ backgroundColor: '#66FF99' }}
+                                                        value={r.subcontractor_name || ""}
+                                                        onChange={(e) => updateRecord(idx, 'subcontractor_name', e.target.value)}
+                                                    />
+                                                )}
+                                                {r.is_general && (
+                                                    <span className="text-[10px] text-slate-400 italic">Documento General</span>
+                                                )}
                                             </td>
 
                                             {/* Tipo de Documento */}
                                             <td className="px-4 py-2">
-                                                <div className="flex items-center gap-2">
-                                                    {isSubcontracts && (
-                                                        <button
-                                                            onClick={() => toggleExpand(idx)}
-                                                            className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
-                                                            title={isExpanded ? "Contraer" : "Expandir subcontratos"}
+                                                <div className="flex flex-col gap-1.5">
+                                                    <div className="flex items-center gap-2">
+                                                        {isSubcontracts && (
+                                                            <button
+                                                                onClick={() => toggleExpand(idx)}
+                                                                className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
+                                                                title={isExpanded ? "Contraer" : "Expandir subcontratos"}
+                                                            >
+                                                                <Plus size={14} className={`transform transition-transform ${isExpanded ? 'rotate-45' : ''}`} />
+                                                            </button>
+                                                        )}
+                                                        <select
+                                                            className={`input-field text-sm font-semibold w-full text-black ${isSubcontracts ? 'text-primary' : ''}`}
+                                                            style={{ backgroundColor: '#66FF99' }}
+                                                            value={r.doc_type || ""}
+                                                            onChange={(e) => updateRecord(idx, 'doc_type', e.target.value)}
                                                         >
-                                                            <Plus size={14} className={`transform transition-transform ${isExpanded ? 'rotate-45' : ''}`} />
-                                                        </button>
+                                                            {COMPLIANCE_DOCS.map(doc => (
+                                                                <option key={doc} value={doc}>{doc}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    {isOtros && (
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Especifique el nombre del documento"
+                                                            className="input-field text-[11px] w-full bg-blue-50 border-blue-200"
+                                                            value={r.custom_doc_name || ""}
+                                                            onChange={(e) => updateRecord(idx, 'custom_doc_name', e.target.value)}
+                                                        />
                                                     )}
-                                                    <select
-                                                        className={`input-field text-sm font-semibold w-full text-black ${isSubcontracts ? 'text-primary' : ''}`}
-                                                        style={{ backgroundColor: '#66FF99' }}
-                                                        value={r.doc_type || ""}
-                                                        onChange={(e) => updateRecord(idx, 'doc_type', e.target.value)}
-                                                    >
-                                                        {COMPLIANCE_DOCS.map(doc => (
-                                                            <option key={doc} value={doc}>{doc}</option>
-                                                        ))}
-                                                    </select>
                                                 </div>
                                             </td>
 
@@ -499,8 +537,11 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                             if (!isActualChild) return null;
 
                                             const subExpired = isExpired(sub.date_expiry);
+                                            const subIsOtros = sub.doc_type === "Otros";
+
                                             return (
                                                 <tr key={`sub-${sidx}`} className="bg-slate-50/30 dark:bg-slate-800/20 animate-in slide-in-from-top-1 duration-200">
+                                                    <td className="px-4 py-2"></td>
                                                     <td className="px-4 py-2"></td>
                                                     {/* Nombre del Contratista */}
                                                     <td className="px-4 py-2">
@@ -514,15 +555,26 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                     </td>
                                                     {/* Tipo de Documento */}
                                                     <td className="px-4 py-2">
-                                                        <select
-                                                            className="input-field text-xs font-semibold w-full bg-white border-slate-200"
-                                                            value={sub.doc_type || ""}
-                                                            onChange={(e) => updateRecord(sidx, 'doc_type', e.target.value)}
-                                                        >
-                                                            {COMPLIANCE_DOCS.filter(d => d !== "Subcontratos").map(doc => (
-                                                                <option key={doc} value={doc}>{doc}</option>
-                                                            ))}
-                                                        </select>
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <select
+                                                                className="input-field text-xs font-semibold w-full bg-white border-slate-200"
+                                                                value={sub.doc_type || ""}
+                                                                onChange={(e) => updateRecord(sidx, 'doc_type', e.target.value)}
+                                                            >
+                                                                {COMPLIANCE_DOCS.filter(d => d !== "Subcontratos").map(doc => (
+                                                                    <option key={doc} value={doc}>{doc}</option>
+                                                                ))}
+                                                            </select>
+                                                            {subIsOtros && (
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Nombre del documento"
+                                                                    className="input-field text-[10px] w-full bg-blue-50 border-blue-200"
+                                                                    value={sub.custom_doc_name || ""}
+                                                                    onChange={(e) => updateRecord(sidx, 'custom_doc_name', e.target.value)}
+                                                                />
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className="px-4 py-2">
                                                         <input
@@ -582,7 +634,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                 );
                             })}
                             <tr>
-                                <td colSpan={8} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                                <td colSpan={9} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
                                     <button
                                         type="button"
                                         onClick={() => addRecord()}
