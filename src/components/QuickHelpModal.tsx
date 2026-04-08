@@ -198,15 +198,15 @@ export default function QuickHelpModal() {
                 {showAbbreviations ? (
                     <>
                         <div className="px-6 pt-5 pb-2">
-                            <div className="relative">
-                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <div className="relative group">
+                                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="text"
                                     autoFocus
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
                                     placeholder="Buscar sigla o significado..."
-                                    className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30 font-medium"
+                                    className="w-full pl-12 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30 font-medium"
                                 />
                             </div>
                         </div>

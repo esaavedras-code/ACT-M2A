@@ -278,13 +278,13 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
 
                 {/* Barra de búsqueda */}
                 <div className="mt-4 relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
                     <input
                         type="text"
                         placeholder="Buscar archivo por nombre..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="input-field pl-9 py-2.5 text-sm"
+                        className="input-field pl-12 py-2.5 text-sm"
                     />
                 </div>
             </div>
