@@ -124,7 +124,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             const { error: dbErr } = await supabase.from("project_documents").upsert({
                 project_id: projectId,
                 doc_type: selectedDocType,
-                section: selectedDocType,
+                section: "project",
                 file_name: file.name,
                 storage_path: storageErr ? null : storagePath
             }, { onConflict: 'project_id, doc_type' });

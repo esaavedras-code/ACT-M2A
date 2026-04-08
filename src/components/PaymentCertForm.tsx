@@ -291,6 +291,16 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 .from("project-documents")
                 .upload(storagePath, file);
             if (uploadError) throw uploadError;
+            
+            // Register in project_documents so it shows up in explorer
+            await supabase.from("project_documents").upsert({
+                project_id: projectId,
+                doc_type: `Nota Certificación #${certs[certIdx].cert_num}`,
+                section: "payment",
+                file_name: file.name,
+                storage_path: storagePath
+            });
+
             const { data: urlData } = supabase.storage.from("project-documents").getPublicUrl(storagePath);
             const publicUrl = urlData.publicUrl;
             const newList = [...certs];

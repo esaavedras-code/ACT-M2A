@@ -2,7 +2,7 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileCheck2, UserCheck, Upload, FileText, Activity, CheckSquare, X, Printer, Loader2, Download } from "lucide-react";
+import { Save, FileCheck2, UserCheck, Upload, FileText, Activity, CheckSquare, X, Printer, Loader2, Download, Eye, Trash2, AlertCircle } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
@@ -27,6 +27,18 @@ const FEDERAL_DOCS = [
     "Otros"
 ];
 
+const BUCKET = "project-documents";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+interface AttachmentMeta {
+    name: string;
+    size: number;
+    type: string;
+    uploadedAt: string;
+    storagePath?: string;   // ruta en Supabase Storage
+    publicUrl?: string;     // URL pública de descarga
+}
+
 const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function LiquidationForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [formData, setFormData] = useState<any>({
         total_items_value: 0,
@@ -48,6 +60,12 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isGeneratingMissing, setIsGeneratingMissing] = useState(false);
+    // Track uploading state per doc
+    const [uploadingDocs, setUploadingDocs] = useState<Record<string, boolean>>({});
+    // Track deleting state per file
+    const [deletingFile, setDeletingFile] = useState<string | null>(null);
+    // Expanded docs (show file list)
+    const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         if (projectId) fetchLiquidation();
@@ -56,10 +74,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     const fetchLiquidation = async () => {
         if (!projectId) return;
         
-        // Cargar datos de liquidación del proyecto
         const { data: projData } = await supabase.from("projects").select("liquidation_data").eq("id", projectId).single();
-        
-        // Cargar todas las partidas del proyecto para la lista
         const { data: itemsData } = await supabase.from("contract_items").select("*").eq("project_id", projectId).order("item_num", { ascending: true });
         
         if (itemsData) setContractItems(itemsData);
@@ -129,24 +144,110 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         if (onDirty) onDirty();
     };
 
-    const handleFileUpload = (doc: string, files: FileList | null) => {
-        if (!files || files.length === 0) return;
+    // ─── Subida real a Supabase Storage ───────────────────────────────────────
+    const handleFileUpload = async (doc: string, files: FileList | null) => {
+        if (!files || files.length === 0 || !projectId) return;
+
+        setUploadingDocs(prev => ({ ...prev, [doc]: true }));
 
         const currentAttachments = { ...(formData.federal_attachments || {}) };
-        const docAttachments = [...(currentAttachments[doc] || [])];
+        const docAttachments: AttachmentMeta[] = [...(currentAttachments[doc] || [])];
 
-        Array.from(files).forEach(file => {
+        for (const file of Array.from(files)) {
+            // Ruta única: liquidacion/<projectId>/<docSlug>/<timestamp>_<filename>
+            const docSlug = doc.replace(/[^a-z0-9]/gi, "_").toLowerCase().slice(0, 40);
+            const timestamp = Date.now();
+            const storagePath = `${projectId}/${docSlug}/${timestamp}_${file.name}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from(BUCKET)
+                .upload(storagePath, file, { upsert: false });
+
+            if (uploadError) {
+                alert(`Error al subir "${file.name}": ${uploadError.message}`);
+                continue;
+            }
+
+            // Register in project_documents
+            await supabase.from("project_documents").insert({
+                project_id: projectId,
+                doc_type: doc,
+                section: "liquidation",
+                file_name: file.name,
+                storage_path: storagePath
+            });
+
+            // Obtener URL pública
+            const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+
             docAttachments.push({
                 name: file.name,
                 size: file.size,
                 type: file.type,
-                uploadedAt: new Date().toISOString()
+                uploadedAt: new Date().toISOString(),
+                storagePath,
+                publicUrl: urlData.publicUrl
             });
-        });
+        }
 
         currentAttachments[doc] = docAttachments;
-        setFormData({ ...formData, federal_attachments: currentAttachments });
+        const newFormData = { ...formData, federal_attachments: currentAttachments };
+        setFormData(newFormData);
+        setUploadingDocs(prev => ({ ...prev, [doc]: false }));
+        // Auto-expandir para mostrar los archivos recién subidos
+        setExpandedDocs(prev => ({ ...prev, [doc]: true }));
         if (onDirty) onDirty();
+
+        // Guardar automáticamente para persistir las URLs
+        await supabase.from("projects").update({ liquidation_data: newFormData }).eq('id', projectId);
+    };
+
+    // ─── Eliminar archivo de Storage y del registro ────────────────────────────
+    const handleDeleteFile = async (doc: string, attachment: AttachmentMeta, idx: number) => {
+        if (!confirm(`¿Eliminar "${attachment.name}"?`)) return;
+
+        const key = `${doc}_${idx}`;
+        setDeletingFile(key);
+
+        if (attachment.storagePath) {
+            const { error } = await supabase.storage.from(BUCKET).remove([attachment.storagePath]);
+            if (error) {
+                alert(`Error al eliminar: ${error.message}`);
+                setDeletingFile(null);
+                return;
+            }
+            // Delete from project_documents
+            await supabase.from("project_documents").delete().eq("storage_path", attachment.storagePath);
+        }
+
+        const currentAttachments = { ...(formData.federal_attachments || {}) };
+        const docAttachments = [...(currentAttachments[doc] || [])];
+        docAttachments.splice(idx, 1);
+        currentAttachments[doc] = docAttachments;
+        const newFormData = { ...formData, federal_attachments: currentAttachments };
+        setFormData(newFormData);
+        setDeletingFile(null);
+        if (onDirty) onDirty();
+
+        await supabase.from("projects").update({ liquidation_data: newFormData }).eq('id', projectId);
+    };
+
+    const formatFileSize = (bytes: number) => {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const getFileIcon = (type: string) => {
+        if (type.includes("pdf")) return "📄";
+        if (type.includes("image")) return "🖼️";
+        if (type.includes("word") || type.includes("document")) return "📝";
+        if (type.includes("sheet") || type.includes("excel")) return "📊";
+        return "📎";
+    };
+
+    const toggleDocExpanded = (doc: string) => {
+        setExpandedDocs(prev => ({ ...prev, [doc]: !prev[doc] }));
     };
 
     const toggleItemSignature = (itemNum: string, role: string) => {
@@ -163,7 +264,6 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             liquidatedItems.push(newItem);
         }
         
-        // Recalcular conteos para el dashboard
         const adminCount = liquidatedItems.filter((it: any) => it.signed_by_admin).length;
         const contractorCount = liquidatedItems.filter((it: any) => it.signed_by_contractor).length;
         const liquidatorCount = liquidatedItems.filter((it: any) => it.signed_by_liquidator).length;
@@ -230,6 +330,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* ── Conteo de Partidas Firmadas ── */}
                 <div className="card space-y-4 border-none shadow-sm h-fit">
                     <h3 className="font-bold text-slate-700 dark:text-slate-300 border-b pb-2 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
                         <Activity size={18} className="text-blue-600" />
@@ -276,6 +377,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     <p className="text-[9px] text-slate-400 mt-2 italic">* Estos números alimentan el resumen de Liquidación en el Dashboard.</p>
                 </div>
 
+                {/* ── Documentos Cierre Federal ── */}
                 <div className="card space-y-2 border-none shadow-sm h-fit">
                     <h3 className="font-bold text-slate-700 dark:text-slate-300 border-b pb-2 text-sm uppercase tracking-wider flex items-center justify-between">
                         <span>Documentos Cierre Federal</span>
@@ -283,16 +385,19 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             {formData.federal_docs?.length || 0} / {FEDERAL_DOCS.length}
                         </span>
                     </h3>
-                    <div className="space-y-0.5 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-0.5 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                         {FEDERAL_DOCS.map((doc, i) => {
-                            const attachments = formData.federal_attachments?.[doc] || [];
+                            const attachments: AttachmentMeta[] = formData.federal_attachments?.[doc] || [];
                             const isChecked = formData.federal_docs?.includes(doc);
+                            const isUploading = uploadingDocs[doc];
+                            const isExpanded = expandedDocs[doc];
 
                             return (
-                                <div key={i} className={`flex flex-col gap-2 p-2 rounded-lg border transition-all ${isChecked
+                                <div key={i} className={`flex flex-col gap-1 p-2 rounded-lg border transition-all ${isChecked
                                     ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800'
                                     : 'bg-white border-slate-100 hover:border-slate-200 dark:bg-slate-900 dark:border-slate-800'
                                     }`}>
+                                    {/* Fila principal */}
                                     <div className="flex items-center gap-2">
                                         <label className="flex items-start gap-2 cursor-pointer group flex-1">
                                             <input
@@ -309,25 +414,41 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                             </span>
                                         </label>
 
-                                        <div className="flex items-center gap-2 shrink-0">
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            {/* Contador de archivos (clickeable para expandir/colapsar) */}
                                             {attachments.length > 0 && (
-                                                <span className="flex items-center gap-1 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md">
+                                                <button
+                                                    onClick={() => toggleDocExpanded(doc)}
+                                                    className="flex items-center gap-1 text-[10px] font-bold bg-blue-100 hover:bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded-md transition-colors"
+                                                    title={isExpanded ? "Ocultar archivos" : "Ver archivos subidos"}
+                                                >
                                                     <FileText size={10} />
-                                                    {attachments.length}
-                                                </span>
+                                                    {attachments.length} {isExpanded ? "▲" : "▼"}
+                                                </button>
                                             )}
 
-                                            <label className="cursor-pointer p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-blue-500 hover:text-primary group/upload" title="Subir documento">
+                                            {/* Botón upload */}
+                                            <label
+                                                className={`cursor-pointer p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-blue-500 hover:text-primary group/upload relative ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                                                title="Subir documento"
+                                            >
                                                 <input
                                                     type="file"
                                                     multiple
                                                     className="hidden"
                                                     onChange={(e) => handleFileUpload(doc, e.target.files)}
+                                                    disabled={isUploading}
+                                                    onClick={(e) => (e.currentTarget.value = "")}
                                                 />
-                                                <Upload size={13} />
+                                                {isUploading
+                                                    ? <Loader2 size={13} className="animate-spin text-blue-500" />
+                                                    : <Upload size={13} />
+                                                }
                                             </label>
                                         </div>
                                     </div>
+
+                                    {/* Campo "Otros" */}
                                     {doc === "Otros" && isChecked && (
                                         <div className="ml-5 mt-1 animate-in slide-in-from-left-2 duration-200">
                                             <input
@@ -342,6 +463,79 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                             />
                                         </div>
                                     )}
+
+                                    {/* ── Lista de archivos subidos ── */}
+                                    {isExpanded && attachments.length > 0 && (
+                                        <div className="ml-5 mt-1 space-y-1 animate-in slide-in-from-top-1 duration-200">
+                                            {attachments.map((att, aidx) => {
+                                                const delKey = `${doc}_${aidx}`;
+                                                const isDeleting = deletingFile === delKey;
+                                                const hasUrl = !!att.publicUrl;
+
+                                                return (
+                                                    <div
+                                                        key={aidx}
+                                                        className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-2 py-1.5 group/file"
+                                                    >
+                                                        <span className="text-sm">{getFileIcon(att.type)}</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate" title={att.name}>
+                                                                {att.name}
+                                                            </p>
+                                                            <p className="text-[9px] text-slate-400">
+                                                                {formatFileSize(att.size)} · {new Date(att.uploadedAt).toLocaleDateString("es-PR")}
+                                                                {!hasUrl && (
+                                                                    <span className="ml-1 text-amber-500 font-bold" title="Archivo sin URL — necesita re-subirse">⚠</span>
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover/file:opacity-100 transition-opacity">
+                                                            {/* Ver */}
+                                                            {hasUrl && (
+                                                                <a
+                                                                    href={att.publicUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="p-1 rounded-md hover:bg-blue-50 text-blue-500 hover:text-blue-700 transition-colors"
+                                                                    title="Ver documento"
+                                                                >
+                                                                    <Eye size={13} />
+                                                                </a>
+                                                            )}
+                                                            {/* Descargar */}
+                                                            {hasUrl && (
+                                                                <a
+                                                                    href={att.publicUrl}
+                                                                    download={att.name}
+                                                                    className="p-1 rounded-md hover:bg-emerald-50 text-emerald-500 hover:text-emerald-700 transition-colors"
+                                                                    title="Descargar"
+                                                                >
+                                                                    <Download size={13} />
+                                                                </a>
+                                                            )}
+                                                            {/* Eliminar */}
+                                                            <button
+                                                                onClick={() => handleDeleteFile(doc, att, aidx)}
+                                                                disabled={isDeleting}
+                                                                className="p-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                                                                title="Eliminar archivo"
+                                                            >
+                                                                {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* Indicador de upload en progreso */}
+                                    {isUploading && (
+                                        <div className="ml-5 flex items-center gap-2 text-[10px] text-blue-600 font-bold">
+                                            <Loader2 size={10} className="animate-spin" />
+                                            Subiendo archivo(s)...
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -349,6 +543,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 </div>
             </div>
             
+            {/* ── Modal Partidas Liquidadas ── */}
             {showPartidas && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -439,6 +634,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     </div>
                 </div>
             )}
+
             <input id="import-liq-json" type="file" accept=".json" className="hidden" onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
