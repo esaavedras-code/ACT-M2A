@@ -107,7 +107,11 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
             try {
                 const dateFolder = new Date().toISOString().split('T')[0];
                 const timestamp = Date.now();
-                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+                // Normalizar tildes/acentos y limpiar para Supabase Storage (no acepta caracteres no-ASCII)
+                const safeName = file.name
+                    .normalize('NFD')                          // descompone tildes: é → e + ́
+                    .replace(/[\u0300-\u036f]/g, '')           // elimina marcas diacríticas
+                    .replace(/[^a-zA-Z0-9._-]/g, '_');         // reemplaza todo lo demás con _
                 const storagePath = `${projectId}/${selectedSection}/${dateFolder}/${timestamp}_${safeName}`;
 
                 // 1. Subir al bucket de storage

@@ -118,7 +118,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
 
         setUploadingDoc(true);
         try {
-            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            // Normalizar tildes/acentos para Supabase Storage
+            const safeName = file.name
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9._-]/g, '_');
             const dateFolder = new Date().toISOString().split('T')[0];
             const timestamp = Date.now();
             const storagePath = `${projectId}/project/${dateFolder}/${timestamp}_${safeName}`;

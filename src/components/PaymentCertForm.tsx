@@ -285,7 +285,10 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         if (!projectId) return;
         setUploadingImage(certIdx);
         try {
-            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const safeName = file.name
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9._-]/g, '_');
             const storagePath = `${projectId}/payment/cert_${certs[certIdx].cert_num}_${Date.now()}_${safeName}`;
             const { error: uploadError } = await supabase.storage
                 .from("project-documents")

@@ -157,7 +157,11 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             // Ruta única: liquidacion/<projectId>/<docSlug>/<timestamp>_<filename>
             const docSlug = doc.replace(/[^a-z0-9]/gi, "_").toLowerCase().slice(0, 40);
             const timestamp = Date.now();
-            const storagePath = `${projectId}/${docSlug}/${timestamp}_${file.name}`;
+            const safeName = file.name
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `${projectId}/${docSlug}/${timestamp}_${safeName}`;
 
             const { error: uploadError } = await supabase.storage
                 .from(BUCKET)

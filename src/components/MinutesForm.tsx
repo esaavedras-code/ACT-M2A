@@ -72,7 +72,10 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
         if (!projectId) return;
         try {
             const dateFolder = new Date().toISOString().split('T')[0];
-            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const safeName = file.name
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9._-]/g, '_');
             const fileName = `${projectId}/minutes/${dateFolder}/${Date.now()}_${safeName}`;
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from("project-documents")
