@@ -9,6 +9,7 @@ import {
     ListChecks, PackageSearch, ShieldCheck, FileEdit, FileCheck, Mic, 
     Cloud, Calculator, TrendingUp, FolderOpen, ChevronRight, LayoutList, User
 } from "lucide-react";
+import BrandName, { useBrandName } from "@/components/BrandName";
 
 export default function MobileMenu() {
     const [isOpen, setIsOpen] = useState(false);
@@ -102,7 +103,7 @@ export default function MobileMenu() {
             >
                 <div className="flex flex-col h-full">
                     <div className="p-6 bg-primary/5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                        <span className="font-black text-2xl tracking-tighter text-primary dark:text-blue-400">PACT-Administradores</span>
+                        <span className="font-black text-2xl tracking-tighter text-primary dark:text-blue-400"><BrandName /></span>
                         <button onClick={toggleMenu} className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                             <X size={24} />
                         </button>
@@ -203,7 +204,7 @@ export default function MobileMenu() {
                         
                         <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
                             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                M2A Group - PACT-Administradores v3.26.0408
+                                M2A Group - <BrandName /> v3.26.0408
                             </p>
                         </div>
                     </div>

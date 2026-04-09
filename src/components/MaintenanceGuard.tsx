@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { AlertTriangle, Lock } from "lucide-react";
 import { usePathname } from "next/navigation";
+import BrandName from "@/components/BrandName";
 
 export default function MaintenanceGuard() {
     const [isMaintenance, setIsMaintenance] = useState(false);
@@ -95,13 +96,13 @@ export default function MaintenanceGuard() {
                         <p className="text-slate-500 dark:text-slate-400 font-medium">
                             {isExpired 
                                 ? 'Tu membresía ha vencido. Por favor, contacta con el administrador para renovar tu acceso al programa PACT.'
-                                : 'El administrador ha suspendido temporalmente el acceso a la plataforma PACT-Administradores para realizar actualizaciones o tareas críticas.'}
+                                : <>El administrador ha suspendido temporalmente el acceso a la plataforma <BrandName /> para realizar actualizaciones o tareas críticas.</>}
                         </p>
                     </div>
                     
                     <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-200 dark:border-amber-800 flex gap-3 text-left">
                         <AlertTriangle size={24} className="text-amber-500 shrink-0" />
-                        <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                        <p className="text-xs font-bold text-amber-700 dark:border-amber-400">
                             {isExpired 
                                 ? 'Si cree que esto es un error o necesita una extensión urgente, comuníquese con Enrique Saavedra.'
                                 : 'Por favor, inténtelo de nuevo más tarde. Si está en medio de una tarea y cree que esto es un error, contacte con soporte IT.'}

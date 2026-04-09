@@ -7,6 +7,7 @@ import { LogIn, Lock, Mail, ArrowRight, ShieldCheck, UserPlus, Eye, EyeOff } fro
 import Image from "next/image";
 import Link from "next/link";
 import AccessRequestModal from "@/components/AccessRequestModal";
+import BrandName from "@/components/BrandName";
 import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
 
 const LoginPage: NextPage = () => {
@@ -203,7 +204,7 @@ const LoginPage: NextPage = () => {
                                     className="object-contain p-2"
                                 />
                             </div>
-                            <h1 className="text-3xl font-black text-white tracking-tight">PACT-Administradores</h1>
+                            <h1 className="text-3xl font-black text-white tracking-tight"><BrandName /></h1>
                             <p className="text-blue-100 mt-2 font-medium">Control Inteligente de Obras</p>
                         </div>
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
@@ -408,7 +409,7 @@ const LoginPage: NextPage = () => {
                         className="w-full flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors py-2 group"
                     >
                         <ShieldCheck size={12} className="opacity-50 group-hover:opacity-100" />
-                        Acerca del Sistema PACT-Administradores
+                        Acerca del Sistema <BrandName />
                     </Link>
 
                     <p className="text-center text-slate-400 text-[10px] sm:text-xs font-medium uppercase tracking-widest opacity-60">
