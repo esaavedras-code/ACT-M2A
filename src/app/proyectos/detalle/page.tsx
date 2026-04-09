@@ -131,8 +131,12 @@ function ProjectDetailContent() {
         { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} /> },
     ];
 
+    // Filtrar pestañas basadas en el rol Contratista ('F')
+    const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "inspection", "logs", "presentations", "personnel"];
+    const filteredTabs = tabs.filter(t => !(role === 'F' && hiddenForContratista.includes(t.id)));
+
     const handleTabChange = (newTab: string) => {
-        const targetTab = tabs.find(t => t.id === newTab);
+        const targetTab = tabs.find(t => t.id === newTab) || filteredTabs.find(t => t.id === newTab);
         if (targetTab?.wip) {
             alert(`La sección de '${targetTab.label}' se encuentra actualmente EN CONSTRUCCIÓN.`);
             // No retornamos para dejarle ver qué hay, o podríamos retornar para bloquearlo.
@@ -243,6 +247,34 @@ function ProjectDetailContent() {
                     setProjectName(project.name);
                     setNumAct(project.num_act);
                 }
+
+                // Inyección de Tema y Cambio de Título para Contratista ('F')
+                if (currentRole === 'F') {
+                    const style = document.createElement('style');
+                    style.innerHTML = `
+                        .bg-blue-700, .bg-blue-600, .bg-primary { background-color: #670010 !important; }
+                        .text-blue-600, .text-primary, .text-blue-700 { color: #670010 !important; }
+                        .border-primary, .border-blue-600 { border-color: #670010 !important; }
+                        .focus\\:border-primary:focus { border-color: #670010 !important; }
+                        .focus\\:ring-blue-100:focus { --tw-ring-color: rgba(103, 0, 16, 0.2) !important; }
+                        .hover\\:bg-blue-700:hover { background-color: #4a000b !important; }
+                    `;
+                    style.id = 'theme-contratista';
+                    document.head.appendChild(style);
+
+                    const titleEls = document.querySelectorAll('header span.truncate');
+                    titleEls.forEach(el => {
+                        if (el.textContent === "PACT-Administradores") {
+                            el.textContent = "PACT-Contratista";
+                        }
+                    });
+                    document.title = "PACT-Contratista - Sistema de Control de Proyectos";
+                }
+
+                return () => {
+                    document.getElementById('theme-contratista')?.remove();
+                };
+
             } catch (err) {
                 console.error("Error loading project:", err);
                 window.location.href = "/proyectos";
@@ -327,7 +359,7 @@ function ProjectDetailContent() {
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
                 <div className="lg:fixed lg:top-[128px] lg:left-4 z-[100] w-full lg:w-[220px] shrink-0 transition-all duration-300">
                     <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
-                        {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
+                        {filteredTabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id)}
@@ -409,7 +441,7 @@ function ProjectDetailContent() {
                                 {activeTab === "force"       && <ForceAccountForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "liquidation" && <LiquidationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "ccml"        && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "files"       && <ProjectFilesExplorer projectId={id} />}
+                                {activeTab === "files"       && <ProjectFilesExplorer projectId={id} userRole={role} />}
                                 {activeTab === "update-tables" && <UpdateTablesForm projectId={id || ""} numAct={numAct} />}
                             </Suspense>
                         </div>

@@ -456,7 +456,7 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
 
             // SAVE PDF
             const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
             
             const fileName = `Presentacion_${numAct || "Proyecto"}_${formData.presentation_date}.pdf`;
             const downloadUrl = URL.createObjectURL(blob);

@@ -701,6 +701,7 @@ export default function AdminRequestsPage() {
                                     <option value="C">Data Entry</option>
                                     <option value="D">Lectura</option>
                                     <option value="E">Inspector</option>
+                                    <option value="F">Contratista</option>
                                 </select>
                             </div>
                             <button disabled={directLoading} type="submit" className="bg-primary text-white p-3 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95">

@@ -65,15 +65,16 @@ function formatDate(str: string) {
 // ─── Props ────────────────────────────────────────────────────────
 interface Props {
     projectId?: string;
+    userRole?: string;
 }
 
-export default function ProjectFilesExplorer({ projectId }: Props) {
+export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     const [docs, setDocs] = useState<DocRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["photos", "project", "general"]));
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedSection, setSelectedSection] = useState("general");
+    const [selectedSection, setSelectedSection] = useState(userRole === 'F' ? "project" : "general");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -212,7 +213,10 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
     };
 
     const totalFiles = docs.length;
-    const sectionsWithFiles = PROJECT_SECTIONS.filter(s => getDocsForSection(s.id).length > 0);
+    const availableSections = userRole === 'F' 
+        ? PROJECT_SECTIONS.filter(s => s.id !== "general" && s.id !== "presentations" && s.id !== "logs" && s.id !== "inspection" && s.id !== "force" && s.id !== "liquidation" && s.id !== "ccml" && s.id !== "update-tables" && s.id !== "personnel") 
+        : PROJECT_SECTIONS;
+    const sectionsWithFiles = availableSections.filter(s => getDocsForSection(s.id).length > 0);
 
     if (!projectId) {
         return (
@@ -243,7 +247,7 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
                             onChange={e => setSelectedSection(e.target.value)}
                             className="input-field text-xs py-2 px-3 max-w-[200px]"
                         >
-                            {PROJECT_SECTIONS.map(s => (
+                            {availableSections.map(s => (
                                 <option key={s.id} value={s.id}>{s.label}</option>
                             ))}
                         </select>
@@ -310,7 +314,7 @@ export default function ProjectFilesExplorer({ projectId }: Props) {
                             <span>Para gestionar archivos: entra en la carpeta correspondiente. Puedes <b>descargar</b> (flecha azul) o <b>eliminar permanentemente</b> (papelera roja) cada documento.</span>
                         </p>
                     </div>
-                    {PROJECT_SECTIONS.map(section => {
+                    {availableSections.map(section => {
                         const sectionDocs = getDocsForSection(section.id);
                         const isExpanded = expandedSections.has(section.id);
                         const hasFiles = sectionDocs.length > 0;
