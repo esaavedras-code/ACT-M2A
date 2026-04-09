@@ -277,6 +277,7 @@ function ReportesContent() {
     const [minutes, setMinutes] = useState<any[]>([]);
     const [dailyLogs, setDailyLogs] = useState<any[]>([]);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isContratista, setIsContratista] = useState(false);
     const [isElectron, setIsElectron] = useState(false);
 
     useEffect(() => {
@@ -297,9 +298,13 @@ function ReportesContent() {
                 allowedIds = ["ALL"];
                 setIsAdmin(true);
             } else {
-                const { data: mems } = await supabase.from("memberships").select("project_id").eq("user_id", session.user.id);
+                const { data: mems } = await supabase.from("memberships").select("project_id, role").eq("user_id", session.user.id);
                 if (mems && mems.length > 0) {
                     allowedIds = mems.map((m: any) => m.project_id);
+                    const currentMem = mems.find((m: any) => m.project_id === projectId);
+                    if (currentMem?.role === "F") {
+                        setIsContratista(true);
+                    }
                 }
             }
         } else {
@@ -854,6 +859,7 @@ function ReportesContent() {
                     </StandardReportItem>
 
                     {/* CCML UI Block - Now the main Mod Log v3 */}
+                    {!isContratista && (
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
@@ -890,6 +896,7 @@ function ReportesContent() {
                             </select>
                         </div>
                     </StandardReportItem>
+                    )}
                     
                     <StandardReportItem
                         onAction={handleAction}
@@ -1003,6 +1010,7 @@ function ReportesContent() {
                 </DropdownGroup>
 
                 {/* 7. Liquidación */}
+                {!isContratista && (
                 <DropdownGroup title="7. Liquidación" icon={<FileCheck size={18} className="text-rose-600" />}>
                     <StandardReportItem
                         onAction={handleAction}
@@ -1199,8 +1207,10 @@ function ReportesContent() {
                         }}
                     />
                 </DropdownGroup>
+                )}
 
                 {/* 8. Force Account */}
+                {!isContratista && (
                 <DropdownGroup title="8. Force Account" icon={<Calculator size={18} className="text-pink-500" />}>
                      <StandardReportItem
                         onAction={handleAction}
@@ -1259,6 +1269,7 @@ function ReportesContent() {
                         }}
                     />
                 </DropdownGroup>
+                )}
 
                 {/* 9. Distribución de Fondos */}
                 <DropdownGroup title="8. Distribución de Fondos" icon={<Activity size={18} className="text-green-600" />}>
@@ -1330,6 +1341,7 @@ function ReportesContent() {
                 </DropdownGroup>
 
                 {/* 10. Informes de Campo */}
+                {!isContratista && (
                 <DropdownGroup title="10. Informes de Campo" icon={<FileText size={18} className="text-emerald-500" />}>
                     <SelectiveReportItem
                         onAction={handleAction}
@@ -1388,6 +1400,7 @@ function ReportesContent() {
                         }}
                     />
                 </DropdownGroup>
+                )}
 
             </div>
 
