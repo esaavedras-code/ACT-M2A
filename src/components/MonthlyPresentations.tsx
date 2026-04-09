@@ -7,8 +7,7 @@ import {
     FileText, AlertTriangle, ImageIcon, Camera, 
     Loader2, Download, ChevronLeft, ChevronRight, X
 } from "lucide-react";
-// import pptxgen from "pptxgenjs"; // Removed for dynamic import
-import FloatingFormActions from "./FloatingFormActions";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
 interface MonthlyPresentation {
@@ -230,88 +229,262 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
-    const generatePPT = async () => {
+    const generatePDF = async () => {
         if (!formData.activities && !formData.critical_points) {
             alert("Por favor rellene la información antes de generar el reporte.");
             return;
         }
 
-        const PptxGenJS = (await import("pptxgenjs")).default;
-        const pres = new PptxGenJS();
-        pres.layout = "LAYOUT_16x9";
-
-        // Slide 1: Title
-        const slide1 = pres.addSlide();
-        slide1.background = { color: "F1F5F9" };
-        slide1.addText("PRESENTACIÓN MENSUAL", { 
-            x: 0, y: 1.5, w: "100%", h: 1, 
-            align: "center", fontFace: "Arial", fontSize: 44, color: "0F172A", bold: true 
-        });
-        slide1.addText(projectName || "PROYECTO ACT", { 
-            x: 0, y: 2.5, w: "100%", h: 0.5, 
-            align: "center", fontSize: 28, color: "2563EB" 
-        });
-        slide1.addText(`Expediente: ${numAct || "---"}`, { 
-            x: 0, y: 3.2, w: "100%", h: 0.4, 
-            align: "center", fontSize: 18, color: "64748B" 
-        });
-        slide1.addText(`Fecha: ${new Date(formData.presentation_date).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}`, { 
-            x: 0, y: 4.5, w: "100%", h: 0.4, 
-            align: "center", fontSize: 20, color: "334155", bold: true 
-        });
-
-        // Slide 2: Actividades
-        const slide2 = pres.addSlide();
-        slide2.addText("ACTIVIDADES REALIZÁNDOSE", { x: 0.5, y: 0.5, w: 9, h: 0.5, fontSize: 24, color: "2563EB", bold: true });
-        slide2.addShape(pres.ShapeType.rect, { x: 0.5, y: 1.1, w: 9, h: 0.05, fill: { color: "2563EB" } });
-        slide2.addText(formData.activities || "N/A", { x: 0.5, y: 1.5, w: 9, h: 3.5, fontSize: 14, color: "334155", valign: "top", bullet: true });
-
-        // Slide 3: Puntos Críticos
-        const slide3 = pres.addSlide();
-        slide3.addText("PUNTOS CRÍTICOS A ATENDER", { x: 0.5, y: 0.5, w: 9, h: 0.5, fontSize: 24, color: "E11D48", bold: true });
-        slide3.addShape(pres.ShapeType.rect, { x: 0.5, y: 1.1, w: 9, h: 0.05, fill: { color: "E11D48" } });
-        slide3.addText(formData.critical_points || "N/A", { x: 0.5, y: 1.5, w: 9, h: 3.5, fontSize: 14, color: "334155", valign: "top", bullet: true });
-
-        // Slide 4: Fotografías
-        const slide4 = pres.addSlide();
-        slide4.addText("REPORTE FOTOGRÁFICO", { x: 0.5, y: 0.3, w: 9, h: 0.4, fontSize: 20, color: "2563EB", bold: true });
-        
-        if (formData.photo1_path) {
-            slide4.addImage({ path: formData.photo1_path, x: 0.5, y: 1, w: 4.3, h: 3.5 });
-        } else {
-            slide4.addText("Foto 1 no disponible", { x: 0.5, y: 1, w: 4.3, h: 3.5, align: "center", fontSize: 12, color: "CBD5E1" });
-        }
-
-        if (formData.photo2_path) {
-            slide4.addImage({ path: formData.photo2_path, x: 5.2, y: 1, w: 4.3, h: 3.5 });
-        } else {
-            slide4.addText("Foto 2 no disponible", { x: 5.2, y: 1, w: 4.3, h: 3.5, align: "center", fontSize: 12, color: "CBD5E1" });
-        }
-
-        const fileName = `Presentacion_${numAct || "Proyecto"}_${formData.presentation_date}.pptx`;
-        
-        // Export to Blob for uploading
-        const blob = await pres.write({ outputType: "blob" }) as Blob;
-        
-        // Download for user
-        pres.writeFile({ fileName });
-
-        // Upload to Supabase
-        if (projectId) {
-            const dateStr = formData.presentation_date;
-            const storagePath = `${projectId}/Presentaciones/${dateStr}/${fileName}`;
+        setLoading(true);
+        try {
+            const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
             
-            await supabase.storage
-                .from("project-documents")
-                .upload(storagePath, blob, { upsert: true });
+            const { data: proj } = await supabase.from('projects').select('*').eq('id', projectId).single();
+            const { data: certs } = await supabase.from('payment_certs').select('*').eq('project_id', projectId).order('date', { ascending: false });
 
-            await supabase.from("project_documents").insert([{
-                project_id: projectId,
-                file_name: fileName,
-                doc_type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                section: "presentations",
-                storage_path: storagePath
-            }]);
+            const pdfDoc = await PDFDocument.create();
+            const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+            const fontOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+            const fontBoldOblique = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+
+            let headerLogo: any = null;
+            try {
+                const actResp = await fetch('/act_logo.png');
+                if (actResp.ok) {
+                    const bytes = await actResp.arrayBuffer();
+                    headerLogo = await pdfDoc.embedPng(bytes).catch(() => pdfDoc.embedJpg(bytes));
+                }
+            } catch (e) {}
+
+            // PAGE 1: PORTADA
+            const page1 = pdfDoc.addPage([1024, 576]); // 16:9 
+            const { width, height } = page1.getSize();
+            page1.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 0.92, 0.85) });
+
+            if (headerLogo) {
+                const dims = headerLogo.scale(1);
+                const tgtHeight = 80;
+                const tgtWidth = (dims.width / dims.height) * tgtHeight;
+                page1.drawImage(headerLogo, { x: 30, y: height - tgtHeight - 30, width: tgtWidth, height: tgtHeight });
+            }
+
+            const centerText = (text: string, pfont: any, psize: number, yPos: number, color: any) => {
+                const w = pfont.widthOfTextAtSize(text, psize);
+                page1.drawText(text, { x: (width - w) / 2, y: yPos, font: pfont, size: psize, color });
+            };
+
+            const darkBlue = rgb(0.2, 0.35, 0.6);
+            centerText("PROYECTOS ACTIVOS", fontBold, 40, height / 2 + 60, darkBlue);
+            centerText("DISTRITO METRO", fontBold, 40, height / 2 + 10, darkBlue);
+            centerText("FECHA DEL INFORME", fontBold, 40, height / 2 - 40, darkBlue);
+            centerText(new Date(formData.presentation_date).toLocaleDateString('es-PR'), fontBold, 40, height / 2 - 90, darkBlue);
+
+            // PAGE 2: CONTENIDO
+            const page2 = pdfDoc.addPage([1024, 576]);
+            page2.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 1, 1) });
+            page2.drawRectangle({ x: width - 80, y: 0, width: 80, height, color: rgb(0.9, 0.6, 0.4) });
+
+            if (headerLogo) {
+                const dims = headerLogo.scale(1);
+                const tgtHeight = 60;
+                const tgtWidth = (dims.width / dims.height) * tgtHeight;
+                page2.drawImage(headerLogo, { x: 20, y: height - tgtHeight - 20, width: tgtWidth, height: tgtHeight });
+            }
+
+            const numAct = proj?.num_act || "AC-XXXXX";
+            const numFed = proj?.num_federal || "ER-XXXXX";
+            page2.drawRectangle({ x: 190, y: height - 55, width: 700, height: 40, color: rgb(1, 0.92, 0.85), borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText(`${numAct} / ${numFed}`, { x: 200, y: height - 43, font: fontBold, size: 28, color: rgb(0,0,0) });
+
+            page2.drawText(proj?.name?.substring(0, 80) || "Nombre del Proyecto", { x: 190, y: height - 85, font: fontBold, size: 18, color: rgb(0,0,0) });
+
+            const admin = proj?.admin_name || "N/A";
+            const superv = proj?.project_manager_name || "N/A";
+            const contr = proj?.contractor_name?.substring(0, 42) || "N/A";
+            const date = new Date(formData.presentation_date).toLocaleDateString('es-ES', { month: 'long', day: 'numeric', year: 'numeric' });
+            const origCost = proj?.cost_original || 0;
+            const revCost = proj?.cost_revised || origCost;
+            const certsSum = certs?.reduce((acc: any, c: any) => acc + c.amount, 0) || 0;
+            
+            const tableX = 15;
+            const tableYTop = height - 100;
+            const tableWidth = 360;
+            const col1W = 160;
+            let currentY = tableYTop;
+            
+            const drawRow = (label: string, value: string, rowH: number = 22, fontLabel = font, fontVal = fontBold) => {
+                page2.drawRectangle({ x: tableX, y: currentY - rowH, width: col1W, height: rowH, borderColor: rgb(0,0,0), borderWidth: 1 });
+                page2.drawRectangle({ x: tableX + col1W, y: currentY - rowH, width: tableWidth - col1W, height: rowH, borderColor: rgb(0,0,0), borderWidth: 1 });
+                page2.drawText(label, { x: tableX + 5, y: currentY - (rowH / 2) - 4, font: fontLabel, size: 11 });
+                page2.drawText(value, { x: tableX + col1W + 5, y: currentY - (rowH / 2) - 4, font: fontVal, size: 11 });
+                currentY -= rowH;
+            };
+
+            page2.drawRectangle({ x: tableX, y: currentY - 140, width: tableWidth, height: 140, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("Descripción del Proyecto:", { x: tableX + 5, y: currentY - 20, font: fontBoldOblique, size: 12 });
+            const desc = proj?.description || "Proyecto de mejoras y rehabilitación...";
+            
+            // Wrap text simplest approach
+            const words = desc.split(' ');
+            let line = '';
+            let yText = currentY - 35;
+            for(let w of words) {
+                const test = line + w + ' ';
+                if(font.widthOfTextAtSize(test, 10) > tableWidth - 10) {
+                    page2.drawText(line, { x: tableX + 5, y: yText, font: font, size: 10 });
+                    line = w + ' ';
+                    yText -= 12;
+                } else { line = test; }
+            }
+            if(line) page2.drawText(line, { x: tableX + 5, y: yText, font: font, size: 10 });
+            currentY -= 140;
+
+            drawRow("Administrador", admin);
+            drawRow("Supervisor", superv);
+            drawRow("Contratista", contr);
+            drawRow("Fecha del Informe", date);
+            drawRow("Costo Original", formatCurrency(origCost));
+            drawRow("Costo Revisado", formatCurrency(revCost));
+            drawRow("Incremento ($) Proyectado", formatCurrency(proj?.projected_increase || 0));
+
+            page2.drawRectangle({ x: tableX, y: currentY - 44, width: 120, height: 44, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("Última", { x: tableX + 5, y: currentY - 18, font: fontBold, size: 10 });
+            page2.drawText("certificación", { x: tableX + 5, y: currentY - 30, font: fontBold, size: 10 });
+            
+            page2.drawRectangle({ x: tableX + 120, y: currentY - 22, width: 40, height: 22, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("Fecha:", { x: tableX + 125, y: currentY - 15, font: font, size: 10 });
+            page2.drawRectangle({ x: tableX + 160, y: currentY - 22, width: 200, height: 22, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText(certs && certs.length > 0 ? formatDate(certs[0].date) : "N/A", { x: tableX + 165, y: currentY - 15, font: font, size: 10 });
+
+            page2.drawRectangle({ x: tableX + 120, y: currentY - 44, width: 40, height: 22, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("Monto:", { x: tableX + 125, y: currentY - 37, font: font, size: 10 });
+            page2.drawRectangle({ x: tableX + 160, y: currentY - 44, width: 200, height: 22, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText(certs && certs.length > 0 ? formatCurrency(certs[0].amount) : "$0.00", { x: tableX + 165, y: currentY - 37, font: font, size: 10 });
+            currentY -= 44;
+
+            drawRow("Monto Certificado Acumulado", formatCurrency(certsSum));
+            drawRow("Monto Ejecutado Acumulado", formatCurrency(certsSum)); 
+            drawRow("Fecha de Comienzo", formatDate(proj?.start_date), 20);
+            drawRow("Terminación Original (fecha)", formatDate(proj?.original_end_date), 20);
+            drawRow("Terminación Revisada (fecha)", formatDate(proj?.revised_end_date), 20);
+            drawRow("Terminación Proyectada (fecha)", formatDate(proj?.estimated_end_date), 20);
+            
+            const pctCert = revCost > 0 ? (certsSum / revCost) * 100 : 0;
+            drawRow("% Obra Certificado", pctCert.toFixed(2) + "%", 20);
+            drawRow("% Obra Ejecutado", pctCert.toFixed(2) + "%", 20);
+            drawRow("% Tiempo", "0.00%", 20); 
+            
+            page2.drawRectangle({ x: tableX, y: currentY - 20, width: tableWidth/4, height: 20, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("Tipo de Fondo", { x: tableX + 2, y: currentY - 13, font: font, size: 9 });
+            page2.drawRectangle({ x: tableX + tableWidth/4, y: currentY - 20, width: tableWidth/4, height: 20, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText(proj?.fund_source || "Federal", { x: tableX + tableWidth/4 + 2, y: currentY - 13, font: fontBold, size: 9 });
+            
+            page2.drawRectangle({ x: tableX + tableWidth/2, y: currentY - 20, width: tableWidth/4, height: 20, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("Term. Sustanc.", { x: tableX + tableWidth/2 + 2, y: currentY - 13, font: font, size: 9 });
+            page2.drawRectangle({ x: tableX + (tableWidth/4)*3, y: currentY - 20, width: tableWidth/4, height: 20, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("No", { x: tableX + (tableWidth/4)*3 + 2, y: currentY - 13, font: fontBold, size: 9 });
+
+            // COLUMNA MEDIO (Actividades)
+            const midX = 385;
+            const midYTop = height - 100;
+            const midWidth = 320;
+            
+            page2.drawRectangle({ x: midX, y: 220, width: midWidth, height: midYTop - 220, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("Actividades Realizándose:", { x: midX + 5, y: midYTop - 18, font: fontBoldOblique, size: 12 });
+            let tLine = '';
+            let tYText = midYTop - 35;
+            for(let w of (formData.activities || "Ninguna").split(' ')) {
+                const test = tLine + w + ' ';
+                if(font.widthOfTextAtSize(test, 9) > midWidth - 20) {
+                    page2.drawText(tLine, { x: midX + 15, y: tYText, font: font, size: 9 });
+                    tLine = w + ' ';
+                    tYText -= 12;
+                } else { tLine = test; }
+            }
+            if(tLine) page2.drawText(tLine, { x: midX + 15, y: tYText, font: font, size: 9 });
+
+            page2.drawRectangle({ x: midX, y: 15, width: midWidth, height: 195, borderColor: rgb(0,0,0), borderWidth: 1 });
+            page2.drawText("Puntos críticos a atender:", { x: midX + 5, y: 190, font: fontBoldOblique, size: 12 });
+            let tcLine = '';
+            let tcYText = 170;
+            for(let w of (formData.critical_points || "Ninguno al momento.").split(' ')) {
+                const test = tcLine + w + ' ';
+                if(font.widthOfTextAtSize(test, 9) > midWidth - 20) {
+                    page2.drawText(tcLine, { x: midX + 15, y: tcYText, font: font, size: 9 });
+                    tcLine = w + ' ';
+                    tcYText -= 12;
+                } else { tcLine = test; }
+            }
+            if(tcLine) page2.drawText(tcLine, { x: midX + 15, y: tcYText, font: font, size: 9 });
+
+            // COLUMNA FOTOS
+            const rightX = 715;
+            const photoWidth = 210;
+            const photoHeight = 220;
+
+            const drawImageField = async (url: string | null, yPos: number) => {
+                page2.drawRectangle({ x: rightX, y: yPos, width: photoWidth, height: photoHeight, borderColor: rgb(0,0,0), borderWidth: 3 });
+                if (url) {
+                    try {
+                        const imgResp = await fetch(url);
+                        if(imgResp.ok) {
+                            const imgBytes = await imgResp.arrayBuffer();
+                            let pdfImg;
+                            if (url.toLowerCase().endsWith('.png') || url.includes('.png?')) {
+                                pdfImg = await pdfDoc.embedPng(imgBytes);
+                            } else {
+                                pdfImg = await pdfDoc.embedJpg(imgBytes);
+                            }
+                            
+                            const oW = pdfImg.width;
+                            const oH = pdfImg.height;
+                            let drawW = photoWidth - 4;
+                            let drawH = (oH / oW) * drawW;
+                            if (drawH > photoHeight - 4) {
+                                drawH = photoHeight - 4;
+                                drawW = (oW / oH) * drawH;
+                            }
+                            page2.drawImage(pdfImg, { x: rightX + 2 + (photoWidth - 4 - drawW) / 2, y: yPos + 2 + (photoHeight - 4 - drawH) / 2, width: drawW, height: drawH });
+                        }
+                    } catch(e) { console.error(e) }
+                }
+            };
+            
+            await drawImageField(formData.photo1_path, height - 100 - photoHeight);
+            await drawImageField(formData.photo2_path, height - 100 - photoHeight * 2 - 10);
+
+            // SAVE PDF
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            
+            const fileName = `Presentacion_${numAct || "Proyecto"}_${formData.presentation_date}.pdf`;
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            if (projectId) {
+                const dateStr = formData.presentation_date;
+                const storagePath = `${projectId}/Presentaciones/${dateStr}/${Date.now()}_${fileName}`;
+                await supabase.storage.from("project-documents").upload(storagePath, blob, { upsert: true });
+                await supabase.from("project_documents").insert([{
+                    project_id: projectId,
+                    file_name: fileName,
+                    doc_type: "application/pdf",
+                    section: "presentations",
+                    storage_path: storagePath
+                }]);
+            }
+            alert("✓ Presentación PDF exportada correctamente");
+
+        } catch (err: any) {
+            alert("Error al generar PDF: " + err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -330,11 +503,18 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                         <Plus size={14} /> Nueva Presentación
                     </button>
                     <button 
-                        onClick={generatePPT}
+                        onClick={generatePDF}
                         disabled={loading}
                         className="btn-primary bg-orange-600 hover:bg-orange-700 px-4 py-2 text-xs flex items-center gap-2 shadow-orange-200"
                     >
-                        <Download size={14} /> Generar PowerPoint
+                        <Download size={14} /> Generar PDF
+                    </button>
+                    <button 
+                        onClick={() => saveData(false)}
+                        disabled={loading}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2 text-xs flex items-center gap-2"
+                    >
+                        <Save size={14} /> Guardar
                     </button>
                 </div>
             </div>
@@ -493,18 +673,9 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                 </div>
             </div>
 
-            <FloatingFormActions 
-                actions={[
-                    {
-                        label: loading ? "Guardando..." : "Guardar",
-                        icon: <Save />,
-                        onClick: () => saveData(false),
-                        description: "Guardar esta presentación mensual",
-                        variant: 'primary',
-                        disabled: loading
-                    }
-                ]} 
-            />
+            <div className="text-center text-[10px] text-slate-400 font-bold uppercase py-6 opacity-60">
+                Asegúrate de guardar cambios antes de generar el reporte
+            </div>
 
             {showPicker && (
                 <PhotoPickerModal 
