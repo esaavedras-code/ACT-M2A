@@ -151,3 +151,16 @@ export function setLocalStorageItem(key: string, value: string): void {
         console.warn("Storage access denied:", e);
     }
 }
+
+/**
+ * Formato estandarizado para números de proyecto: AC-XXXXXX
+ */
+export function formatProjectNumber(value: string | null | undefined): string {
+    if (!value) return "";
+    let cleanValue = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    // Si ya tiene el prefijo AC o similares, lo limpia
+    if (cleanValue.startsWith("AC")) {
+        cleanValue = cleanValue.substring(2);
+    }
+    return `AC-${cleanValue}`;
+}
