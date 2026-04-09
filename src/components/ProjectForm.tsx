@@ -210,7 +210,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             }
 
             setLoading(true);
-            const finalNumAct = formatProjectNumber(currentNumAct);
+            let finalNumAct = formatProjectNumber(currentNumAct);
             
             // Check for duplicates if it's a new project
             if (!projectId && !silent) {
