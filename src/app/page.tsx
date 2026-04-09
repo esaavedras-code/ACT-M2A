@@ -181,7 +181,7 @@ export default function Dashboard() {
                     <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">Dashboard Proyectos</h1>
                     <p className="text-slate-500 mt-2 font-medium">Panel central de control y monitoreo de obras.</p>
                 </div>
-                <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group">
+                <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group mr-[2in]">
                     <Plus size={20} className="group-hover:rotate-90 transition-transform" />
                 </Link>
             </div>

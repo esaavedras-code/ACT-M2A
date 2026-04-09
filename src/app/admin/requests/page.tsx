@@ -923,9 +923,10 @@ export default function AdminRequestsPage() {
                                 <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado / Plataforma</th>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Membresía / Vigencia</th>
+                                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Inicio</th>
+                                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Final</th>
+                                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Duración</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Global</th>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Registro</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
                                 </tr>
                             </thead>
@@ -981,54 +982,80 @@ export default function AdminRequestsPage() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6">
+                                                {/* Celda INICIO */}
+                                                <td className="px-4 py-6">
                                                     {editingUserId === user.id ? (
-                                                        <div className="flex flex-col gap-2 min-w-[200px]">
-                                                            <div className="flex gap-1">
-                                                                <div className="flex-1">
-                                                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Inicio</label>
-                                                                    <input type="date" value={subStart} onChange={e => setSubStart(e.target.value)} className="w-full text-[10px] border rounded p-1" />
-                                                                </div>
-                                                                <div className="flex-1">
-                                                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Fin</label>
-                                                                    <input type="date" value={subEnd} onChange={e => setSubEnd(e.target.value)} className="w-full text-[10px] border rounded p-1" />
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex gap-1 items-end">
-                                                                <div className="flex-1">
-                                                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Duración</label>
-                                                                    <input type="text" placeholder="Ej: 1 año" value={subDuration} onChange={e => setSubDuration(e.target.value)} className="w-full text-[10px] border rounded p-1" />
-                                                                </div>
-                                                                <button onClick={() => handleSaveSubscription(user.id)} className="bg-primary text-white p-1.5 rounded hover:bg-blue-600 transition-colors">
-                                                                    <Check size={14} />
-                                                                </button>
-                                                                <button onClick={() => setEditingUserId(null)} className="bg-slate-100 text-slate-500 p-1.5 rounded hover:bg-slate-200 transition-colors">
-                                                                    <XIcon size={14} />
-                                                                </button>
-                                                            </div>
+                                                        <input 
+                                                            type="date" 
+                                                            value={subStart} 
+                                                            onChange={e => setSubStart(e.target.value)} 
+                                                            className="w-full text-xs border border-slate-200 rounded-lg p-2 bg-white dark:bg-slate-800" 
+                                                        />
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1 cursor-pointer hover:bg-slate-50 p-2 rounded-xl transition-all group" onClick={() => handleStartEditSub(user)}>
+                                                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                                                                {user.subscription_start ? new Date(user.subscription_start).toLocaleDateString() : 'Pendiente'}
+                                                            </span>
+                                                            <div className="text-[8px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">Click para editar</div>
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Celda FINAL */}
+                                                <td className="px-4 py-6">
+                                                    {editingUserId === user.id ? (
+                                                        <input 
+                                                            type="date" 
+                                                            value={subEnd} 
+                                                            onChange={e => setSubEnd(e.target.value)} 
+                                                            className="w-full text-xs border border-slate-200 rounded-lg p-2 bg-white dark:bg-slate-800 font-bold text-primary" 
+                                                        />
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1 cursor-pointer hover:bg-slate-50 p-2 rounded-xl transition-all group" onClick={() => handleStartEditSub(user)}>
+                                                            <span className={`text-[11px] font-black ${new Date(user.subscription_end || '') < new Date() ? 'text-red-500' : 'text-primary'}`}>
+                                                                {user.subscription_end ? new Date(user.subscription_end).toLocaleDateString() : 'Sin fecha'}
+                                                            </span>
+                                                            {user.subscription_end && new Date(user.subscription_end) < new Date() && (
+                                                                <span className="text-[8px] font-black text-red-600 bg-red-100 px-1 rounded border border-red-200 w-fit">EXPIRADO</span>
+                                                            )}
+                                                            <div className="text-[8px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">Click para editar</div>
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Celda DURACIÓN */}
+                                                <td className="px-4 py-6">
+                                                    {editingUserId === user.id ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder="Ej: 1 año"
+                                                                value={subDuration} 
+                                                                onChange={e => setSubDuration(e.target.value)} 
+                                                                className="flex-1 text-xs border border-slate-200 rounded-lg p-2 bg-white dark:bg-slate-800" 
+                                                            />
+                                                            <button 
+                                                                onClick={() => handleSaveSubscription(user.id)} 
+                                                                disabled={isSavingSub}
+                                                                className="bg-primary text-white p-2 rounded-lg hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 active:scale-95 shrink-0"
+                                                                title="Guardar Cambios"
+                                                            >
+                                                                {isSavingSub ? '...' : <Check size={16} />}
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => setEditingUserId(null)} 
+                                                                className="bg-slate-100 text-slate-500 p-2 rounded-lg hover:bg-slate-200 transition-all shrink-0"
+                                                                title="Cancelar"
+                                                            >
+                                                                <XIcon size={16} />
+                                                            </button>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex flex-col gap-1 cursor-pointer hover:bg-slate-50 p-1 rounded transition-colors group" onClick={() => handleStartEditSub(user)}>
-                                                            {user.subscription_end ? (
-                                                                <>
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <Clock size={12} className={new Date(user.subscription_end) < new Date() ? 'text-red-500' : 'text-slate-400'} />
-                                                                        <span className={`text-[10px] font-bold ${new Date(user.subscription_end) < new Date() ? 'text-red-600' : 'text-slate-600'}`}>
-                                                                            Vence: {new Date(user.subscription_end).toLocaleDateString()}
-                                                                        </span>
-                                                                    </div>
-                                                                    {user.subscription_duration && (
-                                                                        <span className="text-[9px] text-slate-400 font-medium bg-slate-100 px-1.5 py-0.5 rounded w-fit">
-                                                                            {user.subscription_duration}
-                                                                        </span>
-                                                                    )}
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-[10px] text-slate-400 italic">Sin membresía definida</span>
-                                                            )}
-                                                            <div className="text-[9px] text-slate-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <Pencil size={8} /> Click para editar
-                                                            </div>
+                                                        <div className="flex flex-col gap-1 cursor-pointer hover:bg-slate-50 p-2 rounded-xl transition-all group" onClick={() => handleStartEditSub(user)}>
+                                                            <span className="text-[11px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 w-fit">
+                                                                {user.subscription_duration || 'No definida'}
+                                                            </span>
+                                                            <div className="text-[8px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">Click para editar</div>
                                                         </div>
                                                     )}
                                                 </td>
@@ -1050,9 +1077,7 @@ export default function AdminRequestsPage() {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6 text-[10px] text-slate-400 font-bold uppercase">
-                                                    {new Date(user.created_at).toLocaleDateString([], { dateStyle: 'short' })}
-                                                </td>
+                                                {/* Eliminamos la columna de Registro para dar espacio a las nuevas */}
                                                 <td className="px-8 py-6 text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button 

@@ -141,7 +141,7 @@ export default function ProjectsPage() {
                             Todos
                         </button>
                     </div>
-                    <Link href="/proyectos/nuevo" className="bg-primary text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-700 transition-all flex items-center gap-2">
+                    <Link href="/proyectos/nuevo" className="bg-primary text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-700 transition-all flex items-center gap-2 mr-[2in]">
                         <Plus size={18} /> Nuevo Proyecto
                     </Link>
                 </div>
