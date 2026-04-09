@@ -14,6 +14,10 @@ interface UserProfile {
     is_active?: boolean;
     last_active_at?: string;
     current_platform?: string;
+    avatar_url?: string;
+    subscription_start?: string;
+    subscription_end?: string;
+    subscription_duration?: string;
 }
 
 interface ActivityLog {
@@ -63,6 +67,13 @@ export default function AdminRequestsPage() {
     const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
     const [userHistory, setUserHistory] = useState<Record<string, ActivityLog[]>>({});
     const [historyLoading, setHistoryLoading] = useState(false);
+    
+    // User subscription editing
+    const [editingUserId, setEditingUserId] = useState<string | null>(null);
+    const [subStart, setSubStart] = useState("");
+    const [subEnd, setSubEnd] = useState("");
+    const [subDuration, setSubDuration] = useState("");
+    const [isSavingSub, setIsSavingSub] = useState(false);
 
     useEffect(() => {
         const checkAdmin = async () => {
@@ -121,7 +132,7 @@ export default function AdminRequestsPage() {
     const fetchActiveUsers = async () => {
         const { data } = await supabase
             .from("users")
-            .select("id, email, name, role_global, created_at, is_active, last_active_at, current_platform")
+            .select("id, email, name, role_global, created_at, is_active, last_active_at, current_platform, subscription_start, subscription_end, subscription_duration")
             .order("created_at", { ascending: false });
         if (data) setActiveUsers(data);
     };
@@ -210,7 +221,6 @@ export default function AdminRequestsPage() {
         if (!req) return;
 
         if (newStatus === 'approved') {
-            // Doble confirmación para Administrador Global si se intenta aprobar
             if (req.desired_role === 'A') {
                 const firstConfirm = confirm("⚠️ ATENCIÓN: Estás por otorgar privilegios de ADMINISTRADOR GLOBAL (Nivel A). ¿Estás seguro de que quieres dar acceso total a este usuario?");
                 if (!firstConfirm) return;
@@ -220,7 +230,6 @@ export default function AdminRequestsPage() {
 
             const tempPwd = "PACT-" + Math.random().toString(36).slice(-5).toUpperCase();
             
-            // 1. Crear el usuario en Supabase Auth vía Edge Function primero
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-auth-v2`, {
@@ -243,7 +252,6 @@ export default function AdminRequestsPage() {
                 const result = await response.json();
                 if (result.error) throw new Error(result.error);
 
-                // 2. Si la función fue exitosa, entonces actualizar el estado en BD
                 const { error: DBerror } = await supabase
                     .from("access_requests")
                     .update({ status: newStatus })
@@ -253,8 +261,6 @@ export default function AdminRequestsPage() {
 
                 setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
 
-                // 2. Enviar email informativo
-                // @ts-ignore
                 const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
                 const emailData = {
                     to: req.email,
@@ -279,7 +285,6 @@ export default function AdminRequestsPage() {
                 if (api?.sendEmail) {
                     await api.sendEmail(emailData);
                 } else {
-                    // Fallback Web - URL hardcodeada
                     await fetch('https://dtpfhwxwodzpitzmrbqr.supabase.co/functions/v1/send-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -294,7 +299,6 @@ export default function AdminRequestsPage() {
                 return;
             }
         } else {
-            // Caso de Rechazo u otros estados
             const { error: DBerror } = await supabase
                 .from("access_requests")
                 .update({ status: newStatus })
@@ -317,7 +321,7 @@ export default function AdminRequestsPage() {
             
         if (!confirm(confirmMsg)) return;
 
-        setIsDeletingId(userId); // Reusing this state to show loading on the row
+        setIsDeletingId(userId);
         try {
             const { error } = await supabase
                 .from("users")
@@ -327,7 +331,6 @@ export default function AdminRequestsPage() {
             if (error) throw error;
             
             alert(`✓ Usuario ${newStatus ? 'activado' : 'desactivado'} correctamente.`);
-            // Update local state directly instead of refetching
             setActiveUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: newStatus } : u));
         } catch (err: any) {
             alert("Error al cambiar estado del usuario: " + err.message);
@@ -343,7 +346,6 @@ export default function AdminRequestsPage() {
             
         if (!confirm(confirmMsg)) return;
 
-        // Doble confirmación para evitar errores accidentales
         const secondConfirm = confirm("🛑 ATENCIÓN: Esta acción es IRREVERSIBLE. Se eliminarán permanentemente los permisos de acceso y el registro del usuario. ¿Confirmas definitivamente el borrado?");
         if (!secondConfirm) return;
 
@@ -351,7 +353,6 @@ export default function AdminRequestsPage() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             
-            // 1. Borrar de Auth vía Edge Function
             const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-auth-v2`, {
                 method: 'POST',
                 headers: {
@@ -368,7 +369,6 @@ export default function AdminRequestsPage() {
             const result = await response.json();
             if (result.error) throw new Error(result.error);
 
-            // 2. Si tenemos el email, también limpiar sus solicitudes de acceso para que pueda volver a solicitar si lo desea
             if (email) {
                 await supabase.from("access_requests").delete().eq("email", email);
             }
@@ -398,7 +398,6 @@ export default function AdminRequestsPage() {
         setDirectLoading(true);
         try {
             const projectsString = selectedDirectProjects.join(", ");
-            // Generar una solicitud ya aprobada
             const { error: insertError } = await supabase.from("access_requests").insert([{
                 full_name: directName,
                 email: directEmail,
@@ -409,7 +408,6 @@ export default function AdminRequestsPage() {
 
             if (insertError) throw insertError;
 
-            // Doble confirmación para Administrador Global
             if (directRole === 'A') {
                 const firstConfirm = confirm("⚠️ ATENCIÓN: Estás por crear un usuario con privilegios de ADMINISTRADOR GLOBAL (Nivel A). ¿Estás seguro de que quieres otorgar acceso total al programa a esta persona?");
                 if (!firstConfirm) {
@@ -423,7 +421,6 @@ export default function AdminRequestsPage() {
                 }
             }
 
-            // Crear usuario en Auth
             const tempPwd = "PACT-" + Math.random().toString(36).slice(-5).toUpperCase();
             
             const { data: { session } } = await supabase.auth.getSession();
@@ -447,8 +444,6 @@ export default function AdminRequestsPage() {
             const result = await response.json();
             if (result.error) throw new Error(result.error);
 
-            // Enviar invitación personalizada as requested
-            // @ts-ignore
             const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
             const invitationData = {
                 to: directEmail,
@@ -489,7 +484,6 @@ export default function AdminRequestsPage() {
             if (api?.sendEmail) {
                 await api.sendEmail(invitationData);
             } else {
-                // Fallback Web - URL hardcodeada
                 await fetch('https://dtpfhwxwodzpitzmrbqr.supabase.co/functions/v1/send-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -517,7 +511,6 @@ export default function AdminRequestsPage() {
         
         let projects = req.project_number ? req.project_number.split(",").map(p => p.trim()) : [];
         
-        // Verificar si el usuario ya existe para cargar sus proyectos actuales
         const existingUser = activeUsers.find(u => u.email.toLowerCase() === req.email.toLowerCase());
         if (existingUser) {
             const { data: mems } = await supabase
@@ -530,7 +523,6 @@ export default function AdminRequestsPage() {
                     .map((m: any) => m.projects?.num_act)
                     .filter(Boolean);
                 
-                // Combinar proyectos solicitados con actuales (sin duplicados)
                 projects = Array.from(new Set([...projects, ...currentProjects]));
             }
         }
@@ -557,7 +549,6 @@ export default function AdminRequestsPage() {
             .eq("id", id);
 
         if (!error) {
-            // Si ya estaba aprobado, necesitamos sincronizar sus permisos reales en la tabla memberships
             if (req.status === 'approved') {
                 try {
                     const { data: { session } } = await supabase.auth.getSession();
@@ -595,6 +586,37 @@ export default function AdminRequestsPage() {
             setIsEditProjectDropdownOpen(false);
         } else {
             alert("Error al guardar cambios: " + error.message);
+        }
+    };
+
+    const handleStartEditSub = (user: UserProfile) => {
+        setEditingUserId(user.id);
+        setSubStart(user.subscription_start || "");
+        setSubEnd(user.subscription_end || "");
+        setSubDuration(user.subscription_duration || "");
+    };
+
+    const handleSaveSubscription = async (userId: string) => {
+        setIsSavingSub(true);
+        try {
+            const { error } = await supabase
+                .from("users")
+                .update({
+                    subscription_start: subStart || null,
+                    subscription_end: subEnd || null,
+                    subscription_duration: subDuration
+                })
+                .eq("id", userId);
+
+            if (error) throw error;
+            
+            alert("✓ Membresía actualizada correctamente.");
+            setEditingUserId(null);
+            fetchActiveUsers();
+        } catch (err: any) {
+            alert("Error al actualizar membresía: " + err.message);
+        } finally {
+            setIsSavingSub(false);
         }
     };
 
@@ -881,8 +903,9 @@ export default function AdminRequestsPage() {
                                 <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado / Plataforma</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Membresía / Vigencia</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Global</th>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Miembro desde</th>
+                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Registro</th>
                                     <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
                                 </tr>
                             </thead>
@@ -892,7 +915,7 @@ export default function AdminRequestsPage() {
                                     (u.name || "").toLowerCase().includes(searchTerm.toLowerCase())
                                 ).length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="px-8 py-20 text-center text-slate-400 italic">No se encontraron usuarios activos que coincidan.</td>
+                                        <td colSpan={6} className="px-8 py-20 text-center text-slate-400 italic">No se encontraron usuarios activos que coincidan.</td>
                                     </tr>
                                 ) : activeUsers
                                     .filter(u => 
@@ -939,12 +962,63 @@ export default function AdminRequestsPage() {
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6">
+                                                    {editingUserId === user.id ? (
+                                                        <div className="flex flex-col gap-2 min-w-[200px]">
+                                                            <div className="flex gap-1">
+                                                                <div className="flex-1">
+                                                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Inicio</label>
+                                                                    <input type="date" value={subStart} onChange={e => setSubStart(e.target.value)} className="w-full text-[10px] border rounded p-1" />
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Fin</label>
+                                                                    <input type="date" value={subEnd} onChange={e => setSubEnd(e.target.value)} className="w-full text-[10px] border rounded p-1" />
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-1 items-end">
+                                                                <div className="flex-1">
+                                                                    <label className="text-[8px] font-bold text-slate-400 uppercase">Duración</label>
+                                                                    <input type="text" placeholder="Ej: 1 año" value={subDuration} onChange={e => setSubDuration(e.target.value)} className="w-full text-[10px] border rounded p-1" />
+                                                                </div>
+                                                                <button onClick={() => handleSaveSubscription(user.id)} className="bg-primary text-white p-1.5 rounded hover:bg-blue-600 transition-colors">
+                                                                    <Check size={14} />
+                                                                </button>
+                                                                <button onClick={() => setEditingUserId(null)} className="bg-slate-100 text-slate-500 p-1.5 rounded hover:bg-slate-200 transition-colors">
+                                                                    <XIcon size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1 cursor-pointer hover:bg-slate-50 p-1 rounded transition-colors group" onClick={() => handleStartEditSub(user)}>
+                                                            {user.subscription_end ? (
+                                                                <>
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <Clock size={12} className={new Date(user.subscription_end) < new Date() ? 'text-red-500' : 'text-slate-400'} />
+                                                                        <span className={`text-[10px] font-bold ${new Date(user.subscription_end) < new Date() ? 'text-red-600' : 'text-slate-600'}`}>
+                                                                            Vence: {new Date(user.subscription_end).toLocaleDateString()}
+                                                                        </span>
+                                                                    </div>
+                                                                    {user.subscription_duration && (
+                                                                        <span className="text-[9px] text-slate-400 font-medium bg-slate-100 px-1.5 py-0.5 rounded w-fit">
+                                                                            {user.subscription_duration}
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-[10px] text-slate-400 italic">Sin membresía definida</span>
+                                                            )}
+                                                            <div className="text-[9px] text-slate-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Pencil size={8} /> Click para editar
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-8 py-6">
                                                     <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${getRoleColorClass(user.role_global)}`}>
                                                         {getRoleLabel(user.role_global)}
                                                     </span>
                                                 </td>
-                                                <td className="px-8 py-6 text-sm text-slate-500">
-                                                    {new Date(user.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                                <td className="px-8 py-6 text-[10px] text-slate-400 font-bold uppercase">
+                                                    {new Date(user.created_at).toLocaleDateString([], { dateStyle: 'short' })}
                                                 </td>
                                                 <td className="px-8 py-6 text-right">
                                                     <div className="flex items-center justify-end gap-2">

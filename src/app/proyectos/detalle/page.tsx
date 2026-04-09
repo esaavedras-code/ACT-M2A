@@ -11,7 +11,7 @@ import {
     Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle,
     Save, Presentation, RefreshCcw
 } from "lucide-react";
-import { getLocalStorageItem } from "@/lib/utils";
+import { getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import FloatingFormActions from "@/components/FloatingFormActions";
 
 import ProjectForm from "@/components/ProjectForm";
@@ -123,11 +123,11 @@ function ProjectDetailContent() {
         { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
         { id: "minutes",     label: "Minutas",        icon: <Mic size={12} />, wip: true },
         { id: "logs",        label: "Actividades",   icon: <Cloud size={12} />, wip: true },
-        { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} /> },
         { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} />, wip: true },
         { id: "force",       label: "Force Account", icon: <Calculator size={12} />, wip: true },
         { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
         { id: "ccml",        label: "Cambios al CCML", icon: <FileEdit size={12} /> },
+        { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} /> },
         { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} /> },
     ];
 
@@ -165,6 +165,7 @@ function ProjectDetailContent() {
             case "force": return "El balance de Force Account lo pueden ver en la pestaña de REPORTES.";
             case "liquidation": return "Las hojas de liquidación y checklists (Final Acceptance) los pueden ver en la pestaña de REPORTES, opción '7. Liquidación'.";
             case "ccml": return "La información de las Cartas de Requerimiento de Modificación (Project Modification Letters) se gestiona en esta sección.";
+            case "update-tables": return "";
             default: return "Los reportes de esta sección los pueden ver en la pestaña de REPORTES de este proyecto.";
         }
     };
@@ -315,7 +316,7 @@ function ProjectDetailContent() {
                     <div>
                         <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase line-clamp-1">{projectName || "Nuevo Proyecto"}</h1>
                         <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">ACT: {numAct || "N/A"}</span>
+                            <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">ACT: {formatProjectNumber(numAct)}</span>
                             <span className="text-[10px] font-black bg-slate-100 text-slate-400 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">{role === 'A' ? 'Administrador' : 'Colaborador'}</span>
                         </div>
                     </div>
@@ -324,7 +325,7 @@ function ProjectDetailContent() {
 
             <div className="flex flex-col lg:flex-row gap-8 items-start relative">
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
-                <div className="lg:fixed lg:top-[128px] lg:left-4 z-[40] w-full lg:w-[220px] shrink-0 transition-all duration-300">
+                <div className="lg:fixed lg:top-[128px] lg:left-4 z-[100] w-full lg:w-[220px] shrink-0 transition-all duration-300">
                     <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
                         {tabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
                             <button
@@ -351,10 +352,12 @@ function ProjectDetailContent() {
                     <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-4 md:p-10 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
                         <div className="relative z-10">
-                            <div className="mb-8 px-6 py-3 border-l-4 border-blue-500 bg-blue-50/30 dark:bg-blue-900/10 rounded-r shadow-sm flex items-center gap-3">
-                                <Info size={18} className="text-blue-600 shrink-0" />
-                                <span className="text-xs font-bold text-blue-800 dark:text-blue-300 leading-relaxed">{getReportNote(activeTab)}</span>
-                            </div>
+                            {getReportNote(activeTab) && (
+                                <div className="mb-8 px-6 py-3 border-l-4 border-blue-500 bg-blue-50/30 dark:bg-blue-900/10 rounded-r shadow-sm flex items-center gap-3">
+                                    <Info size={18} className="text-blue-600 shrink-0" />
+                                    <span className="text-xs font-bold text-blue-800 dark:text-blue-300 leading-relaxed">{getReportNote(activeTab)}</span>
+                                </div>
+                            )}
 
                             <Suspense fallback={<div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-blue-500" size={32} /><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preparando sección...</span></div>}>
                                 {activeTab === "dashboard"   && <SummaryDashboard projectId={id} />}

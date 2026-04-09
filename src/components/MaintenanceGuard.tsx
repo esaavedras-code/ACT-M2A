@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 
 export default function MaintenanceGuard() {
     const [isMaintenance, setIsMaintenance] = useState(false);
+    const [isExpired, setIsExpired] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const pathname = usePathname();
@@ -27,12 +28,25 @@ export default function MaintenanceGuard() {
                 if (session) {
                     const { data: userData } = await supabase
                         .from("users")
-                        .select("role_global")
+                        .select("role_global, subscription_end")
                         .eq("id", session.user.id)
                         .maybeSingle();
                         
                     if (userData?.role_global === "A") {
                         userIsAdmin = true;
+                    }
+
+                    // Verificar expiración (Solo si no es Admin Global)
+                    if (!userIsAdmin && userData?.subscription_end) {
+                        const expiryDate = new Date(userData.subscription_end);
+                        expiryDate.setHours(23, 59, 59, 999); // Incluir el día completo
+                        if (expiryDate < new Date()) {
+                            setIsExpired(true);
+                        } else {
+                            setIsExpired(false);
+                        }
+                    } else {
+                        setIsExpired(false);
                     }
                 }
                 setIsAdmin(userIsAdmin);
@@ -65,7 +79,7 @@ export default function MaintenanceGuard() {
 
     if (loading) return null;
 
-    if (isMaintenance && !isAdmin) {
+    if ((isMaintenance || isExpired) && !isAdmin) {
         return (
             <div className="fixed inset-0 z-[99999] bg-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
                 <div className="bg-white dark:bg-slate-900 border border-red-500/30 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center space-y-6">
@@ -75,16 +89,22 @@ export default function MaintenanceGuard() {
                     </div>
                     
                     <div>
-                        <h1 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tighter mb-2">Sistema en Mantenimiento</h1>
+                        <h1 className="text-3xl font-black text-slate-800 dark:text-white uppercase tracking-tighter mb-2">
+                            {isExpired ? 'Acceso Expirado' : 'Sistema en Mantenimiento'}
+                        </h1>
                         <p className="text-slate-500 dark:text-slate-400 font-medium">
-                            El administrador ha suspendido temporalmente el acceso a la plataforma PACT-Administradores para realizar actualizaciones o tareas críticas.
+                            {isExpired 
+                                ? 'Tu membresía ha vencido. Por favor, contacta con el administrador para renovar tu acceso al programa PACT.'
+                                : 'El administrador ha suspendido temporalmente el acceso a la plataforma PACT-Administradores para realizar actualizaciones o tareas críticas.'}
                         </p>
                     </div>
                     
                     <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-200 dark:border-amber-800 flex gap-3 text-left">
                         <AlertTriangle size={24} className="text-amber-500 shrink-0" />
                         <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                            Por favor, inténtelo de nuevo más tarde. Si está en medio de una tarea y cree que esto es un error, contacte con soporte IT.
+                            {isExpired 
+                                ? 'Si cree que esto es un error o necesita una extensión urgente, comuníquese con Enrique Saavedra.'
+                                : 'Por favor, inténtelo de nuevo más tarde. Si está en medio de una tarea y cree que esto es un error, contacte con soporte IT.'}
                         </p>
                     </div>
                     
@@ -92,7 +112,7 @@ export default function MaintenanceGuard() {
                         onClick={() => window.location.reload()}
                         className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 py-3 rounded-xl font-bold transition-all uppercase text-[11px] tracking-widest"
                     >
-                        Volver a intentar
+                        Verificar estado
                     </button>
                     
                     <button onClick={async () => {

@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem } from "./utils";
+import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber } from "./utils";
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
 
@@ -179,7 +179,7 @@ export const createPdfBlob = async (
     centerText('Sistema de Control de Proyectos', timesRomanFont, 10, y);
     y -= 15;
     if (projectInfo) {
-        const cleanAct = projectInfo.num_act ? projectInfo.num_act.replace(/^AC-/, '') : 'N/A';
+        const cleanAct = formatProjectNumber(projectInfo.num_act);
         centerText(`Proyecto: ${projectInfo.name || 'N/A'} - ${cleanAct}`, timesRomanBoldFont, 10, y);
         y -= 22;
     }
@@ -467,7 +467,7 @@ export const createExcelBlob = async (
     // Combine title and data for better excel layout
     const excelData = [
         [title],
-        [projectInfo ? `Proyecto: ${projectInfo.name} - ${projectInfo.num_act}` : ""],
+        [projectInfo ? `Proyecto: ${projectInfo.name} - ${formatProjectNumber(projectInfo.num_act)}` : ""],
         ...dateHeader,
         [],
         ...data

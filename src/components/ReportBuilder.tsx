@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { FileText, Download, Save, Activity } from "lucide-react";
+import { formatProjectNumber } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 
 interface SubProject {
@@ -84,7 +85,7 @@ export default function ReportBuilder({ userId }: { userId: string }) {
                         <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="w-full rounded-md border-slate-200 p-2 text-sm">
                             <option value="ALL">Todos mis proyectos permitidos</option>
                             {allowedProjects.map(p => (
-                                <option key={p.id} value={p.id}>{p.num_act} - {p.name}</option>
+                                <option key={p.id} value={p.id}>{formatProjectNumber(p.num_act)} - {p.name}</option>
                             ))}
                         </select>
                     </div>

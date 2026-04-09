@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallba
 import { supabase } from "@/lib/supabase";
 import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, FileSearch } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { formatCurrency, getLocalStorageItem } from "@/lib/utils";
+import { formatCurrency, getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
 import ProjectAgreementForm from "./ProjectAgreementForm";
 import mfgItemsData from "@/lib/mfgItems.json";
@@ -210,7 +210,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             }
 
             setLoading(true);
-            let finalNumAct = currentNumAct;
+            const finalNumAct = formatProjectNumber(currentNumAct);
             
             // Check for duplicates if it's a new project
             if (!projectId && !silent) {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { Plus, Search, FolderOpen, MapPin, Calendar, ArrowRight, User, Globe, Lock, ShieldCheck } from "lucide-react";
-import { getLocalStorageItem } from "@/lib/utils";
+import { getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import AccessRequestModal from "@/components/AccessRequestModal";
 
 export default function ProjectsPage() {
@@ -176,7 +176,7 @@ export default function ProjectsPage() {
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between">
                                         <span className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-black rounded-lg uppercase tracking-widest border border-blue-100 dark:border-blue-800">
-                                            {project.num_act}
+                                            {formatProjectNumber(project.num_act)}
                                         </span>
                                         {!hasAccess && (
                                             <Lock size={14} className="text-slate-300" />

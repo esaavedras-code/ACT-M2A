@@ -76,9 +76,24 @@ export default function UpdateTablesForm({ projectId, numAct }: Props) {
                 body: formData
             });
 
-            const data = await response.json();
-            if (data.error) throw new Error(data.error);
+            if (!response.ok) {
+                const errorText = await response.text();
+                let errorMessage = `Error del servidor (${response.status})`;
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    errorMessage = errorJson.error || errorMessage;
+                } catch (e) {
+                    // Si no es JSON, mostrar parte del texto si parece HTML
+                    if (errorText.includes('<!DOCTYPE')) {
+                        errorMessage = "El servidor devolvió una página de error (HTML). Posible error de ruta o configuración.";
+                    } else {
+                        errorMessage = errorText.substring(0, 100) || errorMessage;
+                    }
+                }
+                throw new Error(errorMessage);
+            }
 
+            const data = await response.json();
             setResult(data.changes);
             setSuccess(true);
         } catch (err: any) {
@@ -228,7 +243,7 @@ export default function UpdateTablesForm({ projectId, numAct }: Props) {
                 <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="space-y-2 text-center md:text-left">
                         <h4 className="text-lg font-black uppercase tracking-tight">Sincronización Inteligente</h4>
-                        <p className="text-xs text-blue-100 font-medium">El asistente procesará automáticamente los montos y balances de las partidas basándose en el documento provisto.</p>
+                        <p className="text-xs text-blue-100 font-medium">El asistente procesará automáticamente los montos y balances de las partidas actualizando la información del proyecto</p>
                     </div>
                 </div>
             </div>

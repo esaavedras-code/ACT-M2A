@@ -11,7 +11,7 @@ import {
     ChevronDown, Search, FileCheck, BarChart, Calculator
 } from "lucide-react";
 import Link from "next/link";
-import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
+import { getLocalStorageItem, setLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import {
     generateBalanceReportLogic,
     generateDetailReportLogic,
@@ -406,7 +406,7 @@ function ReportesContent() {
                         {projectNum && (
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100 dark:border-blue-800">
-                                    {projectNum}
+                                    {formatProjectNumber(projectNum)}
                                 </span>
                             </div>
                         )}

@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate } from './utils';
+import { formatDate, formatProjectNumber } from './utils';
 
 export async function generateAct117C(projectId: string, certId: string, certNum: number, certDate: string) {
     try {
@@ -347,7 +347,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             field("1", "To:", 40, ly, 286, "Director Regional");
             field("2", "Project Name:", 40, ly + lh, 286, projData.name);
             field("3", "Contractor:", 40, ly + lh * 2, 286, contrData?.name);
-            field("4", "Project Num.:", 40, ly + lh * 3, 286, projData.num_act);
+            field("4", "Project Num.:", 40, ly + lh * 3, 286, formatProjectNumber(projData.num_act));
             field("5", "Federal Num.:", 40, ly + lh * 4, 286, projData.num_federal || 'N/A');
             field("6", "Oracle Num.:", 40, ly + lh * 5, 286, projData.num_oracle);
             field("7", "Contract Num.:", 40, ly + lh * 6, 286, projData.num_contrato);
