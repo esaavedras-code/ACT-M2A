@@ -5,12 +5,15 @@ import { User, LogOut, ShieldCheck, Settings, Key, History, Users, Info } from "
 import { supabase } from "@/lib/supabase";
 import { setLocalStorageItem } from "@/lib/utils";
 
+import { useUserRole } from "@/hooks/useUserRole";
+
 export default function UserAccessButton() {
     const [userName, setUserName] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isAdmin, setIsAdmin] = useState(false);
+    const { role } = useUserRole();
+    const isAdmin = role === 'A' || role === 'B'; // Keeping existing logic for project admin access in menu
     const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
     const [loadingToggle, setLoadingToggle] = useState(false);
 
@@ -18,24 +21,10 @@ export default function UserAccessButton() {
         const loadUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                setUserName(session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuario");
+                const { data: userData } = await supabase.from("users").select("name, avatar_url").eq("id", session.user.id).maybeSingle();
+                setUserName(userData?.name || session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuario");
+                setAvatarUrl(userData?.avatar_url);
                 setUserEmail(session.user.email || "Sin correo");
-                // Check if global admin or project admin
-                const { data: userData } = await supabase.from("users").select("name, avatar_url, role_global").eq("id", session.user.id).single();
-                
-                if (userData) {
-                    setUserName(userData.name || session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuario");
-                    setAvatarUrl(userData.avatar_url);
-                } else {
-                    setUserName(session.user.user_metadata?.name || session.user.email?.split("@")[0] || "Usuario");
-                }
-
-                let hasAdmin = userData?.role_global === "A";
-                if (!hasAdmin) {
-                    const { count } = await supabase.from("memberships").select("*", { count: "exact", head: true }).eq("user_id", session.user.id).eq("role", "B");
-                    if (count && count > 0) hasAdmin = true;
-                }
-                if (hasAdmin) setIsAdmin(true);
             } else {
                 setUserName(null);
                 setUserEmail(null);
@@ -131,7 +120,7 @@ export default function UserAccessButton() {
             >
                 <div className="flex flex-col items-end hidden sm:flex">
                     <span className="text-xs font-bold text-white leading-none">{userName}</span>
-                    <span className="text-[10px] text-blue-200 font-medium truncate max-w-[120px]">{userEmail}</span>
+                    <span className="text-[10px] opacity-70 text-white font-medium truncate max-w-[120px]">{userEmail}</span>
                 </div>
                 <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-[10px] font-black border border-white/30 backdrop-blur-md overflow-hidden shrink-0">
                     {avatarUrl ? (

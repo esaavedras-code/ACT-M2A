@@ -11,12 +11,16 @@ import {
 } from "lucide-react";
 import BrandName, { useBrandName } from "@/components/BrandName";
 
-export default function MobileMenu() {
-    const [isOpen, setIsOpen] = useState(false);
-    const pathname = usePathname();
-
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [userName, setUserName] = useState<string | null>(null);
+import BrandName from "@/components/BrandName";
+import { useUserRole } from "@/hooks/useUserRole";
+ 
+ export default function MobileMenu() {
+     const [isOpen, setIsOpen] = useState(false);
+     const pathname = usePathname();
+     const { role } = useUserRole();
+     const isAdmin = role === 'A';
+ 
+     const [userName, setUserName] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     
@@ -24,14 +28,9 @@ export default function MobileMenu() {
         const loadUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                const { data: userData } = await supabase.from("users").select("name, avatar_url, role_global").eq("id", session.user.id).maybeSingle();
-                if (userData) {
-                    setIsAdmin(userData.role_global === "A");
-                    setUserName(userData.name || session.user.user_metadata?.name || "Usuario");
-                    setAvatarUrl(userData.avatar_url);
-                } else {
-                    setUserName(session.user.user_metadata?.name || "Usuario");
-                }
+                const { data: userData } = await supabase.from("users").select("name, avatar_url").eq("id", session.user.id).maybeSingle();
+                setUserName(userData?.name || session.user.user_metadata?.name || "Usuario");
+                setAvatarUrl(userData?.avatar_url);
                 setUserEmail(session.user.email || "");
             }
         };
@@ -129,11 +128,11 @@ export default function MobileMenu() {
                                     onClick={toggleMenu}
                                     className={`flex items-center gap-4 py-4 px-5 rounded-[1.25rem] font-bold text-base transition-all shadow-sm ${
                                         isActive
-                                            ? "bg-primary text-white shadow-primary/40 scale-[1.02] border-transparent"
+                                            ? `${role === 'F' ? 'bg-[#670010]' : 'bg-primary'} text-white shadow-primary/40 scale-[1.02] border-transparent`
                                             : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                                     }`}
                                 >
-                                    <Icon size={24} className={isActive ? "text-white" : "text-primary dark:text-blue-400"} />
+                                    <Icon size={24} className={isActive ? "text-white" : (role === 'F' ? "text-[#670010]" : "text-primary dark:text-blue-400")} />
                                     <div className="flex items-center justify-between flex-1">
                                         <span>{item.name}</span>
                                         {item.name === "Historial de precios" && (
@@ -163,12 +162,12 @@ export default function MobileMenu() {
                                                 onClick={toggleMenu}
                                                 className={`flex items-center justify-between py-3.5 px-4 rounded-2xl transition-all ${
                                                     isTabActive
-                                                        ? "bg-primary/10 border border-primary/20 text-primary font-black shadow-inner"
+                                                        ? `${role === 'F' ? 'bg-[#670010]/10 border-[#670010]/20 text-[#670010]' : 'bg-primary/10 border-primary/20 text-primary'} font-black shadow-inner`
                                                         : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent"
                                                 }`}
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className={`p-2.5 rounded-xl ${isTabActive ? "bg-primary text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
+                                                    <div className={`p-2.5 rounded-xl ${isTabActive ? (role === 'F' ? "bg-[#670010] text-white" : "bg-primary text-white") : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
                                                         <TabIcon size={18} />
                                                     </div>
                                                     <span className="text-sm font-bold uppercase tracking-tight">{tab.label}</span>
