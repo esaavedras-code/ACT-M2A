@@ -9,8 +9,6 @@ import {
     ListChecks, PackageSearch, ShieldCheck, FileEdit, FileCheck, Mic, 
     Cloud, Calculator, TrendingUp, FolderOpen, ChevronRight, LayoutList, User
 } from "lucide-react";
-import BrandName, { useBrandName } from "@/components/BrandName";
-
 import BrandName from "@/components/BrandName";
 import { useUserRole } from "@/hooks/useUserRole";
  
