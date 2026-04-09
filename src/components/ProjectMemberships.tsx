@@ -303,6 +303,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                                 <option value="B">Administrador (B)</option>
                                 <option value="C">Data Entry (C)</option>
                                 <option value="D">Solo Lectura (D)</option>
+                                <option value="F">Contratista</option>
                             </select>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase">Password Temporal (Opcional)</label>
@@ -334,6 +335,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                                 <option value="B">Administrador (B)</option>
                                 <option value="C">Data Entry (C)</option>
                                 <option value="D">Solo Lectura (D)</option>
+                                <option value="F">Contratista</option>
                             </select>
                             {generatedLink && (
                                 <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700 break-all mb-2">
@@ -380,7 +382,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                                 </td>
                                 <td className="py-3">
                                     <span className="flex items-center gap-1 text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-full w-fit">
-                                        <Shield size={12} /> Nivel {m.role}
+                                        <Shield size={12} /> {m.role === 'F' ? 'Contratista' : `Nivel ${m.role}`}
                                     </span>
                                 </td>
                                 <td className="py-3">

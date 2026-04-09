@@ -58,7 +58,8 @@ export default function RoleIndicatorBar() {
         'B': { label: 'Administrador de proyecto', color: 'bg-blue-600', letter: 'B' },
         'C': { label: 'Data Entri', color: 'bg-emerald-600', letter: 'C' },
         'D': { label: 'Solo lectura', color: 'bg-slate-500', letter: 'D' },
-        'E': { label: 'Inspector', color: 'bg-orange-600', letter: 'E' }
+        'E': { label: 'Inspector', color: 'bg-orange-600', letter: 'E' },
+        'F': { label: 'Contratista', color: 'bg-[#670010]', letter: 'F' }
     };
 
     const config = roleConfig[role] || { label: 'Usuario', color: 'bg-slate-400', letter: '?' };

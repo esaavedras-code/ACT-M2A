@@ -144,6 +144,7 @@ export default function AdminRequestsPage() {
             case 'C': return 'Data Entry';
             case 'D': return 'Lectura';
             case 'E': return 'Inspector';
+            case 'F': return 'Contratista';
             default: return 'Estándar';
         }
     };
@@ -155,6 +156,7 @@ export default function AdminRequestsPage() {
             case 'C': return 'bg-slate-100 border-slate-200 text-slate-600';
             case 'D': return 'bg-slate-100 border-slate-200 text-slate-400';
             case 'E': return 'bg-blue-50 border-blue-100 text-blue-600';
+            case 'F': return 'bg-rose-50 border-rose-100 text-rose-700'; // Color vino aprox
             default: return 'bg-slate-100 border-slate-200 text-slate-500';
         }
     };
@@ -620,6 +622,22 @@ export default function AdminRequestsPage() {
         }
     };
 
+    const handleUpdateUserRole = async (userId: string, newRole: string) => {
+        try {
+            const { error } = await supabase
+                .from("users")
+                .update({ role_global: newRole })
+                .eq("id", userId);
+
+            if (error) throw error;
+            
+            alert(`✓ Rol actualizado a ${getRoleLabel(newRole)} correctamente.`);
+            fetchActiveUsers();
+        } catch (err: any) {
+            alert("Error al actualizar rol: " + err.message);
+        }
+    };
+
     if (!isAdmin) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -696,12 +714,12 @@ export default function AdminRequestsPage() {
                             <div className="flex-1 space-y-1">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Rol</label>
                                 <select value={directRole} onChange={e => setDirectRole(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl py-2 px-4 text-sm">
-                                    {isGlobalAdmin && <option value="A">Administrador Global</option>}
-                                    {isGlobalAdmin && <option value="B">Admin Proyecto</option>}
-                                    <option value="C">Data Entry</option>
-                                    <option value="D">Lectura</option>
-                                    <option value="E">Inspector</option>
-                                    <option value="F">Contratista</option>
+                                    {isGlobalAdmin && <option value="A">Administrador Global (A)</option>}
+                                    {isGlobalAdmin && <option value="B">Administrador de Proyecto (B)</option>}
+                                    <option value="C">Data Entry (C)</option>
+                                    <option value="D">Solo Lectura (D)</option>
+                                    <option value="E">Inspector (E)</option>
+                                    <option value="F">Contratista (F)</option>
                                 </select>
                             </div>
                             <button disabled={directLoading} type="submit" className="bg-primary text-white p-3 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95">
@@ -809,10 +827,11 @@ export default function AdminRequestsPage() {
                                                         onChange={(e) => setEditRole(e.target.value)}
                                                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold"
                                                     >
-                                                        {isGlobalAdmin && <option value="B">Nivel B (Admin Proyecto)</option>}
+                                                        {isGlobalAdmin && <option value="B">Nivel B (Admin de Proyecto)</option>}
                                                         <option value="C">Nivel C (Data Entry)</option>
                                                         <option value="D">Nivel D (Solo Lectura)</option>
                                                         <option value="E">Nivel E (Inspector)</option>
+                                                        <option value="F">Nivel F (Contratista)</option>
                                                     </select>
                                                 ) : (
                                                     <span className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl w-fit border ${getRoleColorClass(req.desired_role)}`}>
@@ -1014,9 +1033,22 @@ export default function AdminRequestsPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-8 py-6">
-                                                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${getRoleColorClass(user.role_global)}`}>
-                                                        {getRoleLabel(user.role_global)}
-                                                    </span>
+                                                    <div className="group relative cursor-pointer" onClick={() => {
+                                                        const newRole = prompt(`Cambiar rol para ${user.email}. \nRoles disponibles: B, C, D, E, F`, user.role_global);
+                                                        if (newRole && ['B','C','D','E','F'].includes(newRole.toUpperCase())) {
+                                                            const role = newRole.toUpperCase();
+                                                            if (confirm(`¿Confirmas cambiar el rol de ${user.email} a ${getRoleLabel(role)}?`)) {
+                                                                handleUpdateUserRole(user.id, role);
+                                                            }
+                                                        }
+                                                    }}>
+                                                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${getRoleColorClass(user.role_global)}`}>
+                                                            {getRoleLabel(user.role_global)}
+                                                        </span>
+                                                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
+                                                            Click para cambiar rol
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="px-8 py-6 text-[10px] text-slate-400 font-bold uppercase">
                                                     {new Date(user.created_at).toLocaleDateString([], { dateStyle: 'short' })}
