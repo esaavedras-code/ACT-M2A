@@ -13,7 +13,8 @@ import type { FormRef } from "./ProjectForm";
 
 const INSPECTION_ENTITIES = ["EPA", "ACT", "DNER", "OSHA", "Federal Hwy", "Otros"];
 
-export default function InspectionForm({ projectId, onDirty, onSaved }: { projectId?: string, onDirty?: () => void, onSaved?: () => void }) {
+export default forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: () => void }>(
+function InspectionForm({ projectId, onDirty, onSaved }, ref) {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [currentLog, setCurrentLog] = useState<any>(null);
     const [loading, setLoading] = useState(false);
@@ -262,7 +263,7 @@ export default function InspectionForm({ projectId, onDirty, onSaved }: { projec
             />
         </div>
     );
-}
+});
 
 function SectionEditor({ title, icon, items, setItems, emptyItem, renderItem }: { 
     title: string, 
