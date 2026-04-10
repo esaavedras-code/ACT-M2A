@@ -109,6 +109,7 @@ export async function generateFinalAcceptanceReport(projectId: string) {
         // Main Title (Center)
         TXT("FINAL ACCEPTANCE CHECKLIST", PW / 2, 50, 18, true, 'center');
         TXT("FOR FEDERAL-AID PROJECTS", PW / 2, 72, 18, true, 'center');
+        TXT("(BORRADOR)", PW / 2, 92, 17, true, 'center');
 
         // 4. Project Information Grid
         let Y = 120;

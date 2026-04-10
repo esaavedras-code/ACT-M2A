@@ -39,13 +39,12 @@ export async function generateContractFinalReportLogic(projectId: string) {
         const BK = rgb(0, 0, 0);
 
         // Helper functions
-        const TXT = (txt: string | number | null | undefined, x: number, y: number, sz: number, bold = false, align: 'left' | 'center' | 'right' = 'left', maxW?: number) => {
+        const TXT = (txt: string | number | null | undefined, x: number, y: number, sz: number, bold = false, align: 'left' | 'center' | 'right' = 'left', maxW?: number, color?: any) => {
             if (txt === undefined || txt === null) return;
             let s = txt.toString();
             const font = bold ? fB : fR;
             if (maxW) {
                 if (font.widthOfTextAtSize(s, sz) > maxW - 2) {
-                    // Simple truncation for now, could be improved with wrap
                     while (s.length > 1 && font.widthOfTextAtSize(s, sz) > maxW - 2) {
                         s = s.slice(0, -1);
                     }
@@ -54,7 +53,9 @@ export async function generateContractFinalReportLogic(projectId: string) {
             let px = x;
             if (align === 'center') px = x - font.widthOfTextAtSize(s, sz) / 2;
             if (align === 'right') px = x - font.widthOfTextAtSize(s, sz);
-            pg.drawText(s, { x: px, y: PH - y, size: sz, font, color: BK });
+            
+            const textColor = color || BK;
+            pg.drawText(s, { x: px, y: PH - y, size: sz, font, color: textColor });
             return font.widthOfTextAtSize(s, sz);
         };
 
@@ -88,6 +89,7 @@ export async function generateContractFinalReportLogic(projectId: string) {
         TXT("SAN JUAN, PUERTO RICO", PW / 2, 75, 9, false, 'center');
 
         TXT("CONTRACT FINAL REPORT", PW / 2, 105, 14, true, 'center');
+        TXT("(BORRADOR)", PW / 2, 120, 13, true, 'center');
         LINE(PW / 2 - 85, 108, PW / 2 + 85, 108, 1);
 
         // 4. Narrative Paragraph
@@ -177,7 +179,7 @@ export async function generateContractFinalReportLogic(projectId: string) {
 
         const finalContractPrice = (proj.cost_original || 0) + totalAdjustments;
         TXT("FINAL CONTRACT PRICE", ML + 20, Y, 10, true);
-        TXT(utilsFormatCurrency(finalContractPrice), PW - MR, Y, 11, true, 'right');
+        TXT(utilsFormatCurrency(finalContractPrice), PW - MR, Y, 11, true, 'right', undefined, finalContractPrice < 0 ? rgb(0.8, 0, 0) : BK);
         LINE(PW - MR - 120, Y + 3, PW - MR, Y + 3, 1);
         Y += 30;
 
@@ -199,15 +201,16 @@ export async function generateContractFinalReportLogic(projectId: string) {
 
         let totalDeductions = 0;
         deductionItems.forEach(d => {
+            const val = -Math.abs(d.val);
             TXT(d.label, ML + 20, Y, 9);
-            TXT(utilsFormatCurrency(d.val), PW - MR, Y, 9, false, 'right');
-            totalDeductions += d.val;
+            TXT(utilsFormatCurrency(val), PW - MR, Y, 9, false, 'right', undefined, val < 0 ? rgb(0.8, 0, 0) : BK);
+            totalDeductions += Math.abs(d.val);
             Y += 12;
         });
 
         Y += 5;
         TXT("Total Deductions", ML + 20, Y, 9, true);
-        TXT(`(${utilsFormatCurrency(totalDeductions)})`, PW - MR, Y, 10, true, 'right');
+        TXT(`(${utilsFormatCurrency(totalDeductions)})`, PW - MR, Y, 10, true, 'right', undefined, rgb(0.8, 0, 0));
         Y += 20;
 
         const finalProjectCost = finalContractPrice - totalDeductions;

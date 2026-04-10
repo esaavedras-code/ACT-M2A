@@ -4,15 +4,19 @@ import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, g
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
 
-export const formatCurrency = (val: number) => {
+export const formatCurrency = (val: number, label?: string) => {
     if (val === null || val === undefined || isNaN(val)) return "$0.00";
+    let finalVal = val;
+    if (label && (label.toLowerCase().includes('retenido') || label.toLowerCase().includes('retencion') || label.toLowerCase().includes('retainage'))) {
+        finalVal = -Math.abs(val);
+    }
     const formatted = new Intl.NumberFormat('en-US', { 
         style: 'currency', 
         currency: 'USD',
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
-    }).format(Math.abs(val));
-    return val < 0 ? `(${formatted})` : formatted;
+    }).format(Math.abs(finalVal));
+    return finalVal < 0 ? `(${formatted})` : formatted;
 };
 
 export const formatNum = (val: number, decimals: number = 2) => {
@@ -66,7 +70,8 @@ export const createPdfBlob = async (
     projectInfo?: { name: string, num_act: string } | null,
     customColWidths?: number[],
     orientation: 'portrait' | 'landscape' = 'portrait',
-    cutOffDate?: string | Date
+    cutOffDate?: string | Date,
+    subtitle?: string
 ) => {
     const pdfDoc = await PDFDocument.create();
     const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
@@ -184,7 +189,12 @@ export const createPdfBlob = async (
         y -= 22;
     }
     centerText(title, timesRomanBoldFont, 14, y);
-    y -= 18;
+    y -= 15;
+    if (subtitle) {
+        centerText(subtitle, timesRomanBoldFont, 13, y);
+        y -= 15;
+    }
+    y -= 3;
     const nowForPrint = new Date();
     const timeStr = nowForPrint.toLocaleTimeString('es-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     centerText(`Fecha de impresión del reporte: ${utilsFormatDate(nowForPrint)} ${timeStr}`, timesRomanFont, 9, y);
@@ -1059,14 +1069,14 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
         reportData.push(['DESGLOSE DE MONTOS', '', '', '', '', '']);
         reportData.push(['+ Trabajo Ejecutado (WP):', '', '', '', '', formatCurrency(subtotal)]);
         if (mosDelta !== 0) reportData.push([`${mosDelta >= 0 ? '+' : ''} Ajuste MOS (Neto):`, '', '', '', '', formatCurrency(mosDelta)]);
-        if (!cert.skip_retention) reportData.push(['- 5% Retenido:', '', '', '', '', `-${formatCurrency(grossRetention)}`]);
+        if (!cert.skip_retention) reportData.push(['- 5% Retenido:', '', '', '', '', formatCurrency(-Math.abs(grossRetention), "Retenido")]);
         if (returnedAmount > 0) reportData.push(['+ Devolución Retención:', '', '', '', '', formatCurrency(returnedAmount)]);
-        if (liqDamages > 0) reportData.push(['- Daños Líquidos:', '', '', '', '', `-${formatCurrency(liqDamages)}`]);
+        if (liqDamages > 0) reportData.push(['- Daños Líquidos:', '', '', '', '', formatCurrency(-Math.abs(liqDamages), "Deduccion")]);
         if (refund !== 0) reportData.push([`${refund >= 0 ? '+' : ''} Reembolso:`, '', '', '', '', formatCurrency(refund)]);
-        if (extraRetention !== 0) reportData.push(['- Extra Retenido:', '', '', '', '', `-${formatCurrency(extraRetention)}`]);
+        if (extraRetention !== 0) reportData.push(['- Extra Retenido:', '', '', '', '', formatCurrency(-Math.abs(extraRetention), "Retenido")]);
         if (priceAdj !== 0) reportData.push([`${priceAdj >= 0 ? '+' : ''} Ajuste de Precio:`, '', '', '', '', formatCurrency(priceAdj)]);
-        if (insuranceFines !== 0) reportData.push(['- Multas Seguro:', '', '', '', '', `-${formatCurrency(insuranceFines)}`]);
-        if (otherPenalties !== 0) reportData.push(['- Otras Penalidades:', '', '', '', '', `-${formatCurrency(otherPenalties)}`]);
+        if (insuranceFines !== 0) reportData.push(['- Multas Seguro:', '', '', '', '', formatCurrency(-Math.abs(insuranceFines), "Deduccion")]);
+        if (otherPenalties !== 0) reportData.push(['- Otras Penalidades:', '', '', '', '', formatCurrency(-Math.abs(otherPenalties), "Deduccion")]);
         reportData.push(['TOTAL NETO DE ESTA CERTIFICACIÓN:', '', '', '', '', formatCurrency(totalNeto)]);
         reportData.push(['', '', '', '', '', '']);
     });
@@ -1633,7 +1643,7 @@ export const generateSignedItemsReportLogic = async (projectId: string, format: 
 
     // ContentWidth is 552 for portrait. Let's do widths that fit inside 552:
     // 60 + 252 + 80 + 80 + 80 = 552
-    const blob = await createPdfBlob('REPORTE DE FIRMAS POR PARTIDAS (LIQUIDACIÓN)', reportData, project, [60, 252, 80, 80, 80], 'portrait');
+    const blob = await createPdfBlob('REPORTE DE FIRMAS POR PARTIDAS (LIQUIDACIÓN)', reportData, project, [60, 252, 80, 80, 80], 'portrait', undefined, '(BORRADOR)');
     if (format === 'excel') {
         const { createExcelBlob } = await import("./reportLogic"); // ya está, pero por si acaso
         const excelBlob = await createExcelBlob('REPORTE DE FIRMAS POR PARTIDAS (LIQUIDACIÓN)', reportData, project);

@@ -66,6 +66,8 @@ export async function generateMaterialCertificationReport(projectId: string) {
 
         curY += 35;
         TXT("MATERIAL CERTIFICATION", PW / 2, curY, 14, true, 'center');
+        curY += 15;
+        TXT("(BORRADOR)", PW / 2, curY, 13, true, 'center');
 
         curY += 10;
         LINE(ML, curY, PW - MR, curY, 1);

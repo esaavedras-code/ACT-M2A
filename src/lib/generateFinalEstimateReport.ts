@@ -69,13 +69,14 @@ export async function generateFinalEstimateReportLogic(projectId: string) {
             TXT("DEPARTMENT OF TRANSPORTATION AND PUBLIC WORKS", PW / 2, 47, 9, fB, 'center');
             TXT("PUERTO RICO HIGHWAY AND TRANSPORTATION AUTHORITY", PW / 2, 59, 10, fB, 'center');
             TXT("FINAL ESTIMATE", PW / 2, 80, 14, fB, 'center');
+            TXT("(BORRADOR)", PW / 2, 93, 13, fB, 'center');
 
             const projName = (proj.name || '').substring(0, 80);
-            TXT(`PROJECT: ${projName}`, ML, 100, 9, fB);
-            TXT(`ACT NO: ${proj.num_act}`, ML, 112, 9, fB);
-            TXT(`CONTRACT NO: ${proj.num_contrato || 'N/A'}`, PW / 2, 100, 9, fB);
-            TXT(`DATE: ${utilsFormatDate(new Date())}`, PW - MR, 112, 9, fB, 'right');
-            return 130;
+            TXT(`PROJECT: ${projName}`, ML, 108, 9, fB);
+            TXT(`ACT NO: ${proj.num_act}`, ML, 120, 9, fB);
+            TXT(`CONTRACT NO: ${proj.num_contrato || 'N/A'}`, PW / 2, 108, 9, fB);
+            TXT(`DATE: ${utilsFormatDate(new Date())}`, PW - MR, 120, 9, fB, 'right');
+            return 140;
         };
 
         const drawTableHeader = (startY: number) => {

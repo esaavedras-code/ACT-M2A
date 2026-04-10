@@ -485,16 +485,16 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             const sx = 415; // Moved 1.5cm left from 455 as requested
             const sumDefs = [
                 ["26", "Work Performed (WP):", fmt(wpCurrent, 2, true)],
-                ["27", "5% Retained (WP):", fmt(-currentRetention, 2, true)],
+                ["27", "5% Retained (WP):", fmt(-Math.abs(currentRetention), 2, true)],
                 ["28", "Reimbursement (WP)(+/-):", fmt(0, 2, true)],
                 ["29", "Sub Total:", fmt(subTotalValue, 2, true)],
                 ["30", "Material on Site (+/-):", fmt(currentMOSChange, 2, true)],
-                ["31", "Liquidated Damages (LQD)(-):", fmt(0, 2, true)],
+                ["31", "Liquidated Damages (LQD)(-):", fmt(-Math.abs(currentCert?.liquidated_damages || 0), 2, true)],
                 ["32", "Reimbursement (LqD)(+):", fmt(0, 2, true)],
-                ["33", "Extra Retainage (+/-):", fmt(0, 2, true)],
-                ["34", "Price Adjustment Clause (+/-):", fmt(0, 2, true)],
-                ["35", "Safety Penalties - Spec 638(-):", fmt(0, 2, true)],
-                ["36", "Other (+/-):", fmt(0, 2, true)],
+                ["33", "Extra Retainage (+/-):", fmt(-Math.abs(currentCert?.extra_retention || 0), 2, true)],
+                ["34", "Price Adjustment Clause (+/-):", fmt(currentCert?.price_adjustment || 0, 2, true)],
+                ["35", "Safety Penalties - Spec 638(-):", fmt(-Math.abs(currentCert?.insurance_fines || 0), 2, true)],
+                ["36", "Other (+/-):", fmt(currentCert ? (parseFloat(currentCert.other_penalties) * -1 || 0) : 0, 2, true)],
                 ["37", "Net Payment:", fmt(netPaymentValue, 2, true)],
                 ["38", "Total to Date (WP):", fmt(wpTotalToDate, 2, true)]
             ];

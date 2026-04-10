@@ -11,9 +11,11 @@ import {
 } from "lucide-react";
 import BrandName from "@/components/BrandName";
 import { useUserRole } from "@/hooks/useUserRole";
+import AboutModal from "@/components/AboutModal";
  
  export default function MobileMenu() {
      const [isOpen, setIsOpen] = useState(false);
+     const [isAboutOpen, setIsAboutOpen] = useState(false);
      const pathname = usePathname();
      const { role } = useUserRole();
      const isAdmin = role === 'A';
@@ -200,13 +202,18 @@ import { useUserRole } from "@/hooks/useUserRole";
                         </Link>
                         
                         <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                M2A Group - <BrandName /> v3.26.0408
-                            </p>
+                            <button 
+                                onClick={() => setIsAboutOpen(true)}
+                                className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-primary transition-colors cursor-pointer"
+                            >
+                                M2A Group - <BrandName /> v3.26.0410
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
         </div>
     );
 }
