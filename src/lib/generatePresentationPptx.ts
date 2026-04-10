@@ -151,7 +151,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     x: 2.0, y: 0.1, w: 7.0, h: 0.55,
     bold: true, fontSize: 22, color: "000000",
     fill: { color: "FFE5CC" },
-    border: { pt: 1, color: "000000" },
+    line: { pt: 1, color: "000000" },
     valign: "middle",
     margin: 0.05,
   });
@@ -178,7 +178,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     { text: desc, options: { bold: false, italic: false, fontSize: 9, color: "000000" } }
   ], {
     x: COL1_X, y: 1.15, w: TABLE_W, h: 1.3,
-    border: { pt: 1, color: "000000" },
+    line: { pt: 1, color: "000000" },
     valign: "top",
     margin: 0.05,
     fontFace: "Calibri",
@@ -191,14 +191,14 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     // Celda label
     slide2.addText(label, {
       x: COL1_X, y: rowY, w: COL1_W, h: ROW_H,
-      border: { pt: 1, color: "000000" },
+      line: { pt: 1, color: "000000" },
       fontSize: TABLE_FONT, fontFace: "Calibri",
       margin: 0.03, valign: "middle",
     });
     // Celda valor
     slide2.addText(value, {
       x: COL1_X + COL1_W, y: rowY, w: COL2_W, h: ROW_H,
-      border: { pt: 1, color: "000000" },
+      line: { pt: 1, color: "000000" },
       fontSize: TABLE_FONT, fontFace: "Calibri", bold: true,
       margin: 0.03, valign: "middle",
     });
@@ -219,14 +219,14 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   slide2.addText("Última\ncertificación", {
     x: COL1_X, y: rowY, w: COL1_W, h: ROW_H * 2,
-    border: { pt: 1, color: "000000" },
+    line: { pt: 1, color: "000000" },
     fontSize: TABLE_FONT, fontFace: "Calibri", bold: true,
     margin: 0.03, valign: "middle",
   });
-  slide2.addText("Fecha:",  { x: COL1_X + COL1_W, y: rowY,          w: COL2_W / 2, h: ROW_H,  border: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", margin: 0.03, valign: "middle" });
-  slide2.addText(certDateStr, { x: COL1_X + COL1_W + COL2_W / 2, y: rowY,   w: COL2_W / 2, h: ROW_H,  border: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", bold: true, margin: 0.03, valign: "middle" });
-  slide2.addText("Monto:",  { x: COL1_X + COL1_W, y: rowY + ROW_H, w: COL2_W / 2, h: ROW_H,  border: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", margin: 0.03, valign: "middle" });
-  slide2.addText(certAmtStr,  { x: COL1_X + COL1_W + COL2_W / 2, y: rowY + ROW_H, w: COL2_W / 2, h: ROW_H, border: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", bold: true, margin: 0.03, valign: "middle" });
+  slide2.addText("Fecha:",  { x: COL1_X + COL1_W, y: rowY,          w: COL2_W / 2, h: ROW_H,  line: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", margin: 0.03, valign: "middle" });
+  slide2.addText(certDateStr, { x: COL1_X + COL1_W + COL2_W / 2, y: rowY,   w: COL2_W / 2, h: ROW_H,  line: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", bold: true, margin: 0.03, valign: "middle" });
+  slide2.addText("Monto:",  { x: COL1_X + COL1_W, y: rowY + ROW_H, w: COL2_W / 2, h: ROW_H,  line: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", margin: 0.03, valign: "middle" });
+  slide2.addText(certAmtStr,  { x: COL1_X + COL1_W + COL2_W / 2, y: rowY + ROW_H, w: COL2_W / 2, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", bold: true, margin: 0.03, valign: "middle" });
   rowY += ROW_H * 2;
 
   addTableRow("Monto Certificado Acumulado",  formatCurrency(certsSum));
@@ -241,10 +241,10 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   // Fila de Tipo de Fondo / Term. Sustanc.
   const QUARTER = TABLE_W / 4;
-  slide2.addText("Tipo de Fondo",           { x: COL1_X,              y: rowY, w: QUARTER, h: ROW_H, border: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", margin: 0.02, valign: "middle" });
-  slide2.addText(proj.fund_source || "Federal", { x: COL1_X + QUARTER,    y: rowY, w: QUARTER, h: ROW_H, border: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", bold: true, margin: 0.02, valign: "middle" });
-  slide2.addText("Term. Sustanc.",          { x: COL1_X + QUARTER * 2, y: rowY, w: QUARTER, h: ROW_H, border: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", margin: 0.02, valign: "middle" });
-  slide2.addText("No",                      { x: COL1_X + QUARTER * 3, y: rowY, w: QUARTER, h: ROW_H, border: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", bold: true, margin: 0.02, valign: "middle" });
+  slide2.addText("Tipo de Fondo",           { x: COL1_X,              y: rowY, w: QUARTER, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", margin: 0.02, valign: "middle" });
+  slide2.addText(proj.fund_source || "Federal", { x: COL1_X + QUARTER,    y: rowY, w: QUARTER, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", bold: true, margin: 0.02, valign: "middle" });
+  slide2.addText("Term. Sustanc.",          { x: COL1_X + QUARTER * 2, y: rowY, w: QUARTER, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", margin: 0.02, valign: "middle" });
+  slide2.addText("No",                      { x: COL1_X + QUARTER * 3, y: rowY, w: QUARTER, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", bold: true, margin: 0.02, valign: "middle" });
 
   // ── COLUMNA CENTRAL: Actividades y Puntos Críticos ──
   const MID_X = 3.12;
@@ -256,7 +256,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     { text: data.activities || "Ninguna.", options: { bold: false, italic: false, fontSize: 11, color: "000000" } }
   ], {
     x: MID_X, y: 1.15, w: MID_W, h: 4.0,
-    border: { pt: 1, color: "000000" },
+    line: { pt: 1, color: "000000" },
     valign: "top",
     margin: 0.1,
     fontFace: "Calibri",
@@ -269,7 +269,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     { text: data.criticalPoints || "Ninguno al momento.", options: { bold: false, italic: false, fontSize: 11, color: "000000" } }
   ], {
     x: MID_X, y: 5.2, w: MID_W, h: 2.0,
-    border: { pt: 1, color: "000000" },
+    line: { pt: 1, color: "000000" },
     valign: "top",
     margin: 0.1,
     fontFace: "Calibri",
