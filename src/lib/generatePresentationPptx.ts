@@ -79,6 +79,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   // Rect. de fondo degradado simulado con rectángulos superpuestos
   slide1.addShape(pptx.ShapeType.rect, {
     x: 0, y: 0, w: "100%", h: "100%",
+    // @ts-ignore
     fill: { type: "gradient", dir: "v", stops: [
       { position: 0,   color: "FFFFFF" },
       { position: 30,  color: "FFFFFF" },
