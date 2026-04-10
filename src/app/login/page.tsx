@@ -205,7 +205,7 @@ const LoginPage: NextPage = () => {
                                 />
                             </div>
                             <h1 className="text-3xl font-black text-white tracking-tight"><BrandName /></h1>
-                            <p className="text-blue-100 mt-2 font-medium">Control Inteligente de Obras</p>
+                            <p className="text-blue-100 mt-2 font-medium">PROYECTO AC</p>
                         </div>
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
                         <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-900/40 rounded-full -ml-8 -mb-8 blur-xl"></div>

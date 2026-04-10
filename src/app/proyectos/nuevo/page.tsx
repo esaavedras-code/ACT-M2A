@@ -15,7 +15,7 @@ import LiquidationForm from "@/components/LiquidationForm";
 import SummaryDashboard from "@/components/SummaryDashboard";
 import {
     ListChecks, User, Building2, FileText, FileEdit,
-    LayoutDashboard, FileCheck, Factory, PackageSearch, ShieldCheck,
+    LayoutDashboard, FileCheck, Factory, Package, ShieldCheck,
     FileCheck2
 } from "lucide-react";
 import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
@@ -38,7 +38,7 @@ export default function NewProjectPage() {
         { id: "cho", label: "5. CHO", icon: <FileEdit size={18} />, disabled: !projectId },
         { id: "certs", label: "6. Pagos", icon: <FileCheck size={18} />, disabled: !projectId },
         { id: "mfg", label: "7. Manufactura", icon: <Factory size={18} />, disabled: !projectId },
-        { id: "materials", label: "8. Materiales", icon: <PackageSearch size={18} />, disabled: !projectId },
+        { id: "materials", label: "8. Materiales", icon: <Package size={18} />, disabled: !projectId },
         { id: "compliance", label: "9. Cumplimiento", icon: <ShieldCheck size={18} />, disabled: !projectId },
         { id: "liquidation", label: "10. Liquidación", icon: <FileCheck2 size={18} />, disabled: !projectId },
         { id: "summary", label: "13. Resumen", icon: <LayoutDashboard size={18} />, disabled: !projectId },

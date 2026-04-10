@@ -120,7 +120,7 @@ function DropdownGroup({ title, children, icon }: { title: string, children: Rea
     );
 }
 
-function StandardReportItem({ option, loading, onAction, children }: { option: ReportOption, loading: boolean, onAction: () => void, children?: React.ReactNode }) {
+function StandardReportItem({ option, loading, onAction, children, isLiquidation }: { option: ReportOption, loading: boolean, onAction: () => void, children?: React.ReactNode, isLiquidation?: boolean }) {
     return (
         <div className="group/item w-full p-1.5 h-full">
             <div className="flex flex-col h-full rounded-[32px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] transition-all duration-500 overflow-hidden">
@@ -148,7 +148,12 @@ function StandardReportItem({ option, loading, onAction, children }: { option: R
                         className="w-full bg-[#004bb1] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.15em] hover:bg-[#003d8f] transition-all shadow-[0_10px_20px_rgba(0,75,177,0.2)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 group/btn"
                     >
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" />} 
-                        {loading ? 'Generando...' : 'GENERAR REPORTE'}
+                        {loading ? 'Generando...' : (
+                            <span className="flex items-center gap-1">
+                                GENERAR REPORTE
+                                {isLiquidation && <span className="text-[11px] font-black uppercase opacity-90 ml-1.5 align-middle">(BORRADOR)</span>}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>
@@ -156,7 +161,7 @@ function StandardReportItem({ option, loading, onAction, children }: { option: R
     );
 }
 
-function SelectiveReportItem({ option, loading, onAction }: { option: SelectiveReportOption, loading: boolean, onAction: () => void }) {
+function SelectiveReportItem({ option, loading, onAction, isLiquidation }: { option: SelectiveReportOption, loading: boolean, onAction: () => void, isLiquidation?: boolean }) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -237,7 +242,16 @@ function SelectiveReportItem({ option, loading, onAction }: { option: SelectiveR
                         className="w-full bg-[#004bb1] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.15em] hover:bg-[#003d8f] transition-all shadow-[0_10px_20px_rgba(0,75,177,0.2)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-30 group/btn"
                     >
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" />} 
-                        {loading ? 'Generando...' : selectedIds.length > 0 ? `GENERAR ${selectedIds.length} REPORTES` : 'GENERAR REPORTE'}
+                        {loading ? 'Generando...' : (
+                            <span className="flex items-center gap-1">
+                                {selectedIds.length > 0 ? `GENERAR ${selectedIds.length} REPORTES` : 'GENERAR REPORTE'}
+                                {isLiquidation && (
+                                    <span className="text-[11px] font-black uppercase opacity-90 ml-1.5 align-middle">
+                                        (BORRADOR)
+                                    </span>
+                                )}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>
@@ -1013,6 +1027,7 @@ function ReportesContent() {
                 {!isContratista && (
                 <DropdownGroup title="7. Liquidación" icon={<FileCheck size={18} className="text-rose-600" />}>
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1027,6 +1042,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1041,6 +1057,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1055,6 +1072,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1069,6 +1087,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1089,6 +1108,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1109,6 +1129,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1123,6 +1144,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1137,6 +1159,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1151,6 +1174,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1165,6 +1189,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1179,6 +1204,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
@@ -1193,6 +1219,7 @@ function ReportesContent() {
                         }}
                     />
                     <StandardReportItem
+                        isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{

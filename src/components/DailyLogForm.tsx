@@ -466,7 +466,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                     },
                     {
                         label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Upload />,
+                        icon: <FileText />,
                         onClick: () => document.getElementById('import-dailylog-json')?.click(),
                         description: "Cargar datos de un informe diario desde un archivo JSON",
                         variant: 'secondary' as const,

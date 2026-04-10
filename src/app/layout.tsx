@@ -15,7 +15,6 @@ import AIChat from "@/components/AIChat";
 import UserPresenceTracker from "@/components/UserPresenceTracker";
 import MaintenanceGuard from "@/components/MaintenanceGuard";
 import PlatformIndicator from "@/components/PlatformIndicator";
-import PriceHistoryLink from "@/components/PriceHistoryLink";
 import BrandName from "@/components/BrandName";
 import MainHeader from "@/components/MainHeader";
 import "./globals.css";

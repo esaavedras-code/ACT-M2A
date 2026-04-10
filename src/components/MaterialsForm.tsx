@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { PackageSearch, Info, Save } from "lucide-react";
+import { Package, Info, Save } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
@@ -186,7 +186,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                 <div className="w-full flex items-center justify-between">
                     <h2 className="text-2xl font-bold flex items-center gap-3">
                         <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                            <PackageSearch className="text-amber-600" size={24} />
+                            <Package className="text-amber-600" size={24} />
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 4</span>
@@ -308,7 +308,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                 <tr>
                                     <td colSpan={7} className="py-20 text-center text-slate-400 italic font-medium">
                                         <div className="flex flex-col items-center gap-4">
-                                            <PackageSearch size={40} className="text-slate-200" />
+                                            <Package size={40} className="text-slate-200" />
                                             No hay actividad de "Material on Site" en este proyecto.
                                         </div>
                                     </td>

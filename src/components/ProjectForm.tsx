@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, FileSearch } from "lucide-react";
+import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency, getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
@@ -146,6 +146,168 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             alert("Error al subir el documento: " + err.message);
         } finally {
             setUploadingDoc(false);
+        }
+    };
+
+    const handleAiAnalysis = async () => {
+        if (!projectId) return;
+        setLoading(true);
+        setAiResponse("Iniciando análisis integral de documentos con ACT-GPT...");
+
+        try {
+            // 1. Obtener todos los documentos críticos
+            const { data: docs } = await supabase.from("project_documents")
+                .select("*")
+                .eq("project_id", projectId)
+                .in("doc_type", DOC_TYPES);
+
+            if (!docs || docs.length === 0) {
+                alert("No hay documentos guardados para analizar. Suba el Contrato, Proposal, etc. primero.");
+                setLoading(false);
+                return;
+            }
+
+            let fullPrompt = `Actúa como un analista de datos experto en proyectos de construcción de la ACT (Puerto Rico). 
+            Tengo varios documentos y necesito que extraigas información estructurada EXACTA. 
+            Devuelve un objeto JSON con las siguientes claves (si no encuentras algo, deja null o []):
+            
+            - "general": { "num_act": string, "num_federal": string, "name": string, "num_oracle": string, "num_contrato": string, "admin_name": string, "cost_original": number, "liquidated_damages_amount": number }
+            - "contractor": { "name": string, "representative": string, "ss_patronal": string, "phone_office": string, "phone_mobile": string, "email": string }
+            - "dates": { "date_contract_sign": "YYYY-MM-DD", "date_project_start": "YYYY-MM-DD", "date_orig_completion": "YYYY-MM-DD" }
+            - "items": Array of { "item_num": string(3 digits), "specification": string, "description": string, "quantity": number, "unit": string, "unit_price": number, "fund_source": string }
+            - "agreement_funds": Array of { "fund_type": string, "amount": number } (de la tabla de Fondos Originales)
+            - "scope": string (alcance detallado del proyecto)
+            
+            Analiza según el tipo de documento:
+            1. Contrato: Datos generales, costo original, información crítica del contratista (Contractor).
+            2. Proposal: Scope (alcance del proyecto), TODAS las partidas del contrato con sus especificaciones, descripción, cantidad original, unidad, precio unitario, y la distribución de fondos ("fund_source") de la sección de TODAS las partidas.
+            3. Orden de comienzo: Llena las fechas que se obtengan (inicio, terminación).
+            4. Project Agreement: Obtener los espacios de la tabla "Fondos Originales (Project Agreement)" en la clave "agreement_funds".`;
+
+            let extractedText = "";
+            
+            for (const doc of docs) {
+                setAiResponse(`Leyendo ${doc.doc_type}: ${doc.file_name}...`);
+                if (!doc.storage_path) continue;
+                
+                const { data: blob } = await supabase.storage.from("project-documents").download(doc.storage_path);
+                if (blob) {
+                    const base64 = await blobToBase64(blob);
+                    const res = await parsePdf(base64);
+                    if (res.success) {
+                        extractedText += `\n\n--- DOCUMENTO: ${doc.doc_type} ---\n${res.text}`;
+                    }
+                }
+            }
+
+            setAiResponse("ACT-GPT está procesando el JSON final...");
+            const win = (window as any);
+            const payload = { text: extractedText, prompt: fullPrompt };
+            let aiResult: any;
+
+            if (win.electronAPI?.analyzeDocument) {
+                const aiResponse = await win.electronAPI.analyzeDocument(payload);
+                aiResult = aiResponse.success ? aiResponse.result : null;
+            } else {
+                const response = await fetch('/api/analyze-document', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                aiResult = data.result;
+            }
+
+            if (aiResult) {
+                // Limpiar JSON si viene con markdown
+                const cleanedJson = aiResult.replace(/```json|```/g, '').trim();
+                const parsed = JSON.parse(cleanedJson);
+
+                // 2. Actualizar formulario (General, Datos, Scope)
+                const updatedForm = { ...formDataRef.current };
+                if (parsed.general) {
+                    Object.keys(parsed.general).forEach(k => { if (parsed.general[k]) (updatedForm as any)[k] = parsed.general[k]; });
+                }
+                if (parsed.dates) {
+                    Object.keys(parsed.dates).forEach(k => { if (parsed.dates[k]) (updatedForm as any)[k] = parsed.dates[k]; });
+                }
+                if (parsed.contractor && parsed.contractor.name) {
+                    (updatedForm as any).contractor_name = parsed.contractor.name;
+                    await supabase.from("contractors").upsert({
+                        ...parsed.contractor,
+                        project_id: projectId
+                    }, { onConflict: 'project_id' });
+                }
+                if (parsed.scope) updatedForm.scope = parsed.scope;
+                
+                setFormData(updatedForm);
+                formDataRef.current = updatedForm;
+
+                // 3. Insertar partidas si hay
+                if (parsed.items && parsed.items.length > 0) {
+                    setAiResponse(`Guardando ${parsed.items.length} partidas en la base de datos...`);
+                    const finalItems = parsed.items.map((it: any) => ({
+                        project_id: projectId,
+                        item_num: it.item_num?.toString().padStart(3, '0'),
+                        specification: it.specification,
+                        description: it.description,
+                        quantity: parseFloat(it.quantity) || 0,
+                        unit: it.unit,
+                        unit_price: parseFloat(it.unit_price) || 0,
+                        fund_source: it.fund_source || "ACT:100%" // Default
+                    }));
+                    await supabase.from("contract_items").upsert(finalItems, { onConflict: 'project_id, item_num' });
+                }
+
+                // 4. Insertar fondos del Project Agreement
+                if (parsed.agreement_funds && parsed.agreement_funds.length > 0) {
+                    setAiResponse("Actualizando fondos en Project Agreement...");
+                    const finalFunds = parsed.agreement_funds.map((f: any) => ({
+                        project_id: projectId,
+                        fund_source: f.fund_type,
+                        original_amount: parseFloat(f.amount) || 0
+                    }));
+                    await supabase.from("project_agreement_funds").upsert(finalFunds, { onConflict: 'project_id, fund_source' });
+                }
+
+                alert("✓ Análisis de ACT-GPT completado con éxito. Se han poblado los datos generales, partidas y fondos.");
+            }
+
+        } catch (err: any) {
+            console.error("AI Analysis Error:", err);
+            alert("Error en el análisis de IA: " + err.message);
+        } finally {
+            setLoading(false);
+            setAiResponse("");
+        }
+    };
+
+    const blobToBase64 = (blob: Blob): Promise<string> => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+    };
+
+    const parsePdf = async (base64: string): Promise<{ success: boolean; text?: string }> => {
+        if (!base64) return { success: false };
+        try {
+            // Using existing parsePdf logic if available via API or fetch
+            const win = (window as any);
+            if (win.electronAPI?.parsePdf) {
+                return await win.electronAPI.parsePdf(base64);
+            } else {
+                const res = await fetch('/api/parse-pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pdfBase64: base64 })
+                });
+                return await res.json();
+            }
+        } catch (e) {
+            console.error(e);
+            return { success: false };
         }
     };
 
@@ -607,243 +769,45 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             </label>
                         </div>
 
-                        {/* Banner AI */}
+                        {/* Banner AI - Modernizado sin chat manual */}
                         {projectId && (
-                            <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-indigo-200 dark:shadow-none relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16 group-hover:bg-white/20 transition-all duration-500"></div>
-                                <div className="relative z-10 flex flex-col w-full gap-4">
-                                    <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-                                        <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shrink-0">
-                                            <FileSearch size={32} className="text-white" />
-                                        </div>
-                                        <div className="flex-1 text-center md:text-left w-full space-y-3">
-                                            <div>
-                                                <h4 className="text-lg font-black uppercase tracking-tight">Asistente AI</h4>
-                                                <p className="text-indigo-100 text-sm font-medium mt-1">Extrae automáticamente datos del proyecto y partidas, o pregúntale lo que necesites buscar en los documentos subidos.</p>
-                                            </div>
-                                            <div className="flex flex-col sm:flex-row gap-2 w-full">
-                                                <input 
-                                                    type="text" 
-                                                    value={aiPrompt}
-                                                    onChange={(e) => setAiPrompt(e.target.value)}
-                                                    placeholder="Opcional: Indica qué información necesitas extraer (ej. Nombres, fechas)..."
-                                                    className="w-full px-3 py-2 text-sm text-slate-900 bg-white/90 focus:bg-white rounded-lg outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-slate-500 transition-colors"
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            e.preventDefault();
-                                                            // @ts-ignore
-                                                            document.getElementById('btn-analyze-ai')?.click();
-                                                        }
-                                                    }}
-                                                />
-                                                <button
-                                                    id="btn-analyze-ai"
-                                                    type="button"
-                                                    disabled={loading}
-                                                    onClick={async () => {
-                                                        if (!projectId) return;
-                                                        setLoading(true);
-                                                        setAiResponse("Buscando documentos subidos...");
-                                                        try {
-                                                            const { data: dbDocs, error: dbErr } = await supabase.from('project_documents').select('file_name, storage_path').eq('project_id', projectId);
-                                                            if (dbErr) throw dbErr;
-                                                            if (!dbDocs?.length) { 
-                                                                alert("No se encontraron documentos. Asegúrese de haber subido archivos en la sección superior."); 
-                                                                setLoading(false); 
-                                                                setAiResponse("");
-                                                                return; 
-                                                            }
-                                                            const win = window as any;
-                                                            const parsePdf = async (b64: string) => {
-                                                                if (win.electronAPI?.parsePdfBase64) {
-                                                                    return await win.electronAPI.parsePdfBase64(b64);
-                                                                } else {
-                                                                    try {
-                                                                        const parseRes = await fetch('/api/parse-pdf', {
-                                                                            method: 'POST',
-                                                                            headers: { 'Content-Type': 'application/json' },
-                                                                            body: JSON.stringify({ base64: b64 })
-                                                                        });
-                                                                        if (!parseRes.ok) {
-                                                                            const errText = await parseRes.text();
-                                                                            console.error("Error API Parse PDF:", parseRes.status, errText);
-                                                                            return { success: false, error: `Error del servidor (${parseRes.status})` };
-                                                                        }
-                                                                        return await parseRes.json();
-                                                                    } catch (err: any) {
-                                                                        console.error("Fetch failure:", err);
-                                                                        return { success: false, error: "Fallo de conexión al servidor" };
-                                                                    }
-                                                                }
-                                                            };
-                                                            
-                                                            let count = 0, items = 0;
-                                                            const updated = { ...formData };
-                                                            const itemsToInsert: any[] = [];
-                                                            let fullExtractedText = "";
-                                                            const allImages: string[] = [];
-                                                            
-                                                            const blobToBase64 = (b: Blob): Promise<string> => new Promise(r => {
-                                                                const rd = new FileReader(); rd.onloadend = () => r(rd.result as string); rd.readAsDataURL(b);
-                                                            });
-                                                            
-                                                            for (const doc of dbDocs) {
-                                                                const isPdf = doc.storage_path?.toLowerCase().endsWith('.pdf');
-                                                                const isImg = /\.(jpe?g|png|webp)$/i.test(doc.storage_path || "");
-                                                                if (!isPdf && !isImg) continue;
-                                                                
-                                                                setAiResponse(`Procesando: ${doc.file_name}...`);
-                                                                const { data: blob, error: downloadErr } = await supabase.storage.from('project-documents').download(doc.storage_path);
-                                                                
-                                                                if (downloadErr || !blob) {
-                                                                    console.error("Download Error:", doc.file_name, downloadErr);
-                                                                    continue;
-                                                                }
-
-                                                                if (isPdf) {
-                                                                    if (blob.size > 4500000 && !win.electronAPI) {
-                                                                        setAiResponse(`Error: ${doc.file_name} es muy grande (>4.5MB). Vercel no permite procesar PDFs tan grandes en la versión web.`);
-                                                                        continue;
-                                                                    }
-                                                                    const res = await parsePdf(await blobToBase64(blob));
-                                                                    if (res.success && res.text && res.text.trim().length > 50) {
-                                                                        fullExtractedText += "\n\n" + res.text;
-                                                                        // Lógica básica de extracción
-                                                                        const txt = res.text.replace(/\s+/g, ' ');
-                                                                        const act = txt.match(/AC-\d{4,10}[A-Z]?/i); if (act && !updated.num_act) { updated.num_act = act[0].toUpperCase(); count++; }
-                                                                        const fed = txt.match(/(?:Federal(?: Aid)?(?:\s+Project)?(?: No| Number)?)\s*[:=]?\s*(PR-\d{4}\(\d{3}\)|PR-[A-Z0-9]+)/i); if (fed && !updated.num_federal) { updated.num_federal = fed[1]; count++; }
-                                                                        const cost = txt.match(/(?:Total\s*Cost|Contract\s*Amount|Monto|Total\s*a\s*Pagar|Contract\s*Price)\s*[:=\$]*\s*\$?\s*([\d,]+\.\d{2})/i); if (cost && !updated.cost_original) { const v = parseFloat(cost[1].replace(/,/g, '')); if (!isNaN(v)) { updated.cost_original = v; count++; } }
-                                                                        
-                                                                        // Extracción de nombres (Gerentes, Contratistas)
-                                                                        const pm = txt.match(/(?:Project Manager|Gerente de Proyecto|Gerente del Proyecto)\s*[:=]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/); if (pm && !updated.project_manager_name) { updated.project_manager_name = pm[1].trim(); count++; }
-                                                                        const contr = txt.match(/(?:Contractor|Contratista|Empresa|Compañía)\s*[:=]\s*([A-Z0-9][A-Za-z0-9&.\s,]+(?:Inc|Corp|LLC|S\.E\.)?)/i); if (contr && !updated.contractor_name) { updated.contractor_name = contr[1].trim(); count++; }
-                                                                        const admin = txt.match(/(?:Project Administrator|Administrador de Proyecto)\s*[:=]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i); if (admin && !updated.admin_name) { updated.admin_name = admin[1].trim(); count++; }
-
-                                                                        const lines = res.text.split("\n");
-                                                                        const pat = /(?:^|\s)(\d{1,3})\s+([A-Z0-9-]{4,10})\s+(.+?)\s+([\d,]+\.?[\d]*)\s+(LS|LUMP\s*SUM|EA|EACH|LF|SF|SY|CY|TON|GAL|MGAL|HOUR|DAY|MONTH)\s+\$?\s*([\d,]+\.\d{2})/i;
-                                                                        for (const l of lines) {
-                                                                            const m = pat.exec(l);
-                                                                            if (m) {
-                                                                                const n = m[1].padStart(3, '0');
-                                                                                if (!itemsToInsert.some(it => it.item_num === n)) {
-                                                                                    itemsToInsert.push({ project_id: projectId, item_num: n, specification: m[2].trim(), description: m[3].trim().substring(0, 200), quantity: parseFloat(m[4].replace(/,/g, '')), unit: m[5].toUpperCase().trim(), unit_price: parseFloat(m[6].replace(/,/g, '')), fund_source: "ACT:100%", requires_mfg_cert: !!(mfgItemsData as Record<string, boolean>)[m[2].trim()] });
-                                                                                    items++;
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    } else {
-                                                                        // Es un PDF escaneado o sin texto, usar Visión AI
-                                                                        setAiResponse(`Escaneo detectado en ${doc.file_name}. Preparando Visión AI...`);
-                                                                        try {
-                                                                            // @ts-ignore
-                                                                            const pdfjsLib = await import('pdfjs-dist/build/pdf.min.mjs');
-                                                                            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-                                                                            
-                                                                            const b64 = await blobToBase64(blob);
-                                                                            const base64Data = b64.includes(',') ? b64.split(',')[1] : b64;
-                                                                            const binary = atob(base64Data);
-                                                                            const len = binary.length;
-                                                                            const bufferArray = new Uint8Array(len);
-                                                                            for (let i = 0; i < len; i++) bufferArray[i] = binary.charCodeAt(i);
-                                                                            
-                                                                            const loadingTask = pdfjsLib.getDocument({ data: bufferArray });
-                                                                            const pdfDoc = await loadingTask.promise;
-                                                                            
-                                                                            const pagesToProcess = Math.min(pdfDoc.numPages, 3);
-                                                                            for (let i = 1; i <= pagesToProcess; i++) {
-                                                                                const page = await pdfDoc.getPage(i);
-                                                                                const viewport = page.getViewport({ scale: 0.8 });
-                                                                                const canvas = document.createElement('canvas');
-                                                                                const context = canvas.getContext('2d');
-                                                                                if (context) {
-                                                                                    canvas.height = viewport.height;
-                                                                                    canvas.width = viewport.width;
-                                                                                    await page.render({ canvasContext: context, viewport }).promise;
-                                                                                    allImages.push(canvas.toDataURL('image/jpeg', 0.6));
-                                                                                }
-                                                                            }
-                                                                        } catch(err) {
-                                                                            console.error("Error procesando PDF a imagen:", err);
-                                                                        }
-                                                                    }
-                                                                } else if (isImg) {
-                                                                    allImages.push(await blobToBase64(blob));
-                                                                }
-                                                            }
-                                                            if (itemsToInsert.length) await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
-                                                            setFormData(updated);
-
-                                                            if (fullExtractedText.length === 0 && allImages.length === 0) {
-                                                                setAiResponse("No se encontró texto o imagen procesable.");
-                                                            } else if (aiPrompt.trim().length > 0) {
-                                                                setAiResponse("Consultando Asistente AI (Visión)...");
-                                                                try {
-                                                                    const payload = { 
-                                                                        text: fullExtractedText, 
-                                                                        prompt: aiPrompt,
-                                                                        image: allImages.length > 0 ? allImages.slice(0, 5) : undefined
-                                                                    };
-                                                                    
-                                                                    if (win.electronAPI?.analyzeDocument) {
-                                                                        const aiData = await win.electronAPI.analyzeDocument(payload);
-                                                                        if (aiData.success && aiData.result) {
-                                                                            setAiResponse(aiData.result);
-                                                                        } else {
-                                                                            setAiResponse("Error AI: " + (aiData.error || "Desconocido"));
-                                                                        }
-                                                                    } else {
-                                                                        const response = await fetch('/api/analyze-document', {
-                                                                            method: 'POST',
-                                                                            headers: { 'Content-Type': 'application/json' },
-                                                                            body: JSON.stringify(payload)
-                                                                        });
-                                                                        if (!response.ok) {
-                                                                            try {
-                                                                                const errorData = await response.json();
-                                                                                console.error("Error API Analyze json:", response.status, errorData);
-                                                                                setAiResponse(`Error AI: ${errorData.error || 'Server error ' + response.status}`);
-                                                                            } catch (parseError) {
-                                                                                const errText = await response.text();
-                                                                                console.error("Error API Analyze raw:", response.status, errText);
-                                                                                setAiResponse(`Error AI (${response.status}): ${errText.substring(0, 100)}`);
-                                                                            }
-                                                                            return;
-                                                                        }
-                                                                        const aiData = await response.json();
-                                                                        if (aiData.result) {
-                                                                            setAiResponse(aiData.result);
-                                                                        } else if (aiData.error) {
-                                                                            setAiResponse("Error AI: " + aiData.error);
-                                                                        }
-                                                                    }
-                                                                } catch(err: any) {
-                                                                    console.error("AI Fetch Failure:", err);
-                                                                    setAiResponse("Error al consultar IA: " + err.message);
-                                                                }
-                                                            } else {
-                                                                alert(`Extracción Finalizada: ${count} campos completados y ${items} partidas importadas.`);
-                                                            }
-                                                            setAiResponse("");
-                                                        } catch (e: any) { 
-                                                            console.error("AI Error:", e);
-                                                            alert("Error durante el análisis: " + e.message);
-                                                        }
-                                                        setLoading(false);
-                                                    }}
-                                                    className="px-6 py-2 bg-white text-indigo-600 rounded-lg font-bold text-xs uppercase hover:bg-white/90 active:scale-95 transition-all shrink-0 h-[38px] flex items-center justify-center whitespace-nowrap"
-                                                >
-                                                    {loading ? "Procesando..." : "Analizar con IA"}
-                                                </button>
-                                            </div>
-                                        </div>
+                            <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden group border border-white/10">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-white/20 transition-all duration-700"></div>
+                                <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/10 rounded-full blur-3xl -ml-24 -mb-24"></div>
+                                
+                                <div className="relative z-10 flex flex-col items-center text-center gap-6">
+                                    <div className="w-20 h-20 bg-white/20 backdrop-blur-xl rounded-[2rem] flex items-center justify-center border border-white/30 shadow-2xl">
+                                        <FileText size={40} className="text-white" />
                                     </div>
+                                    
+                                    <div className="max-w-xl">
+                                        <h4 className="text-2xl font-black uppercase tracking-tight mb-2">Análisis de Documentos ACT-GPT</h4>
+                                        <p className="text-indigo-100 text-sm font-medium leading-relaxed opacity-90">
+                                            Extrae automáticamente datos críticos, partidas del contrato, fechas y fondos del Project Agreement a partir de los PDFs subidos (Contrato, Proposal, etc).
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={handleAiAnalysis}
+                                        className="mt-2 px-10 py-4 bg-white text-indigo-600 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:shadow-indigo-400/30 active:scale-95 transition-all flex items-center gap-3 group/btn"
+                                    >
+                                        {loading ? (
+                                            <div className="w-5 h-5 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                                        ) : (
+                                            <Plus size={20} className="group-hover/btn:rotate-90 transition-transform duration-300" />
+                                        )}
+                                        {loading ? "Procesando documentos..." : "Iniciar Análisis Integral ACT-GPT"}
+                                    </button>
+
                                     {aiResponse && (
-                                        <div className="w-full bg-indigo-900/50 rounded-xl p-4 border border-indigo-400/30 text-indigo-50 mt-2">
-                                            <div className="flex items-center gap-2 mb-2 opacity-80 border-b border-indigo-400/20 pb-2">
-                                                <FileSearch size={14} />
-                                                <span className="text-[10px] font-bold uppercase tracking-wider">Respuesta de IA:</span>
+                                        <div className="w-full bg-indigo-900/40 backdrop-blur-md rounded-2xl p-5 border border-indigo-400/30 text-indigo-50 mt-2 animate-in fade-in slide-in-from-bottom-4">
+                                            <div className="flex items-center gap-3 mb-3 opacity-80 border-b border-indigo-400/20 pb-3">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">ACT-GPT Status</span>
                                             </div>
-                                            <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiResponse}</p>
+                                            <p className="text-sm font-bold leading-relaxed">{aiResponse}</p>
                                         </div>
                                     )}
                                 </div>

@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { 
     Menu, X, Home, Briefcase, History, FileText, LayoutDashboard, 
-    ListChecks, PackageSearch, ShieldCheck, FileEdit, FileCheck, Mic, 
+    ListChecks, Package, ShieldCheck, FileEdit, FileCheck, Mic, 
     Cloud, Calculator, TrendingUp, FolderOpen, ChevronRight, LayoutList, User
 } from "lucide-react";
 import BrandName from "@/components/BrandName";
@@ -63,7 +63,7 @@ import AboutModal from "@/components/AboutModal";
         { id: "project",     label: "Datos Proyecto",       icon: FileText },
         { id: "personnel",   label: "Firmas ACT",     icon: Home }, // Users -> Home fallback if needed, but I'll use Home for simplicity or import others
         { id: "items",       label: "Partidas contrato",  icon: ListChecks },
-        { id: "materials",   label: "Mat. on Site",   icon: PackageSearch },
+        { id: "materials",   label: "Mat. on Site",   icon: Package },
         { id: "compliance",  label: "Cumplimiento",   icon: ShieldCheck },
         { id: "cho",         label: "Change Orders",  icon: FileEdit },
         { id: "payment",     label: "Pagos",          icon: FileCheck },

@@ -7,7 +7,6 @@ import ReportesMenu from "@/components/ReportesMenu";
 import Image from "next/image";
 import Link from "next/link";
 import MobileMenu from "@/components/MobileMenu";
-import PriceHistoryLink from "@/components/PriceHistoryLink";
 import BrandName from "@/components/BrandName";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useState } from "react";
@@ -41,9 +40,7 @@ export default function MainHeader() {
                             <span className="text-[7px] xl:text-[8px] opacity-70 normal-case">(Proyectos)</span>
                         </Link>
 
-                        <PriceHistoryLink />
                         <Suspense fallback={null}>
-                            <div className="bg-white/10 h-6 w-px mx-1"></div>
                             <ReportesMenu />
                         </Suspense>
 

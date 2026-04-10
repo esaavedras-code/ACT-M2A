@@ -178,7 +178,7 @@ export default function Dashboard() {
         <div className="py-8 space-y-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">Dashboard Proyectos</h1>
+                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">PROYECTO AC</h1>
                     <p className="text-slate-500 mt-2 font-medium">Panel central de control y monitoreo de obras.</p>
                 </div>
                 <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group mr-[2in]">

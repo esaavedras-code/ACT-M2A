@@ -3,7 +3,7 @@
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { 
     LayoutDashboard, Briefcase, LayoutList, User, ChevronRight, X,
-    FileText, Users, ListChecks, PackageSearch, ShieldCheck, FileCheck, 
+    FileText, Users, ListChecks, Package, ShieldCheck, FileCheck, 
     FileEdit, Factory, Mic, Cloud, Calculator, TrendingUp, FolderOpen
 } from "lucide-react";
 import Link from "next/link";
@@ -42,7 +42,7 @@ export default function BottomNav() {
         { id: "project",     label: "1. Datos Proyecto",       icon: FileText },
         { id: "personnel",   label: "2. Firmas ACT",     icon: Users },
         { id: "items",       label: "3. Partidas contrato",  icon: ListChecks },
-        { id: "materials",   label: "4. Mat. on Site",   icon: PackageSearch },
+        { id: "materials",   label: "4. Mat. on Site",   icon: Package },
         { id: "compliance",  label: "5. Cumplimiento",   icon: ShieldCheck },
         { id: "cho",         label: "6. Change Orders",  icon: FileEdit },
         { id: "payment",     label: "7. Pagos",          icon: FileCheck },

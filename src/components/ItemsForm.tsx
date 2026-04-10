@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileSearch, Download, Upload } from "lucide-react";
+import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileText, Download, Upload } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatCurrency, formatNumber, roundedAmt } from "@/lib/utils";
@@ -282,7 +282,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         },
                         {
                             label: loading ? "Procesando..." : "Cargar desde PDFs",
-                            icon: <FileSearch />,
+                            icon: <FileText />,
                             onClick: async () => {
                                 setLoading(true);
                                 try {

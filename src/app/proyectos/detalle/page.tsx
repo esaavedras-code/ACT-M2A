@@ -6,10 +6,10 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { 
     FileText, Building2, ChevronLeft, Loader2, 
-    ListChecks, Users, PackageSearch, ShieldCheck, 
+    ListChecks, Users, Package, ShieldCheck, 
     FileCheck, FileEdit, LayoutDashboard, Calculator,
     Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle,
-    Save, Presentation, RefreshCcw
+    Save, Presentation, RefreshCcw, Handshake
 } from "lucide-react";
 import { getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import FloatingFormActions from "@/components/FloatingFormActions";
@@ -29,9 +29,11 @@ import MfgCertForm from "@/components/MfgCertForm";
 import ForceAccountForm from "@/components/ForceAccountForm";
 import InspectionForm from "@/components/InspectionForm";
 import CCMLModificationsForm from "@/components/CCMLModificationsForm";
+import PriceComparison from "@/components/PriceComparison";
 import ProjectFilesExplorer from "@/components/ProjectFilesExplorer";
 import MonthlyPresentations from "@/components/MonthlyPresentations";
 import UpdateTablesForm from "@/components/UpdateTablesForm";
+import PriceHistoryLink from "@/components/PriceHistoryLink";
 
 const SummaryDashboard = lazy(() => import("@/components/SummaryDashboard"));
 
@@ -116,7 +118,7 @@ function ProjectDetailContent() {
         { id: "project",     label: "Datos Proyecto",       icon: <FileText size={12} /> },
         { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
         { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
-        { id: "materials",   label: "Mat. on Site",   icon: <PackageSearch size={12} /> },
+        { id: "materials",   label: "Mat. on Site",   icon: <Package size={12} /> },
         { id: "compliance",  label: "Cumplimiento",   icon: <ShieldCheck size={12} />, wip: true },
         { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
         { id: "payment",     label: "Pagos",          icon: <FileCheck size={12} /> },
@@ -129,6 +131,7 @@ function ProjectDetailContent() {
         { id: "ccml",        label: "Cambios al CCML", icon: <FileEdit size={12} /> },
         { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} /> },
         { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} /> },
+        { id: "negotiation", label: "Negociación", icon: <Handshake size={12} /> },
     ];
 
     // Filtrar pestañas basadas en el rol Contratista ('F')
@@ -170,6 +173,7 @@ function ProjectDetailContent() {
             case "liquidation": return "Las hojas de liquidación y checklists (Final Acceptance) los pueden ver en la pestaña de REPORTES, opción '7. Liquidación'.";
             case "ccml": return "La información de las Cartas de Requerimiento de Modificación (Project Modification Letters) se gestiona en esta sección.";
             case "update-tables": return "";
+            case "negotiation": return "Zona de negociación y consulta de historial de precios de la ACT.";
             default: return "Los reportes de esta sección los pueden ver en la pestaña de REPORTES de este proyecto.";
         }
     };
@@ -443,6 +447,16 @@ function ProjectDetailContent() {
                                 {activeTab === "ccml"        && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "files"       && <ProjectFilesExplorer projectId={id} userRole={role} />}
                                 {activeTab === "update-tables" && <UpdateTablesForm projectId={id || ""} numAct={numAct} />}
+                                {activeTab === "negotiation" && (
+                                    <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-800 flex flex-col items-center justify-center text-center gap-6">
+                                        <Handshake size={64} className="text-blue-600 mb-2" />
+                                        <div>
+                                            <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Zona de Negociación</h3>
+                                            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto">Consulte el historial de precios oficial de la ACT para apoyar los procesos de negociación y estimación.</p>
+                                        </div>
+                                            <PriceComparison projectId={id || undefined} />
+                                    </div>
+                                )}
                             </Suspense>
                         </div>
                     </div>
