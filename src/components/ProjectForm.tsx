@@ -62,6 +62,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         dir_construction: "",
         project_origin: "ACT",
     });
+    const [fieldStatus, setFieldStatus] = useState<Record<string, { reviewed: boolean, updated: boolean }>>({});
     const formDataRef = useRef(formData);
     const [mounted, setMounted] = useState(false);
     const [todayDate, setTodayDate] = useState("");
@@ -179,7 +180,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             - "agreement_funds": Array of { "fund_type": string, "amount": number } (de la tabla de Fondos Originales)
             - "scope": string (alcance detallado del proyecto)
             
-            Analiza según el tipo de documento:
+             Analiza y extrae ÚNICAMENTE la información que pertenezca al proyecto con el Número AC: "${formData.num_act}" o Número Federal: "${formData.num_federal}". Si los documentos contienen varios proyectos, ignora los demás y enfócate solo en este.
+
+             Analiza según el tipo de documento:
             1. Contrato: Datos generales, costo original, información crítica del contratista (Contractor).
             2. Proposal: Scope (alcance del proyecto), TODAS las partidas del contrato con sus especificaciones, descripción, cantidad original, unidad, precio unitario, y la distribución de fondos ("fund_source") de la sección de TODAS las partidas.
             3. Orden de comienzo: Llena las fechas que se obtengan (inicio, terminación).
@@ -235,26 +238,47 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     throw new Error("La IA no devolvió un formato válido. Por favor, intente de nuevo.");
                 }
 
-                // 2. Actualizar formulario (General, Datos, Scope)
+                // 2. Actualizar formulario (General, Datos, Scope) y rastrear cambios visuales
+                const newStatus: any = {};
                 const updates: any = {};
-                if (parsed.general) {
-                    Object.keys(parsed.general).forEach(k => { 
-                        if (parsed.general[k]) {
-                            let val = parsed.general[k];
-                            // Auto-formatear num_act si es necesario
-                            if (k === 'num_act' && typeof val === 'string' && val.length > 0 && !val.includes('AC-')) {
-                                val = `AC-${val}`;
+                
+                const processObject = (obj: any) => {
+                    if (!obj) return;
+                    Object.keys(obj).forEach(k => {
+                        let val = obj[k];
+                        if (val !== undefined && val !== null) {
+                            // Map special keys if needed
+                            const fieldKey = (k === 'num_act' || k === 'num_federal' || k === 'name' || k === 'num_oracle' || k === 'num_contrato' || k === 'admin_name' || k === 'cost_original' || k === 'liquidated_damages_amount' || k === 'date_contract_sign' || k === 'date_project_start' || k === 'date_orig_completion' || k === 'scope') ? k : null;
+                            
+                            if (fieldKey) {
+                                if (fieldKey === 'num_act' && typeof val === 'string' && val.length > 0 && !val.includes('AC-')) {
+                                    val = `AC-${val}`;
+                                }
+                                
+                                const oldVal = (formData as any)[fieldKey];
+                                const isDifferent = String(oldVal) !== String(val);
+                                
+                                newStatus[fieldKey] = { reviewed: true, updated: isDifferent };
+                                updates[fieldKey] = val;
                             }
-                            updates[k] = val; 
                         }
                     });
+                };
+
+                processObject(parsed.general);
+                processObject(parsed.dates);
+                if (parsed.scope) {
+                    const isDifferent = String(formData.scope) !== String(parsed.scope);
+                    newStatus.scope = { reviewed: true, updated: isDifferent };
+                    updates.scope = parsed.scope;
                 }
-                if (parsed.dates) {
-                    Object.keys(parsed.dates).forEach(k => { if (parsed.dates[k]) updates[k] = parsed.dates[k]; });
-                }
-                if (parsed.scope) updates.scope = parsed.scope;
+                
+                setFieldStatus(newStatus);
                 
                 if (parsed.contractor && parsed.contractor.name) {
+                    const oldContractor = formData.contractor_name;
+                    newStatus.contractor_name = { reviewed: true, updated: oldContractor !== parsed.contractor.name };
+                    
                     updates.contractor_name = parsed.contractor.name;
                     await supabase.from("contractors").upsert({
                         ...parsed.contractor,
@@ -377,7 +401,18 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             formDataRef.current = nextData;
             return nextData;
         });
+        // Limpiar status visual si el usuario cambia el dato manualmente
+        setFieldStatus(prev => ({ ...prev, [field]: { reviewed: false, updated: false } }));
         if (onDirty) onDirty();
+    };
+
+    const getFieldStyle = (field: string) => {
+        const s = fieldStatus[field];
+        return {
+            color: s?.reviewed ? '#0000FF' : undefined, // Azul para revisado
+            backgroundColor: s?.updated ? '#FFFF00' : '#66FF99', // Amarillo para actualizado, verde base
+            fontWeight: s?.reviewed ? 'bold' : undefined
+        };
     };
 
     const saveData = async (silent = false) => {
@@ -928,7 +963,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         type="text"
                         maxLength={13}
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('num_act')}
                         placeholder="AC-000000"
                         value={formData.num_act || ""}
                         onChange={(e) => {
@@ -949,7 +984,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         type="text"
                         maxLength={50}
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('num_federal')}
                         value={formData.num_federal || ""}
                         onChange={(e) => handleChange('num_federal', e.target.value)}
                     />
@@ -961,7 +996,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             type="text"
                             maxLength={255}
                             className="input-field flex-1"
-                            style={{ backgroundColor: '#66FF99' }}
+                            style={getFieldStyle('name')}
                             value={formData.name || ""}
                             onChange={(e) => handleChange('name', e.target.value)}
                         />
@@ -974,7 +1009,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         type="text"
                         maxLength={50}
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('num_oracle')}
                         value={formData.num_oracle || ""}
                         onChange={(e) => handleChange('num_oracle', e.target.value)}
                     />
@@ -985,7 +1020,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         type="text"
                         maxLength={20}
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('num_contrato')}
                         value={formData.num_contrato || ""}
                         onChange={(e) => handleChange('num_contrato', e.target.value.replace(/[^0-9]/g, ""))}
                     />
@@ -996,7 +1031,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         type="text"
                         maxLength={50}
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('no_cuenta')}
                         value={formData.no_cuenta || ""}
                         onChange={(e) => handleChange('no_cuenta', e.target.value)}
                     />
@@ -1007,13 +1042,12 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         <input
                             type={isCostFocused ? "text" : "text"}
                             className="input-field border-emerald-100 focus:ring-emerald-500 font-bold"
-                            style={{ backgroundColor: '#66FF99' }}
+                            style={getFieldStyle('cost_original')}
                             value={isCostFocused
                                 ? (formData.cost_original === 0 ? "" : formData.cost_original.toString())
                                 : formatCurrency(formData.cost_original)}
                             onFocus={(e) => {
                                 setIsCostFocused(true);
-                                // Si el valor es 0, el value será "" por la condición de arriba
                             }}
                             onBlur={(e) => {
                                 setIsCostFocused(false);
@@ -1021,8 +1055,6 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 handleChange('cost_original', isNaN(val) ? 0 : val);
                             }}
                             onChange={(e) => {
-                                // Mantenemos el valor como número en el estado para consistencia, 
-                                // pero la visualización controlada arriba se encarga del "" si es 0
                                 const val = parseFloat(e.target.value);
                                 handleChange('cost_original', isNaN(val) ? 0 : val);
                             }}
@@ -1033,7 +1065,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Región</label>
                     <select
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('region')}
                         value={formData.region || "Norte"}
                         onChange={(e) => handleChange('region', e.target.value)}
                     >
@@ -1049,7 +1081,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     <input
                         type={isDlqFocused ? "text" : "text"}
                         className="input-field border-red-100 focus:ring-red-500 font-bold"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('liquidated_damages_amount')}
                         value={isDlqFocused
                             ? (formData.liquidated_damages_amount === 0 ? "" : formData.liquidated_damages_amount.toString())
                             : formatCurrency(formData.liquidated_damages_amount)}
@@ -1074,7 +1106,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         <input
                             type="text"
                             className="input-field flex-1"
-                            style={{ backgroundColor: '#66FF99' }}
+                            style={getFieldStyle('folder_path')}
                             placeholder="Ej. C:\Proyectos\ACT-2024-001"
                             value={formData.folder_path || ""}
                             onChange={(e) => handleChange('folder_path', e.target.value)}
@@ -1083,7 +1115,6 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             type="button"
                             onClick={async () => {
                                 try {
-                                    // Primero intentamos usar la API de Electron si está disponible
                                     // @ts-ignore
                                     if (window.electronAPI && window.electronAPI.selectFolder) {
                                         // @ts-ignore
@@ -1092,7 +1123,6 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                             handleChange('folder_path', pathSelected);
                                         }
                                     }
-                                    // Fallback para web o si Electron falla
                                     else if ('showDirectoryPicker' in window) {
                                         // @ts-ignore
                                         const handle = await window.showDirectoryPicker();
@@ -1120,7 +1150,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         type="text"
                         maxLength={20}
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('num_ocpr')}
                         value={formData.num_ocpr || ""}
                         onChange={(e) => handleChange('num_ocpr', e.target.value)}
                     />
@@ -1131,7 +1161,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         type="text"
                         maxLength={100}
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('designer')}
                         value={formData.designer || ""}
                         onChange={(e) => handleChange('designer', e.target.value)}
                     />
@@ -1143,7 +1173,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         maxLength={255}
                         placeholder="Ej. San Juan, Guaynabo"
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('municipios')}
                         value={formData.municipios || ""}
                         onChange={(e) => handleChange('municipios', e.target.value)}
                     />
@@ -1155,7 +1185,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         maxLength={255}
                         placeholder="Ej. PR-1, PR-2"
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('carreteras')}
                         value={formData.carreteras || ""}
                         onChange={(e) => handleChange('carreteras', e.target.value)}
                     />
@@ -1166,7 +1196,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                         rows={6}
                         maxLength={50000}
                         className="input-field"
-                        style={{ backgroundColor: '#66FF99' }}
+                        style={getFieldStyle('scope')}
                         value={formData.scope || ""}
                         onChange={(e) => handleChange('scope', e.target.value)}
                     ></textarea>
@@ -1191,7 +1221,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('date_contract_sign')}
                                     value={formData.date_contract_sign || ""}
                                     onChange={(e) => {
                                         handleChange('date_contract_sign', e.target.value);
@@ -1206,7 +1236,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('date_project_start')}
                                     value={formData.date_project_start || ""}
                                     onChange={(e) => {
                                         handleChange('date_project_start', e.target.value);
@@ -1221,7 +1251,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('date_orig_completion')}
                                     value={formData.date_orig_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_orig_completion', e.target.value);
@@ -1236,7 +1266,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('date_rev_completion')}
                                     value={formData.date_rev_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_rev_completion', e.target.value);
@@ -1262,7 +1292,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('date_est_completion')}
                                     value={formData.date_est_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_est_completion', e.target.value);
@@ -1277,7 +1307,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('date_real_completion')}
                                     value={formData.date_real_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_real_completion', e.target.value);
@@ -1292,7 +1322,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('date_substantial_completion')}
                                     value={formData.date_substantial_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_substantial_completion', e.target.value);
@@ -1307,7 +1337,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('date_final_inspection')}
                                     value={formData.date_final_inspection || ""}
                                     onChange={(e) => {
                                         handleChange('date_final_inspection', e.target.value);
@@ -1324,7 +1354,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                 <input
                                     type="date"
                                     className="input-field border-emerald-200 dark:border-emerald-800 focus:ring-emerald-500 pr-12"
-                                    style={{ backgroundColor: '#66FF99' }}
+                                    style={getFieldStyle('fmis_end_date')}
                                     value={formData.fmis_end_date || ""}
                                     onChange={(e) => {
                                         handleChange('fmis_end_date', e.target.value);
