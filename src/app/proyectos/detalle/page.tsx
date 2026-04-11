@@ -9,7 +9,7 @@ import {
     ListChecks, Users, Package, ShieldCheck, 
     FileCheck, FileEdit, LayoutDashboard, Calculator,
     Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle,
-    Save, Presentation, RefreshCcw, Handshake
+    Save, Presentation, RefreshCcw, Handshake, Image as ImageIcon
 } from "lucide-react";
 import { getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import FloatingFormActions from "@/components/FloatingFormActions";
