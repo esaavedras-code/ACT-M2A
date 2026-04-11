@@ -195,7 +195,7 @@ export default function Dashboard() {
         <div className="py-8 space-y-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex flex-col">
-                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">PROYECTO AC</h1>
+                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">PROYECTOS ACT</h1>
                     <div className="flex items-center gap-3 mt-2">
                         <p className="text-slate-500 font-medium">Panel central de control y monitoreo de obras.</p>
                         <Link href="/acerca-de" className="text-xs font-black text-blue-600 hover:underline uppercase tracking-widest flex items-center gap-1">

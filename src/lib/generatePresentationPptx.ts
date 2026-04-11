@@ -240,7 +240,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
       }
     } else {
        slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, fill: { color: "F3F4F6" }, line: { color: "9CA3AF", pt: 1 } });
-       slide2.addText("PROYECTO AC\n(Sin imagen)", { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 12, color: "6B7280" });
+       slide2.addText("PROYECTOS ACT\n(Sin imagen)", { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 12, color: "6B7280" });
     }
   };
 

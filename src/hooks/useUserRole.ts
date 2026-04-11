@@ -29,6 +29,13 @@ export function useUserRole() {
                 setLoading(false);
                 return;
             }
+
+            if (userData?.role_global === 'F') {
+                setRole('F');
+                setRoleGlobal('F');
+                setLoading(false);
+                return;
+            }
             setRoleGlobal(userData?.role_global || null);
 
             // Check memberships for specific roles (especially Contractor F)

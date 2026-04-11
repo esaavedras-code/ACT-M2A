@@ -9,5 +9,5 @@ export function useBrandName() {
 
 export default function BrandName() {
     const brandName = useBrandName();
-    return <span className="truncate">{brandName}</span>;
+    return <span>{brandName}</span>;
 }
