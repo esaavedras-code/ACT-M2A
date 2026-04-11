@@ -261,9 +261,18 @@ function ProjectDetailContent() {
                 }
                 setRole(currentRole);
 
-                // Cargar datos del proyecto
-                const { data: project } = await supabase.from("projects").select("name, num_act").eq("id", id).single();
+                // Cargar datos del proyecto y verificar grupo (Aislamiento total)
+                const { data: project } = await supabase.from("projects").select("name, num_act, project_origin").eq("id", id).single();
                 if (project) {
+                    const isProjectContractor = project.project_origin === 'Contratista';
+                    const isUserContractor = userData?.role_global === 'F';
+
+                    if (isUserContractor !== isProjectContractor) {
+                        console.warn("Bloqueo por aislamiento de grupo:", { isUserContractor, isProjectContractor });
+                        window.location.href = "/proyectos";
+                        return;
+                    }
+
                     setProjectName(project.name);
                     setNumAct(project.num_act);
                 }
@@ -368,7 +377,7 @@ function ProjectDetailContent() {
                     <div>
                         <div className="flex items-center gap-4 flex-wrap">
                             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase line-clamp-1">{projectName || "Nuevo Proyecto"}</h1>
-                            <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100 whitespace-nowrap mt-1 flex-shrink-0">ACT: {formatProjectNumber(numAct)}</span>
+                            <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100 whitespace-nowrap mt-1 flex-shrink-0">AC: {formatProjectNumber(numAct)}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] font-black bg-slate-100 text-slate-400 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">{role === 'A' ? 'Administrador' : 'Colaborador'}</span>

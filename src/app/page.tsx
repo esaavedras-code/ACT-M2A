@@ -92,6 +92,13 @@ export default function Dashboard() {
             if (!allowedIds.includes("ALL")) {
                 projectsQuery = projectsQuery.in("id", allowedIds);
             }
+
+            // Aislamiento estricto: Roles A-E no ven F, y viceversa
+            if (userData?.role_global === 'F') {
+                projectsQuery = projectsQuery.eq("project_origin", "Contratista");
+            } else {
+                projectsQuery = projectsQuery.neq("project_origin", "Contratista");
+            }
             
             const { data: projectsData } = await projectsQuery;
             const { data: allItems } = await supabase.from("contract_items").select("project_id, quantity, unit_price");
@@ -274,7 +281,7 @@ export default function Dashboard() {
                                                 {proj.project_origin}
                                             </span>
                                         </div>
-                                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{proj.num_act} • {proj.region}</span>
+                                        <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100 whitespace-nowrap mt-1 flex-shrink-0">AC: {proj.num_act}</span>
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-slate-700">{formatCurrency(proj.adjustedCost)}</td>
                                     <td className="px-8 py-6 text-right font-bold text-blue-600">{formatCurrency(proj.certified)}</td>

@@ -112,6 +112,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             if (session) {
                 const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
                 setIsGlobalAdmin(userData?.role_global === "A");
+                if (userData?.role_global === 'F' && !projectId) {
+                    setFormData(prev => ({ ...prev, project_origin: "Contratista" }));
+                }
             }
         };
         loadUserRole();
