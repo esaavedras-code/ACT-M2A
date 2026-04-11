@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, ShieldCheck, Building2 } from "lucide-react";
+import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, ShieldCheck, Building2, Loader2 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency, getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
@@ -1419,12 +1419,12 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             <FloatingFormActions 
                 actions={[
                     {
-                        label: isSaving ? "Guardando..." : "Guardar Proyecto",
-                        icon: <Save />,
+                        label: loading ? "Guardando..." : "Guardar Proyecto",
+                        icon: loading ? <Loader2 className="animate-spin" /> : <Save />,
                         onClick: () => saveData(false),
                         description: "Guardar los cambios en la información básica del proyecto",
                         variant: 'primary',
-                        disabled: isSaving
+                        disabled: loading
                     }
                 ]}
             />
