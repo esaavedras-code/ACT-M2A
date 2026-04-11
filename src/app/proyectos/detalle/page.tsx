@@ -355,7 +355,7 @@ function ProjectDetailContent() {
             )}
 
             {/* Encabezado Superior (Proyecto y Botón Atrás) */}
-            <div className="sticky top-0 z-50 bg-[#F8FAFC]/80 dark:bg-[#020617]/80 backdrop-blur-md pt-4 pb-4 border-b border-slate-200 dark:border-slate-800 mb-6 px-4 -mx-4">
+            <div className="sticky top-0 z-50 bg-[#F8FAFC]/80 dark:bg-[#020617]/80 backdrop-blur-md pt-4 pb-4 border-b border-slate-200 dark:border-slate-800 mb-6 px-4 -mx-4 project-title-bar">
                 <div className="flex items-center gap-4">
                     <Link href="/proyectos" className="p-2.5 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100 group bg-slate-100 dark:bg-slate-800">
                         <ChevronLeft size={24} className="text-slate-400 group-hover:text-blue-600 transition-colors" />

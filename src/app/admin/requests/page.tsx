@@ -735,7 +735,20 @@ export default function AdminRequestsPage() {
                     onClick={() => setViewMode('requests')}
                     className={`flex-1 px-8 py-5 font-black text-xs uppercase tracking-widest transition-all border-b-4 flex items-center justify-center gap-2 ${viewMode === 'requests' ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
                 >
-                    <Clock size={16} /> Solicitudes {requests.filter(r => r.status === 'pending').length > 0 && <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[8px]">{requests.filter(r => r.status === 'pending').length}</span>}
+                    <Clock size={16} /> Solicitudes {requests.filter(r => r.status === 'pending').length > 0 && (
+                        <span 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const pendingNames = requests.filter(r => r.status === 'pending').map(r => r.full_name).join("\n- ");
+                                if (pendingNames) {
+                                    alert(`Usuarios esperando acceso:\n- ${pendingNames}`);
+                                }
+                            }}
+                            className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-[8px] cursor-help hover:bg-amber-600 transition-colors"
+                        >
+                            {requests.filter(r => r.status === 'pending').length}
+                        </span>
+                    )}
                 </button>
                 {isGlobalAdmin && (
                     <button 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { X, Shield, Info, ExternalLink } from "lucide-react";
 
 interface AboutModalProps {
@@ -8,6 +9,15 @@ interface AboutModalProps {
 }
 
 export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
+    useEffect(() => {
+        if (isOpen) {
+            document.body.classList.add('about-open');
+        } else {
+            document.body.classList.remove('about-open');
+        }
+        return () => document.body.classList.remove('about-open');
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     return (

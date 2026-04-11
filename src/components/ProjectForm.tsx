@@ -916,47 +916,49 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             </div>
 
             {/* Origen del Proyecto - Differentiates between ACT Admin and Contractor data */}
-            <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-8 rounded-[2rem] border border-slate-200/50 dark:border-slate-800/50 mb-10 shadow-lg shadow-slate-200/20 dark:shadow-none transition-all hover:shadow-xl">
-                <div className="space-y-4">
-                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
-                        Fuente de los Datos del Proyecto
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <button
-                            type="button"
-                            onClick={() => handleChange("project_origin", "ACT")}
-                            className={`flex items-center gap-4 p-5 rounded-[1.5rem] border-2 transition-all group ${formData.project_origin === 'ACT' 
-                                ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-lg shadow-blue-500/10' 
-                                : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200 hover:bg-slate-50'}`}
-                        >
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${formData.project_origin === 'ACT' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
-                                <ShieldCheck size={24} />
-                            </div>
-                            <div className="text-left">
-                                <span className="block font-black uppercase tracking-tight text-sm">ACT / Administrador</span>
-                                <span className="block text-[10px] font-bold opacity-70">Datos oficiales de administración</span>
-                            </div>
-                        </button>
+            {userRole === 'A' && (
+                <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-8 rounded-[2rem] border border-slate-200/50 dark:border-slate-800/50 mb-10 shadow-lg shadow-slate-200/20 dark:shadow-none transition-all hover:shadow-xl">
+                    <div className="space-y-4">
+                        <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
+                            Fuente de los Datos del Proyecto
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button
+                                type="button"
+                                onClick={() => handleChange("project_origin", "ACT")}
+                                className={`flex items-center gap-4 p-5 rounded-[1.5rem] border-2 transition-all group ${formData.project_origin === 'ACT' 
+                                    ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-lg shadow-blue-500/10' 
+                                    : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200 hover:bg-slate-50'}`}
+                            >
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${formData.project_origin === 'ACT' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                                    <ShieldCheck size={24} />
+                                </div>
+                                <div className="text-left">
+                                    <span className="block font-black uppercase tracking-tight text-sm">ACT / Administrador</span>
+                                    <span className="block text-[10px] font-bold opacity-70">Datos oficiales de administración</span>
+                                </div>
+                            </button>
 
-                        <button
-                            type="button"
-                            onClick={() => handleChange("project_origin", "Contratista")}
-                            className={`flex items-center gap-4 p-5 rounded-[1.5rem] border-2 transition-all group ${formData.project_origin === 'Contratista' 
-                                ? 'bg-rose-50 border-rose-500 text-rose-700 shadow-lg shadow-rose-500/10' 
-                                : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200 hover:bg-slate-50'}`}
-                        >
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${formData.project_origin === 'Contratista' ? 'bg-rose-500 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
-                                <Building2 size={24} />
-                            </div>
-                            <div className="text-left">
-                                <span className="block font-black uppercase tracking-tight text-sm">Contratista Externo</span>
-                                <span className="block text-[10px] font-bold opacity-70">Datos proporcionados por el contratista</span>
-                            </div>
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => handleChange("project_origin", "Contratista")}
+                                className={`flex items-center gap-4 p-5 rounded-[1.5rem] border-2 transition-all group ${formData.project_origin === 'Contratista' 
+                                    ? 'bg-rose-50 border-rose-500 text-rose-700 shadow-lg shadow-rose-500/10' 
+                                    : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200 hover:bg-slate-50'}`}
+                            >
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${formData.project_origin === 'Contratista' ? 'bg-rose-500 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                                    <Building2 size={24} />
+                                </div>
+                                <div className="text-left">
+                                    <span className="block font-black uppercase tracking-tight text-sm">Contratista Externo</span>
+                                    <span className="block text-[10px] font-bold opacity-70">Datos proporcionados por el contratista</span>
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             <form suppressHydrationWarning className="card grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-white dark:bg-slate-900 border-none shadow-sm">
                 <div className="space-y-1">

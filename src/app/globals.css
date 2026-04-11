@@ -113,3 +113,8 @@ body {
     font-size: 16px !important; /* Evita que iOS haga zoom al enfocar */
   }
 }
+
+/* Ocultar barra de proyecto cuando About está abierto */
+.about-open .project-title-bar {
+  display: none !important;
+}
