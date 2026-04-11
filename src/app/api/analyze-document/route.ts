@@ -8,7 +8,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Configuración incompleta de IA (falta GROQ_API_KEY)' }, { status: 500 });
         }
 
-        const systemMessage = "Eres un asistente experto en analizar documentos de proyectos de construcción de carreteras y contratos gubernamentales (ej. ACT, FHWA). El usuario te proporcionará texto o una imagen de un documento y una instrucción específica sobre qué información extraer. Responde de forma profesional y clara únicamente con la información solicitada.";
+        const isJsonRequested = prompt.toLowerCase().includes("json");
+        const systemMessage = isJsonRequested 
+            ? "Eres un extractor de datos experto. Tu única tarea es devolver un objeto JSON válido según el esquema solicitado. No incluyas explicaciones, preámbulos ni comentarios. Solo el objeto JSON."
+            : "Eres un asistente experto en analizar documentos de proyectos de construcción de carreteras y contratos gubernamentales (ej. ACT, FHWA). El usuario te proporcionará texto o una imagen de un documento y una instrucción específica sobre qué información extraer. Responde de forma profesional y clara únicamente con la información solicitada.";
 
         const messages: any[] = [{ role: "system", content: systemMessage }];
 
@@ -39,26 +42,33 @@ export async function POST(req: Request) {
             });
         }
 
+        const groqBody: any = {
+            model: image ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile",
+            temperature: 0.1,
+            messages: messages
+        };
+
+        if (isJsonRequested && !image) {
+            groqBody.response_format = { type: "json_object" };
+        }
+
         const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                model: image ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile",
-                temperature: 0.2,
-                messages: messages
-            })
+            body: JSON.stringify(groqBody)
         });
 
         const groqData = await groqResponse.json();
         
         if (groqData.error) {
+            console.error("Groq API Error:", groqData.error);
             throw new Error(groqData.error.message || "Error de la API de IA");
         }
         
-        let aiResult = groqData.choices?.[0]?.message?.content || "No se pudo generar una respuesta.";
+        let aiResult = groqData.choices?.[0]?.message?.content || "{}";
 
         return NextResponse.json({ result: aiResult });
     } catch (e: any) {

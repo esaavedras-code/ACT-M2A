@@ -219,9 +219,20 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
             }
 
             if (aiResult) {
-                // Limpiar JSON si viene con markdown
-                const cleanedJson = aiResult.replace(/```json|```/g, '').trim();
-                const parsed = JSON.parse(cleanedJson);
+                // Limpiar JSON si viene con markdown o texto adicional
+                let cleanedJson = aiResult.trim();
+                const jsonMatch = aiResult.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    cleanedJson = jsonMatch[0];
+                }
+
+                let parsed: any;
+                try {
+                    parsed = JSON.parse(cleanedJson);
+                } catch (jsonErr) {
+                    console.error("JSON Parse Error:", jsonErr, "Original text:", aiResult);
+                    throw new Error("La IA no devolvió un formato válido. Por favor, intente de nuevo.");
+                }
 
                 // 2. Actualizar formulario (General, Datos, Scope)
                 const updatedForm = { ...formDataRef.current };

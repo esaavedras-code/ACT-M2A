@@ -30,11 +30,11 @@ export default function AboutPage() {
                 </p>
                 <div className="mt-8 inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full font-bold text-sm border border-blue-100">
                     <ShieldCheck size={18} />
-                    Versión del Sistema: 3.26.0408
+                    Versión del Sistema: 3.26.0411
                 </div>
                 <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full font-semibold text-xs border border-emerald-100">
                     <CalendarDays size={14} />
-                    Última actualización: 8 de abril de 2026 &nbsp;·&nbsp; 3:30 PM
+                    Última actualización: 11 de abril de 2026 &nbsp;·&nbsp; 11:24 AM
                 </div>
             </div>
 

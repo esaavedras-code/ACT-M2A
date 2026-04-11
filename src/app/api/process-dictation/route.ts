@@ -100,17 +100,20 @@ Instrucciones Críticas:
                 messages: [
                     { role: "system", content: systemMessage },
                     { role: "user", content: `El texto dictado es: "${text}"` }
-                ]
+                ],
+                response_format: { type: "json_object" }
             })
         });
 
         const groqData = await groqResponse.json();
+        if (groqData.error) throw new Error(groqData.error.message || "Error de Groq");
         
-        let aiResult = groqData.choices[0].message.content;
+        let aiResult = groqData.choices?.[0]?.message?.content || "{}";
         
-        // Limpiamos markdown si el modelo se niega a cumplir la regla
-        if (aiResult.startsWith('```json')) {
-            aiResult = aiResult.replace(/```json\n?/, '').replace(/```\n?$/, '');
+        // Limpiamos markdown o texto extra si el modelo falla en las reglas
+        const jsonMatch = aiResult.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            aiResult = jsonMatch[0];
         }
 
         return NextResponse.json(JSON.parse(aiResult));
