@@ -14,6 +14,19 @@ function AIChatContent() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const searchParams = useSearchParams();
     const projectId = searchParams.get("id");
+    const [projectInfo, setProjectInfo] = useState<{ name: string, num_act: string } | null>(null);
+
+    useEffect(() => {
+        if (!projectId) {
+            setProjectInfo(null);
+            return;
+        }
+        async function fetchInfo() {
+            const { data } = await supabase.from("projects").select("name, num_act").eq("id", projectId).maybeSingle();
+            if (data) setProjectInfo(data);
+        }
+        fetchInfo();
+    }, [projectId]);
 
     const [position, setPosition] = useState({ x: -100, y: -100 });
     const [isDragging, setIsDragging] = useState(false);
@@ -96,7 +109,7 @@ function AIChatContent() {
                 body: { 
                     prompt: userMsg,
                     context: projectId 
-                        ? `Trabajando en el proyecto con ID ${projectId}. IMPORTANTE: Siempre usa un formato visualmente atractivo con negrillas (**texto**) para resaltar puntos clave, usa viñetas si es necesario y separa frases con puntuación clara. Cuando cites proyectos, usa su número ACT y no IDs técnicos.` 
+                        ? `Estás conversando sobre el proyecto "${projectInfo?.name || 'Desconocido'}" (Número ACT: ${projectInfo?.num_act || 'Sin número'}). IMPORTANTE: Siempre usa un formato visualmente atractivo con negrillas (**texto**) para resaltar puntos clave, usa viñetas si es necesario y separa frases con puntuación clara. NUNCA uses IDs técnicos (UUIDs) en tus respuestas, usa el nombre o número ACT del proyecto.` 
                         : 'General. IMPORTANTE: Usa un formato atractivo con negrillas (**texto**) y puntuación clara.'
                 }
             });

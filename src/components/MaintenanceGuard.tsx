@@ -127,5 +127,20 @@ export default function MaintenanceGuard() {
         );
     }
 
+    if (isMaintenance && isAdmin) {
+        return (
+            <div className="fixed top-0 left-0 right-0 z-[99999] bg-orange-600 text-white py-2.5 px-6 shadow-2xl flex items-center justify-center gap-4 animate-in slide-in-from-top duration-500 ring-4 ring-orange-500 ring-inset">
+                <AlertTriangle size={20} className="shrink-0 animate-pulse" />
+                <span className="text-[10px] md:text-sm font-black uppercase tracking-[0.2em] text-center">
+                    ⚠️ MODO MANTENIMIENTO ACTIVO: EL ACCESO ESTÁ BLOQUEADO PARA TODOS LOS USUARIOS EXCEPTO TÚ
+                </span>
+                <div className="hidden md:block h-4 w-px bg-white/30 mx-2" />
+                <span className="hidden md:inline text-[9px] font-bold opacity-80 uppercase tracking-widest">
+                    RECUERDA DESACTIVARLO EN 'CONFIGURACIÓN DE SISTEMA' AL TERMINAR
+                </span>
+            </div>
+        );
+    }
+
     return null; // Si no hay mantenimiento o si es Admin, simplemente no renderiza nada y permite usar la app
 }

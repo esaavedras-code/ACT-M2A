@@ -112,9 +112,8 @@ function ProjectDetailContent() {
     // Orden: Resumen → Proyecto (incluye Contratista) → Firmas ACT → Partidas → Materiales
     //        → Cumplimiento → Change Orders → Pagos → Cert CM → Minutas → Actividades
     //        → Inspección → Force Account → Liquidación
-    const tabs = [
         { id: "dashboard",   label: "Resumen",        icon: <LayoutDashboard size={12} /> },
-        ...(role !== 'E' ? [{ id: "files",       label: "📁 Archivos",        icon: <FolderOpen size={12} /> }] : []),
+        { id: "files",       label: role === 'E' ? "📸 Fotos" : "📁 Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
         { id: "project",     label: "Datos Proyecto",       icon: <FileText size={12} /> },
         { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
         { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
@@ -137,6 +136,11 @@ function ProjectDetailContent() {
     // Filtrar pestañas basadas en roles
     const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "inspection", "logs", "presentations", "personnel"];
     const filteredTabs = tabs.filter(t => {
+        // Reglas para Inspector ('E') - Únicamente Actividades y Fotos (Explorer)
+        if (role === 'E') {
+            return t.id === 'logs' || t.id === 'files';
+        }
+
         // Reglas generales para No Administradores
         if (role !== 'A') {
             if (t.wip) return false;
@@ -376,7 +380,7 @@ function ProjectDetailContent() {
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
                 <div className="md:fixed md:top-[128px] md:left-4 z-[90] w-full md:w-[200px] lg:w-[220px] shrink-0 transition-all duration-300">
                     <div className="flex flex-row md:flex-col flex-wrap md:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
-                        {filteredTabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
+                        {filteredTabs.map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id)}

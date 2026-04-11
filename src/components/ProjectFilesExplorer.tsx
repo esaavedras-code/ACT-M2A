@@ -215,6 +215,8 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     const totalFiles = docs.length;
     const availableSections = userRole === 'F' 
         ? PROJECT_SECTIONS.filter(s => s.id !== "general" && s.id !== "presentations" && s.id !== "logs" && s.id !== "inspection" && s.id !== "force" && s.id !== "liquidation" && s.id !== "ccml" && s.id !== "update-tables" && s.id !== "personnel") 
+        : userRole === 'E'
+        ? PROJECT_SECTIONS.filter(s => s.id === "photos" || s.id === "logs")
         : PROJECT_SECTIONS;
     const sectionsWithFiles = availableSections.filter(s => getDocsForSection(s.id).length > 0);
 
