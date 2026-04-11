@@ -112,6 +112,7 @@ function ProjectDetailContent() {
     // Orden: Resumen → Proyecto (incluye Contratista) → Firmas ACT → Partidas → Materiales
     //        → Cumplimiento → Change Orders → Pagos → Cert CM → Minutas → Actividades
     //        → Inspección → Force Account → Liquidación
+    const tabs = [
         { id: "dashboard",   label: "Resumen",        icon: <LayoutDashboard size={12} /> },
         { id: "files",       label: role === 'E' ? "📸 Fotos" : "📁 Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
         { id: "project",     label: "Datos Proyecto",       icon: <FileText size={12} /> },
