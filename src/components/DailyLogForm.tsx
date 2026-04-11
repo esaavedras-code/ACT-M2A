@@ -477,7 +477,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         icon: <Printer />,
                         onClick: handlePrint,
                         description: "Generar el reporte oficial ACT-45 en PDF con toda la información del reporte diario.",
-                        variant: 'info' as const,
+                        variant: 'success' as const,
                         disabled: loading
                     }] : []),
                     {

@@ -1416,6 +1416,18 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                     )}
                 </div>
             </form>
+            <FloatingFormActions 
+                actions={[
+                    {
+                        label: isSaving ? "Guardando..." : "Guardar Proyecto",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Guardar los cambios en la información básica del proyecto",
+                        variant: 'primary',
+                        disabled: isSaving
+                    }
+                ]}
+            />
         </div >
     );
 });

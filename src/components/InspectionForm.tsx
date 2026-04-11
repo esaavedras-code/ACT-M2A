@@ -251,14 +251,6 @@ function InspectionForm({ projectId, onDirty, onSaved }, ref) {
                         variant: 'primary',
                         disabled: isSaving || loading
                     },
-                    {
-                        label: "Refrescar",
-                        icon: <Loader2 className={loading ? "animate-spin" : ""} />,
-                        onClick: fetchDailyLog,
-                        description: "Recargar datos desde la base de datos",
-                        variant: 'secondary',
-                        disabled: loading
-                    }
                 ]}
             />
         </div>

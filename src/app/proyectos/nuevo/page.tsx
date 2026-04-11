@@ -79,47 +79,51 @@ export default function NewProjectPage() {
                 </div>
             )}
 
-            {/* Tab Navigation */}
-            <div className="sticky top-20 z-30 bg-slate-50 dark:bg-[#020617] flex border-b border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar pb-1">
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        disabled={tab.disabled}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 px-5 py-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === tab.id
-                            ? "border-primary text-primary"
-                            : tab.disabled
-                                ? "border-transparent text-slate-300 cursor-not-allowed grayscale opacity-50"
-                                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                            }`}
-                    >
-                        {tab.icon}
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
+            <div className="flex flex-col lg:flex-row gap-8 items-start relative">
+                {/* Botones de Navegación Lateral (Consistente con Detalle) */}
+                <div className="w-full lg:w-[240px] shrink-0 sticky top-20">
+                    <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none overflow-x-auto lg:overflow-visible no-scrollbar">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                disabled={tab.disabled}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-[1.4rem] font-black text-[9px] uppercase tracking-[0.1em] transition-all whitespace-nowrap lg:whitespace-normal text-left active:scale-95 group relative overflow-hidden ${activeTab === tab.id
+                                        ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30'
+                                        : tab.disabled
+                                            ? 'opacity-40 grayscale cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                            : 'bg-white/60 dark:bg-slate-800/60 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 hover:bg-white'
+                                    }`}
+                            >
+                                <span className={`shrink-0 ${activeTab === tab.id ? 'text-white' : 'text-blue-500'}`}>{tab.icon}</span>
+                                <span className="flex-1">{tab.label}</span>
+                                {tab.disabled && <div className="absolute inset-0 bg-slate-500/5 backdrop-blur-[1px] pointer-events-none" title="Guarde la sección 1 para habilitar" />}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-            {/* Tab Content */}
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {activeTab === "project" && <ProjectForm projectId={projectId} onSaved={(newId?: string) => {
-                    if (newId) {
-                        handleAuthorizeProject(newId);
-                        // Usar el router de Next.js es más seguro para la navegación SPA
-                        router.push(`/proyectos/detalle?id=${newId}`);
-                    } else {
-                        setActiveTab("contractor");
-                    }
-                }} />}
-                {activeTab === "contractor" && <ContractorForm projectId={projectId} />}
-                {activeTab === "personnel" && <PersonnelForm projectId={projectId} />}
-                {activeTab === "items" && <ItemsForm projectId={projectId} />}
-                {activeTab === "cho" && <CHOForm projectId={projectId} />}
-                {activeTab === "certs" && <PaymentCertForm projectId={projectId} />}
-                {activeTab === "mfg" && <MfgCertForm projectId={projectId} />}
-                {activeTab === "materials" && <MaterialsForm projectId={projectId} />}
-                {activeTab === "compliance" && <ComplianceForm projectId={projectId} />}
-                {activeTab === "liquidation" && <LiquidationForm projectId={projectId} />}
-                {activeTab === "summary" && <SummaryDashboard projectId={projectId} />}
+                {/* Tab Content */}
+                <div className="flex-1 w-full animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {activeTab === "project" && <ProjectForm projectId={projectId} onSaved={(newId?: string) => {
+                        if (newId) {
+                            handleAuthorizeProject(newId);
+                            router.push(`/proyectos/detalle?id=${newId}`);
+                        } else {
+                            setActiveTab("contractor");
+                        }
+                    }} />}
+                    {activeTab === "contractor" && <ContractorForm projectId={projectId} />}
+                    {activeTab === "personnel" && <PersonnelForm projectId={projectId} />}
+                    {activeTab === "items" && <ItemsForm projectId={projectId} />}
+                    {activeTab === "cho" && <CHOForm projectId={projectId} />}
+                    {activeTab === "certs" && <PaymentCertForm projectId={projectId} />}
+                    {activeTab === "mfg" && <MfgCertForm projectId={projectId} />}
+                    {activeTab === "materials" && <MaterialsForm projectId={projectId} />}
+                    {activeTab === "compliance" && <ComplianceForm projectId={projectId} />}
+                    {activeTab === "liquidation" && <LiquidationForm projectId={projectId} />}
+                    {activeTab === "summary" && <SummaryDashboard projectId={projectId} />}
+                </div>
             </div>
         </div>
     );
