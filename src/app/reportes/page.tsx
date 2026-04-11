@@ -244,7 +244,7 @@ function SelectiveReportItem({ option, loading, onAction, isLiquidation }: { opt
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" />} 
                         {loading ? 'Generando...' : (
                             <span className="flex items-center gap-1">
-                                {selectedIds.length > 0 ? `GENERAR ${selectedIds.length} REPORTES` : 'GENERAR REPORTE'}
+                                {selectedIds.length > 0 ? 'GENERAR REPORTES' : 'GENERAR REPORTE'}
                                 {isLiquidation && (
                                     <span className="text-[11px] font-black uppercase opacity-90 ml-1.5 align-middle">
                                         (BORRADOR)
@@ -833,7 +833,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'roa',
-                            label: '4. ROA (Authorization)',
+                            label: 'ROA (Authorization)',
                             description: 'Record of Authorization to Proceed with Contract Revision.',
                             icon: <FileDigit size={18} className="text-purple-800" />,
                             action: async () => {
@@ -879,7 +879,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'ccml',
-                            label: '5. CCML (Contract Mod. Log)',
+                            label: 'CCML (Contract Mod. Log)',
                             description: 'Contract Modification Log usando la plantilla oficial con fórmulas integradas. Genera un Excel listo para abrir.',
                             icon: <Files size={18} className="text-green-600" />,
                             action: async () => {
@@ -917,7 +917,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'time-ext-chart',
-                            label: '6. Gráfica de Extensión de Tiempo',
+                            label: 'Gráfica de Extensión de Tiempo',
                             description: 'Gráfica oficial de la línea de tiempo del proyecto y extensiones otorgadas.',
                             icon: <BarChart size={18} className="text-orange-500" />,
                             action: async () => {
@@ -960,13 +960,13 @@ function ReportesContent() {
                  </DropdownGroup>
 
                 {/* 6. Certificaciones */}
-                <DropdownGroup title="6. Certificaciones de Pago" icon={<FileText size={18} className="text-cyan-500" />}>
+                <DropdownGroup title="Certificaciones de Pago" icon={<FileText size={18} className="text-cyan-500" />}>
                     <SelectiveReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'act117c-selective',
-                            label: '1. ACT-117C (Oficial)',
+                            label: 'ACT-117C (Oficial)',
                             description: 'Seleccione las certificaciones para generar el formulario oficial de pago (Anverso/Reverso).',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
@@ -1005,7 +1005,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'cert-desglose-selective',
-                            label: '2. Desglose Financiero de Certificación',
+                            label: 'Desglose Financiero de Certificación',
                             description: 'Reporte detallado con todos los valores positivos y negativos de la certificación seleccionada.',
                             icon: <Calculator size={18} className="text-cyan-700" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
@@ -1025,14 +1025,14 @@ function ReportesContent() {
 
                 {/* 7. Liquidación */}
                 {!isContratista && (
-                <DropdownGroup title="7. Liquidación" icon={<FileCheck size={18} className="text-rose-600" />}>
+                <DropdownGroup title="Liquidación" icon={<FileCheck size={18} className="text-rose-600" />}>
                     <StandardReportItem
                         isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'acceptance-checklist',
-                            label: '1. Final Acceptance Checklist (Liquidación)',
+                            label: 'Final Acceptance Checklist (Liquidación)',
                             description: 'Formulario oficial de cotejo para aceptación final (Federal-Aid projects).',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             action: () => generateFinalAcceptanceChecklistReportLogic(projectId, reportFormat)
@@ -1047,7 +1047,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'liquidacion-items',
-                            label: '2. Hojas de Liquidación por Partida',
+                            label: 'Hojas de Liquidación por Partida',
                             description: 'Una hoja por partida con CHOs, certificaciones y balance. Estructura basada en la forma oficial de liquidación.',
                             icon: <FileCheck size={18} className="text-rose-600" />,
                             action: () => generateLiquidacionItemsReportLogic(projectId, reportFormat)
@@ -1062,7 +1062,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'acceptance-official',
-                            label: '3. Final Acceptance Report (Oficial)',
+                            label: 'Final Acceptance Report (Oficial)',
                             description: 'Formulario oficial de aceptación final (FHWA). Réplica exacta del formato impreso.',
                             icon: <FileCheck size={18} className="text-indigo-600" />,
                             action: () => generateFinalAcceptanceReportOfficialLogic(projectId, reportFormat)
@@ -1077,7 +1077,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'payroll-certification',
-                            label: '4. Payroll Certification',
+                            label: 'Payroll Certification',
                             description: 'Certificación oficial de cumplimiento con leyes laborales federales y estatales.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             action: () => generatePayrollCertificationReportLogic(projectId, reportFormat)
@@ -1092,7 +1092,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'material-certification',
-                            label: '5. Material Certification (sin firmas)',
+                            label: 'Material Certification (sin firmas)',
                             description: 'Certificación oficial de materiales, muestreo y pruebas de aceptación.',
                             icon: <FileCheck size={18} className="text-orange-600" />,
                             action: () => {
@@ -1113,7 +1113,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'dbe-certification',
-                            label: '6. Certification of DBE Participation',
+                            label: 'Certification of DBE Participation',
                             description: 'Certificación oficial de participación y esfuerzos de buena fe de empresas DBE.',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             action: () => {
@@ -1134,7 +1134,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'final-construction-report',
-                            label: '7. Final Construction Report',
+                            label: 'Final Construction Report',
                             description: 'Informe final de construcción con resumen de partidas ejecutadas y pagos mensuales.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             action: () => generateFinalConstructionReportLogic(projectId, reportFormat)
@@ -1149,7 +1149,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'final-estimate',
-                            label: '8. Final Estimate',
+                            label: 'Final Estimate',
                             description: 'Desglose y resumen financiero oficial del proyecto (Final Estimate).',
                             icon: <FileCheck size={18} className="text-teal-600" />,
                             action: () => generateFinalEstimateReportLogic(projectId, reportFormat)
@@ -1164,7 +1164,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'contract-final-report',
-                            label: '9. Contract Final Report',
+                            label: 'Contract Final Report',
                             description: 'Informe final de contrato con resumen de fechas, órdenes de cambio y costos finales.',
                             icon: <FileCheck size={18} className="text-indigo-600" />,
                             action: () => generateContractFinalReportLogic(projectId, reportFormat)
@@ -1179,7 +1179,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'time-analysis',
-                            label: '10. Time Analysis (AC-457b)',
+                            label: 'Time Analysis (AC-457b)',
                             description: 'Evaluación de overruns, días autorizados y cálculo de daños líquidos.',
                             icon: <FileCheck size={18} className="text-amber-600" />,
                             action: () => generateTimeAnalysisReportLogic(projectId, reportFormat)
@@ -1194,7 +1194,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'firmas-partidas',
-                            label: '11. Reporte de Firmas por Partidas',
+                            label: 'Reporte de Firmas por Partidas',
                             description: 'Informe con el estado de las firmas (Admin, Contratista, Liquidador) para cada partida en liquidación.',
                             icon: <FileCheck size={18} className="text-pink-600" />,
                             action: () => generateSignedItemsReportLogic(projectId, reportFormat)
@@ -1209,7 +1209,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'firmas-pendientes',
-                            label: '12. Partidas con Firmas Pendientes',
+                            label: 'Partidas con Firmas Pendientes',
                             description: 'Lista de ítems que aún no tienen todas las firmas requeridas (Admin, Contratista, Liquidador).',
                             icon: <BadgeAlert size={18} className="text-rose-500" />,
                             action: () => generateMissingSignaturesReportLogic(projectId, reportFormat)
@@ -1224,7 +1224,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'environmental-review',
-                            label: '13. Environmental Review Certification',
+                            label: 'Environmental Review Certification',
                             description: 'Certificación de cumplimiento con las revisiones ambientales y compromisos de construcción.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             action: () => generateEnvironmentalReviewReportLogic(projectId, reportFormat)
@@ -1238,13 +1238,13 @@ function ReportesContent() {
 
                 {/* 8. Force Account */}
                 {!isContratista && (
-                <DropdownGroup title="8. Force Account" icon={<Calculator size={18} className="text-pink-500" />}>
+                <DropdownGroup title="Force Account" icon={<Calculator size={18} className="text-pink-500" />}>
                      <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'fa-anual',
-                            label: '1. Resumen Anual de FA',
+                            label: 'Resumen Anual de FA',
                             description: 'Basado en el formato oficial Resumen Anual de FA.',
                             icon: <FileText size={18} className="text-pink-500" />,
                             action: () => generateFaResumenAnualLogic(projectId, reportFormat)
@@ -1258,7 +1258,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fa-mensual',
-                            label: '2. Resumen Mensual de FA',
+                            label: 'Resumen Mensual de FA',
                             description: 'Basado en el formato oficial Resumen Mensual de FA.',
                             icon: <FileText size={18} className="text-pink-500" />,
                             action: () => generateFaResumenMensualLogic(projectId, reportFormat)
@@ -1272,7 +1272,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fa-diario',
-                            label: '3. Informe Diario de FA',
+                            label: 'Informe Diario de FA',
                             description: 'Basado en el formato oficial Informe Diario de FA.',
                             icon: <FileText size={18} className="text-pink-500" />,
                             action: () => generateFaInformeDiarioLogic(projectId, reportFormat)
@@ -1286,7 +1286,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fa-equipo',
-                            label: '4. Relación de Equipo de FA',
+                            label: 'Relación de Equipo de FA',
                             description: 'Basado en el formato oficial Relación de equipo de FA.',
                             icon: <FileText size={18} className="text-pink-500" />,
                             action: () => generateFaRelacionEquipoLogic(projectId, reportFormat)
@@ -1299,13 +1299,13 @@ function ReportesContent() {
                 )}
 
                 {/* 9. Distribución de Fondos */}
-                <DropdownGroup title="8. Distribución de Fondos" icon={<Activity size={18} className="text-green-600" />}>
+                <DropdownGroup title="Distribución de Fondos" icon={<Activity size={18} className="text-green-600" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'fund-source-projected',
-                            label: '1. Presupuesto Proyectado — ACT vs FHWA',
+                            label: 'Presupuesto Proyectado — ACT vs FHWA',
                             description: 'Distribución de todo el presupuesto del contrato original más las Órdenes de Cambio, aunque no se hayan pagado.',
                             icon: <Package size={18} className="text-blue-600" />,
                             action: () => generateProjectedFundDistributionReportLogic(projectId, reportFormat)
@@ -1322,7 +1322,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fund-source-real',
-                            label: '2. Distribución Real — ACT vs FHWA (Pagos)',
+                            label: 'Distribución Real — ACT vs FHWA (Pagos)',
                             description: 'Distribución basada únicamente en las partidas certificadas y pagadas hasta la fecha de corte.',
                             icon: <Activity size={18} className="text-green-600" />,
                             action: () => generateFundSourceReportLogic(projectId, reportFormat, endDate)
@@ -1337,13 +1337,13 @@ function ReportesContent() {
                 </DropdownGroup>
 
                 {/* 9. Minutas de Reunión */}
-                <DropdownGroup title="9. Minutas de Reunión" icon={<Files size={18} className="text-amber-600" />}>
+                <DropdownGroup title="Minutas de Reunión" icon={<Files size={18} className="text-amber-600" />}>
                     <SelectiveReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'minutes-selective',
-                            label: '1. Minutas de Reunión',
+                            label: 'Minutas de Reunión',
                             description: 'Seleccione la fecha de la reunión para generar la minuta oficial.',
                             icon: <FileText size={18} className="text-amber-700" />,
                             selectLabel: "Elegir Fecha",
@@ -1369,13 +1369,13 @@ function ReportesContent() {
 
                 {/* 10. Informes de Campo */}
                 {!isContratista && (
-                <DropdownGroup title="10. Informes de Campo" icon={<FileText size={18} className="text-emerald-500" />}>
+                <DropdownGroup title="Informes de Campo" icon={<FileText size={18} className="text-emerald-500" />}>
                     <SelectiveReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'act45-selective',
-                            label: '1. ACT-45 Informe Diario',
+                            label: 'ACT-45 Informe Diario',
                             description: 'Seleccione la fecha del reporte para generar el ACT-45 en formato PDF o Excel.',
                             icon: <FileDigit size={18} className="text-emerald-600" />,
                             selectLabel: "Elegir Fecha",
@@ -1403,7 +1403,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act96-selective',
-                            label: '2. ACT-96 Informe de Inspección',
+                            label: 'ACT-96 Informe de Inspección',
                             description: 'Seleccione la fecha del reporte para generar el ACT-96 en formato PDF o Excel.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             selectLabel: "Elegir Fecha",

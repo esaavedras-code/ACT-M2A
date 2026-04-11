@@ -72,17 +72,8 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   // ─────────────────────────────────────────────────────────────
   const slide1 = pptx.addSlide();
 
-  // Fondo degradado refinado (Blanco a Azul muy claro con acentos)
+  // Fondo blanco liso
   slide1.background = { fill: "FFFFFF" };
-  slide1.addShape(pptx.ShapeType.rect, {
-    x: 0, y: 0, w: "100%", h: "100%",
-    // @ts-ignore
-    fill: { type: "gradient", dir: "v", stops: [
-      { position: 0,   color: "FFFFFF" },
-      { position: 30,  color: "F0F4F8" },
-      { position: 100, color: "1F3864" } // Azul institucional al fondo
-    ]}
-  });
 
   // Logo ACT (esquina superior izquierda)
   if (data.actLogoUrl) {
@@ -104,10 +95,10 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   slide1.addText(
     [
-      { text: "PROYECTOS ACTIVOS\n", options: { bold: true, fontSize: 40, color: "E00EE0" } }, // Magenta
-      { text: "DISTRITO METRO\n",    options: { bold: true, fontSize: 32, color: "1F3864" } }, // Blue
+      { text: "PROYECTOS ACTIVOS\n", options: { bold: true, fontSize: 40, color: "000000" } },
+      { text: "DISTRITO METRO\n",    options: { bold: true, fontSize: 32, color: "1F3864" } },
       { text: "FECHA DEL INFORME\n", options: { bold: true, fontSize: 24, color: "000000" } },
-      { text: presDateFormatted,     options: { bold: true, fontSize: 28, color: "E00EE0" } },
+      { text: presDateFormatted,     options: { bold: true, fontSize: 28, color: "000000" } },
     ],
     {
       x: 2.5, y: 2.2, w: 8.5, h: 3.5,
@@ -243,7 +234,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
         // Borde Magenta alrededor de la foto
         slide2.addShape(pptx.ShapeType.rect, {
           x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H,
-          line: { pt: 5, color: "E00EE0" }, 
+          line: { pt: 5, color: "1F3864" }, 
           fill: { color: "none" }
         });
       }

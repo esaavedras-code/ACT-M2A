@@ -62,6 +62,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
         dir_construction: "",
         project_origin: "ACT",
     });
+    const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const [fieldStatus, setFieldStatus] = useState<Record<string, { reviewed: boolean, updated: boolean }>>({});
     const formDataRef = useRef(formData);
     const [mounted, setMounted] = useState(false);
@@ -106,6 +107,14 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
 
     useEffect(() => {
         setMounted(true);
+        const loadUserRole = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { data: userData } = await supabase.from("users").select("role_global").eq("id", session.user.id).single();
+                setIsGlobalAdmin(userData?.role_global === "A");
+            }
+        };
+        loadUserRole();
         if (projectId) {
             fetchProject();
             fetchDocuments();
@@ -551,9 +560,10 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             const { data, error } = result;
 
             if (error) {
-                if (!silent) alert("Error guardando proyecto: " + error.message);
+                const errMsg = "Error guardando proyecto: " + error.message;
+                if (!silent) alert(errMsg);
                 setLoading(false);
-                return;
+                throw new Error(errMsg);
             }
 
             const targetId = projectId || (data && data[0]?.id);
@@ -794,7 +804,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             </div>
                         </div>
                         
-                        {userRole === 'A' && (
+                        {isGlobalAdmin && (
                             <div className="flex flex-col sm:flex-row items-end gap-4 pt-2">
                                 <div className="space-y-1.5 flex-1 w-full max-w-md">
                                     <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1.5">
@@ -833,7 +843,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                         )}
 
                         {/* Banner AI - Modernizado sin chat manual */}
-                        {(projectId && userRole === 'A') && (
+                        {(projectId && isGlobalAdmin) && (
                             <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden group border border-white/10">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-white/20 transition-all duration-700"></div>
                                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/10 rounded-full blur-3xl -ml-24 -mb-24"></div>
@@ -898,7 +908,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                                 {doc ? `Subido: ${new Date(doc.uploaded_at).toLocaleDateString()}` : "Pendiente"}
                                             </span>
                                         </div>
-                                        {doc && userRole === 'A' && (
+                                        {doc && isGlobalAdmin && (
                                             <button 
                                                 type="button"
                                                 onClick={() => handleDeleteDocument(doc.id, doc.storage_path)}

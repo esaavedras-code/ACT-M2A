@@ -12,8 +12,8 @@ export default function UserAccessButton() {
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const { role } = useUserRole();
-    const isAdmin = role === 'A' || role === 'B'; // Keeping existing logic for project admin access in menu
+    const { role, roleGlobal } = useUserRole();
+    const isAdmin = role === 'A' || role === 'B'; // Keeping existing logic for project admin access in menu (Dashboard, profile, etc)
     const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
     const [loadingToggle, setLoadingToggle] = useState(false);
 
@@ -165,18 +165,7 @@ export default function UserAccessButton() {
                                 </div>
                             </button>
 
-                            <button
-                                onClick={() => { setIsMenuOpen(false); window.location.href = "/acerca-de"; }}
-                                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-sky-50 dark:hover:bg-sky-900/20 text-slate-700 dark:text-slate-300 transition-all group"
-                            >
-                                <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover:bg-sky-500/10 transition-colors text-slate-500 group-hover:text-sky-600">
-                                    <Info size={16} />
-                                </div>
-                                <div className="text-left">
-                                    <span className="block text-sm font-bold">Acerca de PACT</span>
-                                    <span className="text-[10px] text-slate-400 font-medium">Versión, autor y contacto</span>
-                                </div>
-                            </button>
+
 
                             <button
                                 onClick={handleLogout}
@@ -191,8 +180,8 @@ export default function UserAccessButton() {
                                 </div>
                             </button>
 
-                            {/* Admin-only links */}
-                            {isAdmin && (
+                            {/* Admin-only links (Program Admin strictly) */}
+                            {roleGlobal === 'A' && (
                                 <>
                                     <div className="my-1 h-px bg-slate-100 dark:bg-slate-800" />
                                     <button

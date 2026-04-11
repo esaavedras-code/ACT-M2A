@@ -9,13 +9,9 @@ import Link from "next/link";
 import MobileMenu from "@/components/MobileMenu";
 import BrandName from "@/components/BrandName";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useState } from "react";
-import { Info } from "lucide-react";
-import AboutModal from "@/components/AboutModal";
 
 export default function MainHeader() {
     const { role } = useUserRole();
-    const [isAboutOpen, setIsAboutOpen] = useState(false);
     
     // Determine background color based on role
     // Role 'F' is Contractor -> Wine color (Vino)
@@ -44,15 +40,7 @@ export default function MainHeader() {
                             <ReportesMenu />
                         </Suspense>
 
-                        <div className="bg-white/10 h-6 w-px mx-1"></div>
-                        <button 
-                            onClick={() => setIsAboutOpen(true)}
-                            className="flex items-center gap-1.5 p-2 rounded-lg hover:bg-white/10 transition-all group"
-                            title="Sobre el programa"
-                        >
-                            <Info size={16} className="text-blue-200 group-hover:text-white" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-blue-100/70 group-hover:text-white hidden xl:inline">About</span>
-                        </button>
+
                     </nav>
                 </div>
                 <div className="flex items-center gap-2 md:gap-4 shrink-0">
@@ -64,7 +52,6 @@ export default function MainHeader() {
                     <UserAccessButton />
                 </div>
             </div>
-            <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
         </header>
     );
 }

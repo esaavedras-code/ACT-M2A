@@ -7,6 +7,7 @@ export type ProjectRole = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'standard';
 
 export function useUserRole() {
     const [role, setRole] = useState<ProjectRole>('standard');
+    const [roleGlobal, setRoleGlobal] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -24,9 +25,11 @@ export function useUserRole() {
             
             if (userData?.role_global === 'A') {
                 setRole('A');
+                setRoleGlobal('A');
                 setLoading(false);
                 return;
             }
+            setRoleGlobal(userData?.role_global || null);
 
             // Check memberships for specific roles (especially Contractor F)
             const { data: membershipData } = await supabase.from("memberships")
@@ -51,5 +54,5 @@ export function useUserRole() {
         return () => subscription.unsubscribe();
     }, []);
 
-    return { role, loading };
+    return { role, roleGlobal, loading };
 }

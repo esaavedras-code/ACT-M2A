@@ -11,14 +11,13 @@ import {
 } from "lucide-react";
 import BrandName from "@/components/BrandName";
 import { useUserRole } from "@/hooks/useUserRole";
-import AboutModal from "@/components/AboutModal";
  
  export default function MobileMenu() {
      const [isOpen, setIsOpen] = useState(false);
-     const [isAboutOpen, setIsAboutOpen] = useState(false);
      const pathname = usePathname();
-     const { role } = useUserRole();
+     const { role, roleGlobal } = useUserRole();
      const isAdmin = role === 'A';
+     const isGlobalAdmin = roleGlobal === 'A';
  
      const [userName, setUserName] = useState<string | null>(null);
     const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -50,7 +49,7 @@ import AboutModal from "@/components/AboutModal";
         { name: "Mi Perfil", href: "/perfil", icon: FileText },
     ];
 
-    if (isAdmin) {
+    if (isGlobalAdmin) {
         menuItems.push({ name: "Solicitudes de Acceso", href: "/admin/requests", icon: Briefcase });
     }
 
@@ -208,18 +207,13 @@ import AboutModal from "@/components/AboutModal";
                         </Link>
                         
                         <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
-                            <button 
-                                onClick={() => setIsAboutOpen(true)}
-                                className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-primary transition-colors cursor-pointer"
-                            >
-                                M2A Group - <BrandName /> v3.26.0410
-                            </button>
+                            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                Diseñador: Ing. Enrique Saavedra Sada, PE
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
         </div>
     );
 }

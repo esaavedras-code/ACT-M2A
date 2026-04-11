@@ -257,6 +257,11 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                 proj.cost_original = originalCost;
                 proj.cost_revised = revisedCost;
                 proj.projected_increase = approvedCHO;
+                
+                // Actualizar la base de datos con los datos corregidos al momento
+                await supabase.from('projects').update({
+                    cost_original: originalCost
+                }).eq('id', projectId);
             }
 
             // 3. Obtener logo ACT
