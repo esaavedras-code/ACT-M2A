@@ -85,35 +85,37 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                 return;
             }
             
-            // 1. Crear el token UUID
-            const token = crypto.randomUUID();
+            // 1. Asegurar contraseña temporal, debe empezar con PACT- para forzar cambio si es usuario nuevo
+            const actualPassword = tempPassword && tempPassword.startsWith('PACT-') ? tempPassword : `PACT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+            
+            // 2. Crear y asignar usuario usando API
+            const reqRes = await fetch('/api/create-project-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    role,
+                    projectId,
+                    password: actualPassword,
+                    invitedBy: session.user.id
+                })
+            });
 
-            // 2. Insertar en la Base de Datos directamente (Requiere Nivel A o B según RLS)
-            const { error: insertError } = await supabase.from("memberships").insert([{
-                project_id: projectId,
-                role: role,
-                invited_by_user_id: session.user.id,
-                invite_method: 'email',
-                invite_token_hash: token,
-                expires_at: null,
-                max_uses: 1,
-            }]);
-
-            if (insertError) {
-                alert("No pudimos registrar la invitación. Error: " + insertError.message);
+            const apiData = await reqRes.json();
+            if (!reqRes.ok) {
+                alert("No pudimos crear o asignar el usuario. Error: " + (apiData.error || reqRes.statusText));
                 return;
             }
 
-            // 3. Preparar enlace de invitación 
-            const inviteLink = `https://act-m2-a.vercel.app/login?invite_token=${token}`;
-            const messageStr = "Únete a este proyecto en la PACT";
+            // 3. Preparar enlace a login
+            const loginLink = `https://act-m2-a.vercel.app/login`;
 
             // 4. Enviar correo vía Electron IPC o fallback de API Web
             // @ts-ignore
             const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
             const emailData = {
                 to: email,
-                subject: `Invitación a Proyecto en PACT`,
+                subject: `Acceso a Proyecto en PACT`,
                 html: `
                     <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
                         
@@ -125,32 +127,27 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
 
                         <!-- Body -->
                         <div style="padding: 32px; background-color: white;">
-                            <h2 style="color: #1e293b; margin: 0 0 12px 0;">¡Has sido invitado a PACT!</h2>
+                            <h2 style="color: #1e293b; margin: 0 0 12px 0;">¡Tienes acceso a PACT!</h2>
                             <p style="color: #64748b; line-height: 1.6; margin: 0 0 24px 0;">
-                                Has sido invitado a participar con el rol <strong style="color: #2563eb;">Nivel ${role}</strong> en un proyecto de construcción de la ACT.
+                                Se te ha asignado el rol <strong style="color: #2563eb;">Nivel ${role}</strong> en un proyecto de construcción de la ACT.
                             </p>
 
                             <!-- Credenciales -->
                             <div style="background-color: #f8fafc; padding: 20px; border-radius: 10px; margin: 0 0 24px 0; border: 1px solid #e2e8f0;">
                                 <p style="margin: 0 0 12px 0; font-weight: 700; color: #374151; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">🔑 Tus Credenciales de Acceso</p>
                                 <p style="margin: 5px 0; font-size: 15px;"><strong>Usuario:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px;">${email}</code></p>
-                                ${tempPassword ? `<p style="margin: 5px 0; font-size: 15px;"><strong>Password Temporal:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 16px; font-weight: bold;">${tempPassword}</code></p>` : ''}
+                                ${apiData.isNewUser ? `<p style="margin: 5px 0; font-size: 15px;"><strong>Password Temporal:</strong> <code style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 16px; font-weight: bold;">${actualPassword}</code></p>` : `<p style="margin: 5px 0; font-size: 14px; color: #64748b;"><i>Usa tu contraseña actual de PACT.</i></p>`}
                             </div>
 
                             <!-- Botones -->
                             <div style="text-align: center; margin: 28px 0 20px 0;">
-                                <a href="https://act-m2-a.vercel.app" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 16px; margin-bottom: 12px;">
+                                <a href="${loginLink}" style="background-color: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; font-weight: 700; display: inline-block; font-size: 16px; margin-bottom: 12px;">
                                     🌐 Entrar al Programa Web
-                                </a>
-                                <br/>
-                                <a href="${inviteLink}" style="background-color: #f1f5f9; color: #2563eb; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: 600; display: inline-block; font-size: 14px; border: 1px solid #e2e8f0;">
-                                    ✅ Aceptar Invitación al Proyecto
                                 </a>
                             </div>
 
                             <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 20px 0 0 0; border-top: 1px solid #f1f5f9; padding-top: 16px;">
-                                Enlace web: <a href="https://act-m2-a.vercel.app" style="color: #2563eb;">https://act-m2-a.vercel.app</a><br/>
-                                Si el botón no funciona, copia: ${inviteLink}
+                                Enlace web: <a href="${loginLink}" style="color: #2563eb;">${loginLink}</a>
                             </p>
                         </div>
 
