@@ -72,34 +72,32 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   // ─────────────────────────────────────────────────────────────
   const slide1 = pptx.addSlide();
 
-  // Fondo degradado: blanco → salmón/naranja (igual que el gradiente del PPTX)
-  // pptxgenjs no admite gradientes directos en fondo, usamos rectángulo de fondo
+  // Fondo degradado exacto de la plantilla
   slide1.background = { fill: "FFFFFF" };
-
-  // Rect. de fondo degradado simulado con rectángulos superpuestos
   slide1.addShape(pptx.ShapeType.rect, {
     x: 0, y: 0, w: "100%", h: "100%",
     // @ts-ignore
     fill: { type: "gradient", dir: "v", stops: [
       { position: 0,   color: "FFFFFF" },
-      { position: 30,  color: "FFFFFF" },
+      { position: 3,   color: "FFFFFF" },
+      { position: 18,  color: "FFFFFF" },
       { position: 68,  color: "F5BB93" },
       { position: 100, color: "ED7D31" }
     ]}
   });
 
-  // Logo ACT (esquina superior izquierda)
+  // Logo ACT (esquina superior izquierda, posición exacta)
   if (data.actLogoUrl) {
     const logoB64 = await urlToBase64(data.actLogoUrl);
     if (logoB64) {
       slide1.addImage({
         data: `image/png;base64,${logoB64}`,
-        x: 0.2, y: 0.1, w: 2.0, h: 1.2,
+        x: 0.1, y: 0.05, w: 2.5, h: 1.5,
       });
     }
   }
 
-  // Texto central: PROYECTOS ACTIVOS / DISTRITO METRO / FECHA DEL INFORME / [fecha]
+  // Texto central (Montserrat, Azul oscuro)
   const presDateFormatted = new Date(data.presentationDate + "T12:00:00").toLocaleDateString("es-PR", {
     day: "numeric",
     month: "numeric",
@@ -114,7 +112,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
       { text: presDateFormatted,     options: { bold: true, fontSize: 36, color: "1F3864" } },
     ],
     {
-      x: 3.0, y: 2.0, w: 9.5, h: 4.5,
+      x: 3.2, y: 2.2, w: 7.0, h: 3.5,
       align: "center",
       valign: "middle",
       fontFace: "Montserrat",
@@ -135,189 +133,130 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   const revCost  = proj.cost_revised  || origCost;
   const pctCert  = revCost > 0 ? ((certsSum / revCost) * 100).toFixed(2) + "%" : "0.00%";
 
-  // Logo ACT (esquina superior izquierda)
+  // Logo ACT pequeño
   if (data.actLogoUrl) {
     const logoB64 = await urlToBase64(data.actLogoUrl);
     if (logoB64) {
       slide2.addImage({
         data: `image/png;base64,${logoB64}`,
-        x: 0.05, y: 0.05, w: 1.8, h: 1.0,
+        x: 0.05, y: 0.02, w: 1.8, h: 1.1,
       });
     }
   }
 
-  // Caja número de proyecto (superior, después del logo)
+  // Caja número de proyecto (Superior)
   slide2.addText(`${numAct} / ${numFed}`, {
-    x: 2.0, y: 0.1, w: 7.0, h: 0.55,
-    bold: true, fontSize: 22, color: "000000",
-    fill: { color: "FFE5CC" },
-    line: { pt: 1, color: "000000" },
+    x: 2.35, y: 0.14, w: 8.6, h: 0.5,
+    bold: true, fontSize: 24, fontFace: "Montserrat", color: "1F3864",
+    fill: { color: "F8F9FA" },
+    line: { pt: 0.5, color: "D1D5DB" },
     valign: "middle",
-    margin: 0.05,
+    align: "left",
+    margin: 0.1,
   });
 
-  // Nombre del proyecto
-  slide2.addText(proj.name?.substring(0, 80) || "Nombre del Proyecto", {
-    x: 2.0, y: 0.7, w: 7.0, h: 0.4,
-    bold: true, fontSize: 14, color: "000000",
-    margin: 0.03,
+  // Nombre del proyecto (Montserrat)
+  slide2.addText(proj.name?.substring(0, 100) || "Nombre del Proyecto", {
+    x: 2.2, y: 0.65, w: 10.5, h: 0.45,
+    bold: true, fontSize: 18, fontFace: "Montserrat", color: "000000",
+    valign: "middle",
   });
 
-  // ── COLUMNA IZQUIERDA: Tabla de datos ──
-  const COL1_X = 0.12;
-  const COL1_W = 1.3;
-  const COL2_W = 1.6;
-  const TABLE_W = COL1_W + COL2_W;
-  const TABLE_FONT = 9;
-  const ROW_H = 0.22;
+  // ── COLUMNA IZQUIERDA: Descripción y Tabla ──
+  const COL_X = 0.18;
+  const TABLE_W = 4.2;
 
   // Cuadro descripción
-  const desc = proj.description || "Proyecto de mejoras y rehabilitación.";
+  const desc = proj.description || "N/A";
   slide2.addText([
-    { text: "Descripción del Proyecto:\n", options: { bold: true, italic: true, fontSize: 10, color: "000000" } },
-    { text: desc, options: { bold: false, italic: false, fontSize: 9, color: "000000" } }
+    { text: "Descripción del Proyecto:\n", options: { bold: true, italic: true, fontSize: 11, color: "000000" } },
+    { text: desc, options: { bold: false, italic: false, fontSize: 10, color: "000000" } }
   ], {
-    x: COL1_X, y: 1.15, w: TABLE_W, h: 1.3,
-    line: { pt: 1, color: "000000" },
-    valign: "top",
-    margin: 0.05,
-    fontFace: "Calibri",
-    wrap: true,
-  });
-
-  // Helper para filas de tabla izquierda
-  let rowY = 2.52;
-  const addTableRow = (label: string, value: string) => {
-    // Celda label
-    slide2.addText(label, {
-      x: COL1_X, y: rowY, w: COL1_W, h: ROW_H,
-      line: { pt: 1, color: "000000" },
-      fontSize: TABLE_FONT, fontFace: "Calibri",
-      margin: 0.03, valign: "middle",
-    });
-    // Celda valor
-    slide2.addText(value, {
-      x: COL1_X + COL1_W, y: rowY, w: COL2_W, h: ROW_H,
-      line: { pt: 1, color: "000000" },
-      fontSize: TABLE_FONT, fontFace: "Calibri", bold: true,
-      margin: 0.03, valign: "middle",
-    });
-    rowY += ROW_H;
-  };
-
-  addTableRow("Administrador",              proj.admin_name             || "N/A");
-  addTableRow("Supervisor",                 proj.project_manager_name   || "N/A");
-  addTableRow("Contratista",                proj.contractor_name?.substring(0, 35) || "N/A");
-  addTableRow("Fecha del Informe",          new Date(data.presentationDate + "T12:00:00").toLocaleDateString("es-ES", { month: "long", day: "numeric", year: "numeric" }));
-  addTableRow("Costo Original",             formatCurrency(origCost));
-  addTableRow("Costo Revisado",             formatCurrency(revCost));
-  addTableRow("Incremento ($) Proyectado",  formatCurrency(proj.projected_increase || 0));
-
-  // Celda "Última certificación" combinada
-  const certDateStr  = data.lastCert?.date   ? formatDate(data.lastCert.date)             : "N/A";
-  const certAmtStr   = data.lastCert?.amount !== undefined ? formatCurrency(data.lastCert.amount) : "$0.00";
-
-  slide2.addText("Última\ncertificación", {
-    x: COL1_X, y: rowY, w: COL1_W, h: ROW_H * 2,
-    line: { pt: 1, color: "000000" },
-    fontSize: TABLE_FONT, fontFace: "Calibri", bold: true,
-    margin: 0.03, valign: "middle",
-  });
-  slide2.addText("Fecha:",  { x: COL1_X + COL1_W, y: rowY,          w: COL2_W / 2, h: ROW_H,  line: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", margin: 0.03, valign: "middle" });
-  slide2.addText(certDateStr, { x: COL1_X + COL1_W + COL2_W / 2, y: rowY,   w: COL2_W / 2, h: ROW_H,  line: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", bold: true, margin: 0.03, valign: "middle" });
-  slide2.addText("Monto:",  { x: COL1_X + COL1_W, y: rowY + ROW_H, w: COL2_W / 2, h: ROW_H,  line: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", margin: 0.03, valign: "middle" });
-  slide2.addText(certAmtStr,  { x: COL1_X + COL1_W + COL2_W / 2, y: rowY + ROW_H, w: COL2_W / 2, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: TABLE_FONT, fontFace: "Calibri", bold: true, margin: 0.03, valign: "middle" });
-  rowY += ROW_H * 2;
-
-  addTableRow("Monto Certificado Acumulado",  formatCurrency(certsSum));
-  addTableRow("Monto Ejecutado Acumulado",    formatCurrency(certsSum));
-  addTableRow("Fecha de Comienzo",            formatDate(proj.start_date));
-  addTableRow("Terminación Original (fecha)", formatDate(proj.original_end_date));
-  addTableRow("Terminación Revisada (fecha)", formatDate(proj.revised_end_date));
-  addTableRow("Terminación Proyectada",       formatDate(proj.estimated_end_date));
-  addTableRow("% Obra Certificado",           pctCert);
-  addTableRow("% Obra Ejecutado",             pctCert);
-  addTableRow("% Tiempo",                     "0.00%");
-
-  // Fila de Tipo de Fondo / Term. Sustanc.
-  const QUARTER = TABLE_W / 4;
-  slide2.addText("Tipo de Fondo",           { x: COL1_X,              y: rowY, w: QUARTER, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", margin: 0.02, valign: "middle" });
-  slide2.addText(proj.fund_source || "Federal", { x: COL1_X + QUARTER,    y: rowY, w: QUARTER, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", bold: true, margin: 0.02, valign: "middle" });
-  slide2.addText("Term. Sustanc.",          { x: COL1_X + QUARTER * 2, y: rowY, w: QUARTER, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", margin: 0.02, valign: "middle" });
-  slide2.addText("No",                      { x: COL1_X + QUARTER * 3, y: rowY, w: QUARTER, h: ROW_H, line: { pt: 1, color: "000000" }, fontSize: 8, fontFace: "Calibri", bold: true, margin: 0.02, valign: "middle" });
-
-  // ── COLUMNA CENTRAL: Actividades y Puntos Críticos ──
-  const MID_X = 3.12;
-  const MID_W = 4.5;
-
-  // Actividades
-  slide2.addText([
-    { text: "Actividades Realizándose:\n", options: { bold: true, italic: true, fontSize: 13, color: "000000" } },
-    { text: data.activities || "Ninguna.", options: { bold: false, italic: false, fontSize: 11, color: "000000" } }
-  ], {
-    x: MID_X, y: 1.15, w: MID_W, h: 4.0,
+    x: COL_X, y: 1.2, w: TABLE_W, h: 1.6,
     line: { pt: 1, color: "000000" },
     valign: "top",
     margin: 0.1,
     fontFace: "Calibri",
-    wrap: true,
   });
 
-  // Puntos críticos
+  // Tabla de datos (5 columnas, diseño denso)
+  const rows = [
+    ["Administrador", "", proj.admin_name || "N/A", "", ""],
+    ["Supervisor", "", proj.project_manager_name || "N/A", "", ""],
+    ["Contratista", "", proj.contractor_name || "N/A", "", ""],
+    ["Fecha Informe", "", formatDate(data.presentationDate), "", ""],
+    ["Costo Original", "", formatCurrency(origCost), "", ""],
+    ["Costo Revisado", "", formatCurrency(revCost), "", ""],
+    ["Inc. Proyectado", "", formatCurrency(proj.projected_increase || 0), "", ""],
+    ["Cert. Fecha", "Fecha:", formatDate(data.lastCert?.date), "Monto:", formatCurrency(data.lastCert?.amount || 0)],
+    ["Monto Cert. Acum.", "", formatCurrency(certsSum), "", ""],
+    ["Monto Ejec. Acum.", "", formatCurrency(certsSum), "", ""],
+    ["Fecha Comienzo", "", formatDate(proj.start_date), "", ""],
+    ["Term. Original", "", formatDate(proj.original_end_date), "", ""],
+    ["Term. Revisada", "", formatDate(proj.revised_end_date), "", ""],
+    ["Term. Proyectada", "", formatDate(proj.estimated_end_date), "", ""],
+    ["% Obra Cert.", "", pctCert, "", ""],
+    ["% Obra Ejec.", "", pctCert, "", ""],
+    ["% Tiempo", "", "0.00%", "", ""],
+    ["Fondo / Term. Sust.", proj.fund_source || "Federal", "", "Term. Sust.", "No"]
+  ];
+
+  slide2.addTable(rows.map(r => r.map(c => ({ text: c, options: { fontSize: 8, fontFace: "Calibri", bold: true, border: { pt: 0.5, color: "333333" }, valign: "middle" } }))), {
+    x: COL_X, y: 2.9, w: TABLE_W,
+    colW: [1.3, 0.4, 1.2, 0.8, 0.5],
+  });
+
+  // ── COLUMNA CENTRAL: Actividades y Puntos ──
+  const MID_X = 4.5;
+  const MID_W = 4.4;
+
+  slide2.addText([
+    { text: "Actividades Realizándose:\n", options: { bold: true, italic: true, fontSize: 13, color: "000000" } },
+    { text: data.activities || "Sin actividades registradas.", options: { bold: false, italic: false, fontSize: 11, color: "000000" } }
+  ], {
+    x: MID_X, y: 1.2, w: MID_W, h: 3.3,
+    line: { pt: 1, color: "000000" },
+    valign: "top", margin: 0.1, fontFace: "Calibri",
+  });
+
   slide2.addText([
     { text: "Puntos críticos a atender:\n", options: { bold: true, italic: true, fontSize: 13, color: "000000" } },
     { text: data.criticalPoints || "Ninguno al momento.", options: { bold: false, italic: false, fontSize: 11, color: "000000" } }
   ], {
-    x: MID_X, y: 5.2, w: MID_W, h: 2.0,
+    x: MID_X, y: 4.55, w: MID_W, h: 2.8,
     line: { pt: 1, color: "000000" },
-    valign: "top",
-    margin: 0.1,
-    fontFace: "Calibri",
-    wrap: true,
+    valign: "top", margin: 0.1, fontFace: "Calibri",
   });
 
   // ── COLUMNA DERECHA: Fotos ──
-  const RIGHT_X  = 7.72;
-  const PHOTO_W  = 5.4;
-  const PHOTO_H  = 3.05;
-  const PHOTO1_Y = 1.15;
-  const PHOTO2_Y = PHOTO1_Y + PHOTO_H + 0.15;
+  const RIGHT_X = 9.2;
+  const PHOTO_W = 3.8;
+  const PHOTO_H = 2.7;
 
-  // Foto 1
-  if (data.photo1Url) {
-    const p1b64 = await urlToBase64(data.photo1Url);
-    if (p1b64) {
-      slide2.addImage({
-        data: `image/${getImgExt(data.photo1Url)};base64,${p1b64}`,
-        x: RIGHT_X, y: PHOTO1_Y, w: PHOTO_W, h: PHOTO_H,
-        sizing: { type: "contain", w: PHOTO_W, h: PHOTO_H },
-      });
+  const addPhoto = async (url: string | null, y: number) => {
+    if (url) {
+      const b64 = await urlToBase64(url);
+      if (b64) {
+        slide2.addImage({
+          data: `image/${getImgExt(url)};base64,${b64}`,
+          x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H,
+          sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H },
+        });
+        // Borde grueso alrededor de la foto
+        slide2.addShape(pptx.ShapeType.rect, {
+          x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H,
+          line: { pt: 5, color: "000000" }, 
+          fill: { color: "none" }
+        });
+      }
     } else {
-      slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: PHOTO1_Y, w: PHOTO_W, h: PHOTO_H, fill: { color: "CCCCCC" }, line: { color: "000000", pt: 2 } });
-      slide2.addText("PROYECTO AC", { x: RIGHT_X, y: PHOTO1_Y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 14 });
+       slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, fill: { color: "F3F4F6" }, line: { color: "9CA3AF", pt: 1 } });
+       slide2.addText("PROYECTO AC\n(Sin imagen)", { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 12, color: "6B7280" });
     }
-  } else {
-    slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: PHOTO1_Y, w: PHOTO_W, h: PHOTO_H, fill: { color: "EEEEEE" }, line: { color: "AAAAAA", pt: 2 } });
-    slide2.addText("PROYECTO AC\n(Sin imagen)", { x: RIGHT_X, y: PHOTO1_Y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 12, color: "999999" });
-  }
+  };
 
-  // Foto 2
-  if (data.photo2Url) {
-    const p2b64 = await urlToBase64(data.photo2Url);
-    if (p2b64) {
-      slide2.addImage({
-        data: `image/${getImgExt(data.photo2Url)};base64,${p2b64}`,
-        x: RIGHT_X, y: PHOTO2_Y, w: PHOTO_W, h: PHOTO_H,
-        sizing: { type: "contain", w: PHOTO_W, h: PHOTO_H },
-      });
-    } else {
-      slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: PHOTO2_Y, w: PHOTO_W, h: PHOTO_H, fill: { color: "CCCCCC" }, line: { color: "000000", pt: 2 } });
-      slide2.addText("PROYECTO AC", { x: RIGHT_X, y: PHOTO2_Y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 14 });
-    }
-  } else {
-    slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: PHOTO2_Y, w: PHOTO_W, h: PHOTO_H, fill: { color: "EEEEEE" }, line: { color: "AAAAAA", pt: 2 } });
-    slide2.addText("PROYECTO AC\n(Sin imagen)", { x: RIGHT_X, y: PHOTO2_Y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 12, color: "999999" });
-  }
+  await addPhoto(data.photo1Url, 1.2);
+  await addPhoto(data.photo2Url, 4.4);
 
   // ── Exportar a Blob ──
   const pptxBuf = await pptx.write({ outputType: "arraybuffer" }) as ArrayBuffer;
