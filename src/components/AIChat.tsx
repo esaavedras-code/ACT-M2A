@@ -15,7 +15,7 @@ function AIChatContent() {
     const searchParams = useSearchParams();
     const projectId = searchParams.get("id");
 
-    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [position, setPosition] = useState({ x: -100, y: -100 });
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [hasMoved, setHasMoved] = useState(false);
@@ -28,6 +28,8 @@ function AIChatContent() {
             } catch (e) {
                 console.error("Error loading AI position", e);
             }
+        } else if (typeof window !== 'undefined') {
+            setPosition({ x: window.innerWidth - 80, y: 160 });
         }
     }, []);
 
@@ -135,10 +137,12 @@ function AIChatContent() {
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleMouseDown}
                 onClick={() => !hasMoved && setIsOpen(true)}
-                className={`fixed top-[2in] right-5 lg:right-10 w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all z-[100] group overflow-hidden cursor-move ${loading ? 'animate-pulse' : ''}`}
+                className={`fixed w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all z-[9999] group overflow-hidden cursor-move ${loading ? 'animate-pulse' : ''}`}
                 style={{
-                    transform: `translate(${position.x}px, ${position.y}px)`,
-                    transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                    left: `${position.x}px`,
+                    top: `${position.y}px`,
+                    transition: isDragging ? 'none' : 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    visibility: position.x === -100 ? 'hidden' : 'visible'
                 }}
             >
                 <Bot size={28} className="relative z-10 group-hover:scale-110 transition-transform" />
@@ -149,15 +153,20 @@ function AIChatContent() {
 
     return (
         <div 
-            className={`fixed top-[2in] right-0 lg:right-10 w-full lg:w-[400px] bg-white dark:bg-slate-950 lg:rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-200 dark:border-slate-800 flex flex-col z-[100] transition-all duration-300 ${minimized ? 'h-16 overflow-hidden' : 'h-[600px] max-h-[70vh]'}`}
+            className={`fixed w-full lg:w-[400px] bg-white dark:bg-slate-950 lg:rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-200 dark:border-slate-800 flex flex-col z-[9999] transition-all duration-300 ${minimized ? 'h-16 overflow-hidden' : 'h-[600px] max-h-[70vh]'}`}
             style={{
-                transform: `translate(${position.x}px, ${position.y}px)`,
+                left: `${(typeof window !== 'undefined' && position.x > (window.innerWidth - 420)) ? (window.innerWidth - 420) : position.x}px`,
+                top: `${position.y}px`,
                 transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
         >
-            {/* Header */}
-            <div className="p-5 bg-blue-600 text-white flex justify-between items-center lg:rounded-t-[2rem]">
-                <div className="flex items-center gap-3">
+            {/* Header - Now handles dragging for the whole dialog */}
+            <div 
+                onMouseDown={handleMouseDown}
+                onTouchStart={handleMouseDown}
+                className="p-5 bg-blue-600 text-white flex justify-between items-center lg:rounded-t-[2rem] cursor-move select-none"
+            >
+                <div className="flex items-center gap-3 pointer-events-none">
                     <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center">
                         <Bot size={22} />
                     </div>

@@ -56,8 +56,14 @@ export default function RootLayout({
                             </div>
                         </main>
 
-                        <footer className="bg-slate-900 text-slate-500 py-8 text-center text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800 mb-20 lg:mb-0" suppressHydrationWarning>
-                            <p>© M2A Group - Sistema de Control de Proyectos Carreteras</p>
+                        <footer className="bg-slate-900 text-slate-500 py-10 px-4 text-center text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800 mb-20 lg:mb-0" suppressHydrationWarning>
+                            <div className="max-w-7xl mx-auto space-y-4">
+                                <p>© 2026 M2A Group - Sistema de Control de Proyectos Carreteras</p>
+                                <div className="pt-4 border-t border-slate-800/50 inline-block px-8">
+                                    <p className="text-slate-600">Diseñador y Desarrollador</p>
+                                    <p className="text-slate-400 mt-1 text-xs">Ing. Enrique Saavedra Sada, PE</p>
+                                </div>
+                            </div>
                         </footer>
                         <Suspense fallback={null}>
                             <QuickHelpModal />

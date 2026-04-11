@@ -75,7 +75,7 @@ export default function ProjectsPage() {
             `)
             .order("created_at", { ascending: false });
 
-        if (scope === 'my' && !globalAdmin) {
+        if (!globalAdmin) {
             if (allowedIds.length === 0) {
                 setProjects([]);
                 setLoading(false);

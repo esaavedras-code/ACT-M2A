@@ -43,17 +43,24 @@ export default function BottomNav() {
         { id: "personnel",   label: "2. Firmas ACT",     icon: Users },
         { id: "items",       label: "3. Partidas contrato",  icon: ListChecks },
         { id: "materials",   label: "4. Mat. on Site",   icon: Package },
-        { id: "compliance",  label: "5. Cumplimiento",   icon: ShieldCheck },
+        { id: "compliance",  label: "5. Cumplimiento laboral",   icon: ShieldCheck },
         { id: "cho",         label: "6. Change Orders",  icon: FileEdit },
         { id: "payment",     label: "7. Pagos",          icon: FileCheck },
         { id: "mfg",         label: "8. Cert. CM",       icon: Factory },
-        { id: "minutes",     label: "9. Minutas",        icon: Mic },
-        { id: "logs",        label: "10. Actividades",   icon: Cloud },
-        { id: "inspection",  label: "11. Inspección",    icon: FileCheck },
-        { id: "force",       label: "12. Force Account", icon: Calculator },
+        { id: "minutes",     label: "9. Minutas",        icon: Mic, wip: true },
+        { id: "logs",        label: "10. Actividades",   icon: Cloud, wip: true },
+        { id: "inspection",  label: "11. Inspección",    icon: FileCheck, wip: true },
+        { id: "force",       label: "12. Force Account", icon: Calculator, wip: true },
         { id: "liquidation", label: "13. Liquidación",   icon: TrendingUp },
         { id: "ccml",        label: "14. Cambios al CCML", icon: FileEdit },
-    ];
+    ].filter(t => {
+        if (role === 'A') return true;
+        // Ocultar WIP y secciones administrativas para otros roles
+        if (t.wip) return false;
+        const adminOnly = ['force', 'minutes', 'logs', 'inspection', 'personnel'];
+        if (adminOnly.includes(t.id)) return false;
+        return true;
+    });
 
     const navItems = [
         { name: "Dashboard", href: "/", icon: LayoutDashboard },

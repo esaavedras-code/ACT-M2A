@@ -119,7 +119,7 @@ function ProjectDetailContent() {
         { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
         { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
         { id: "materials",   label: "Mat. on Site",   icon: <Package size={12} /> },
-        { id: "compliance",  label: "Cumplimiento",   icon: <ShieldCheck size={12} />, wip: true },
+        { id: "compliance",  label: "Cumplimiento laboral",   icon: <ShieldCheck size={12} /> },
         { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
         { id: "payment",     label: "Pagos",          icon: <FileCheck size={12} /> },
         { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
@@ -129,14 +129,25 @@ function ProjectDetailContent() {
         { id: "force",       label: "Force Account", icon: <Calculator size={12} />, wip: true },
         { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
         { id: "ccml",        label: "Cambios al CCML", icon: <FileEdit size={12} /> },
-        { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} /> },
-        { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} /> },
-        { id: "negotiation", label: "Negociación", icon: <Handshake size={12} /> },
+        { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} />, wip: true },
+        { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} />, wip: true },
+        { id: "negotiation", label: "Negociación", icon: <Handshake size={12} />, wip: true },
     ];
 
-    // Filtrar pestañas basadas en el rol Contratista ('F')
+    // Filtrar pestañas basadas en roles
     const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "inspection", "logs", "presentations", "personnel"];
-    const filteredTabs = tabs.filter(t => !(role === 'F' && hiddenForContratista.includes(t.id)));
+    const filteredTabs = tabs.filter(t => {
+        // Reglas generales para No Administradores
+        if (role !== 'A') {
+            if (t.wip) return false;
+            if (t.id === 'force' || t.id === 'minutes' || t.id === 'logs' || t.id === 'inspection') return false;
+        }
+        // Reglas específicas adicionales para Contratista ('F')
+        if (role === 'F' && hiddenForContratista.includes(t.id)) {
+            return false;
+        }
+        return true;
+    });
 
     const handleTabChange = (newTab: string) => {
         const targetTab = tabs.find(t => t.id === newTab) || filteredTabs.find(t => t.id === newTab);
@@ -361,8 +372,8 @@ function ProjectDetailContent() {
 
             <div className="flex flex-col lg:flex-row gap-8 items-start relative">
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
-                <div className="lg:fixed lg:top-[128px] lg:left-4 z-[100] w-full lg:w-[220px] shrink-0 transition-all duration-300">
-                    <div className="flex flex-row lg:flex-col flex-wrap lg:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
+                <div className="md:fixed md:top-[128px] md:left-4 z-[90] w-full md:w-[200px] lg:w-[220px] shrink-0 transition-all duration-300">
+                    <div className="flex flex-row md:flex-col flex-wrap md:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
                         {filteredTabs.filter(t => role !== 'E' || t.id === 'logs').map(tab => (
                             <button
                                 key={tab.id}
@@ -384,7 +395,7 @@ function ProjectDetailContent() {
                 </div>
 
                 {/* Área de Contenido Principal */}
-                <div className="flex-1 w-full min-w-0 lg:ml-[240px]">
+                <div className="flex-1 w-full min-w-0 md:ml-[220px] lg:ml-[240px]">
                     <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-4 md:p-10 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
                         <div className="relative z-10">

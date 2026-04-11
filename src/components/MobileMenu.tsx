@@ -61,20 +61,26 @@ import AboutModal from "@/components/AboutModal";
         { id: "dashboard",   label: "Resumen",        icon: LayoutDashboard },
         { id: "files",       label: "Archivos",        icon: FolderOpen },
         { id: "project",     label: "Datos Proyecto",       icon: FileText },
-        { id: "personnel",   label: "Firmas ACT",     icon: Home }, // Users -> Home fallback if needed, but I'll use Home for simplicity or import others
+        { id: "personnel",   label: "Firmas ACT",     icon: Home },
         { id: "items",       label: "Partidas contrato",  icon: ListChecks },
         { id: "materials",   label: "Mat. on Site",   icon: Package },
-        { id: "compliance",  label: "Cumplimiento",   icon: ShieldCheck },
+        { id: "compliance",  label: "Cumplimiento laboral",   icon: ShieldCheck },
         { id: "cho",         label: "Change Orders",  icon: FileEdit },
         { id: "payment",     label: "Pagos",          icon: FileCheck },
         { id: "mfg",         label: "Cert. CM",       icon: FileText },
-        { id: "minutes",     label: "Minutas",        icon: Mic },
-        { id: "logs",        label: "Actividades",   icon: Cloud },
-        { id: "inspection",  label: "Inspección",    icon: FileCheck },
-        { id: "force",       label: "Force Account", icon: Calculator },
+        { id: "minutes",     label: "Minutas",        icon: Mic, wip: true },
+        { id: "logs",        label: "Actividades",   icon: Cloud, wip: true },
+        { id: "inspection",  label: "Inspección",    icon: FileCheck, wip: true },
+        { id: "force",       label: "Force Account", icon: Calculator, wip: true },
         { id: "liquidation", label: "Liquidación",   icon: TrendingUp },
         { id: "ccml",        label: "Cambios al CCML", icon: FileEdit },
-    ];
+    ].filter(t => {
+        if (isAdmin) return true;
+        if (t.wip) return false;
+        const adminOnly = ['force', 'minutes', 'logs', 'inspection', 'personnel'];
+        if (adminOnly.includes(t.id)) return false;
+        return true;
+    });
 
     return (
         <div className="lg:hidden">

@@ -28,6 +28,7 @@ function createWindow() {
         width: 1200,
         height: 800,
         title: "Proyectos ACT (PACT)",
+        icon: path.join(__dirname, '../public/icon.png'),
         autoHideMenuBar: true,
         webPreferences: {
             nodeIntegration: false,
