@@ -24,9 +24,9 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
     const [linkLoading, setLinkLoading] = useState(false);
     const [tempPassword, setTempPassword] = useState("");
     
-    // Only A or B can manage members; only A can toggle active status
+    // Only A or B can manage members; A and B can toggle active status
     const canManage = ['A', 'B'].includes(currentUserRole);
-    const canToggleActive = currentUserRole === 'A';
+    const canToggleActive = ['A', 'B'].includes(currentUserRole);
 
     useEffect(() => {
         fetchMemberships();
@@ -298,7 +298,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                                 className="w-full rounded-md border-slate-200 p-2 text-sm"
                             >
                                 {currentUserRole === 'A' && <option value="B">Administrador (B)</option>}
-                                <option value="C">Data Entry (C)</option>
+                                <option value="C">Inspector / Data Entry (C)</option>
                                 <option value="D">Solo Lectura (D)</option>
                                 {currentUserRole === 'A' && <option value="F">Contratista</option>}
                             </select>
@@ -330,7 +330,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                                 className="w-full rounded-md border-slate-200 p-2 text-sm mb-3"
                             >
                                 {currentUserRole === 'A' && <option value="B">Administrador (B)</option>}
-                                <option value="C">Data Entry (C)</option>
+                                <option value="C">Inspector / Data Entry (C)</option>
                                 <option value="D">Solo Lectura (D)</option>
                                 {currentUserRole === 'A' && <option value="F">Contratista</option>}
                             </select>
@@ -379,7 +379,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                                 </td>
                                 <td className="py-3">
                                     <span className="flex items-center gap-1 text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-full w-fit">
-                                        <Shield size={12} /> {m.role === 'F' ? 'Contratista' : `Nivel ${m.role}`}
+                                        <Shield size={12} /> {m.role === 'F' ? 'Contratista' : m.role === 'C' ? 'Inspector (C)' : `Nivel ${m.role}`}
                                     </span>
                                 </td>
                                 <td className="py-3">
