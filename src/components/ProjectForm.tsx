@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus } from "lucide-react";
+import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, ShieldCheck, Building2 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency, getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
@@ -60,6 +60,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
         regional_director: "",
         chief_project_control: "",
         dir_construction: "",
+        project_origin: "ACT",
     });
     const formDataRef = useRef(formData);
     const [mounted, setMounted] = useState(false);
@@ -235,24 +236,37 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 }
 
                 // 2. Actualizar formulario (General, Datos, Scope)
-                const updatedForm = { ...formDataRef.current };
+                const updates: any = {};
                 if (parsed.general) {
-                    Object.keys(parsed.general).forEach(k => { if (parsed.general[k]) (updatedForm as any)[k] = parsed.general[k]; });
+                    Object.keys(parsed.general).forEach(k => { 
+                        if (parsed.general[k]) {
+                            let val = parsed.general[k];
+                            // Auto-formatear num_act si es necesario
+                            if (k === 'num_act' && typeof val === 'string' && val.length > 0 && !val.includes('AC-')) {
+                                val = `AC-${val}`;
+                            }
+                            updates[k] = val; 
+                        }
+                    });
                 }
                 if (parsed.dates) {
-                    Object.keys(parsed.dates).forEach(k => { if (parsed.dates[k]) (updatedForm as any)[k] = parsed.dates[k]; });
+                    Object.keys(parsed.dates).forEach(k => { if (parsed.dates[k]) updates[k] = parsed.dates[k]; });
                 }
+                if (parsed.scope) updates.scope = parsed.scope;
+                
                 if (parsed.contractor && parsed.contractor.name) {
-                    (updatedForm as any).contractor_name = parsed.contractor.name;
+                    updates.contractor_name = parsed.contractor.name;
                     await supabase.from("contractors").upsert({
                         ...parsed.contractor,
                         project_id: projectId
                     }, { onConflict: 'project_id' });
                 }
-                if (parsed.scope) updatedForm.scope = parsed.scope;
                 
-                setFormData(updatedForm);
-                formDataRef.current = updatedForm;
+                setFormData(prev => {
+                    const nextData = { ...prev, ...updates };
+                    formDataRef.current = nextData;
+                    return nextData;
+                });
 
                 // 3. Insertar partidas si hay
                 if (parsed.items && parsed.items.length > 0) {
@@ -454,6 +468,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                 regional_director: currentData.regional_director || null,
                 chief_project_control: currentData.chief_project_control || null,
                 dir_construction: currentData.dir_construction || null,
+                project_origin: currentData.project_origin || "ACT",
             };
 
             console.log("Saving project data:", dataToSave);
@@ -859,6 +874,49 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                     </div>
                             );
                         })}
+                    </div>
+                </div>
+            </div>
+
+            {/* Origen del Proyecto - Differentiates between ACT Admin and Contractor data */}
+            <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-8 rounded-[2rem] border border-slate-200/50 dark:border-slate-800/50 mb-10 shadow-lg shadow-slate-200/20 dark:shadow-none transition-all hover:shadow-xl">
+                <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />
+                        Fuente de los Datos del Proyecto
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button
+                            type="button"
+                            onClick={() => handleChange("project_origin", "ACT")}
+                            className={`flex items-center gap-4 p-5 rounded-[1.5rem] border-2 transition-all group ${formData.project_origin === 'ACT' 
+                                ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-lg shadow-blue-500/10' 
+                                : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200 hover:bg-slate-50'}`}
+                        >
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${formData.project_origin === 'ACT' ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                                <ShieldCheck size={24} />
+                            </div>
+                            <div className="text-left">
+                                <span className="block font-black uppercase tracking-tight text-sm">ACT / Administrador</span>
+                                <span className="block text-[10px] font-bold opacity-70">Datos oficiales de administración</span>
+                            </div>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => handleChange("project_origin", "Contratista")}
+                            className={`flex items-center gap-4 p-5 rounded-[1.5rem] border-2 transition-all group ${formData.project_origin === 'Contratista' 
+                                ? 'bg-rose-50 border-rose-500 text-rose-700 shadow-lg shadow-rose-500/10' 
+                                : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200 hover:bg-slate-50'}`}
+                        >
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${formData.project_origin === 'Contratista' ? 'bg-rose-500 text-white shadow-lg' : 'bg-slate-100 text-slate-400'}`}>
+                                <Building2 size={24} />
+                            </div>
+                            <div className="text-left">
+                                <span className="block font-black uppercase tracking-tight text-sm">Contratista Externo</span>
+                                <span className="block text-[10px] font-bold opacity-70">Datos proporcionados por el contratista</span>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </div>

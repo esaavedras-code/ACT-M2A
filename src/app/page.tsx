@@ -13,7 +13,8 @@ export default function Dashboard() {
         totalBudget: 0,
         totalCertified: 0,
         avgProgress: 0,
-        recentProjects: [] as any[]
+        recentProjects: [] as any[],
+        pendingRequests: 0
     });
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
@@ -39,16 +40,19 @@ export default function Dashboard() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             let allowedIds: string[] = [];
+            let userData: any = null;
 
             if (session) {
                 // Get user data by ID first (preferred)
-                let { data: userData } = await supabase.from("users").select("id, role_global").eq("id", session.user.id).single();
+                let { data: fetchedUser } = await supabase.from("users").select("id, role_global").eq("id", session.user.id).single();
                 
                 // If ID match fails, try by email as a fallback
-                if (!userData && session.user.email) {
+                if (!fetchedUser && session.user.email) {
                     const { data: userDataByEmail } = await supabase.from("users").select("id, role_global").eq("email", session.user.email.toLowerCase()).single();
-                    userData = userDataByEmail;
+                    fetchedUser = userDataByEmail;
                 }
+                
+                userData = fetchedUser;
 
                 if (userData?.role_global === "A") {
                     setIsAdmin(true);
@@ -113,16 +117,29 @@ export default function Dashboard() {
                     ...proj,
                     adjustedCost,
                     certified,
-                    progress: adjustedCost > 0 ? Math.round((certified / adjustedCost) * 100) : 0
+                    progress: adjustedCost > 0 ? Math.round((certified / adjustedCost) * 100) : 0,
+                    project_origin: proj.project_origin || 'ACT'
                 };
             }) || [];
+
+            // Fetch pending requests if admin
+            let pendingRequests = 0;
+            const currentIsAdmin = userData?.role_global === "A" || isAdmin;
+            if (currentIsAdmin) {
+                const { count } = await supabase
+                    .from("access_requests")
+                    .select("id", { count: 'exact', head: true })
+                    .eq("status", "pending");
+                pendingRequests = count || 0;
+            }
 
             setStats({
                 totalProjects: projectSummaries.length,
                 totalBudget: projectSummaries.reduce((acc, p) => acc + p.adjustedCost, 0),
                 totalCertified: projectSummaries.reduce((acc, p) => acc + p.certified, 0),
                 avgProgress: projectSummaries.length > 0 ? Math.round(projectSummaries.reduce((acc, p) => acc + p.progress, 0) / projectSummaries.length) : 0,
-                recentProjects: projectSummaries
+                recentProjects: projectSummaries,
+                pendingRequests
             });
         } catch (err) { console.error(err); } finally { setLoading(false); }
     };
@@ -186,6 +203,24 @@ export default function Dashboard() {
                 </Link>
             </div>
 
+            {/* Notification for pending requests */}
+            {isAdmin && stats.pendingRequests > 0 && (
+                <Link href="/admin/requests" className="flex items-center justify-between bg-amber-50 border-2 border-amber-200 p-6 rounded-[2rem] hover:bg-amber-100 transition-all shadow-lg shadow-amber-500/10 group">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-amber-500 text-white p-3 rounded-2xl">
+                            <User size={24} />
+                        </div>
+                        <div>
+                            <h3 className="font-black text-amber-900 uppercase tracking-tight">Solicitudes Pendientes</h3>
+                            <p className="text-amber-700 font-medium text-sm">Hay {stats.pendingRequests} personas esperando que apruebes su solicitud de acceso.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-widest group-hover:translate-x-1 transition-transform">
+                        Gestionar <ArrowRight size={16} />
+                    </div>
+                </Link>
+            )}
+
             {/* Search Box */}
             <div className="relative group">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={22} />
@@ -227,7 +262,12 @@ export default function Dashboard() {
                                 .map((proj: any) => (
                                 <tr key={proj.id} className="group hover:bg-blue-50/30 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
                                     <td className="px-8 py-6">
-                                        <span className="font-bold text-slate-900 group-hover:text-blue-600">{proj.name}</span><br/>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-bold text-slate-900 group-hover:text-blue-600 leading-tight">{proj.name}</span>
+                                            <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${proj.project_origin === 'Contratista' ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
+                                                {proj.project_origin}
+                                            </span>
+                                        </div>
                                         <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{proj.num_act} • {proj.region}</span>
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-slate-700">{formatCurrency(proj.adjustedCost)}</td>

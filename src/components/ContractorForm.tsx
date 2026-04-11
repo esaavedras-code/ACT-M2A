@@ -43,7 +43,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         }
         if (res.error && !silent) alert("Error: " + res.error.message);
         else if (!res.error) {
-            if (!silent) alert("InformaciÃ³n de contratista sincronizada");
+            if (!silent) alert("Información de contratista sincronizada");
             if (onSaved) onSaved();
         }
     };
@@ -65,9 +65,9 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Building2 className="text-primary" />
-                    InformaciÃ³n del Contratista
+                    Información del Contratista
                 </h2>
-                {/* El botÃ³n de guardar ha sido removido por Enrique */}
+                {/* El botón de guardar ha sido removido por Enrique */}
             </div>
 
             {numAct && (
@@ -123,7 +123,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     />
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">TelÃ©fono Oficina</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Teléfono Oficina</label>
                     <input
                         type="tel"
                         className="input-field"
@@ -137,7 +137,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     />
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">TelÃ©fono Celular</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Teléfono Celular</label>
                     <input
                         type="tel"
                         className="input-field"
@@ -174,7 +174,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     if (onDirty) onDirty();
                     alert("Datos importados. Guarde para confirmar.");
                 } else {
-                    alert("Error al importar: " + (result.error || "Formato invÃ¡lido"));
+                    alert("Error al importar: " + (result.error || "Formato inválido"));
                 }
                 e.target.value = "";
             }} />

@@ -10,8 +10,8 @@ export async function POST(req: Request) {
 
         const isJsonRequested = prompt.toLowerCase().includes("json");
         const systemMessage = isJsonRequested 
-            ? "Eres un extractor de datos experto. Tu única tarea es devolver un objeto JSON válido según el esquema solicitado. No incluyas explicaciones, preámbulos ni comentarios. Solo el objeto JSON."
-            : "Eres un asistente experto en analizar documentos de proyectos de construcción de carreteras y contratos gubernamentales (ej. ACT, FHWA). El usuario te proporcionará texto o una imagen de un documento y una instrucción específica sobre qué información extraer. Responde de forma profesional y clara únicamente con la información solicitada.";
+            ? "Eres un extractor de datos. Devuelve ÚNICAMENTE el objeto JSON solicitado. Sin texto adicional, sin explicaciones, sin preámbulos. Solo JSON."
+            : "Responde de forma directa y concisa a lo que se te pregunta sobre los documentos. No abundes en detalles innecesarios. No inventes datos que no estén presentes.";
 
         const messages: any[] = [{ role: "system", content: systemMessage }];
 
