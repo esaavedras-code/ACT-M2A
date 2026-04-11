@@ -186,8 +186,8 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
             }
 
             if (!mailRes?.success && !mailRes?.messageId) {
-                alert(`⚠️ Invitación guardada, pero el correo NO se pudo enviar.\n\nError: ${mailRes?.error || 'Servicio de correo no disponible'}\n\nCopia este enlace y compártelo manualmente:\n${inviteLink}`);
-                copyToClipboard(inviteLink);
+                alert(`⚠️ Usuario creado, pero el correo NO se pudo enviar.\n\nError: ${mailRes?.error || 'Servicio de correo no disponible'}\n\nNotifica al usuario manualmente e indícale que ingrese a:\n${loginLink}`);
+                copyToClipboard(loginLink);
             } else {
                 alert(`✅ Invitación enviada correctamente al correo: ${email}`);
             }
