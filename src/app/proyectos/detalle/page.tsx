@@ -204,9 +204,12 @@ function ProjectDetailContent() {
                 let isAuthorized = false;
                 let currentRole = "C";
 
+                let userData: any = null;
+
                 if (session) {
                     // Get user data by ID first (preferred)
-                    let { data: userData } = await supabase.from("users").select("id, role_global").eq("id", session.user.id).single();
+                    const { data: fetchedUser } = await supabase.from("users").select("id, role_global").eq("id", session.user.id).single();
+                    userData = fetchedUser;
                     
                     // If ID match fails, try by email as a fallback (resilience)
                     if (!userData && session.user.email) {
