@@ -300,10 +300,10 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                                 onChange={e => setRole(e.target.value)} 
                                 className="w-full rounded-md border-slate-200 p-2 text-sm"
                             >
-                                <option value="B">Administrador (B)</option>
+                                {currentUserRole === 'A' && <option value="B">Administrador (B)</option>}
                                 <option value="C">Data Entry (C)</option>
                                 <option value="D">Solo Lectura (D)</option>
-                                <option value="F">Contratista</option>
+                                {currentUserRole === 'A' && <option value="F">Contratista</option>}
                             </select>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase">Password Temporal (Opcional)</label>
@@ -332,10 +332,10 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                                 onChange={e => setLinkRole(e.target.value)}
                                 className="w-full rounded-md border-slate-200 p-2 text-sm mb-3"
                             >
-                                <option value="B">Administrador (B)</option>
+                                {currentUserRole === 'A' && <option value="B">Administrador (B)</option>}
                                 <option value="C">Data Entry (C)</option>
                                 <option value="D">Solo Lectura (D)</option>
-                                <option value="F">Contratista</option>
+                                {currentUserRole === 'A' && <option value="F">Contratista</option>}
                             </select>
                             {generatedLink && (
                                 <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs text-blue-700 break-all mb-2">

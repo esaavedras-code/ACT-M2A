@@ -116,13 +116,14 @@ const LoginPage: NextPage = () => {
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Eliminamos el check redundant de oldPassword !== password ya que el usuario ya se autenticó exitosamente
         if (newPassword !== confirmNewPassword) {
             setError("Las contraseñas nuevas no coinciden. Verifique nuevamente.");
             return;
         }
-        if (newPassword.length < 6) {
-            setError("La nueva contraseña debe tener al menos 6 caracteres.");
+        
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d\s]).{8,}$/;
+        if (!passwordRegex.test(newPassword)) {
+            setError("La contraseña debe tener mínimo 8 caracteres, al menos 1 letra mayúscula, 1 minúscula, 1 número y 1 símbolo.");
             return;
         }
 
@@ -204,8 +205,8 @@ const LoginPage: NextPage = () => {
                                     className="object-contain p-2"
                                 />
                             </div>
-                            <h1 className="text-3xl font-black text-white tracking-tight"><BrandName /></h1>
-                            <p className="text-blue-100 mt-2 font-medium">PROYECTO AC</p>
+                            <h1 className="text-3xl font-black text-white tracking-tight">PACT</h1>
+                            <p className="text-blue-100 mt-2 font-medium">PROYECTOS AC</p>
                         </div>
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
                         <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-900/40 rounded-full -ml-8 -mb-8 blur-xl"></div>
