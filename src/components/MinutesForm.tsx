@@ -250,7 +250,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Mic className="text-primary" />
-                    9. Minutas de Reunión
+                    Minutas de Reunión
                 </h2>
                 {/* Las acciones principales ahora son flotantes */}
             </div>
@@ -347,7 +347,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                         {selectedFile && !loading && (
                             <button 
                                 onClick={handleProcessAudio}
-                                className="w-full btn-primary py-4 text-lg shadow-xl shadow-primary/20 flex items-center justify-center gap-3"
+                                className="w-full btn-print py-4 text-lg shadow-xl shadow-primary/20 flex items-center justify-center gap-3"
                             >
                                 <Activity size={20} />
                                 Generar Minuta con IA
@@ -436,7 +436,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="card p-8 border-t-4 border-t-blue-500 bg-blue-50/30 dark:bg-blue-900/10">
                             <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-lg font-black text-blue-700 dark:text-blue-400">1. Resumen Ejecutivo</h3>
+                                <h3 className="text-lg font-black text-blue-700 dark:text-blue-400">Resumen Ejecutivo</h3>
                                 <button onClick={() => handleCopy(result.summary)} className="text-slate-400 hover:text-blue-500"><Copy size={16} /></button>
                             </div>
                             <textarea className="w-full bg-transparent border-none focus:ring-0 text-sm font-medium text-slate-700 dark:text-slate-300 h-[200px]" value={result.summary} onChange={(e) => setResult({...result, summary: e.target.value})}/>
@@ -445,7 +445,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                         <div className="lg:col-span-2 card p-10 border-t-4 border-t-emerald-500">
                             <div className="flex justify-between items-start mb-8">
                                 <div className="space-y-1">
-                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white">2. Minuta de Reunión</h3>
+                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white">Minuta de Reunión</h3>
                                     <p className="text-sm text-slate-500 font-medium">Documento generado por IA</p>
                                 </div>
                                 <button onClick={() => handleCopy(result.minutes)} className="p-2 hover:bg-emerald-50 text-slate-400 hover:text-emerald-500 rounded-full transition-colors"><Copy size={20} /></button>
@@ -471,7 +471,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                             icon: <Download />,
                             onClick: handleDownloadPdf,
                             description: "Generar y descargar el reporte oficial de la minuta en formato PDF",
-                            variant: 'secondary' as const,
+                            variant: 'info' as const,
                             disabled: loading
                         }
                     ]}

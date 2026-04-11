@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Plus, Search, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign, Download } from "lucide-react";
+import { Plus, Search, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign, Download, Info } from "lucide-react";
 import { formatCurrency, getLocalStorageItem } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -194,12 +194,18 @@ export default function Dashboard() {
     return (
         <div className="py-8 space-y-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
+                <div className="flex flex-col">
                     <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">PROYECTO AC</h1>
-                    <p className="text-slate-500 mt-2 font-medium">Panel central de control y monitoreo de obras.</p>
+                    <div className="flex items-center gap-3 mt-2">
+                        <p className="text-slate-500 font-medium">Panel central de control y monitoreo de obras.</p>
+                        <Link href="/acerca-de" className="text-xs font-black text-blue-600 hover:underline uppercase tracking-widest flex items-center gap-1">
+                            <Info size={14} /> Saber más
+                        </Link>
+                    </div>
                 </div>
                 <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group mr-[2in]">
                     <Plus size={20} className="group-hover:rotate-90 transition-transform" />
+                    <span className="hidden sm:inline">Nuevo Proyecto</span>
                 </Link>
             </div>
 

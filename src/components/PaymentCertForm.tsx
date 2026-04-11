@@ -608,7 +608,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <FileCheck className="text-primary" />
-                    7. Certificaciones de Pago
+                    Certificaciones de Pago
                 </h2>
                 <div className="flex gap-2">
                     {/* Los botones ahora son flotantes para mayor accesibilidad */}
@@ -622,7 +622,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("payment_certs", certs),
                         description: "Exportar todas las certificaciones de este proyecto a JSON",
-                        variant: 'info' as const,
+                        variant: 'export' as const,
                         disabled: loading,
                     },
                     {
@@ -630,7 +630,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-certs-json')?.click(),
                         description: "Cargar certificaciones desde un archivo JSON",
-                        variant: 'secondary' as const,
+                        variant: 'import' as const,
                         disabled: loading,
                     },
                     {

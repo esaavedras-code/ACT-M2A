@@ -361,9 +361,11 @@ function ProjectDetailContent() {
                         <ChevronLeft size={24} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase line-clamp-1">{projectName || "Nuevo Proyecto"}</h1>
+                        <div className="flex items-center gap-4 flex-wrap">
+                            <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase line-clamp-1">{projectName || "Nuevo Proyecto"}</h1>
+                            <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100 whitespace-nowrap mt-1 flex-shrink-0">ACT: {formatProjectNumber(numAct)}</span>
+                        </div>
                         <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">ACT: {formatProjectNumber(numAct)}</span>
                             <span className="text-[10px] font-black bg-slate-100 text-slate-400 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">{role === 'A' ? 'Administrador' : 'Colaborador'}</span>
                         </div>
                     </div>
@@ -411,8 +413,9 @@ function ProjectDetailContent() {
                                 {activeTab === "project"     && (
                                     <div className="space-y-12">
                                         <ProjectForm 
-                    ref={projectFormRef}
-                    projectId={id} 
+                                            ref={projectFormRef}
+                                            projectId={id} 
+                                            userRole={role}
                     onSaved={(newId) => {
                       setIsDirty(false);
                       if (newId && !id) {

@@ -385,9 +385,9 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
 
     if (activeSubTab === "list") {
         return (
-            <div className="space-y-6">
+            <>
                 <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-                    <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">10. Informe de Actividades (Daily Log)</h2>
+                    <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">Informe de Actividades (Daily Log)</h2>
                     <button onClick={handleCreateNew} className="btn-primary w-full sm:w-auto flex items-center gap-2"><Plus size={18} /> Nuevo Registro</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -407,7 +407,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         </div>
                     ))}
                 </div>
-            </div>
+            </>
         );
     }
 
@@ -461,7 +461,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         icon: <Download />,
                         onClick: () => exportSectionToJSON(`informe_diario_${currentLog.log_date}`, currentLog),
                         description: "Exportar el informe diario completo a un archivo JSON (para copiar a otro proyecto o fecha)",
-                        variant: 'info' as const,
+                        variant: 'export' as const,
                         disabled: loading
                     },
                     {
@@ -469,7 +469,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         icon: <FileText />,
                         onClick: () => document.getElementById('import-dailylog-json')?.click(),
                         description: "Cargar datos de un informe diario desde un archivo JSON",
-                        variant: 'secondary' as const,
+                        variant: 'import' as const,
                         disabled: loading
                     },
                     ...(currentLog.id ? [{
@@ -477,7 +477,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         icon: <Printer />,
                         onClick: handlePrint,
                         description: "Generar el reporte oficial ACT-45 en PDF con toda la información del reporte diario.",
-                        variant: 'secondary' as const,
+                        variant: 'info' as const,
                         disabled: loading
                     }] : []),
                     {

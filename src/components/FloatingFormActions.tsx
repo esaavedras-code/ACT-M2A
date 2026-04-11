@@ -7,7 +7,7 @@ interface Action {
   icon?: React.ReactNode;
   onClick: () => void;
   description: string;
-  variant?: 'primary' | 'secondary' | 'danger' | 'info' | 'success';
+  variant?: 'primary' | 'secondary' | 'danger' | 'info' | 'success' | 'export' | 'import';
   disabled?: boolean;
   position?: 'bottom-right' | 'middle-right';
   size?: 'normal' | 'small';
@@ -28,7 +28,7 @@ export default function FloatingFormActions({ actions }: FloatingFormActionsProp
         {/* Tooltip Description */}
         <div className="absolute right-full mr-4 px-4 py-2.5 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0 whitespace-nowrap shadow-2xl backdrop-blur-xl pointer-events-none border border-white/10">
           <div className="flex items-center gap-2">
-            <div className={`w-1.5 h-1.5 rounded-full ${action.variant === 'info' ? 'bg-blue-400' : 'bg-slate-400'}`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${action.variant === 'info' ? 'bg-[#E00EE0]' : action.variant === 'export' ? 'bg-[#6600FF]' : 'bg-slate-400'}`} />
             {action.description}
           </div>
           {/* Arrow */}
@@ -46,10 +46,12 @@ export default function FloatingFormActions({ actions }: FloatingFormActionsProp
           className={`
             flex items-center font-black uppercase tracking-[0.2em] transition-all shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_60px_-10px_rgba(0,0,0,0.4)] hover:scale-105 active:scale-95
             ${isSmall ? 'px-3 py-2 gap-2 rounded-xl text-[9px]' : 'px-6 py-3.5 gap-3 rounded-[1.5rem] text-[11px]'}
-            ${action.variant === 'primary' ? 'bg-blue-600 text-white shadow-blue-600/30 hover:bg-blue-700' : 
+            ${action.variant === 'primary' ? 'bg-[#0000CC] text-white shadow-[#0000CC]/30 hover:bg-[#0000aa]' : 
               action.variant === 'danger' ? 'bg-red-600 text-white shadow-red-600/30 hover:bg-red-700' :
-              action.variant === 'info' ? 'bg-indigo-600 text-white shadow-indigo-600/30 hover:bg-indigo-700' :
+              action.variant === 'info' ? 'bg-[#E00EE0] text-white shadow-[#E00EE0]/30 hover:bg-[#c00cc0]' :
               action.variant === 'success' ? 'bg-emerald-600 text-white shadow-emerald-600/30 hover:bg-emerald-700' :
+              action.variant === 'export' ? 'bg-[#6600FF] text-white shadow-[#6600FF]/30 hover:bg-[#5500dd]' :
+              action.variant === 'import' ? 'bg-[#FFFFFF] text-[#000000] border border-slate-200 hover:bg-slate-50' :
               'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 hover:bg-slate-50 border-2'}
             ${action.disabled ? 'opacity-50 grayscale cursor-not-allowed scale-100 shadow-none' : ''}
             relative group/btn overflow-hidden

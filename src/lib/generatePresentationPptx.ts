@@ -72,32 +72,30 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   // ─────────────────────────────────────────────────────────────
   const slide1 = pptx.addSlide();
 
-  // Fondo degradado exacto de la plantilla
+  // Fondo degradado refinado (Blanco a Azul muy claro con acentos)
   slide1.background = { fill: "FFFFFF" };
   slide1.addShape(pptx.ShapeType.rect, {
     x: 0, y: 0, w: "100%", h: "100%",
     // @ts-ignore
     fill: { type: "gradient", dir: "v", stops: [
       { position: 0,   color: "FFFFFF" },
-      { position: 3,   color: "FFFFFF" },
-      { position: 18,  color: "FFFFFF" },
-      { position: 68,  color: "F5BB93" },
-      { position: 100, color: "ED7D31" }
+      { position: 30,  color: "F0F4F8" },
+      { position: 100, color: "1F3864" } // Azul institucional al fondo
     ]}
   });
 
-  // Logo ACT (esquina superior izquierda, posición exacta)
+  // Logo ACT (esquina superior izquierda)
   if (data.actLogoUrl) {
     const logoB64 = await urlToBase64(data.actLogoUrl);
     if (logoB64) {
       slide1.addImage({
         data: `image/png;base64,${logoB64}`,
-        x: 0.1, y: 0.05, w: 2.5, h: 1.5,
+        x: 0.1, y: 0.05, w: 2.2, h: 1.3,
       });
     }
   }
 
-  // Texto central (Montserrat, Azul oscuro)
+  // Texto central (Elegante con Magenta)
   const presDateFormatted = new Date(data.presentationDate + "T12:00:00").toLocaleDateString("es-PR", {
     day: "numeric",
     month: "numeric",
@@ -106,13 +104,13 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   slide1.addText(
     [
-      { text: "PROYECTOS ACTIVOS\n", options: { bold: true, fontSize: 36, color: "1F3864" } },
-      { text: "DISTRITO METRO\n",    options: { bold: true, fontSize: 36, color: "1F3864" } },
-      { text: "FECHA DEL INFORME\n", options: { bold: true, fontSize: 36, color: "1F3864" } },
-      { text: presDateFormatted,     options: { bold: true, fontSize: 36, color: "1F3864" } },
+      { text: "PROYECTOS ACTIVOS\n", options: { bold: true, fontSize: 40, color: "E00EE0" } }, // Magenta
+      { text: "DISTRITO METRO\n",    options: { bold: true, fontSize: 32, color: "1F3864" } }, // Blue
+      { text: "FECHA DEL INFORME\n", options: { bold: true, fontSize: 24, color: "000000" } },
+      { text: presDateFormatted,     options: { bold: true, fontSize: 28, color: "E00EE0" } },
     ],
     {
-      x: 3.2, y: 2.2, w: 7.0, h: 3.5,
+      x: 2.5, y: 2.2, w: 8.5, h: 3.5,
       align: "center",
       valign: "middle",
       fontFace: "Montserrat",
@@ -242,10 +240,10 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
           x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H,
           sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H },
         });
-        // Borde grueso alrededor de la foto
+        // Borde Magenta alrededor de la foto
         slide2.addShape(pptx.ShapeType.rect, {
           x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H,
-          line: { pt: 5, color: "000000" }, 
+          line: { pt: 5, color: "E00EE0" }, 
           fill: { color: "none" }
         });
       }

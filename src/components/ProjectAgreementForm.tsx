@@ -290,7 +290,7 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                             icon: <Download />,
                             onClick: () => exportSectionToJSON("project_agreement", funds),
                             description: "Descargar los datos de esta tabla en formato JSON",
-                            variant: 'info' as const,
+                            variant: 'export' as const,
                             disabled: loading,
 
                         },
@@ -299,7 +299,7 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                             icon: <Upload />,
                             onClick: () => document.getElementById('import-funds-json')?.click(),
                             description: "Cargar datos desde un archivo JSON previamente exportado",
-                            variant: 'secondary' as const,
+                            variant: 'import' as const,
                             disabled: loading,
 
                         },

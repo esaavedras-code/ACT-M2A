@@ -294,7 +294,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 <div className="flex items-center gap-3 flex-wrap">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <FileCheck2 className="text-primary" />
-                        13. Liquidación de Proyecto
+                        Liquidación de Proyecto
                     </h2>
                     <button
                         onClick={() => setShowPartidas(true)}
@@ -659,7 +659,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("liquidacion", formData),
                         description: "Exportar datos de liquidación a un archivo JSON",
-                        variant: 'info' as const,
+                        variant: 'export' as const,
                         disabled: loading
                     },
                     {
@@ -667,7 +667,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-liq-json')?.click(),
                         description: "Cargar datos de liquidación desde un archivo JSON",
-                        variant: 'secondary' as const,
+                        variant: 'import' as const,
                         disabled: loading
                     },
                     {

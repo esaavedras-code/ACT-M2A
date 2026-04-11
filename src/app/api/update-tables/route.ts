@@ -8,13 +8,14 @@ export async function POST(req: Request) {
         const formData = await req.formData();
         const file = formData.get('file');
         const projectId = formData.get('projectId') as string;
+        const numAct = formData.get('numAct') as string;
 
         if (!file || !(file instanceof File) || !projectId) {
             console.error("[UpdateTables] Faltan datos requeridos:", { hasFile: !!file, projectId });
             return NextResponse.json({ error: 'Faltan datos requeridos (archivo o ID de proyecto)' }, { status: 400 });
         }
 
-        console.log("[UpdateTables] Archivo recibido:", file.name, "Tamaño:", file.size);
+        console.log("[UpdateTables] Archivo recibido:", file.name, "Proyecto:", numAct);
         const buffer = Buffer.from(await file.arrayBuffer());
         let extractedText = "";
         let structuredData = "";
@@ -59,26 +60,34 @@ export async function POST(req: Request) {
             throw new Error("No se pudo extraer texto del archivo.");
         }
 
-        console.log("[UpdateTables] Texto extraído con éxito (longitud:", (extractedText || structuredData).length, ")");
-
         // 2. Análisis con IA
-        const prompt = `Analiza el contenido de este documento de construcción.
-        Busca tablas o listas de partidas (ítems) con sus descripciones, cantidades, precios unitarios y totales.
-        También busca fechas importantes del proyecto.
+        const prompt = `Analiza el contenido de este documento de construcción para el proyecto ACT-${numAct || 'desconocido'}.
         
-        Contenido:
+        INSTRUCCIONES CRÍTICAS:
+        1. Busca EXCLUSIVAMENTE datos relacionados al proyecto ACT-${numAct}. Si el documento menciona otros proyectos, IGNÓRALOS.
+        2. Extrae tablas de partidas (ítems): item_num, specification, description, quantity, unit, unit_price.
+        3. El item_num debe tener 3 dígitos (ej: 001, 102).
+        4. Identifica fechas importantes: date_contract_sign, date_project_start, date_orig_completion.
+        
+        Contenido del documento:
         ---
-        ${(structuredData || extractedText).substring(0, 25000)}
+        ${(structuredData || extractedText).substring(0, 28000)}
         ---
         
-        Responde EXCLUSIVAMENTE con un JSON con esta estructura:
+        Responde con un JSON con esta estructura:
         {
           "changes": {
-            "summary": "Breve resumen",
-            "itemsCount": número_de_partidas,
-            "datesChanged": true/false,
+            "summary": "Resumen de lo encontrado para ACT-${numAct}",
+            "itemsCount": 0,
             "updates": [
-              { "table": "contract_items", "op": "upsert", "data": { "item_num": "X", "description": "X", "quantity": 0, "unit_price": 0, "unit": "X" } }
+              { 
+                "table": "contract_items", 
+                "data": { "item_num": "X", "specification": "X", "description": "X", "quantity": 0, "unit": "X", "unit_price": 0 } 
+              },
+              {
+                "table": "projects",
+                "data": { "date_contract_sign": "YYYY-MM-DD", "cost_original": 0 }
+              }
             ]
           }
         }`;
@@ -92,77 +101,121 @@ export async function POST(req: Request) {
             },
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
-                temperature: 0.1,
+                temperature: 0,
                 messages: [
-                    { role: "system", content: "Eres un experto en extracción de datos de construcción para Supabase." },
+                    { role: "system", content: "Eres un experto en ingeniería civil y extracción de datos de construcción ACT." },
                     { role: "user", content: prompt }
                 ],
                 response_format: { type: "json_object" }
             })
         });
 
-        if (!aiResponse.ok) {
-            const aiError = await aiResponse.text();
-            console.error("[UpdateTables] Error de Groq API:", aiError);
-            throw new Error("La IA no pudo procesar el documento en este momento.");
-        }
+        if (!aiResponse.ok) throw new Error("La IA no pudo procesar el documento.");
 
         const aiData = await aiResponse.json();
         const resultString = aiData.choices?.[0]?.message?.content;
-        
-        if (!resultString) throw new Error("La respuesta de la IA llegó vacía.");
-        
-        let result;
-        try {
-            result = JSON.parse(resultString).changes;
-        } catch (parseError) {
-            console.error("[UpdateTables] Error parseando JSON de IA:", resultString);
-            throw new Error("El análisis de la IA no devolvió un formato válido.");
-        }
+        const result = JSON.parse(resultString).changes;
 
-        // 3. Ejecución de actualizaciones
-        console.log("[UpdateTables] Ejecutando actualizaciones en base de datos...");
+        // 3. Ejecución y Tracking de Cambios
+        console.log("[UpdateTables] Sincronizando datos con tracking...");
+        const now = new Date().toISOString();
+
         if (result.updates && Array.isArray(result.updates)) {
             for (const update of result.updates) {
                 try {
                     if (update.table === "contract_items") {
-                        const cleanData = { 
-                            ...update.data, 
+                        const itemNum = update.data.item_num?.toString().padStart(3, '0');
+                        if (!itemNum) continue;
+
+                        // Obtener estado actual
+                        const { data: current } = await supabase
+                            .from("contract_items")
+                            .select("*")
+                            .eq("project_id", projectId)
+                            .eq("item_num", itemNum)
+                            .single();
+
+                        const updatedFields: string[] = [];
+                        const reviewedFields: string[] = [];
+
+                        const newData = {
+                            ...update.data,
+                            item_num: itemNum,
                             project_id: projectId,
                             quantity: parseFloat(update.data.quantity) || 0,
                             unit_price: parseFloat(update.data.unit_price) || 0
                         };
-                        
-                        if (update.op === "upsert" && cleanData.item_num) {
-                            const { error: upsertErr } = await supabase
-                                .from("contract_items")
-                                .upsert([cleanData], { onConflict: 'project_id, item_num' });
-                            if (upsertErr) console.warn("[UpdateTables] Error en upsert de item:", upsertErr);
+
+                        // Comparar
+                        if (current) {
+                            Object.keys(update.data).forEach(key => {
+                                if (JSON.stringify(current[key]) !== JSON.stringify(newData[key])) {
+                                    updatedFields.push(key);
+                                } else {
+                                    reviewedFields.push(key);
+                                }
+                            });
+                        } else {
+                            Object.keys(update.data).forEach(key => updatedFields.push(key));
                         }
+
+                        // Guardar con metadata
+                        const { error: upsertErr } = await supabase
+                            .from("contract_items")
+                            .upsert([{
+                                ...newData,
+                                ia_metadata: {
+                                    updated_fields: updatedFields,
+                                    reviewed_fields: reviewedFields,
+                                    last_update: now
+                                }
+                            }], { onConflict: 'project_id, item_num' });
+
+                        if (upsertErr) console.error("Error upserting item:", itemNum, upsertErr);
+
                     } else if (update.table === "projects") {
-                        if (update.op === "update") {
-                            const { error: updateErr } = await supabase
-                                .from("projects")
-                                .update(update.data)
-                                .eq("id", projectId);
-                            if (updateErr) console.warn("[UpdateTables] Error en update de proyecto:", updateErr);
+                        const { data: currentProject } = await supabase
+                            .from("projects")
+                            .select("*")
+                            .eq("id", projectId)
+                            .single();
+
+                        const updatedFields: string[] = [];
+                        const reviewedFields: string[] = [];
+
+                        if (currentProject) {
+                            Object.keys(update.data).forEach(key => {
+                                if (JSON.stringify(currentProject[key]) !== JSON.stringify(update.data[key])) {
+                                    updatedFields.push(key);
+                                } else {
+                                    reviewedFields.push(key);
+                                }
+                            });
                         }
+
+                        await supabase
+                            .from("projects")
+                            .update({
+                                ...update.data,
+                                ia_metadata: {
+                                    updated_fields: updatedFields,
+                                    reviewed_fields: reviewedFields,
+                                    last_update: now
+                                }
+                            })
+                            .eq("id", projectId);
                     }
-                } catch (updateItemError) {
-                    console.error("[UpdateTables] Error procesando operación individual:", updateItemError);
+                } catch (err) {
+                    console.warn("Error en item individual:", err);
                 }
             }
         }
 
-        console.log("[UpdateTables] Proceso completado con éxito.");
         return NextResponse.json({ changes: result });
 
     } catch (e: any) {
-        console.error("[UpdateTables] ERROR CRÍTICO:", e);
-        return NextResponse.json({ 
-            error: e.message || "Error interno del servidor",
-            details: "Consulta los logs del servidor para más información."
-        }, { status: 500 });
+        console.error("[UpdateTables] ERROR:", e);
+        return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
 

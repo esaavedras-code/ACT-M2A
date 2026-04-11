@@ -70,6 +70,7 @@ export default function UpdateTablesForm({ projectId, numAct }: Props) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('projectId', projectId);
+            if (numAct) formData.append('numAct', numAct);
 
             const response = await fetch('/api/update-tables', {
                 method: 'POST',

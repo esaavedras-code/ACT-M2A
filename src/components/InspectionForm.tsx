@@ -97,7 +97,7 @@ function InspectionForm({ projectId, onDirty, onSaved }, ref) {
                         <ClipboardCheck size={24} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">11. Informes de Inspección</h2>
+                        <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Informes de Inspección</h2>
                         <div className="flex items-baseline gap-2">
                             <span className="text-[10px] font-black text-emerald-600 uppercase">Gestión de Campo</span>
                         </div>

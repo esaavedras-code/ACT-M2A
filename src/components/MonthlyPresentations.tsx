@@ -293,6 +293,22 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
             document.body.removeChild(a);
             URL.revokeObjectURL(downloadUrl);
 
+            // 5.5 Guardar en carpeta local del sistema para el Administrador
+            try {
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = async () => {
+                    const base64data = (reader.result as string).split(',')[1];
+                    await fetch('/api/save-presentation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ base64: base64data, filename: fileName })
+                    });
+                };
+            } catch (saveLocalErr) {
+                console.warn("[SaveLocal] No se pudo guardar en carpeta física:", saveLocalErr);
+            }
+
             // 6. Subir a Supabase Storage (subdirectorio Presentaciones)
             if (projectId) {
                 const storagePath = `${projectId}/Presentaciones/${formData.presentation_date}/${Date.now()}_${fileName}`;
@@ -332,7 +348,7 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                     <button 
                         onClick={generatePptx}
                         disabled={loading}
-                        className="btn-primary bg-orange-600 hover:bg-orange-700 px-4 py-2 text-xs flex items-center gap-2 shadow-orange-200 disabled:opacity-50"
+                        className="btn-primary bg-[#E00EE0] hover:bg-[#c00cc0] px-4 py-2 text-xs flex items-center gap-2 shadow-[#E00EE0]/20 disabled:opacity-50"
                     >
                         {loading ? <Loader2 size={14} className="animate-spin" /> : <Presentation size={14} />}
                         {loading ? "Generando..." : "Generar PowerPoint"}

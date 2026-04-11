@@ -154,6 +154,26 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
         if (onDirty) onDirty();
     };
 
+    const getFieldStyle = (item: any, field: string) => {
+        const meta = item.ia_metadata;
+        if (!meta || !meta.last_update) return {};
+        
+        // Solo resaltar si fue en las últimas 24 horas para evitar confusión permanente
+        const lastUpdate = new Date(meta.last_update);
+        const now = new Date();
+        const isRecent = now.getTime() - lastUpdate.getTime() < 1000 * 60 * 60 * 24;
+        
+        if (!isRecent) return {};
+
+        if (meta.updated_fields?.includes(field)) {
+            return { backgroundColor: '#FFFF00', color: '#000000', fontWeight: 'bold' }; // Fondo Amarillo
+        }
+        if (meta.reviewed_fields?.includes(field)) {
+            return { color: '#0000FF', fontWeight: 'bold' }; // Letra Azul
+        }
+        return {};
+    };
+
     const saveData = async (silent = false) => {
         if (!projectId) return;
 
@@ -269,7 +289,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             icon: <Download />,
                             onClick: () => exportSectionToJSON("items", items),
                             description: "Exportar todas las partidas actuales a un archivo JSON",
-                            variant: 'info' as const,
+                            variant: 'export' as const,
                             disabled: loading
                         },
                         {
@@ -277,7 +297,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             icon: <Upload />,
                             onClick: () => document.getElementById('import-items-json')?.click(),
                             description: "Cargar partidas desde un archivo JSON",
-                            variant: 'secondary' as const,
+                            variant: 'import' as const,
                             disabled: loading
                         },
                         {
@@ -455,16 +475,16 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="text" className="input-field text-xs text-center h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
+                                            <input type="text" className="input-field text-xs text-center h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <div className="space-y-1">
-                                                <input type="text" className="input-field text-xs h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
-                                                <input type="text" className="input-field text-[10px] h-6 !py-0.5 opacity-70" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                <input type="text" className="input-field text-xs h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'description') }} value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
+                                                <input type="text" className="input-field text-[10px] h-6 !py-0.5 opacity-70" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'additional_description') }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="number" className="input-field text-xs text-right h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
+                                            <input type="number" className="input-field text-xs text-right h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'quantity') }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
                                         </td>
                                         <td className="px-1 py-1.5 text-right text-xs font-bold text-blue-600 pr-4">
                                             {choQty !== 0 ? formatNumber(choQty) : "-"}
@@ -473,14 +493,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             {formatNumber(totalQty)}
                                         </td>
                                         <td className="px-1 py-1.5 text-center">
-                                            <input type="text" className="input-field uppercase h-8 !py-1 text-center px-1" style={{ fontSize: '9px', backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
+                                            <input type="text" className="input-field uppercase h-8 !py-1 text-center px-1" style={{ fontSize: '9px', backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'unit') }} value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <input 
                                                 type="number" 
                                                 step="0.0001" 
                                                 className="input-field text-xs text-right font-medium h-8 !py-1" 
-                                                style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }} 
+                                                style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'unit_price') }} 
                                                 list={`prices-${idx}`}
                                                 value={isNaN(item.unit_price) ? "" : item.unit_price} 
                                                 onChange={(e) => updateItem(idx, 'unit_price', e.target.value === "" ? 0 : parseFloat(e.target.value))} 

@@ -145,7 +145,7 @@ function StandardReportItem({ option, loading, onAction, children, isLiquidation
                     <button
                         onClick={() => { onAction(); option.action(); }}
                         disabled={loading}
-                        className="w-full bg-[#004bb1] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.15em] hover:bg-[#003d8f] transition-all shadow-[0_10px_20px_rgba(0,75,177,0.2)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 group/btn"
+                        className="btn-print"
                     >
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" />} 
                         {loading ? 'Generando...' : (
@@ -239,7 +239,7 @@ function SelectiveReportItem({ option, loading, onAction, isLiquidation }: { opt
                     <button
                         onClick={() => { onAction(); option.onGenerate(selectedIds); }}
                         disabled={loading || (option.items.length > 0 && selectedIds.length === 0)}
-                        className="w-full bg-[#004bb1] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.15em] hover:bg-[#003d8f] transition-all shadow-[0_10px_20px_rgba(0,75,177,0.2)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-30 group/btn"
+                        className="btn-print"
                     >
                         {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" />} 
                         {loading ? 'Generando...' : (
@@ -520,14 +520,14 @@ function ReportesContent() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                {/* 1. Información General */}
-                <DropdownGroup title="1. Información General" icon={<Info size={18} className="text-blue-500" />}>
+                {/* Información General */}
+                <DropdownGroup title="Información General" icon={<Info size={18} className="text-blue-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'dashboard',
-                            label: '1. Dashboard Ejecutivo',
+                            label: 'Dashboard Ejecutivo',
                             description: 'Resumen gerencial de costos y tiempo.',
                             icon: <Activity size={18} className="text-indigo-500" />,
                             action: () => {
@@ -548,14 +548,14 @@ function ReportesContent() {
                     />
                 </DropdownGroup>
 
-                {/* 2. Partidas */}
-                <DropdownGroup title="2. Gestión de Partidas" icon={<ListChecks size={18} className="text-emerald-500" />}>
+                {/* Partidas */}
+                <DropdownGroup title="Gestión de Partidas" icon={<ListChecks size={18} className="text-emerald-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'balance',
-                            label: '1. Balances Actuales',
+                            label: 'Balances Actuales',
                             description: 'Cantidades originales vs ejecutadas.',
                             icon: <ListChecks size={18} className="text-emerald-500" />,
                             action: () => generateBalanceReportLogic(projectId, reportFormat, endDate)
@@ -572,7 +572,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'detail',
-                            label: '2. Detalle de cada partida',
+                            label: 'Detalle de cada partida',
                             description: 'Historial completo por cada partida.',
                             icon: <Files size={18} className="text-teal-500" />,
                             action: () => generateDetailReportLogic(projectId, reportFormat, endDate)
@@ -586,14 +586,14 @@ function ReportesContent() {
                     />
                 </DropdownGroup>
 
-                {/* 3. Manufactura */}
-                <DropdownGroup title="3. Certificados de Manufactura" icon={<Package size={18} className="text-orange-500" />}>
+                {/* Manufactura */}
+                <DropdownGroup title="Certificados de Manufactura" icon={<Package size={18} className="text-orange-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'mfg',
-                            label: '1. Listado de Certificados',
+                            label: 'Listado de Certificados',
                             description: 'Resumen de aprobaciones de fábrica.',
                             icon: <Package size={18} className="text-orange-500" />,
                             action: () => generateMfgReportLogic(projectId, reportFormat)
@@ -610,9 +610,9 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'missing',
-                            label: '2. Certificaciones pendientes',
+                            label: 'Certificaciones pendientes',
                             description: 'Materiales pagados sin certificado.',
-                            icon: <BadgeAlert size={18} className="text-red-500" />,
+                           icon: <BadgeAlert size={18} className="text-red-500" />,
                             action: () => generateMissingMfgReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
@@ -630,14 +630,14 @@ function ReportesContent() {
                     />
                 </DropdownGroup>
 
-                {/* 4. MOS */}
-                <DropdownGroup title="4. Material on Site (MOS)" icon={<Package size={18} className="text-amber-500" />}>
+                {/* MOS */}
+                <DropdownGroup title="Material on Site (MOS)" icon={<Package size={18} className="text-amber-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'mos',
-                            label: '1. Inventario de MOS',
+                            label: 'Inventario de MOS',
                             description: 'Reporte de facturas y deducciones.',
                             icon: <Package size={18} className="text-amber-500" />,
                             action: () => generateMosReportLogic(projectId, reportFormat)
@@ -654,7 +654,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act117b',
-                            label: '2. ACT-117B',
+                            label: 'ACT-117B',
                             description: 'Balance de Material on Site por partida.',
                             icon: <FileCheck size={18} className="text-amber-600" />,
                             action: async () => {
@@ -705,14 +705,14 @@ function ReportesContent() {
                     </StandardReportItem>
                 </DropdownGroup>
 
-                {/* 5. Change Orders */}
-                <DropdownGroup title="5. Change Orders" icon={<FileDigit size={18} className="text-purple-500" />}>
+                {/* Change Orders */}
+                <DropdownGroup title="Change Orders" icon={<FileDigit size={18} className="text-purple-500" />}>
                     <SelectiveReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'act122-selective',
-                            label: '1. ACT-122 (Oficial)',
+                            label: 'ACT-122 (Oficial)',
                             description: 'Seleccione las órdenes de cambio para generar el formulario oficial ACT-122.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
@@ -737,7 +737,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act123-selective',
-                            label: '2. ACT-123 (Supplementary Form)',
+                            label: 'ACT-123 (Supplementary Form)',
                             description: 'Seleccione las órdenes de cambio para generar el formulario suplementario ACT-123.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
@@ -762,7 +762,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act123b-selective',
-                            label: '3. ACT-123B (Supplementary Form B)',
+                            label: 'ACT-123B (Supplementary Form B)',
                             description: 'Seleccione las órdenes de cambio para generar el formulario suplementario ACT-123B.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
@@ -788,7 +788,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act124',
-                            label: '3. ACT-124 (Checklist)',
+                            label: 'ACT-124 (Checklist)',
                             description: 'Checklist para órdenes de cambio. Los campos son editables en el PDF.',
                             icon: <FileCheck size={18} className="text-purple-800" />,
                             action: async () => {

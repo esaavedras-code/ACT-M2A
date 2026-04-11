@@ -337,7 +337,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                 <div>
                     <h2 className="text-2xl font-bold flex items-center gap-2">
                         <TrendingUp className="text-primary" />
-                        6. Change Orders / Enmiendas
+                        Change Orders / Enmiendas
                     </h2>
                 </div>
                 <div className="flex gap-2">
@@ -351,7 +351,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("change_orders", chos),
                         description: "Exportar todas las enmiendas actuales a un archivo JSON",
-                        variant: 'info' as const,
+                        variant: 'export' as const,
                         disabled: loading
                     },
                     {
@@ -359,7 +359,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-chos-json')?.click(),
                         description: "Cargar enmiendas desde un archivo JSON",
-                        variant: 'secondary' as const,
+                        variant: 'import' as const,
                         disabled: loading
                     },
                     {
@@ -603,7 +603,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     </table>
                                 </div>
                                 <div className="mt-8 space-y-4">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">36. Justificación Técnica y Legal</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Justificación Técnica y Legal</label>
                                     <textarea className="w-full min-h-[120px] input-field text-xs p-3" value={cho.justification || ""} onChange={(e) => updateCHO(idx, 'justification', e.target.value)} />
                                 </div>
                             </div>

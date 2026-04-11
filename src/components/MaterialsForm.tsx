@@ -189,7 +189,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                             <Package className="text-amber-600" size={24} />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sección 4</span>
+                            <span className="text-sm font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Inventario</span>
                             <div className="flex items-center gap-3">
                                 <span>Inventario Material on Site</span>
                                 <span className="text-lg px-3 py-0.5 rounded-lg border bg-slate-50 text-slate-700 border-slate-200">

@@ -185,7 +185,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         icon: <Download />,
                         onClick: () => exportSectionToJSON("contractor", formData),
                         description: "Exportar información del contratista a un archivo JSON",
-                        variant: 'info' as const,
+                        variant: 'export' as const,
                         disabled: loading
                     },
                     {
@@ -193,7 +193,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         icon: <Upload />,
                         onClick: () => document.getElementById('import-contractor-json')?.click(),
                         description: "Cargar información del contratista desde un archivo JSON",
-                        variant: 'secondary' as const,
+                        variant: 'import' as const,
                         disabled: loading
                     }
                 ]}

@@ -89,7 +89,7 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
         }
     };
 
-    if (fetching) return <div className="p-10 text-center animate-pulse text-slate-400">Cargando sección 14...</div>;
+    if (fetching) return <div className="p-10 text-center animate-pulse text-slate-400">Cargando sección...</div>;
 
     return (
         <div className="space-y-6">
@@ -99,7 +99,7 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
                         <Info className="text-primary" size={24} />
                     </div>
                     <div>
-                        <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight uppercase">14. Cambios al CCML</h3>
+                        <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Cambios al CCML</h3>
                         <p className="text-slate-500 text-xs font-medium">Información de Cartas de Requerimiento de Modificación de Proyecto</p>
                     </div>
                 </div>

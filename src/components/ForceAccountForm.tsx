@@ -302,7 +302,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
             <div className="space-y-6">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <Calculator className="text-primary" /> 12. Force Account
+                        <Calculator className="text-primary" /> Force Account
                     </h2>
                     <button onClick={handleCreateNew} className="btn-primary flex items-center gap-2"><Plus size={18} /> Nuevo FA</button>
                 </div>
@@ -342,7 +342,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                     icon: <Download />,
                     onClick: () => exportSectionToJSON(`fa_${currentFA?.fa_num || 'draft'}`, currentFA),
                     description: "Exportar todos los datos de este Force Account (MO, Materiales, Equipo)",
-                    variant: 'info' as const,
+                    variant: 'export' as const,
                     disabled: loading
                 },
                 {
@@ -350,7 +350,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                     icon: <Upload />,
                     onClick: () => document.getElementById('import-fa-json')?.click(),
                     description: "Cargar datos de Force Account desde un archivo JSON",
-                    variant: 'secondary' as const,
+                    variant: 'import' as const,
                     disabled: loading
                 },
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar datos al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }

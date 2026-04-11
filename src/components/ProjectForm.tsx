@@ -23,7 +23,7 @@ const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
     </button>
 );
 
-const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => void, onSaved?: (newId?: string) => void }>(function ProjectForm({ projectId, onDirty, onSaved }, ref) {
+const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string, onDirty?: () => void, onSaved?: (newId?: string) => void }>(function ProjectForm({ projectId, userRole, onDirty, onSaved }, ref) {
     const [formData, setFormData] = useState({
         num_act: "",
         num_federal: "",
@@ -740,7 +740,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                     </div>
                 </h2>
                 
-                {projectId && (
+                {projectId && userRole === 'A' && (
                     <button
                         type="button"
                         onClick={handleDelete}
@@ -794,44 +794,46 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                             </div>
                         </div>
                         
-                        <div className="flex flex-col sm:flex-row items-end gap-4 pt-2">
-                            <div className="space-y-1.5 flex-1 w-full max-w-md">
-                                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                                    Tipo de Documento
+                        {userRole === 'A' && (
+                            <div className="flex flex-col sm:flex-row items-end gap-4 pt-2">
+                                <div className="space-y-1.5 flex-1 w-full max-w-md">
+                                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                        Tipo de Documento
+                                    </label>
+                                    <select 
+                                        className="w-full px-4 py-3 h-12 text-sm font-bold bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer shadow-sm"
+                                        value={selectedDocType}
+                                        onChange={(e) => setSelectedDocType(e.target.value)}
+                                        disabled={!projectId || uploadingDoc}
+                                    >
+                                        {DOC_TYPES.map(t => <option key={t} value={t} className="font-bold">{t}</option>)}
+                                    </select>
+                                </div>
+                                <label className={`btn-primary py-2.5 px-6 text-sm flex items-center justify-center gap-2 cursor-pointer h-11 transition-all ${(!projectId || uploadingDoc) ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-[1.02] active:scale-[0.98]'}`}>
+                                    {uploadingDoc ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <Plus size={18} />
+                                    )}
+                                    <span>{uploadingDoc ? "Subiendo..." : "Subir Archivo"}</span>
+                                    <input 
+                                        type="file" 
+                                        className="hidden" 
+                                        accept=".pdf,image/*"
+                                        disabled={!projectId || uploadingDoc}
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleFileUpload(file);
+                                            e.target.value = '';
+                                        }}
+                                    />
                                 </label>
-                                <select 
-                                    className="w-full px-4 py-3 h-12 text-sm font-bold bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer shadow-sm"
-                                    value={selectedDocType}
-                                    onChange={(e) => setSelectedDocType(e.target.value)}
-                                    disabled={!projectId || uploadingDoc}
-                                >
-                                    {DOC_TYPES.map(t => <option key={t} value={t} className="font-bold">{t}</option>)}
-                                </select>
                             </div>
-                            <label className={`btn-primary py-2.5 px-6 text-sm flex items-center justify-center gap-2 cursor-pointer h-11 transition-all ${(!projectId || uploadingDoc) ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-[1.02] active:scale-[0.98]'}`}>
-                                {uploadingDoc ? (
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <Plus size={18} />
-                                )}
-                                <span>{uploadingDoc ? "Subiendo..." : "Subir Archivo"}</span>
-                                <input 
-                                    type="file" 
-                                    className="hidden" 
-                                    accept=".pdf,image/*"
-                                    disabled={!projectId || uploadingDoc}
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) handleFileUpload(file);
-                                        e.target.value = '';
-                                    }}
-                                />
-                            </label>
-                        </div>
+                        )}
 
                         {/* Banner AI - Modernizado sin chat manual */}
-                        {projectId && (
+                        {(projectId && userRole === 'A') && (
                             <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden group border border-white/10">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-white/20 transition-all duration-700"></div>
                                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400/10 rounded-full blur-3xl -ml-24 -mb-24"></div>
@@ -896,7 +898,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, onDirty?: () => vo
                                                 {doc ? `Subido: ${new Date(doc.uploaded_at).toLocaleDateString()}` : "Pendiente"}
                                             </span>
                                         </div>
-                                        {doc && (
+                                        {doc && userRole === 'A' && (
                                             <button 
                                                 type="button"
                                                 onClick={() => handleDeleteDocument(doc.id, doc.storage_path)}

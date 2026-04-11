@@ -42,6 +42,22 @@ body {
   @apply bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-xl transition-all font-bold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50;
 }
 
+.btn-print {
+  @apply bg-[#E00EE0] hover:bg-[#c00cc0] text-white px-5 py-3 rounded-2xl transition-all font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-[#E00EE0]/20 active:scale-95 disabled:opacity-50;
+}
+
+.btn-save {
+  @apply bg-[#0000CC] hover:bg-[#0000aa] text-white px-5 py-3 rounded-2xl transition-all font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-[#0000CC]/20 active:scale-95 disabled:opacity-50;
+}
+
+.btn-export {
+  @apply bg-[#6600FF] hover:bg-[#5500dd] text-white px-5 py-3 rounded-2xl transition-all font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-[#6600FF]/20 active:scale-95 disabled:opacity-50;
+}
+
+.btn-import {
+  @apply bg-[#FFFFFF] hover:bg-[#f0f0f0] text-[#000000] px-5 py-3 border border-slate-200 rounded-2xl transition-all font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50;
+}
+
 .input-field {
   @apply w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-600 outline-none transition-all text-sm font-medium text-slate-900 dark:text-white;
 }
