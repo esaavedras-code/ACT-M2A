@@ -67,18 +67,27 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   // Dimensiones estándar 13.33 x 7.5 inches
   pptx.layout = "LAYOUT_WIDE"; 
 
-  // Colores (HEX strings sin #)
-  const ACT_BLUE = "2E5077";
-  const ACT_ORANGE_LITE = "FB923C"; 
-  const ACT_BEIGE = "FDF2E9";       
+  // Colores corporativos (HEX sin #)
+  const ACT_BLUE = "1F4E79";       // Azul oscuro titulos
+  const ACT_ORANGE_LITE = "FB923C"; // Franja lateral
+  const ACT_BEIGE = "FDF2E9";       // Fondo recuadro ID
 
   // ─────────────────────────────────────────────────────────────
-  // SLIDE 1: PORTADA
+  // SLIDE 1: PORTADA (CON DEGRADADO SEGÚN FOTO 1)
   // ─────────────────────────────────────────────────────────────
   const slide1 = pptx.addSlide();
 
-  // Fondo Blanco Sólido (Más seguro en v4 para depurar)
-  slide1.background = { fill: "FFFFFF" };
+  // Fondo con degradado naranja suave (Fiel a la foto 1)
+  slide1.background = { 
+    fill: { 
+      type: "gradient", 
+      angle: 0, // Vertical
+      stops: [
+        { offset: 0, color: "FFFFFF" },
+        { offset: 100, color: "FDBA74" }
+      ] 
+    } 
+  };
 
   // Logo ACT
   if (data.actLogoUrl) {
@@ -86,12 +95,12 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     if (logoB64) {
       slide1.addImage({
         data: `image/png;base64,${logoB64}`,
-        x: 0.2, y: 0.2, w: 2.2, h: 1.3,
+        x: 0.1, y: 0.1, w: 2.2, h: 1.3,
       });
     }
   }
 
-  // Texto central
+  // Texto central en azul corporativo
   const presDateFormatted = String(new Date(data.presentationDate + "T12:00:00").toLocaleDateString("es-PR", {
     day: "numeric", month: "numeric", year: "numeric"
   }));
@@ -104,21 +113,21 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
       { text: presDateFormatted,     options: { bold: true, fontSize: 36, color: ACT_BLUE } },
     ],
     {
-      x: 1.0, y: 2.5, w: 11.33, h: 4.0,
+      x: 0, y: 2.2, w: 13.33, h: 4.0,
       align: "center", valign: "middle", 
       fontFace: "Calibri",
     }
   );
 
   // ─────────────────────────────────────────────────────────────
-  // SLIDE 2: CONTENIDO POR PROYECTO
+  // SLIDE 2: CONTENIDO POR PROYECTO (DISEÑO FOTO 2)
   // ─────────────────────────────────────────────────────────────
   const slide2 = pptx.addSlide();
   slide2.background = { fill: "FFFFFF" };
 
-  // Franja lateral
+  // Franja naranja lateral derecha (Diseño según foto 2)
   slide2.addShape(pptx.ShapeType.rect, {
-    x: 12.8, y: 0, w: 0.5, h: 7.5,
+    x: 12.8, y: 0, w: 0.53, h: 7.5,
     fill: { color: ACT_ORANGE_LITE }
   });
 
@@ -136,23 +145,23 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     if (logoB64) {
       slide2.addImage({
         data: `image/png;base64,${logoB64}`,
-        x: 0.1, y: 0.1, w: 1.8, h: 1.1,
+        x: 0.1, y: 0.15, w: 1.8, h: 1.1,
       });
     }
   }
 
-  // Caja ID
+  // Recuadro ID del proyecto en Naranja Claro / Beige (Superior)
   slide2.addText(`${numAct} / ${numFed}`, {
-    x: 2.3, y: 0.2, w: 8.5, h: 0.6,
+    x: 2.3, y: 0.25, w: 8.5, h: 0.6,
     bold: true, fontSize: 26, fontFace: "Calibri", color: "000000",
     fill: { color: ACT_BEIGE },
     line: { pt: 0.5, color: "AFAFAF" },
     valign: "middle", align: "left", margin: 10,
   });
 
-  // Título
+  // Título del proyecto (Mayúsculas)
   slide2.addText(String(proj.name || "NOMBRE DEL PROYECTO").toUpperCase(), {
-    x: 2.15, y: 0.9, w: 10.5, h: 0.5,
+    x: 2.15, y: 1.0, w: 10.5, h: 0.5,
     bold: true, fontSize: 20, fontFace: "Calibri", color: "000000",
     valign: "middle",
   });
@@ -162,11 +171,11 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   slide2.addText("Descripción del Proyecto:", { x: COL_X, y: 1.5, w: TABLE_W, h: 0.3, bold: true, italic: true, fontSize: 11, color: "000000" });
   slide2.addText(String(proj.description || "Sin descripción."), {
-    x: COL_X, y: 1.8, w: TABLE_W, h: 1.5, line: { pt: 1, color: "000000" },
+    x: COL_X, y: 1.85, w: TABLE_W, h: 1.5, line: { pt: 1, color: "000000" },
     valign: "top", margin: 5, fontSize: 10, fontFace: "Calibri",
   });
 
-  // Filas de tabla
+  // Tabla técnica (Fiel a la estructura del informe)
   const rows = [
     ["Administrador", String(proj.admin_name || "N/A"), ""],
     ["Supervisor", String(proj.project_manager_name || "N/A"), ""],
@@ -192,7 +201,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     text: String(c), 
     options: { fontSize: 8, fontFace: "Calibri", bold: true, border: { pt: 0.5, color: "000000" }, valign: "middle" } 
   }))), {
-    x: COL_X, y: 3.4, w: TABLE_W, colW: [1.6, 1.4, 1.3],
+    x: COL_X, y: 3.45, w: TABLE_W, colW: [1.6, 1.4, 1.3],
   });
 
   const MID_X = 4.6;
@@ -200,35 +209,36 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   slide2.addText("Actividades Realizándose:", { x: MID_X, y: 1.5, w: MID_W, h: 0.3, bold: true, italic: true, fontSize: 13, color: "000000" });
   slide2.addText(String(data.activities || "1. Pendiente."), {
-    x: MID_X, y: 1.8, w: MID_W, h: 3.1, line: { pt: 1, color: "000000" },
+    x: MID_X, y: 1.85, w: MID_W, h: 3.2, line: { pt: 1, color: "000000" },
     valign: "top", margin: 5, fontFace: "Calibri", fontSize: 11
   });
 
-  slide2.addText("Puntos críticos a atender:", { x: MID_X, y: 5.0, w: MID_W, h: 0.3, bold: true, italic: true, fontSize: 13, color: "000000" });
+  slide2.addText("Puntos críticos a atender:", { x: MID_X, y: 5.15, w: MID_W, h: 0.3, bold: true, italic: true, fontSize: 13, color: "000000" });
   slide2.addText(String(data.criticalPoints || "1. Ninguno."), {
-    x: MID_X, y: 5.3, w: MID_W, h: 2.05, line: { pt: 1, color: "000000" },
+    x: MID_X, y: 5.45, w: MID_W, h: 1.95, line: { pt: 1, color: "000000" },
     valign: "top", margin: 5, fontFace: "Calibri", fontSize: 11
   });
 
   const RIGHT_X = 9.15;
-  const PHOTO_W = 3.3;
-  const PHOTO_H = 2.7;
+  const PHOTO_W = 3.4;
+  const PHOTO_H = 2.8;
 
   const addPhoto = async (url: string | null, y: number) => {
     if (url) {
       const b64 = await urlToBase64(url);
       if (b64) {
-        slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X - 0.05, y: y - 0.05, w: PHOTO_W + 0.1, h: PHOTO_H + 0.1, line: { pt: 3, color: "000000" }, fill: { color: "none" } });
+        // Marco externo negro grueso (Fiel a la foto)
+        slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X - 0.05, y: y - 0.05, w: PHOTO_W + 0.1, h: PHOTO_H + 0.1, line: { pt: 4, color: "000000" }, fill: { color: "none" } });
         slide2.addImage({ data: `image/${getImgExt(url).replace('jpg', 'jpeg')};base64,${b64}`, x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H } });
       }
     } else {
-       slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, fill: { color: "F3F4F6" }, line: { color: "000000", pt: 1 } });
+       slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, fill: { color: "F3F4F6" }, line: { color: "000000", pt: 1.5 } });
        slide2.addText("(Sin imagen)", { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 12, color: "6B7280" });
     }
   };
 
   await addPhoto(data.photo1Url, 1.5);
-  await addPhoto(data.photo2Url, 4.4);
+  await addPhoto(data.photo2Url, 4.5);
 
   const pptxBuf = await pptx.write({ outputType: "arraybuffer" }) as ArrayBuffer;
   return new Blob([pptxBuf], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
