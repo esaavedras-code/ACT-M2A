@@ -68,8 +68,7 @@ export async function generateFinalEstimateReportLogic(projectId: string) {
             TXT("COMMONWEALTH OF PUERTO RICO", PW / 2, 35, 9, fB, 'center');
             TXT("DEPARTMENT OF TRANSPORTATION AND PUBLIC WORKS", PW / 2, 47, 9, fB, 'center');
             TXT("PUERTO RICO HIGHWAY AND TRANSPORTATION AUTHORITY", PW / 2, 59, 10, fB, 'center');
-            TXT("FINAL ESTIMATE", PW / 2, 80, 14, fB, 'center');
-            TXT("(BORRADOR)", PW / 2, 93, 13, fB, 'center');
+            TXT("FINAL ESTIMATE", PW / 2, 85, 14, fB, 'center');
 
             const projName = (proj.name || '').substring(0, 80);
             TXT(`PROJECT: ${projName}`, ML, 108, 9, fB);

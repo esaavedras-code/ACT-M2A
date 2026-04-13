@@ -60,8 +60,7 @@ export async function generateFinalConstructionReport(projectId: string) {
             TXT(pg, "Commonwealth of Puerto Rico", PW / 2, 40, 9, false, 'center');
             TXT(pg, "Highway Authority", PW / 2, 50, 9, false, 'center');
             TXT(pg, "Construction Area", PW / 2, 60, 9, false, 'center');
-            TXT(pg, "CONSTRUCTION FINAL REPORT", PW / 2, 80, 13, true, 'center');
-            TXT(pg, "(BORRADOR)", PW / 2, 95, 12, true, 'center');
+            TXT(pg, "CONSTRUCTION FINAL REPORT", PW / 2, 85, 13, true, 'center');
 
             let curY = 110;
             // First Row

@@ -174,7 +174,6 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
         Y = 220;
         TXT(page1, "ANÁLISIS DE TIEMPO", PW / 2, Y, 12, true, 'center');
         Y += 15;
-        TXT(page1, "(BORRADOR)", PW / 2, Y, 11, true, 'center');
         Y += 15;
 
         TXT(page1, "1. Net Overrun (Final Report)", L1, Y, 9);

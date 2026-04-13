@@ -200,7 +200,6 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         // ══════════════════════════════════════════════════════
         TXT(pg, 'LIQUIDACION', ML, Y, 11, true);
         Y -= 12;
-        TXT(pg, '(BORRADOR)', ML, Y, 10, true);
         Y -= 4;
         H_LINE(pg, ML, Y, ML + CW, 0.8);
         Y -= 35;

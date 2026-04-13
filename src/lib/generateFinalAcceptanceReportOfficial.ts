@@ -78,8 +78,7 @@ export async function generateFinalAcceptanceReportOfficial(projectId: string) {
         }
 
         // Center Title
-        TXT("FINAL ACCEPTANCE REPORT", PW / 2, 60, 16, true, 'center');
-        TXT("(BORRADOR)", PW / 2, 80, 15, true, 'center');
+        TXT("FINAL ACCEPTANCE REPORT", PW / 2, 70, 16, true, 'center');
 
         // Right Logo (ACT)
         try {

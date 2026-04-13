@@ -1659,7 +1659,7 @@ export const generateSignedItemsReportLogic = async (projectId: string, format: 
 
     // ContentWidth is 552 for portrait. Let's do widths that fit inside 552:
     // 60 + 252 + 80 + 80 + 80 = 552
-    const blob = await createPdfBlob('REPORTE DE FIRMAS POR PARTIDAS (LIQUIDACIÓN)', reportData, project, [60, 252, 80, 80, 80], 'portrait', undefined, '(BORRADOR)');
+    const blob = await createPdfBlob('REPORTE DE FIRMAS POR PARTIDAS (LIQUIDACIÓN)', reportData, project, [60, 252, 80, 80, 80], 'portrait');
     if (format === 'excel') {
         const { createExcelBlob } = await import("./reportLogic"); // ya está, pero por si acaso
         const excelBlob = await createExcelBlob('REPORTE DE FIRMAS POR PARTIDAS (LIQUIDACIÓN)', reportData, project);

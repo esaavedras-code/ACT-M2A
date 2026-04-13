@@ -310,7 +310,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         title="Reporte de todas las partidas y su estatus de firmas"
                     >
                         {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}
-                        Reporte de Firmas
+                        Reporte de Firmas (BORRADOR)
                     </button>
                     <button
                         onClick={handleGenerateMissingReport}
@@ -319,7 +319,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         title="Reporte de partidas que tienen alguna firma pendiente"
                     >
                         {isGeneratingMissing ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
-                        Firmas Pendientes
+                        Firmas Pendientes (BORRADOR)
                     </button>
                 </div>
             </div>

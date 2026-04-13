@@ -88,9 +88,8 @@ export async function generateContractFinalReportLogic(projectId: string) {
         TXT("PUERTO RICO HIGHWAY AND TRANSPORTATION AUTHORITY", PW / 2, 60, 11, true, 'center');
         TXT("SAN JUAN, PUERTO RICO", PW / 2, 75, 9, false, 'center');
 
-        TXT("CONTRACT FINAL REPORT", PW / 2, 100, 14, true, 'center');
-        TXT("(BORRADOR)", PW / 2, 115, 13, true, 'center');
-        LINE(PW / 2 - 85, 103, PW / 2 + 85, 103, 1);
+        TXT("CONTRACT FINAL REPORT", PW / 2, 105, 14, true, 'center');
+        LINE(PW / 2 - 85, 108, PW / 2 + 85, 108, 1);
 
         // Project Info Block for Contract Final Report
         let py = 135;
