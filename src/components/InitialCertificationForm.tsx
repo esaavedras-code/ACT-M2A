@@ -298,8 +298,8 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                         {isNearExpiration && (
                                             <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter animate-pulse">
                                                 Pronto a vencer ({daysLeft} días)
-                                            }
-                                        </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
