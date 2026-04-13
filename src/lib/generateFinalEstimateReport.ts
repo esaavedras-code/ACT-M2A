@@ -75,8 +75,13 @@ export async function generateFinalEstimateReportLogic(projectId: string) {
             TXT(`PROJECT: ${projName}`, ML, 108, 9, fB);
             TXT(`ACT NO: ${proj.num_act}`, ML, 120, 9, fB);
             TXT(`CONTRACT NO: ${proj.num_contrato || 'N/A'}`, PW / 2, 108, 9, fB);
+            TXT(`FEDERAL NO: ${proj.num_federal || 'N/A'}`, PW / 2, 120, 9, fB);
+            TXT(`REGION: ${proj.region || 'N/A'}`, ML, 132, 9, fB);
+            TXT(`CONTRACTOR: ${proj.contractor_name || 'N/A'}`, PW / 2, 132, 9, fB);
+            TXT(`PM ACT: ${proj.project_manager_name || 'N/A'}`, ML, 144, 9, fB);
+            TXT(`ADMIN: ${proj.admin_name || 'N/A'}`, PW / 2, 144, 9, fB);
             TXT(`DATE: ${utilsFormatDate(new Date())}`, PW - MR, 120, 9, fB, 'right');
-            return 140;
+            return 160;
         };
 
         const drawTableHeader = (startY: number) => {

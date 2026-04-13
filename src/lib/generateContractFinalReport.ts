@@ -88,12 +88,23 @@ export async function generateContractFinalReportLogic(projectId: string) {
         TXT("PUERTO RICO HIGHWAY AND TRANSPORTATION AUTHORITY", PW / 2, 60, 11, true, 'center');
         TXT("SAN JUAN, PUERTO RICO", PW / 2, 75, 9, false, 'center');
 
-        TXT("CONTRACT FINAL REPORT", PW / 2, 105, 14, true, 'center');
-        TXT("(BORRADOR)", PW / 2, 120, 13, true, 'center');
-        LINE(PW / 2 - 85, 108, PW / 2 + 85, 108, 1);
+        TXT("CONTRACT FINAL REPORT", PW / 2, 100, 14, true, 'center');
+        TXT("(BORRADOR)", PW / 2, 115, 13, true, 'center');
+        LINE(PW / 2 - 85, 103, PW / 2 + 85, 103, 1);
+
+        // Project Info Block for Contract Final Report
+        let py = 135;
+        const col1 = ML, col2 = PW / 2;
+        TXT(`REGION: ${proj.region || 'N/A'}`, col1, py, 8, true);
+        TXT(`CONTRACTOR: ${proj.contractor_name || 'N/A'}`, col2, py, 8, true);
+        py += 12;
+        TXT(`ADMIN: ${proj.admin_name || 'N/A'}`, col1, py, 8, true);
+        TXT(`PM ACT: ${proj.project_manager_name || 'N/A'}`, col2, py, 8, true);
+        py += 12;
+        TXT(`MUNICIPIOS: ${Array.isArray(proj.municipios) ? proj.municipios.join(', ') : (proj.municipios || 'N/A')}`, col1, py, 8, true);
 
         // 4. Narrative Paragraph
-        let Y = 140;
+        Y = py + 25;
         const narrative = `Contract entered into by the Executive Director, in behalf of the Puerto Rico Highway and Transportation Authority and ${proj.contractor_name || '[Contractor Name]'}, Contractor for the Construction of project ${proj.name || '[Project Name]'}, ACT No. ${proj.num_act || '---'}, Federal-Aid No. ${proj.num_federal || '---'} of Puerto Rico.`;
         Y = WRAP_TXT(narrative, ML, Y, 10, PW - ML - MR);
 
