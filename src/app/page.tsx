@@ -86,19 +86,21 @@ export default function Dashboard() {
 
             let projectsQuery = supabase
                 .from("projects")
-                .select("id, name, num_act, region, cost_original")
+                .select("id, name, num_act, region, cost_original, project_origin")
                 .order("created_at", { ascending: false });
             
             if (!allowedIds.includes("ALL")) {
                 projectsQuery = projectsQuery.in("id", allowedIds);
             }
 
-            // Aislamiento estricto: Roles A-E no ven F, y viceversa
+            // Aislamiento estricto: Roles B-E no ven F, y viceversa. PERO Rol A ve todo.
             if (userData?.role_global === 'F') {
                 projectsQuery = projectsQuery.eq("project_origin", "Contratista");
-            } else {
+            } else if (userData?.role_global !== 'A') {
+                // Roles B, C, D, E ven solo ACT
                 projectsQuery = projectsQuery.neq("project_origin", "Contratista");
             }
+            // Si es 'A', no añadimos filtro de origin para que vea todos.
             
             const { data: projectsData } = await projectsQuery;
             const { data: allItems } = await supabase.from("contract_items").select("project_id, quantity, unit_price");
@@ -203,11 +205,8 @@ export default function Dashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex flex-col">
                     <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">PROYECTOS ACT</h1>
-                    <div className="flex items-center gap-3 mt-2">
-                        <p className="text-slate-500 font-medium">Panel central de control y monitoreo de obras.</p>
-                        <Link href="/acerca-de" className="text-xs font-black text-blue-600 hover:underline uppercase tracking-widest flex items-center gap-1">
-                            <Info size={14} /> Saber más
-                        </Link>
+                    <div className="flex items-center gap-3 mt-4">
+                        <p className="text-slate-500 font-medium">Gestiona y supervisa todas las obras.</p>
                     </div>
                 </div>
                 <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group mr-[2in]">

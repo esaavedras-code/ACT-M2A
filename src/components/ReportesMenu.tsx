@@ -18,7 +18,7 @@ export default function ReportesMenu() {
             }}
             className="text-[10px] font-black uppercase tracking-[0.2em] hover:text-blue-200 transition-colors"
         >
-            Central de reportes
+            CENTRAL DE <br /> REPORTES
         </Link>
     );
 }

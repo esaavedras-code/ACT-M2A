@@ -780,11 +780,11 @@ export default function AdminRequestsPage() {
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitante</th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Proyecto</th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Deseado</th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado</th>
-                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
+                                        <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitante</th>
+                                        <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Proyecto</th>
+                                        <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Deseado</th>
+                                        <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado</th>
+                                        <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -934,13 +934,13 @@ export default function AdminRequestsPage() {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado / Plataforma</th>
-                                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Inicio</th>
-                                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Final</th>
-                                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Duración</th>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Global</th>
-                                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
+                                    <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuario</th>
+                                    <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Estado / Plataforma</th>
+                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Inicio</th>
+                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Final</th>
+                                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Duración</th>
+                                    <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Rol Global</th>
+                                    <th className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -959,7 +959,7 @@ export default function AdminRequestsPage() {
                                     .map(user => (
                                         <Fragment key={user.id}>
                                             <tr className={`transition-all ${expandedUserId === user.id ? 'bg-blue-50/30' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}>
-                                                <td className="px-8 py-6">
+                                                <td className="px-8 py-2">
                                                     <div className="flex flex-col gap-1">
                                                         <span className="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
                                                             {user.name || 'Sin nombre'}
@@ -974,7 +974,7 @@ export default function AdminRequestsPage() {
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6">
+                                                <td className="px-8 py-2">
                                                     <div className="flex flex-col items-center gap-2">
                                                         {(() => {
                                                             const isOnline = user.last_active_at && (new Date().getTime() - new Date(user.last_active_at).getTime() < 300000); // 5 mins
@@ -996,7 +996,7 @@ export default function AdminRequestsPage() {
                                                     </div>
                                                 </td>
                                                 {/* Celda INICIO */}
-                                                <td className="px-4 py-6">
+                                                <td className="px-4 py-2">
                                                     {editingUserId === user.id ? (
                                                         <input 
                                                             type="date" 
@@ -1015,7 +1015,7 @@ export default function AdminRequestsPage() {
                                                 </td>
 
                                                 {/* Celda FINAL */}
-                                                <td className="px-4 py-6">
+                                                <td className="px-4 py-2">
                                                     {editingUserId === user.id ? (
                                                         <input 
                                                             type="date" 
@@ -1037,7 +1037,7 @@ export default function AdminRequestsPage() {
                                                 </td>
 
                                                 {/* Celda DURACIÓN */}
-                                                <td className="px-4 py-6">
+                                                <td className="px-4 py-2">
                                                     {editingUserId === user.id ? (
                                                         <div className="flex items-center gap-1">
                                                             <input 
@@ -1072,7 +1072,7 @@ export default function AdminRequestsPage() {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-8 py-6">
+                                                <td className="px-8 py-2">
                                                     <div className="group relative cursor-pointer" onClick={() => {
                                                         const newRole = prompt(`Cambiar rol para ${user.email}. \nRoles disponibles: B, C, D, E, F`, user.role_global);
                                                         if (newRole && ['B','C','D','E','F'].includes(newRole.toUpperCase())) {
@@ -1091,7 +1091,7 @@ export default function AdminRequestsPage() {
                                                     </div>
                                                 </td>
                                                 {/* Eliminamos la columna de Registro para dar espacio a las nuevas */}
-                                                <td className="px-8 py-6 text-right">
+                                                <td className="px-8 py-2">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button 
                                                             onClick={() => fetchUserHistory(user.id)}

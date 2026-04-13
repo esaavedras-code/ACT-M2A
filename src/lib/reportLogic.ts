@@ -67,7 +67,7 @@ export const fetchAllReportData = async (projectId: string) => {
 export const createPdfBlob = async (
     title: string,
     data: any[][],
-    projectInfo?: { name: string, num_act: string } | null,
+    projectInfo?: any | null,
     customColWidths?: number[],
     orientation: 'portrait' | 'landscape' = 'portrait',
     cutOffDate?: string | Date,
@@ -185,8 +185,22 @@ export const createPdfBlob = async (
     y -= 15;
     if (projectInfo) {
         const cleanAct = formatProjectNumber(projectInfo.num_act);
-        centerText(`Proyecto: ${projectInfo.name || 'N/A'} - ${cleanAct}`, timesRomanBoldFont, 10, y);
-        y -= 22;
+        centerText(`PROYECTO: ${projectInfo.name || 'N/A'} - ${cleanAct}`, timesRomanBoldFont, 12, y);
+        y -= 15;
+
+        // Project Details Header Block
+        const mun = Array.isArray(projectInfo.municipios) ? projectInfo.municipios.join(', ') : (projectInfo.municipios || 'N/A');
+        const detailRows = [
+            `Num. Federal: ${projectInfo.num_federal || 'N/A'}  |  Contrato: ${projectInfo.num_contrato || 'N/A'}  |  Región: ${projectInfo.region || 'N/A'}`,
+            `Municipios: ${mun}  |  Contratista: ${projectInfo.contractor_name || 'N/A'}`,
+            `Admin: ${projectInfo.admin_name || 'N/A'}  |  PM: ${projectInfo.project_manager_name || 'N/A'}`
+        ];
+
+        detailRows.forEach(line => {
+            centerText(line, timesRomanFont, 8.5, y);
+            y -= 10;
+        });
+        y -= 8;
     }
     centerText(title, timesRomanBoldFont, 14, y);
     y -= 15;
@@ -460,7 +474,7 @@ export const createPdfBlob = async (
 export const createExcelBlob = async (
     title: string,
     data: any[][],
-    projectInfo?: { name: string, num_act: string } | null,
+    projectInfo?: any | null,
     cutOffDate?: string | Date
 ) => {
     const cutStr = cutOffDate ? utilsFormatDate(new Date(cutOffDate)) : "";
@@ -477,7 +491,10 @@ export const createExcelBlob = async (
     // Combine title and data for better excel layout
     const excelData = [
         [title],
-        [projectInfo ? `Proyecto: ${projectInfo.name} - ${formatProjectNumber(projectInfo.num_act)}` : ""],
+        [projectInfo ? `PROYECTO: ${projectInfo.name} - ${formatProjectNumber(projectInfo.num_act)}` : ""],
+        [projectInfo ? `Fed: ${projectInfo.num_federal || 'N/A'} | Contrato: ${projectInfo.num_contrato || 'N/A'} | Region: ${projectInfo.region || 'N/A'}` : ""],
+        [projectInfo ? `Municipios: ${Array.isArray(projectInfo.municipios) ? projectInfo.municipios.join(', ') : (projectInfo.municipios || 'N/A')}` : ""],
+        [projectInfo ? `Contratista: ${projectInfo.contractor_name || 'N/A'} | PM: ${projectInfo.project_manager_name || 'N/A'} | Admin: ${projectInfo.admin_name || 'N/A'}` : ""],
         ...dateHeader,
         [],
         ...data
@@ -1255,8 +1272,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
         reportData.push([p.role, p.name || 'N/A', (p.phone_mobile || p.email || 'N/A'), '']);
     });
 
-    const projectInfo = { name: proj.name, num_act: proj.num_act };
-    await generateReport('REPORTE DE INFORMACIÓN PRINCIPAL', reportData, projectInfo, [138, 138, 138, 138], 'portrait', format, `Dashboard_Reporte_${proj.num_act}.pdf`, endDate);
+    await generateReport('REPORTE DE INFORMACIÓN PRINCIPAL', reportData, proj, [138, 138, 138, 138], 'portrait', format, `Dashboard_Reporte_${proj.num_act}.pdf`, endDate);
 };
 
 
@@ -1686,11 +1702,10 @@ export const generateMissingSignaturesReportLogic = async (projectId: string, fo
         })
     ];
 
-    const projectInfo = { name: project.name, num_act: project.num_act };
     await generateReport(
         'PARTIDAS CON FIRMAS PENDIENTES - LIQUIDACIÓN',
         reportData,
-        projectInfo,
+        project,
         [50, 70, 230, 60, 70, 72],
         'landscape',
         format,

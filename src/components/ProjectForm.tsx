@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, ShieldCheck, Building2, Loader2 } from "lucide-react";
+import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, ShieldCheck, Building2, Loader2, BrainCircuit } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency, getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
@@ -1421,6 +1421,14 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             </form>
             <FloatingFormActions 
                 actions={[
+                    {
+                        label: loading ? "Analizando..." : "Analizar con ACT-GPT",
+                        icon: loading ? <Loader2 className="animate-spin" /> : <BrainCircuit className="text-purple-500" />,
+                        onClick: handleAiAnalysis,
+                        description: "Extraer datos automáticamente de los documentos PDF subidos",
+                        variant: 'secondary',
+                        disabled: loading || !projectId
+                    },
                     {
                         label: loading ? "Guardando..." : "Guardar Proyecto",
                         icon: loading ? <Loader2 className="animate-spin" /> : <Save />,
