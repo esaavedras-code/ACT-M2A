@@ -64,25 +64,24 @@ function getImgExt(url: string): "png" | "jpg" {
 export async function generatePresentationPptx(data: PresentationData): Promise<Blob> {
   const pptx = new PptxGenJS();
 
-  // Dimensiones estándar 16:9 (inches)
-  pptx.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 inches
+  // Dimensiones estándar 13.33 x 7.5 inches
+  pptx.layout = "LAYOUT_WIDE"; 
 
-  // Colores del Manual de Identidad ACT (según fotos)
+  // Colores (HEX strings sin #)
   const ACT_BLUE = "2E5077";
-  const ACT_ORANGE_LITE = "FB923C"; // Naranja suave
-  const ACT_BEIGE = "FDF2E9";       // Fondo claro cajas
+  const ACT_ORANGE_LITE = "FB923C"; 
+  const ACT_BEIGE = "FDF2E9";       
 
   // ─────────────────────────────────────────────────────────────
   // SLIDE 1: PORTADA
   // ─────────────────────────────────────────────────────────────
   const slide1 = pptx.addSlide();
 
-  // Fondo con degradado naranja suave a blanco (según foto 1)
+  // Gradiente de fondo (Simplificado para evitar errores de tipo)
   slide1.background = { 
     fill: { 
       type: "gradient", 
-      color: "FFFFFF", 
-      alpha: 100,
+      angle: 90,
       stops: [
         { offset: 0, color: "FFFFFF" },
         { offset: 100, color: "FDBA74" }
@@ -90,7 +89,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     } 
   };
 
-  // Logo ACT (esquina superior izquierda)
+  // Logo ACT
   if (data.actLogoUrl) {
     const logoB64 = await urlToBase64(data.actLogoUrl);
     if (logoB64) {
@@ -101,12 +100,10 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     }
   }
 
-  // Texto central en AZUL OSCURO (según foto 1)
-  const presDateFormatted = new Date(data.presentationDate + "T12:00:00").toLocaleDateString("es-PR", {
-    day: "numeric",
-    month: "numeric",
-    year: "numeric"
-  });
+  // Texto central
+  const presDateFormatted = String(new Date(data.presentationDate + "T12:00:00").toLocaleDateString("es-PR", {
+    day: "numeric", month: "numeric", year: "numeric"
+  }));
 
   slide1.addText(
     [
@@ -116,10 +113,9 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
       { text: presDateFormatted,     options: { bold: true, fontSize: 36, color: ACT_BLUE } },
     ],
     {
-      x: 0, y: 0, w: "100%", h: "100%",
-      align: "center",
-      valign: "middle",
-      fontFace: "Calibri (Body)",
+      x: 0, y: 1.5, w: 13.33, h: 4.5,
+      align: "center", valign: "middle", 
+      fontFace: "Calibri",
     }
   );
 
@@ -129,21 +125,21 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   const slide2 = pptx.addSlide();
   slide2.background = { fill: "FFFFFF" };
 
-  // Franja naranja lateral derecha (Diseño según foto 2)
+  // Franja lateral
   slide2.addShape(pptx.ShapeType.rect, {
     x: 12.8, y: 0, w: 0.53, h: 7.5,
     fill: { color: ACT_ORANGE_LITE }
   });
 
   const proj = data.project;
-  const numAct   = proj.num_act    || "AC-XXXXX";
-  const numFed   = proj.num_federal || "ER-XXXXX";
+  const numAct   = String(proj.num_act    || "AC-XXXXX");
+  const numFed   = String(proj.num_federal || "ER-XXXXX");
   const certsSum = data.certsTotal || 0;
   const origCost = proj.cost_original || 0;
   const revCost  = proj.cost_revised  || origCost;
   const pctCert  = revCost > 0 ? ((certsSum / revCost) * 100).toFixed(2) + "%" : "0.00%";
 
-  // Logo ACT pequeño
+  // Logo pequeño
   if (data.actLogoUrl) {
     const logoB64 = await urlToBase64(data.actLogoUrl);
     if (logoB64) {
@@ -154,97 +150,75 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     }
   }
 
-  // Caja ID del proyecto en Naranja Claro / Beige (Superior)
+  // Caja ID
   slide2.addText(`${numAct} / ${numFed}`, {
     x: 2.3, y: 0.2, w: 8.5, h: 0.6,
     bold: true, fontSize: 26, fontFace: "Calibri", color: "000000",
     fill: { color: ACT_BEIGE },
     line: { pt: 0.5, color: "AFAFAF" },
-    valign: "middle",
-    align: "left",
-    margin: 10,
+    valign: "middle", align: "left", margin: 10,
   });
 
-  // Título del proyecto en NEGRO / AZUL (Debajo)
-  slide2.addText(proj.name?.toUpperCase() || "NOMBRE DEL PROYECTO", {
+  // Título
+  slide2.addText(String(proj.name || "NOMBRE DEL PROYECTO").toUpperCase(), {
     x: 2.15, y: 0.9, w: 10.5, h: 0.5,
     bold: true, fontSize: 20, fontFace: "Calibri", color: "000000",
     valign: "middle",
   });
 
-  // ── COLUMNA IZQUIERDA: Descripción y Tabla ──
   const COL_X = 0.15;
   const TABLE_W = 4.3;
 
-  // Título Descripción
   slide2.addText("Descripción del Proyecto:", { x: COL_X, y: 1.5, w: TABLE_W, h: 0.3, bold: true, italic: true, fontSize: 11, color: "000000" });
-  
-  // Marco de la descripción
-  const desc = proj.description || "Sin descripción disponible.";
-  slide2.addText(desc, {
-    x: COL_X, y: 1.8, w: TABLE_W, h: 1.5,
-    line: { pt: 1, color: "000000" },
-    valign: "top",
-    margin: 5,
-    fontSize: 10,
-    fontFace: "Calibri",
+  slide2.addText(String(proj.description || "Sin descripción."), {
+    x: COL_X, y: 1.8, w: TABLE_W, h: 1.5, line: { pt: 1, color: "000000" },
+    valign: "top", margin: 5, fontSize: 10, fontFace: "Calibri",
   });
 
-  // Tabla técnica (Bordes negros según foto 2)
+  // Filas de tabla (Asegurando strings en cada celda)
   const rows = [
-    ["Administrador", proj.admin_name || "N/A", ""],
-    ["Supervisor", proj.project_manager_name || "N/A", ""],
-    ["Contratista", proj.contractor_name || "N/A", ""],
-    ["Fecha del Informe", formatDate(data.presentationDate), ""],
-    ["Costo Original", formatCurrency(origCost), ""],
-    ["Costo Revisado", formatCurrency(revCost), ""],
-    ["Incremento ($) Proyectado", formatCurrency(proj.projected_increase || 0), ""],
+    ["Administrador", String(proj.admin_name || "N/A"), ""],
+    ["Supervisor", String(proj.project_manager_name || "N/A"), ""],
+    ["Contratista", String(proj.contractor_name || "N/A"), ""],
+    ["Fecha del Informe", String(formatDate(data.presentationDate)), ""],
+    ["Costo Original", String(formatCurrency(origCost)), ""],
+    ["Costo Revisado", String(formatCurrency(revCost)), ""],
+    ["Incremento ($) Proyectado", String(formatCurrency(proj.projected_increase || 0)), ""],
     ["Última certificación", `Fecha: ${formatDate(data.lastCert?.date)}`, `Monto: ${formatCurrency(data.lastCert?.amount || 0)}`],
-    ["Monto Certificado Acumulado", formatCurrency(certsSum), ""],
-    ["Monto Ejecutado Acumulado", formatCurrency(certsSum), ""],
-    ["Fecha de Comienzo", formatDate(proj.start_date), ""],
-    ["Terminación Original (fecha)", formatDate(proj.original_end_date), ""],
-    ["Terminación Revisada (fecha)", formatDate(proj.revised_end_date), ""],
-    ["Terminación Proyectada (fecha)", formatDate(proj.estimated_end_date), ""],
-    ["% Obra Certificado", pctCert, ""],
-    ["% Obra Ejecutado", pctCert, ""],
+    ["Monto Certificado Acumulado", String(formatCurrency(certsSum)), ""],
+    ["Monto Ejecutado Acumulado", String(formatCurrency(certsSum)), ""],
+    ["Fecha de Comienzo", String(formatDate(proj.start_date)), ""],
+    ["Terminación Original (fecha)", String(formatDate(proj.original_end_date)), ""],
+    ["Terminación Revisada (fecha)", String(formatDate(proj.revised_end_date)), ""],
+    ["Terminación Proyectada (fecha)", String(formatDate(proj.estimated_end_date)), ""],
+    ["% Obra Certificado", String(pctCert), ""],
+    ["% Obra Ejecutado", String(pctCert), ""],
     ["% Tiempo", "0.00%", ""],
-    ["Tipo de Fondo / Term. Sust.", proj.fund_source || "Federal", "Terminación Sustancial: No"]
+    ["Tipo de Fondo / Term. Sust.", String(proj.fund_source || "Federal"), "Terminación Sustancial: No"]
   ];
 
   slide2.addTable(rows.map(r => r.map(c => ({ 
-    text: c, 
-    options: { 
-      fontSize: 8, 
-      fontFace: "Calibri", 
-      bold: true, 
-      border: { pt: 0.5, color: "000000" }, 
-      valign: "middle" 
-    } 
+    text: String(c), 
+    options: { fontSize: 8, fontFace: "Calibri", bold: true, border: { pt: 0.5, color: "000000" }, valign: "middle" } 
   }))), {
-    x: COL_X, y: 3.4, w: TABLE_W,
-    colW: [1.6, 1.4, 1.3],
+    x: COL_X, y: 3.4, w: TABLE_W, colW: [1.6, 1.4, 1.3],
   });
 
-  // ── COLUMNA CENTRAL: Actividades y Puntos ──
   const MID_X = 4.6;
   const MID_W = 4.4;
 
   slide2.addText("Actividades Realizándose:", { x: MID_X, y: 1.5, w: MID_W, h: 0.3, bold: true, italic: true, fontSize: 13, color: "000000" });
-  slide2.addText(data.activities || "1. Actividades por registrar.", {
-    x: MID_X, y: 1.8, w: MID_W, h: 3.1,
-    line: { pt: 1, color: "000000" },
+  slide2.addText(String(data.activities || "1. Pendiente."), {
+    x: MID_X, y: 1.8, w: MID_W, h: 3.1, line: { pt: 1, color: "000000" },
     valign: "top", margin: 5, fontFace: "Calibri", fontSize: 11
   });
 
   slide2.addText("Puntos críticos a atender:", { x: MID_X, y: 5.0, w: MID_W, h: 0.3, bold: true, italic: true, fontSize: 13, color: "000000" });
-  slide2.addText(data.criticalPoints || "1. Ninguno al momento.", {
-    x: MID_X, y: 5.3, w: MID_W, h: 2.05,
-    line: { pt: 1, color: "000000" },
+  slide2.addText(String(data.criticalPoints || "1. Ninguno."), {
+    x: MID_X, y: 5.3, w: MID_W, h: 2.05, line: { pt: 1, color: "000000" },
     valign: "top", margin: 5, fontFace: "Calibri", fontSize: 11
   });
 
-  // ── COLUMNA DERECHA: Fotos con Borde Doble (Negro) ──
   const RIGHT_X = 9.15;
   const PHOTO_W = 3.5;
   const PHOTO_H = 2.9;
@@ -253,18 +227,8 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     if (url) {
       const b64 = await urlToBase64(url);
       if (b64) {
-        // Marco externo negro grueso
-        slide2.addShape(pptx.ShapeType.rect, {
-          x: RIGHT_X - 0.05, y: y - 0.05, w: PHOTO_W + 0.1, h: PHOTO_H + 0.1,
-          line: { pt: 4, color: "000000" }, fill: { color: "none" }
-        });
-        
-        // Imagen
-        slide2.addImage({
-          data: `image/${getImgExt(url)};base64,${b64}`,
-          x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H,
-          sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H },
-        });
+        slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X - 0.05, y: y - 0.05, w: PHOTO_W + 0.1, h: PHOTO_H + 0.1, line: { pt: 4, color: "000000" }, fill: { color: "none" } });
+        slide2.addImage({ data: `image/${getImgExt(url)};base64,${b64}`, x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H } });
       }
     } else {
        slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, fill: { color: "F3F4F6" }, line: { color: "000000", pt: 1.5 } });
@@ -275,7 +239,6 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   await addPhoto(data.photo1Url, 1.5);
   await addPhoto(data.photo2Url, 4.5);
 
-  // ── Exportar a Blob ──
   const pptxBuf = await pptx.write({ outputType: "arraybuffer" }) as ArrayBuffer;
   return new Blob([pptxBuf], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
 }
