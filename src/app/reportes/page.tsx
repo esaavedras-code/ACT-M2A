@@ -16,6 +16,7 @@ import {
     generateBalanceReportLogic,
     generateDetailReportLogic,
     generateMfgReportLogic,
+    generateIccReportLogic,
     generateMissingMfgReportLogic,
     generateMosReportLogic,
     generateChoReportLogic,
@@ -555,7 +556,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'balance',
-                            label: 'Balances Actuales',
+                            label: 'Balances Actuales (BORRADOR)',
                             description: 'Cantidades originales vs ejecutadas.',
                             icon: <ListChecks size={18} className="text-emerald-500" />,
                             action: () => generateBalanceReportLogic(projectId, reportFormat, endDate)
@@ -572,7 +573,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'detail',
-                            label: 'Detalle de cada partida',
+                            label: 'Detalle de cada partida (BORRADOR)',
                             description: 'Historial completo por cada partida.',
                             icon: <Files size={18} className="text-teal-500" />,
                             action: () => generateDetailReportLogic(projectId, reportFormat, endDate)
@@ -593,7 +594,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'mfg',
-                            label: 'Listado de Certificados',
+                            label: 'Listado de Certificados (BORRADOR)',
                             description: 'Resumen de aprobaciones de fábrica.',
                             icon: <Package size={18} className="text-orange-500" />,
                             action: () => generateMfgReportLogic(projectId, reportFormat)
@@ -624,6 +625,27 @@ function ReportesContent() {
                                         console.error(e);
                                         setStatus(`Error: ${e.message}`);
                                     }
+                                })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                </DropdownGroup>
+
+                {/* ICC */}
+                <DropdownGroup title="Initial Certification" icon={<ShieldCheck size={18} className="text-blue-500" />}>
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'icc',
+                            label: 'Resumen de ICC (BORRADOR)',
+                            description: 'Vigencia de 60 días de certificaciones.',
+                            icon: <ShieldCheck size={18} className="text-blue-500" />,
+                            action: () => generateIccReportLogic(projectId, reportFormat)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => {
+                                    console.error(e);
+                                    setStatus(`Error: ${e.message}`);
                                 })
                                 .finally(() => setLoading(false))
                         }}

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from "next/server";
 import nodemailer from 'nodemailer';
@@ -133,3 +134,4 @@ export async function POST(req: Request) {
         }, { status: 500 });
     }
 }
+

@@ -1763,3 +1763,69 @@ export const generateFaRelacionEquipoLogic = async(projectId: string, format: st
     const blob = await generateFaRelacionEquipo(projectId);
     downloadBlob(blob, `Relacion_Equipo_FA_${projectId}.pdf`);
 };
+
+export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    const { project, certs: paymentCerts } = await fetchAllReportData(projectId);
+    const { data: iccs } = await supabase
+        .from("initial_certifications")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("cert_date", { ascending: true });
+
+    if (!iccs || iccs.length === 0) {
+        alert("No hay registros de Initial Contract Certification (ICC) para este proyecto.");
+        return;
+    }
+
+    const reportData: any[][] = [
+        ['Material / Descripción', 'Fabricante', 'Notarizado', 'Fecha Cert.', 'Cert. Pago #', 'Fecha Firma Ing.', 'Válido Hasta', 'Estatus']
+    ];
+
+    iccs.forEach(icc => {
+        const pc = paymentCerts?.find(p => p.id === icc.payment_cert_id);
+        const residentDate = pc?.resident_engineer_date;
+        let expiration = "PENDIENTE";
+        let status = "PENDIENTE";
+        
+        if (residentDate) {
+            const baseDate = new Date(`${residentDate}T00:00:00`);
+            baseDate.setDate(baseDate.getDate() + 60);
+            
+            const day = baseDate.getDate().toString().padStart(2, '0');
+            const month = (baseDate.getMonth() + 1).toString().padStart(2, '0');
+            const year = baseDate.getFullYear();
+            expiration = `${month}/${day}/${year}`;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            status = baseDate < today ? "EXPIRADO" : "VÁLIDO";
+        }
+
+        reportData.push([
+            icc.material_description || "N/A",
+            icc.manufacturer_name || "N/A",
+            icc.notarized ? 'SÍ' : 'NO',
+            formatDate(icc.cert_date),
+            pc ? `#${pc.cert_num}` : "N/A",
+            residentDate ? formatDate(residentDate) : "SIN FIRMA",
+            expiration,
+            status
+        ]);
+    });
+
+    // Usamos el import dinámico para evitar problemas de dependencias circulares si los hubiera
+    const { generateReport } = await import("./reportLogic"); // En este archivo ya existe internamente pero para estar seguros si se moviera
+    
+    // Como generateReport no está exportada pero se usa en el archivo, la llamamos directamente si es visible
+    // Si no es visible, usaré la lógica de createPdfBlob directamente.
+    
+    const blob = await createPdfBlob(
+        'RESUMEN DE INITIAL CONTRACT CERTIFICATIONS (ICC)',
+        reportData,
+        project,
+        [140, 100, 60, 70, 60, 70, 70, 70],
+        'landscape'
+    );
+    
+    downloadBlob(blob, `ICC_Resumen_${project?.num_act || projectId}.pdf`);
+};

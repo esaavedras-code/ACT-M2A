@@ -103,7 +103,7 @@ export async function generateContractFinalReportLogic(projectId: string) {
         TXT(`MUNICIPIOS: ${Array.isArray(proj.municipios) ? proj.municipios.join(', ') : (proj.municipios || 'N/A')}`, col1, py, 8, true);
 
         // 4. Narrative Paragraph
-        Y = py + 25;
+        let Y = py + 25;
         const narrative = `Contract entered into by the Executive Director, in behalf of the Puerto Rico Highway and Transportation Authority and ${proj.contractor_name || '[Contractor Name]'}, Contractor for the Construction of project ${proj.name || '[Project Name]'}, ACT No. ${proj.num_act || '---'}, Federal-Aid No. ${proj.num_federal || '---'} of Puerto Rico.`;
         Y = WRAP_TXT(narrative, ML, Y, 10, PW - ML - MR);
 

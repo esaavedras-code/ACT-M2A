@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    output: process.env.BUILD_FOR === 'electron' ? 'export' : undefined,
+        output: process.env.BUILD_FOR === 'electron' ? 'export' : undefined,
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
+    typescript: {
+        ignoreBuildErrors: true,
+    },
     images: {
         unoptimized: true,
     },

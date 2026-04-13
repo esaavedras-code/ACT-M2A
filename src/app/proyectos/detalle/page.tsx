@@ -29,6 +29,7 @@ import MfgCertForm from "@/components/MfgCertForm";
 import ForceAccountForm from "@/components/ForceAccountForm";
 import InspectionForm from "@/components/InspectionForm";
 import CCMLModificationsForm from "@/components/CCMLModificationsForm";
+import InitialCertificationForm from "@/components/InitialCertificationForm";
 import PriceComparison from "@/components/PriceComparison";
 import ProjectFilesExplorer from "@/components/ProjectFilesExplorer";
 import MonthlyPresentations from "@/components/MonthlyPresentations";
@@ -123,6 +124,7 @@ function ProjectDetailContent() {
         { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
         { id: "payment",     label: "Pagos",          icon: <FileCheck size={12} /> },
         { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
+        { id: "icc",         label: "Initial Certification",             icon: <ShieldCheck size={12} /> },
         { id: "minutes",     label: "Minutas",        icon: <Mic size={12} />, wip: true },
         { id: "logs",        label: "Actividades",   icon: <Cloud size={12} />, wip: true },
         { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} />, wip: true },
@@ -182,6 +184,7 @@ function ProjectDetailContent() {
             case "cho": return "Los reportes ACT-122, ACT-124, ROA y CCML los pueden ver en la pestaña de REPORTES, opción '5. Change Orders'.";
             case "payment": return "Las certificaciones de pago 'ACT-117C' las pueden ver en la pestaña de REPORTES, opción '6. Certificaciones de Pago'.";
             case "mfg": return "Los 'Certificados de Manufactura' los pueden ver en la pestaña de REPORTES, opción '3. Certificados de Manufactura'.";
+            case "icc": return "Gestione los Initial Contract Certifications (ICC) notarizados y su vigencia de 60 días.";
             case "minutes": return "Las minutas documentadas las pueden ver en la pestaña de REPORTES.";
             case "logs": return "Los controles de tiempo de actividades los pueden ver en la pestaña de REPORTES.";
             case "inspection": return "Los informes de inspección los pueden ver en la pestaña de REPORTES.";
@@ -469,6 +472,7 @@ function ProjectDetailContent() {
                                 {activeTab === "cho"         && <CHOForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "payment"     && <PaymentCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "mfg"         && <MfgCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "icc"         && <InitialCertificationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 { activeTab === "minutes"     && <MinutesForm ref={activeRef} projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 { activeTab === "logs"        && <DailyLogForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 { activeTab === "presentations" && <MonthlyPresentations ref={activeRef} projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from "next/server";
 
@@ -138,3 +139,4 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Error interno", details: error.message }, { status: 500 });
     }
 }
+

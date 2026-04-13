@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // IMPORTANTE: nodemailer requiere el runtime de Node.js, NO funciona en el Edge Runtime de Vercel
 export const runtime = 'nodejs';
 
@@ -56,3 +57,4 @@ export async function POST(req: Request) {
         }, { status: 500 });
     }
 }
+

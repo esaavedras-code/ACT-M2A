@@ -142,6 +142,11 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
             LINE(p, valueX + 208, curH + 2, PW - 50, curH + 2);
             curH += 15;
 
+            TXT(p, "Núm. Oracle:", labelX, curH, 8, true);
+            TXT(p, proj.num_oracle || '---', valueX, curH, 8);
+            LINE(p, valueX - 2, curH + 2, valueX + 150, curH + 2);
+            curH += 15;
+
             TXT(p, "Administrador:", labelX, curH, 8, true);
             TXT(p, proj.admin_name || '---', valueX, curH, 8);
             LINE(p, valueX - 2, curH + 2, valueX + 150, curH + 2);
@@ -295,7 +300,7 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
         Y += 12;
         TXT(page2, "(b) Si (23) es más de 10 días, eso quiere decir que la Autoridad", L1 + 40, Y, 8);
         Y += 10;
-        TXT(page2, "    tardó más de 10 días en hacer la primera inspección final y", L1 + 40, Y, 8);
+        TXT(page2, "    tardó más de 10 días en hacer la inspección final y", L1 + 40, Y, 8);
         Y += 10;
         TXT(page2, "    hay que darle crédito al contratista por la diferencia. Por lo tanto:", L1 + 40, Y, 8);
 
