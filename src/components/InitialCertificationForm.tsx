@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, Trash2, AlertCircle, Info, CheckCircle2, Calendar, ShieldCheck, X, FileCheck } from "lucide-react";
+import { Save, Plus, Trash2, AlertCircle, Info, CheckCircle2, Calendar, ShieldCheck, X, FileCheck, Paperclip, Loader2 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { formatDate } from "@/lib/utils";
@@ -12,6 +12,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
     const [paymentCerts, setPaymentCerts] = useState<any[]>([]);
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState<number | null>(null);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [mounted, setMounted] = useState(false);
 
@@ -23,6 +24,41 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
             fetchContractItems();
         }
     }, [projectId]);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+        const file = e.target.files?.[0];
+        if (!file || !projectId) return;
+
+        setUploading(idx);
+        try {
+            const dateStr = new Date().toISOString().split('T')[0];
+            const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+            // Usar exactamente "Initial Certification" como subdirectorio según pidió Enrique
+            const storagePath = `${projectId}/Initial Certification/${dateStr}/${Date.now()}_${safeName}`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from("project-documents")
+                .upload(storagePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // Registrar en project_documents
+            await supabase.from("project_documents").insert([{
+                project_id: projectId,
+                file_name: file.name,
+                doc_type: "application/pdf",
+                section: "icc", // Corresponde al ID que pusimos en ProjectFilesExplorer
+                storage_path: storagePath
+            }]);
+
+            updateCert(idx, 'storage_path', storagePath);
+            if (onDirty) onDirty();
+        } catch (err: any) {
+            alert("Error al subir ICC: " + err.message);
+        } finally {
+            setUploading(null);
+        }
+    };
 
     const fetchInitialCerts = async () => {
         const { data, error } = await supabase
@@ -387,10 +423,30 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                     </div>
                                 </div>
 
+                                {/* File Upload Clip (NUEVO) */}
+                                <div className="relative group">
+                                    <label className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-center ${c.storage_path ? 'bg-blue-50 border-blue-100 text-blue-500' : 'bg-slate-50 border-slate-100 text-slate-300 hover:text-slate-500 hover:border-slate-300'}`}>
+                                        {uploading === idx ? (
+                                            <Loader2 size={18} className="animate-spin" />
+                                        ) : (
+                                            <Paperclip size={18} />
+                                        )}
+                                        <input 
+                                            type="file" 
+                                            className="hidden" 
+                                            onChange={e => handleFileUpload(e, idx)}
+                                            accept=".pdf,image/*"
+                                        />
+                                    </label>
+                                    {c.storage_path && (
+                                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></div>
+                                    )}
+                                </div>
+
                                 {/* Delete Button */}
                                 <button 
                                     onClick={() => removeCert(idx)}
-                                    className="p-3 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all border border-transparent hover:border-red-100"
+                                    className="p-3 text-red-100 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all border border-transparent hover:border-red-100"
                                 >
                                     <Trash2 size={18} />
                                 </button>

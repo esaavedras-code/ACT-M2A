@@ -23,6 +23,7 @@ const PROJECT_SECTIONS = [
     { id: "inspection", label: "Inspección",           bucket: "project-documents" },
     { id: "force",      label: "Force Account",        bucket: "project-documents" },
     { id: "liquidation",label: "Liquidación",          bucket: "project-documents" },
+    { id: "icc",        label: "Initial Certification", bucket: "project-documents" },
     { id: "presentations", label: "Presentaciones",      bucket: "project-documents" },
     { id: "tables",     label: "Tablas",               bucket: "project-documents" },
     { id: "general",    label: "General / Sin clasificar", bucket: "project-documents" },
@@ -284,15 +285,13 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                     </div>
                 </div>
 
-                {/* Barra de búsqueda */}
                 <div className="mt-4 relative">
-                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
                     <input
                         type="text"
                         placeholder="Buscar archivo por nombre..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="input-field pl-12 py-2.5 text-sm"
+                        className="input-field pl-6 py-2.5 text-sm"
                     />
                 </div>
             </div>
