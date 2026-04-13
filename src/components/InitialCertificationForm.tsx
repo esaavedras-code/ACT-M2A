@@ -195,13 +195,23 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
-    const calculateExpiration = (paymentCertId: string) => {
-        const cert = paymentCerts.find(c => c.id === paymentCertId);
-        if (!cert || !cert.resident_engineer_date) return null;
+    const calculateExpiration = (icc: any) => {
+        let certToUse = paymentCerts.find(c => c.id === icc.payment_cert_id);
         
-        const baseDate = new Date(`${cert.resident_engineer_date}T00:00:00`);
+        // Si no hay vinculación manual o queremos la regla de "la más próxima después"
+        if (!certToUse && icc.cert_date) {
+            const potentialCerts = paymentCerts.filter(p => p.cert_date >= icc.cert_date);
+            if (potentialCerts.length > 0) {
+                // Tomar la de menor número de certificación (la más próxima después)
+                certToUse = potentialCerts.reduce((prev, curr) => prev.cert_num < curr.cert_num ? prev : curr);
+            }
+        }
+
+        if (!certToUse || !certToUse.resident_engineer_date) return null;
+        
+        const baseDate = new Date(`${certToUse.resident_engineer_date}T00:00:00`);
         baseDate.setDate(baseDate.getDate() + 60);
-        return baseDate;
+        return { expiration: baseDate, linkedCert: certToUse };
     };
 
     if (!mounted) return null;
@@ -217,9 +227,9 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                 </div>
                 <div className="flex gap-2">
                     {certs.some(c => {
-                        const exp = c.payment_cert_id ? calculateExpiration(c.payment_cert_id) : null;
-                        if (!exp) return false;
-                        const diff = (exp.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+                        const res = calculateExpiration(c);
+                        if (!res) return false;
+                        const diff = (res.expiration.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
                         return diff > 0 && diff <= 10;
                     }) && (
                         <div className="flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full border border-amber-200 dark:border-amber-800 text-xs font-black animate-pulse">
@@ -236,7 +246,8 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
 
             <div className="flex flex-col space-y-3">
                 {certs.map((c, idx) => {
-                    const expiration = c.payment_cert_id ? calculateExpiration(c.payment_cert_id) : null;
+                    const res = calculateExpiration(c);
+                    const expiration = res?.expiration || null;
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     const isExpired = expiration && expiration < today;
@@ -430,8 +441,13 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                             <Calendar size={12} /> Expiración: 
                                             <span className={`font-black ${isExpired ? 'text-red-500' : isNearExpiration ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                                {expiration ? formatDate(expiration.toISOString()) : "Pendiente de firma"}
+                                                {expiration ? formatDate(expiration.toISOString()) : "Esperando Pago..."}
                                             </span>
+                                            {res?.linkedCert && (
+                                                <span className="text-[8px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md ml-2 border border-slate-200 dark:border-slate-700">
+                                                    Contando desde CP #{res.linkedCert.cert_num}
+                                                </span>
+                                            )}
                                         </div>
                                         {isNearExpiration && (
                                             <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter animate-pulse">

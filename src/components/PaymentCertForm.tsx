@@ -250,9 +250,18 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     );
 
                     if (itemIcc) {
-                        const pcLinkedToIcc = certs.find(p => p.id === itemIcc.payment_cert_id);
-                        if (pcLinkedToIcc?.resident_engineer_date) {
-                            const expDate = new Date(`${pcLinkedToIcc.resident_engineer_date}T00:00:00`);
+                        let pcToUse = certs.find(p => p.id === itemIcc.payment_cert_id);
+                        
+                        // Aplicar regla: la más próxima después
+                        if (!pcToUse && itemIcc.cert_date) {
+                            const potential = certs.filter(p => p.cert_date >= itemIcc.cert_date);
+                            if (potential.length > 0) {
+                                pcToUse = potential.reduce((prev, curr) => prev.cert_num < curr.cert_num ? prev : curr);
+                            }
+                        }
+
+                        if (pcToUse?.resident_engineer_date) {
+                            const expDate = new Date(`${pcToUse.resident_engineer_date}T00:00:00`);
                             expDate.setDate(expDate.getDate() + 60);
 
                             const today = new Date();
@@ -260,7 +269,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
                             if (expDate < today) {
                                 if (!silent) {
-                                    alert(`ERROR CRÍTICO: No se puede pagar el ítem ${item.item_num} en la Certificación #${cert.cert_num}. Su Initial Certification (ICC) ya venció el ${expDate.toLocaleDateString()}. Para completar el pago debe presentar el Certificado de Manufactura final.`);
+                                    alert(`ERROR CRÍTICO: No se puede pagar el ítem ${item.item_num} en la Certificación #${cert.cert_num}. Su Initial Certification (ICC) ya venció el ${expDate.toLocaleDateString()} (60 días desde CP #${pcToUse.cert_num}). Para completar el pago debe presentar el Certificado de Manufactura final.`);
                                     return;
                                 }
                             }
