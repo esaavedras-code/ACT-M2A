@@ -123,11 +123,31 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
             curH += 15;
 
             TXT(p, "Municipio:", labelX, curH, 8, true);
-            TXT(p, proj.location || '---', valueX, curH, 8);
+            const mun = Array.isArray(proj.municipios) ? proj.municipios.join(', ') : (proj.municipios || proj.location || '---');
+            TXT(p, mun, valueX, curH, 8);
             LINE(p, valueX - 2, curH + 2, valueX + 150, curH + 2);
 
             TXT(p, "Federal:", valueX + 160, curH, 8, true);
             TXT(p, proj.num_federal || '---', valueX + 210, curH, 8);
+            LINE(p, valueX + 208, curH + 2, PW - 50, curH + 2);
+            curH += 15;
+
+            // Extra rows for missing info
+            TXT(p, "Región:", labelX, curH, 8, true);
+            TXT(p, proj.region || '---', valueX, curH, 8);
+            LINE(p, valueX - 2, curH + 2, valueX + 150, curH + 2);
+
+            TXT(p, "Contratista:", valueX + 160, curH, 8, true);
+            TXT(p, proj.contractor_name || '---', valueX + 210, curH, 8);
+            LINE(p, valueX + 208, curH + 2, PW - 50, curH + 2);
+            curH += 15;
+
+            TXT(p, "Administrador:", labelX, curH, 8, true);
+            TXT(p, proj.admin_name || '---', valueX, curH, 8);
+            LINE(p, valueX - 2, curH + 2, valueX + 150, curH + 2);
+
+            TXT(p, "PM ACT:", valueX + 160, curH, 8, true);
+            TXT(p, proj.project_manager_name || '---', valueX + 210, curH, 8);
             LINE(p, valueX + 208, curH + 2, PW - 50, curH + 2);
         };
 
@@ -213,7 +233,7 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
             { n: "12", l: "Fecha oficial de comienzo", v: utilsFormatDate(proj.date_project_start) },
             { n: "13", l: "Fecha que debió terminar", v: utilsFormatDate(proj.date_orig_completion) },
             { n: "14", l: "Fecha que terminó", v: utilsFormatDate(proj.date_real_completion) },
-            { n: "15", l: "Fecha de la 1ra Inspección Final", v: utilsFormatDate(proj.date_acceptance) }
+            { n: "15", l: "Fecha de la Inspección Final", v: utilsFormatDate(proj.date_acceptance) }
         ];
         datesPage1.forEach(item => {
             TXT(page1, `${item.n}. ${item.l}`, L1, Y, 9);
