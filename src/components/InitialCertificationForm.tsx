@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileCheck, Plus, Trash2, Loader2, AlertCircle, Info, CheckCircle2, Calendar, ShieldCheck } from "lucide-react";
+import { Save, Plus, Trash2, AlertCircle, Info, CheckCircle2, Calendar, ShieldCheck, X } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { formatDate } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/utils";
 const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function InitialCertificationForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [certs, setCerts] = useState<any[]>([]);
     const [paymentCerts, setPaymentCerts] = useState<any[]>([]);
+    const [contractItems, setContractItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -19,6 +20,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
         if (projectId) {
             fetchInitialCerts();
             fetchPaymentCerts();
+            fetchContractItems();
         }
     }, [projectId]);
 
@@ -51,15 +53,27 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
         if (data) setPaymentCerts(data);
     };
 
+    const fetchContractItems = async () => {
+        const { data } = await supabase
+            .from("contract_items")
+            .select("id, item_num, description, unit")
+            .eq("project_id", projectId)
+            .order("item_num", { ascending: true });
+        if (data) setContractItems(data);
+    };
+
     const addCert = (silent = false) => {
         setCerts(prev => [...prev, {
             project_id: projectId,
+            item_id: null,
             material_description: "",
             manufacturer_name: "",
             notarized: false,
             cert_date: new Date().toISOString().split('T')[0],
             payment_cert_id: null,
-            valid_days: 60
+            valid_days: 60,
+            quantity: 0,
+            multiple_items: false
         }]);
         if (!silent && onDirty) onDirty();
     };
@@ -98,7 +112,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                 const { id, created_at, ...rest } = c;
                 const payload = { ...rest, project_id: projectId };
                 if (id) updates.push({ id, ...payload });
-                else if (c.material_description.trim()) inserts.push(payload);
+                else if (c.material_description?.trim() || c.item_id) inserts.push(payload);
             }
 
             const currentUpsertIds = updates.map(u => u.id);
@@ -125,7 +139,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
         const cert = paymentCerts.find(c => c.id === paymentCertId);
         if (!cert || !cert.resident_engineer_date) return null;
         
-        const baseDate = new Date(cert.resident_engineer_date);
+        const baseDate = new Date(`${cert.resident_engineer_date}T00:00:00`);
         baseDate.setDate(baseDate.getDate() + 60);
         return baseDate;
     };
@@ -141,6 +155,18 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                     </h2>
                     <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest mt-1">Válido por 60 días desde la firma del Ing. Residente en la Certificación de Pago</p>
                 </div>
+                <div className="flex gap-2">
+                    {certs.some(c => {
+                        const exp = c.payment_cert_id ? calculateExpiration(c.payment_cert_id) : null;
+                        if (!exp) return false;
+                        const diff = (exp.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+                        return diff > 0 && diff <= 10;
+                    }) && (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full border border-amber-200 dark:border-amber-800 text-xs font-black animate-pulse">
+                            <AlertCircle size={14} /> CERTIFICADOS PRÓXIMOS A VENCER (10 DÍAS)
+                        </div>
+                    )}
+                </div>
             </div>
 
             <FloatingFormActions actions={[
@@ -148,116 +174,135 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />
 
-            <div className="flex flex-col space-y-4">
+            <div className="flex flex-col space-y-3">
                 {certs.map((c, idx) => {
                     const expiration = c.payment_cert_id ? calculateExpiration(c.payment_cert_id) : null;
-                    const isExpired = expiration && expiration < new Date();
-                    const linkedCert = paymentCerts.find(p => p.id === c.payment_cert_id);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const isExpired = expiration && expiration < today;
+                    const daysLeft = expiration ? Math.ceil((expiration.getTime() - today.getTime()) / (1000 * 3600 * 24)) : null;
+                    const isNearExpiration = daysLeft !== null && daysLeft > 0 && daysLeft <= 10;
+                    
+                    const selectedItem = contractItems.find(it => it.id === c.item_id);
 
                     return (
-                        <div key={idx} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden hover:shadow-md transition-all">
-                            <div className="p-6">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    {/* Col 1: Material & Vendor */}
-                                    <div className="space-y-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descripción del Material</label>
-                                            <input 
-                                                className="input-field py-2.5 px-4 font-bold text-sm bg-slate-50/50"
-                                                placeholder='Ej: Tubería de Hormigón 24" ...'
-                                                value={c.material_description || ""}
-                                                onChange={e => updateCert(idx, 'material_description', e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fabricante / Suplidor</label>
-                                            <input 
-                                                className="input-field py-2.5 px-4 font-bold text-sm bg-slate-50/50"
-                                                placeholder="Nombre de la empresa..."
-                                                value={c.manufacturer_name || ""}
-                                                onChange={e => updateCert(idx, 'manufacturer_name', e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Col 2: Dates & Notary */}
-                                    <div className="space-y-4">
-                                        <div className="flex gap-4">
-                                            <div className="flex-1 space-y-1">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fecha Certificado</label>
-                                                <input 
-                                                    type="date"
-                                                    className="input-field py-2.5 px-4 font-bold text-sm bg-slate-50/50"
-                                                    value={c.cert_date || ""}
-                                                    onChange={e => updateCert(idx, 'cert_date', e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="flex items-end pb-1">
-                                                <label className="flex items-center gap-3 p-3 rounded-2xl border border-slate-100 bg-slate-50/30 cursor-pointer hover:bg-white transition-all">
-                                                    <input 
-                                                        type="checkbox"
-                                                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-                                                        checked={!!c.notarized}
-                                                        onChange={e => updateCert(idx, 'notarized', e.target.checked)}
-                                                    />
-                                                    <span className="text-[10px] font-black text-slate-600 uppercase">Notarizado</span>
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Incluido en Cert. de Pago</label>
-                                            <select 
-                                                className="input-field py-2.5 px-4 font-bold text-sm bg-blue-50/50 border-blue-100 text-blue-900"
-                                                value={c.payment_cert_id || ""}
-                                                onChange={e => updateCert(idx, 'payment_cert_id', e.target.value || null)}
-                                            >
-                                                <option value="">Seleccionar Certificación...</option>
-                                                {paymentCerts.map(pc => (
-                                                    <option key={pc.id} value={pc.id}>
-                                                        Cert #{pc.cert_num} ({pc.resident_engineer_date ? formatDate(pc.resident_engineer_date) : 'Sin firmar'})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {/* Col 3: Status & Expiration */}
-                                    <div className="p-4 bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center gap-4">
-                                        {!c.payment_cert_id ? (
-                                            <div className="flex flex-col items-center text-center space-y-2 py-4">
-                                                <Info size={24} className="text-slate-300" />
-                                                <p className="text-[10px] font-black text-slate-400 uppercase">Vincule a una certificación de pago para calcular expiración</p>
-                                            </div>
-                                        ) : !linkedCert?.resident_engineer_date ? (
-                                            <div className="flex flex-col items-center text-center space-y-2 py-4">
-                                                <Calendar size={24} className="text-amber-400" />
-                                                <p className="text-[10px] font-black text-amber-600 uppercase">Esperando firma del Ing. Residente en Cert #{linkedCert?.cert_num}</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase mb-1">Fecha de Expiración</span>
-                                                    <span className={`text-xl font-black ${isExpired ? 'text-red-500' : 'text-emerald-500'}`}>
-                                                        {formatDate(expiration!.toISOString())}
-                                                    </span>
-                                                </div>
-                                                <div className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl border font-black text-[10px] uppercase tracking-widest ${isExpired ? 'bg-red-50 border-red-100 text-red-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
-                                                    {isExpired ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}
-                                                    {isExpired ? 'Certificado Expirado' : 'Certificado Válido'}
-                                                </div>
-                                            </div>
-                                        )}
-                                        
-                                        <button 
-                                            onClick={() => removeCert(idx)}
-                                            className="mt-2 text-[10px] font-black text-red-400 hover:text-red-600 uppercase tracking-tighter flex items-center justify-center gap-1 transition-colors"
+                        <div key={idx} className="flex flex-col bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all p-2 pr-6">
+                            <div className="flex items-center gap-4">
+                                {/* Item Selector / Badge */}
+                                <div className="flex flex-col items-start gap-1 ml-2">
+                                    <div className="relative group">
+                                        <select 
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                            value={c.item_id || ""}
+                                            onChange={e => updateCert(idx, 'item_id', e.target.value)}
                                         >
-                                            <Trash2 size={12} /> Eliminar Entrada
-                                        </button>
+                                            <option value="">Seleccionar Partida...</option>
+                                            {contractItems.map(it => (
+                                                <option key={it.id} value={it.id}>Pt. {it.item_num}: {it.description}</option>
+                                            ))}
+                                        </select>
+                                        <div className="bg-[#A7FFC3] dark:bg-[#1E5128] text-[#1D3A20] dark:text-[#A7FFC3] px-6 py-3 rounded-full flex items-center gap-3 font-black text-sm min-w-[280px] border border-[#7DFFB3]">
+                                            <span className="truncate">
+                                                {selectedItem ? `Pt. ${selectedItem.item_num}: ${selectedItem.description}` : "Seleccionar Partida"}
+                                            </span>
+                                            {c.item_id && <X size={14} className="ml-auto cursor-pointer hover:scale-110" onClick={() => updateCert(idx, 'item_id', null)} />}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Multiple Items Checkbox */}
+                                    <label className="flex items-center gap-2 ml-4 cursor-pointer group">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded border-slate-300 text-[#1E5128] focus:ring-[#1E5128]/20"
+                                            checked={!!c.multiple_items}
+                                            onChange={e => updateCert(idx, 'multiple_items', e.target.checked)}
+                                        />
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter group-hover:text-slate-600 transition-colors">Multiple Items</span>
+                                    </label>
+                                </div>
+
+                                {/* Unit Badge */}
+                                <div className="bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-xl text-[10px] font-black text-slate-500 min-w-[50px] text-center uppercase">
+                                    {selectedItem?.unit || "SQM"}
+                                </div>
+
+                                {/* Description Input */}
+                                <div className="flex-1">
+                                    <input 
+                                        className="w-full bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-3 px-6 text-sm font-bold placeholder:text-slate-300"
+                                        placeholder="Descripción o comentario..."
+                                        value={c.material_description || ""}
+                                        onChange={e => updateCert(idx, 'material_description', e.target.value)}
+                                    />
+                                </div>
+
+                                {/* Quantity Input */}
+                                <div className="w-24">
+                                    <input 
+                                        type="number"
+                                        step="0.01"
+                                        className="w-full bg-[#A7FFC3]/20 dark:bg-[#1E5128]/20 border border-[#A7FFC3]/50 rounded-2xl py-3 px-4 text-center text-sm font-black text-emerald-700 dark:text-emerald-400"
+                                        value={c.quantity || 0}
+                                        onChange={e => updateCert(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                                    />
+                                </div>
+
+                                {/* Date Badge */}
+                                <div className={`relative group ${isExpired ? 'bg-red-100 text-red-600' : isNearExpiration ? 'bg-amber-100 text-amber-600' : 'bg-[#A7FFC3] text-[#1D3A20]'} px-6 py-3 rounded-full flex items-center gap-2 font-black text-sm`}>
+                                    <input 
+                                        type="date"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        value={c.cert_date || ""}
+                                        onChange={e => updateCert(idx, 'cert_date', e.target.value)}
+                                    />
+                                    <span>{c.cert_date ? formatDate(c.cert_date) : "Fecha"}</span>
+                                    <span className="text-[10px] bg-white/50 px-1.5 rounded-md">HOY</span>
+                                </div>
+
+                                {/* Payment Cert Link */}
+                                <div className="relative group">
+                                    <select 
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        value={c.payment_cert_id || ""}
+                                        onChange={e => updateCert(idx, 'payment_cert_id', e.target.value || null)}
+                                    >
+                                        <option value="">Vincular Pago...</option>
+                                        {paymentCerts.map(pc => (
+                                            <option key={pc.id} value={pc.id}>CP #{pc.cert_num}</option>
+                                        ))}
+                                    </select>
+                                    <div className={`p-3 rounded-2xl border transition-all ${c.payment_cert_id ? 'bg-blue-50 border-blue-100 text-blue-600' : 'bg-slate-50 border-slate-100 text-slate-300'}`}>
+                                        <FileCheck size={18} />
                                     </div>
                                 </div>
+
+                                {/* Delete Button */}
+                                <button 
+                                    onClick={() => removeCert(idx)}
+                                    className="p-3 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all border border-transparent hover:border-red-100"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
                             </div>
+
+                            {/* Status Area (Optional Detail) */}
+                            {c.payment_cert_id && (
+                                <div className="mt-1 px-8 pb-3 flex items-center justify-between">
+                                    <div className="flex gap-4 items-center">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Calendar size={12} /> Expiración: 
+                                            <span className={`font-black ${isExpired ? 'text-red-500' : isNearExpiration ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                                {expiration ? formatDate(expiration.toISOString()) : "Pendiente de firma"}
+                                            </span>
+                                        </div>
+                                        {isNearExpiration && (
+                                            <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter animate-pulse">
+                                                Pronto a vencer ({daysLeft} días)
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     );
                 })}

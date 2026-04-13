@@ -1778,11 +1778,12 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
     }
 
     const reportData: any[][] = [
-        ['Material / Descripción', 'Fabricante', 'Notarizado', 'Fecha Cert.', 'Cert. Pago #', 'Fecha Firma Ing.', 'Válido Hasta', 'Estatus']
+        ['Partida', 'Descripción Material', 'Cant.', 'Fabricante', 'Not.', 'Cert. Pago', 'Fecha Firma', 'Vence', 'Estatus']
     ];
 
     iccs.forEach(icc => {
         const pc = paymentCerts?.find(p => p.id === icc.payment_cert_id);
+        const item = project.items?.find((it: any) => it.id === icc.item_id);
         const residentDate = pc?.resident_engineer_date;
         let expiration = "PENDIENTE";
         let status = "PENDIENTE";
@@ -1798,14 +1799,19 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            status = baseDate < today ? "EXPIRADO" : "VÁLIDO";
+            
+            const diff = (baseDate.getTime() - today.getTime()) / (1000 * 3600 * 24);
+            if (baseDate < today) status = "EXPIRADO";
+            else if (diff <= 10) status = "PRÓXIMO A VENCER (<= 10 DÍAS)";
+            else status = "VÁLIDO";
         }
 
         reportData.push([
+            item ? `Pt. ${item.item_num}` : (icc.multiple_items ? 'MÚLTIPLES' : 'N/A'),
             icc.material_description || "N/A",
+            icc.quantity || 0,
             icc.manufacturer_name || "N/A",
             icc.notarized ? 'SÍ' : 'NO',
-            formatDate(icc.cert_date),
             pc ? `#${pc.cert_num}` : "N/A",
             residentDate ? formatDate(residentDate) : "SIN FIRMA",
             expiration,
@@ -1823,7 +1829,7 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
         'RESUMEN DE INITIAL CONTRACT CERTIFICATIONS (ICC)',
         reportData,
         project,
-        [140, 100, 60, 70, 60, 70, 70, 70],
+        [60, 140, 50, 100, 30, 60, 70, 70, 100],
         'landscape'
     );
     
