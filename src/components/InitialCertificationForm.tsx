@@ -27,7 +27,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
     const fetchInitialCerts = async () => {
         const { data, error } = await supabase
             .from("initial_certifications")
-            .select("*")
+            .select("*, initial_certification_items(*)")
             .eq("project_id", projectId)
             .order("created_at", { ascending: true });
 
@@ -73,7 +73,8 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
             payment_cert_id: null,
             valid_days: 60,
             quantity: 0,
-            multiple_items: false
+            multiple_items: false,
+            initial_certification_items: []
         }]);
         if (!silent && onDirty) onDirty();
     };
@@ -81,6 +82,28 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
     const updateCert = (idx: number, field: string, value: any) => {
         const newList = [...certs];
         newList[idx][field] = value;
+        setCerts(newList);
+        if (onDirty) onDirty();
+    };
+
+    const addChildItem = (certIdx: number) => {
+        const newList = [...certs];
+        const items = newList[certIdx].initial_certification_items || [];
+        newList[certIdx].initial_certification_items = [...items, { item_id: null, quantity: 0 }];
+        setCerts(newList);
+        if (onDirty) onDirty();
+    };
+
+    const updateChildItem = (certIdx: number, itemIdx: number, field: string, value: any) => {
+        const newList = [...certs];
+        newList[certIdx].initial_certification_items[itemIdx][field] = value;
+        setCerts(newList);
+        if (onDirty) onDirty();
+    };
+
+    const removeChildItem = (certIdx: number, itemIdx: number) => {
+        const newList = [...certs];
+        newList[certIdx].initial_certification_items = newList[certIdx].initial_certification_items.filter((_: any, i: number) => i !== itemIdx);
         setCerts(newList);
         if (onDirty) onDirty();
     };
@@ -104,25 +127,62 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
         if (!projectId || !hasLoaded) return;
         setLoading(true);
         try {
-            const { data: existing } = await supabase.from("initial_certifications").select("id").eq("project_id", projectId);
-            const existingIds = existing?.map(r => r.id) || [];
+            // Obtener IDs existentes para limpieza
+            const { data: existingICCs } = await supabase.from("initial_certifications").select("id").eq("project_id", projectId);
+            const existingIds = existingICCs?.map(r => r.id) || [];
             
-            const updates = [], inserts = [];
-            for (const c of certs) {
-                const { id, created_at, ...rest } = c;
-                const payload = { ...rest, project_id: projectId };
-                if (id) updates.push({ id, ...payload });
-                else if (c.material_description?.trim() || c.item_id) inserts.push(payload);
+            // Separar actualizaciones e inserciones
+            const currentICCPayloads = certs.map(c => {
+                const { id, created_at, initial_certification_items, ...rest } = c;
+                return { id, ...rest, project_id: projectId };
+            });
+
+            const updates = currentICCPayloads.filter(p => p.id);
+            const inserts = currentICCPayloads.filter(p => !p.id && p.material_description?.trim());
+
+            // Borrar lo que ya no está
+            const idsToKeep = updates.map(u => u.id);
+            const idsToDelete = existingIds.filter(id => !idsToKeep.includes(id));
+            if (idsToDelete.length > 0) await supabase.from("initial_certifications").delete().in("id", idsToDelete);
+
+            // Guardar certificaciones principales
+            if (updates.length > 0) await supabase.from("initial_certifications").upsert(updates);
+            
+            let insertedData: any[] = [];
+            if (inserts.length > 0) {
+                const { data, error: insError } = await supabase.from("initial_certifications").insert(inserts).select();
+                if (insError) throw insError;
+                insertedData = data || [];
             }
 
-            const currentUpsertIds = updates.map(u => u.id);
-            const idsToDelete = existingIds.filter(id => !currentUpsertIds.includes(id));
+            // Mapear los hijos para guardar
+            const allICCs = [...(await supabase.from("initial_certifications").select("id, material_description").eq("project_id", projectId)).data || []];
             
-            if (idsToDelete.length > 0) await supabase.from("initial_certifications").delete().in("id", idsToDelete);
-            if (updates.length > 0) await supabase.from("initial_certifications").upsert(updates);
-            if (inserts.length > 0) await supabase.from("initial_certifications").insert(inserts);
+            const childItemsToUpsert: any[] = [];
+            certs.forEach((c, idx) => {
+                const dbId = c.id || insertedData.find(ins => ins.material_description === c.material_description)?.id;
+                if (!dbId) return;
 
-            if (!silent) alert("Certificaciones iniciales guardadas");
+                if (c.multiple_items && c.initial_certification_items) {
+                    c.initial_certification_items.forEach((child: any) => {
+                        if (child.item_id) {
+                            childItemsToUpsert.push({
+                                ...child,
+                                icc_id: dbId
+                            });
+                        }
+                    });
+                }
+            });
+
+            // Sincronizar tabla hija (Borrado y Upsert por ICC)
+            const currentIccIds = allICCs.map(i => i.id);
+            await supabase.from("initial_certification_items").delete().in("icc_id", currentIccIds);
+            if (childItemsToUpsert.length > 0) {
+                await supabase.from("initial_certification_items").insert(childItemsToUpsert);
+            }
+
+            if (!silent) alert("Certificaciones iniciales y partidas múltiples guardadas");
             fetchInitialCerts();
             if (onSaved) onSaved();
         } catch (err: any) { 
@@ -186,27 +246,38 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                     const selectedItem = contractItems.find(it => it.id === c.item_id);
 
                     return (
-                        <div key={idx} className="flex flex-col bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all p-2 pr-6">
+                        <div key={idx} className="flex flex-col bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all p-2 pr-6 overflow-hidden">
                             <div className="flex items-center gap-4">
-                                {/* Item Selector / Badge */}
+                                {/* Item Selector / Badge (Single or Status) */}
                                 <div className="flex flex-col items-start gap-1 ml-2">
                                     <div className="relative group">
-                                        <select 
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                            value={c.item_id || ""}
-                                            onChange={e => updateCert(idx, 'item_id', e.target.value)}
-                                        >
-                                            <option value="">Seleccionar Partida...</option>
-                                            {contractItems.map(it => (
-                                                <option key={it.id} value={it.id}>Pt. {it.item_num}: {it.description}</option>
-                                            ))}
-                                        </select>
-                                        <div className="bg-[#A7FFC3] dark:bg-[#1E5128] text-[#1D3A20] dark:text-[#A7FFC3] px-6 py-3 rounded-full flex items-center gap-3 font-black text-sm min-w-[280px] border border-[#7DFFB3]">
-                                            <span className="truncate">
-                                                {selectedItem ? `Pt. ${selectedItem.item_num}: ${selectedItem.description}` : "Seleccionar Partida"}
-                                            </span>
-                                            {c.item_id && <X size={14} className="ml-auto cursor-pointer hover:scale-110" onClick={() => updateCert(idx, 'item_id', null)} />}
-                                        </div>
+                                        {!c.multiple_items ? (
+                                            <>
+                                                <select 
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                    value={c.item_id || ""}
+                                                    onChange={e => updateCert(idx, 'item_id', e.target.value)}
+                                                >
+                                                    <option value="">Seleccionar Partida...</option>
+                                                    {contractItems.map(it => (
+                                                        <option key={it.id} value={it.id}>Pt. {it.item_num}: {it.description}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="bg-[#A7FFC3] dark:bg-[#1E5128] text-[#1D3A20] dark:text-[#A7FFC3] px-6 py-3 rounded-full flex items-center gap-3 font-black text-sm min-w-[280px] border border-[#7DFFB3]">
+                                                    <span className="truncate">
+                                                        {selectedItem ? `Pt. ${selectedItem.item_num}: ${selectedItem.description}` : "Seleccionar Partida"}
+                                                    </span>
+                                                    {c.item_id && <X size={14} className="ml-auto cursor-pointer hover:scale-110" onClick={() => updateCert(idx, 'item_id', null)} />}
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="bg-slate-800 text-white px-6 py-3 rounded-full flex items-center gap-3 font-black text-sm min-w-[280px] border border-slate-700">
+                                                <FileCheck size={16} className="text-emerald-400" />
+                                                <span className="truncate uppercase tracking-tighter italic">
+                                                    {(c.initial_certification_items?.length || 0)} ÍTEMS SELECCIONADOS
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                     
                                     {/* Multiple Items Checkbox */}
@@ -215,15 +286,24 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                             type="checkbox" 
                                             className="w-4 h-4 rounded border-slate-300 text-[#1E5128] focus:ring-[#1E5128]/20"
                                             checked={!!c.multiple_items}
-                                            onChange={e => updateCert(idx, 'multiple_items', e.target.checked)}
+                                            onChange={e => {
+                                                updateCert(idx, 'multiple_items', e.target.checked);
+                                                if (e.target.checked && (!c.initial_certification_items || c.initial_certification_items.length === 0)) {
+                                                    // Si activa múltiples y no hay ninguno, añadir el actual si existe
+                                                    const currentItems = [];
+                                                    if (c.item_id) currentItems.push({ item_id: c.item_id, quantity: c.quantity });
+                                                    else currentItems.push({ item_id: null, quantity: 0 });
+                                                    updateCert(idx, 'initial_certification_items', currentItems);
+                                                }
+                                            }}
                                         />
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter group-hover:text-slate-600 transition-colors">Multiple Items</span>
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter group-hover:text-slate-600 transition-colors underline decoration-slate-200">Multiple Items</span>
                                     </label>
                                 </div>
 
                                 {/* Unit Badge */}
                                 <div className="bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-xl text-[10px] font-black text-slate-500 min-w-[50px] text-center uppercase">
-                                    {selectedItem?.unit || "SQM"}
+                                    {!c.multiple_items ? (selectedItem?.unit || "SQM") : "MULT"}
                                 </div>
 
                                 {/* Description Input */}
@@ -237,15 +317,17 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                 </div>
 
                                 {/* Quantity Input */}
-                                <div className="w-24">
-                                    <input 
-                                        type="number"
-                                        step="0.01"
-                                        className="w-full bg-[#A7FFC3]/20 dark:bg-[#1E5128]/20 border border-[#A7FFC3]/50 rounded-2xl py-3 px-4 text-center text-sm font-black text-emerald-700 dark:text-emerald-400"
-                                        value={c.quantity || 0}
-                                        onChange={e => updateCert(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                                    />
-                                </div>
+                                {!c.multiple_items && (
+                                    <div className="w-24">
+                                        <input 
+                                            type="number"
+                                            step="0.01"
+                                            className="w-full bg-[#A7FFC3]/20 dark:bg-[#1E5128]/20 border border-[#A7FFC3]/50 rounded-2xl py-3 px-4 text-center text-sm font-black text-emerald-700 dark:text-emerald-400"
+                                            value={c.quantity || 0}
+                                            onChange={e => updateCert(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Date Badge */}
                                 <div className={`relative group ${isExpired ? 'bg-red-100 text-red-600' : isNearExpiration ? 'bg-amber-100 text-amber-600' : 'bg-[#A7FFC3] text-[#1D3A20]'} px-6 py-3 rounded-full flex items-center gap-2 font-black text-sm`}>
@@ -284,6 +366,62 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                     <Trash2 size={18} />
                                 </button>
                             </div>
+
+                            {/* Sub-formulario para múltiples ítems */}
+                            {c.multiple_items && (
+                                <div className="mt-4 mb-2 mx-8 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col gap-3">
+                                    <div className="flex items-center justify-between mb-1 px-2">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Partidas Incluidas en este ICC</span>
+                                        <button 
+                                            onClick={() => addChildItem(idx)}
+                                            className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-[9px] font-black text-emerald-600 hover:bg-emerald-50 transition-colors shadow-sm"
+                                        >
+                                            <Plus size={10} /> Añadir Partida
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {(c.initial_certification_items || []).map((child: any, cIdx: number) => {
+                                            const childItem = contractItems.find(it => it.id === child.item_id);
+                                            return (
+                                                <div key={cIdx} className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 pl-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                                    <div className="relative flex-1 group">
+                                                        <select 
+                                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                            value={child.item_id || ""}
+                                                            onChange={e => updateChildItem(idx, cIdx, 'item_id', e.target.value)}
+                                                        >
+                                                            <option value="">Seleccionar...</option>
+                                                            {contractItems.map(it => (
+                                                                <option key={it.id} value={it.id}>Pt. {it.item_num}: {it.description}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="text-xs font-bold text-slate-600 truncate">
+                                                            {childItem ? `Pt. ${childItem.item_num}: ${childItem.description}` : "Escoger Partida..."}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-md shrink-0">
+                                                        {childItem?.unit || "UNIT"}
+                                                    </div>
+                                                    <input 
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="w-20 bg-slate-50 dark:bg-slate-800 border-none rounded-lg py-1 px-2 text-center text-xs font-black text-slate-700"
+                                                        value={child.quantity || 0}
+                                                        onChange={e => updateChildItem(idx, cIdx, 'quantity', parseFloat(e.target.value) || 0)}
+                                                    />
+                                                    <button 
+                                                        onClick={() => removeChildItem(idx, cIdx)}
+                                                        className="p-1 px-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Status Area (Optional Detail) */}
                             {c.payment_cert_id && (

@@ -84,7 +84,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     };
 
     const fetchIccs = async () => {
-        const { data } = await supabase.from("initial_certifications").select("*").eq("project_id", projectId);
+        const { data } = await supabase.from("initial_certifications").select("*, initial_certification_items(*)").eq("project_id", projectId);
         if (data) setIccs(data);
     };
 
@@ -244,14 +244,20 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
                 // ICC Validation: "si esta vencido, ya no se puede pagar"
                 if (currentQty > 0) {
-                    const itemIcc = iccs.find(icc => icc.item_id === baseItemMatch?.id);
+                    const itemIcc = iccs.find(icc => 
+                        icc.item_id === baseItemMatch?.id || 
+                        (icc.multiple_items && icc.initial_certification_items?.some((ci: any) => ci.item_id === baseItemMatch?.id))
+                    );
+
                     if (itemIcc) {
                         const pcLinkedToIcc = certs.find(p => p.id === itemIcc.payment_cert_id);
                         if (pcLinkedToIcc?.resident_engineer_date) {
                             const expDate = new Date(`${pcLinkedToIcc.resident_engineer_date}T00:00:00`);
                             expDate.setDate(expDate.getDate() + 60);
+
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
+
                             if (expDate < today) {
                                 if (!silent) {
                                     alert(`ERROR CRÍTICO: No se puede pagar el ítem ${item.item_num} en la Certificación #${cert.cert_num}. Su Initial Certification (ICC) ya venció el ${expDate.toLocaleDateString()}. Para completar el pago debe presentar el Certificado de Manufactura final.`);
