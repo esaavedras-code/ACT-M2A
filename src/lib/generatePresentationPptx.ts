@@ -77,17 +77,8 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   // ─────────────────────────────────────────────────────────────
   const slide1 = pptx.addSlide();
 
-  // Gradiente de fondo (Simplificado para evitar errores de tipo)
-  slide1.background = { 
-    fill: { 
-      type: "gradient", 
-      angle: 90,
-      stops: [
-        { offset: 0, color: "FFFFFF" },
-        { offset: 100, color: "FDBA74" }
-      ] 
-    } 
-  };
+  // Fondo Blanco Sólido (Más seguro en v4 para depurar)
+  slide1.background = { fill: "FFFFFF" };
 
   // Logo ACT
   if (data.actLogoUrl) {
@@ -95,7 +86,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     if (logoB64) {
       slide1.addImage({
         data: `image/png;base64,${logoB64}`,
-        x: 0.1, y: 0.05, w: 2.2, h: 1.3,
+        x: 0.2, y: 0.2, w: 2.2, h: 1.3,
       });
     }
   }
@@ -113,7 +104,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
       { text: presDateFormatted,     options: { bold: true, fontSize: 36, color: ACT_BLUE } },
     ],
     {
-      x: 0, y: 1.5, w: 13.33, h: 4.5,
+      x: 1.0, y: 2.5, w: 11.33, h: 4.0,
       align: "center", valign: "middle", 
       fontFace: "Calibri",
     }
@@ -127,11 +118,11 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   // Franja lateral
   slide2.addShape(pptx.ShapeType.rect, {
-    x: 12.8, y: 0, w: 0.53, h: 7.5,
+    x: 12.8, y: 0, w: 0.5, h: 7.5,
     fill: { color: ACT_ORANGE_LITE }
   });
 
-  const proj = data.project;
+  const proj = data.project || {};
   const numAct   = String(proj.num_act    || "AC-XXXXX");
   const numFed   = String(proj.num_federal || "ER-XXXXX");
   const certsSum = data.certsTotal || 0;
@@ -175,7 +166,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
     valign: "top", margin: 5, fontSize: 10, fontFace: "Calibri",
   });
 
-  // Filas de tabla (Asegurando strings en cada celda)
+  // Filas de tabla
   const rows = [
     ["Administrador", String(proj.admin_name || "N/A"), ""],
     ["Supervisor", String(proj.project_manager_name || "N/A"), ""],
@@ -220,24 +211,24 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   });
 
   const RIGHT_X = 9.15;
-  const PHOTO_W = 3.5;
-  const PHOTO_H = 2.9;
+  const PHOTO_W = 3.3;
+  const PHOTO_H = 2.7;
 
   const addPhoto = async (url: string | null, y: number) => {
     if (url) {
       const b64 = await urlToBase64(url);
       if (b64) {
-        slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X - 0.05, y: y - 0.05, w: PHOTO_W + 0.1, h: PHOTO_H + 0.1, line: { pt: 4, color: "000000" }, fill: { color: "none" } });
-        slide2.addImage({ data: `image/${getImgExt(url)};base64,${b64}`, x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H } });
+        slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X - 0.05, y: y - 0.05, w: PHOTO_W + 0.1, h: PHOTO_H + 0.1, line: { pt: 3, color: "000000" }, fill: { color: "none" } });
+        slide2.addImage({ data: `image/${getImgExt(url).replace('jpg', 'jpeg')};base64,${b64}`, x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H } });
       }
     } else {
-       slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, fill: { color: "F3F4F6" }, line: { color: "000000", pt: 1.5 } });
+       slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, fill: { color: "F3F4F6" }, line: { color: "000000", pt: 1 } });
        slide2.addText("(Sin imagen)", { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, align: "center", valign: "middle", fontSize: 12, color: "6B7280" });
     }
   };
 
   await addPhoto(data.photo1Url, 1.5);
-  await addPhoto(data.photo2Url, 4.5);
+  await addPhoto(data.photo2Url, 4.4);
 
   const pptxBuf = await pptx.write({ outputType: "arraybuffer" }) as ArrayBuffer;
   return new Blob([pptxBuf], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
