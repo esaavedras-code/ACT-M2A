@@ -138,7 +138,8 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
             });
 
             const updates = currentICCPayloads.filter(p => p.id);
-            const inserts = currentICCPayloads.filter(p => !p.id && p.material_description?.trim());
+            // CORRECCIÓN: Permitir grabar si tiene descripción O si es múltiple
+            const inserts = currentICCPayloads.filter(p => !p.id && (p.material_description?.trim() || p.multiple_items));
 
             // Borrar lo que ya no está
             const idsToKeep = updates.map(u => u.id);
@@ -148,36 +149,47 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
             // Guardar certificaciones principales
             if (updates.length > 0) await supabase.from("initial_certifications").upsert(updates);
             
-            let insertedData: any[] = [];
-            if (inserts.length > 0) {
-                const { data, error: insError } = await supabase.from("initial_certifications").insert(inserts).select();
-                if (insError) throw insError;
-                insertedData = data || [];
+            // Para inserciones, vamos a insertar una por una para capturar sus IDs correctamente y no depender de material_description
+            const finalCertsList = [...certs];
+            for (let i = 0; i < finalCertsList.length; i++) {
+                const c = finalCertsList[i];
+                if (!c.id) {
+                    const payload = { 
+                        ...c, 
+                        project_id: projectId,
+                        material_description: c.material_description || (c.multiple_items ? "Certificación Múltiple" : "")
+                    };
+                    delete (payload as any).id;
+                    delete (payload as any).initial_certification_items;
+                    delete (payload as any).created_at;
+
+                    const { data: insData, error: insErr } = await supabase.from("initial_certifications").insert([payload]).select().single();
+                    if (insErr) throw insErr;
+                    finalCertsList[i].id = insData.id; // Actualizar con ID real
+                }
             }
 
-            // Mapear los hijos para guardar
-            const allICCs = [...(await supabase.from("initial_certifications").select("id, material_description").eq("project_id", projectId)).data || []];
-            
+            // Mapear los hijos para guardar usando los IDs actualizados
             const childItemsToUpsert: any[] = [];
-            certs.forEach((c, idx) => {
-                const dbId = c.id || insertedData.find(ins => ins.material_description === c.material_description)?.id;
-                if (!dbId) return;
-
-                if (c.multiple_items && c.initial_certification_items) {
+            finalCertsList.forEach((c) => {
+                if (c.id && c.multiple_items && c.initial_certification_items) {
                     c.initial_certification_items.forEach((child: any) => {
                         if (child.item_id) {
                             childItemsToUpsert.push({
-                                ...child,
-                                icc_id: dbId
+                                item_id: child.item_id,
+                                quantity: child.quantity,
+                                icc_id: c.id
                             });
                         }
                     });
                 }
             });
 
-            // Sincronizar tabla hija (Borrado y Upsert por ICC)
-            const currentIccIds = allICCs.map(i => i.id);
-            await supabase.from("initial_certification_items").delete().in("icc_id", currentIccIds);
+            // Sincronizar tabla hija (Borrado y Upsert para los ICCs actuales)
+            const allIccIds = finalCertsList.map(i => i.id).filter(Boolean);
+            if (allIccIds.length > 0) {
+                await supabase.from("initial_certification_items").delete().in("icc_id", allIccIds);
+            }
             if (childItemsToUpsert.length > 0) {
                 await supabase.from("initial_certification_items").insert(childItemsToUpsert);
             }

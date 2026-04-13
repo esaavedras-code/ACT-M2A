@@ -228,6 +228,24 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
         }
     };
 
+    const handleDeletePresentation = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!window.confirm("¿Estás seguro de que deseas eliminar esta presentación de forma permanente?")) return;
+        
+        setLoading(true);
+        try {
+            const { error } = await supabase.from("monthly_presentations").delete().eq("id", id);
+            if (error) throw error;
+            
+            if (selectedId === id) handleCreateNew();
+            fetchPresentations();
+        } catch (err: any) {
+            alert("Error al eliminar: " + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
     const generatePptx = async () => {
@@ -371,16 +389,26 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
                                 No hay presentaciones
                             </div>
                         ) : (
-                            presentations.map(p => (
+                             presentations.map(p => (
                                 <button 
                                     key={p.id}
                                     onClick={() => handleSelect(p)}
-                                    className={`w-full text-left p-3 rounded-2xl border transition-all ${selectedId === p.id ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300'}`}
+                                    className={`w-full text-left p-3 rounded-2xl border transition-all group relative ${selectedId === p.id ? 'bg-primary/5 border-primary shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300'}`}
                                 >
-                                    <p className="text-xs font-black text-slate-700">
-                                        {new Date(p.presentation_date).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 font-medium">{p.presentation_date}</p>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="text-xs font-black text-slate-700">
+                                                {new Date(p.presentation_date).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}
+                                            </p>
+                                            <p className="text-[10px] text-slate-400 font-medium">{p.presentation_date}</p>
+                                        </div>
+                                        <button 
+                                            onClick={(e) => handleDeletePresentation(p.id!, e)}
+                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </button>
                             ))
                         )}
