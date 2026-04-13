@@ -329,14 +329,20 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                     {!c.multiple_items ? (selectedItem?.unit || "SQM") : "MULT"}
                                 </div>
 
-                                {/* Description Input */}
-                                <div className="flex-1">
-                                    <input 
-                                        className="w-full bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl py-3 px-6 text-sm font-bold placeholder:text-slate-300"
-                                        placeholder="Descripción o comentario..."
-                                        value={c.material_description || ""}
-                                        onChange={e => updateCert(idx, 'material_description', e.target.value)}
-                                    />
+                                {/* Notarized Checkbox (NUEVO) */}
+                                <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:bg-white dark:hover:bg-slate-700">
+                                    <label className="flex items-center gap-2 cursor-pointer group">
+                                        <div className="relative flex items-center justify-center">
+                                            <input 
+                                                type="checkbox" 
+                                                className="peer appearance-none w-5 h-5 rounded-lg border-2 border-slate-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all cursor-pointer"
+                                                checked={!!c.notarized}
+                                                onChange={e => updateCert(idx, 'notarized', e.target.checked)}
+                                            />
+                                            <ShieldCheck size={12} className="absolute text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                                        </div>
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-emerald-600 transition-colors">Notarized</span>
+                                    </label>
                                 </div>
 
                                 {/* Quantity Input */}
