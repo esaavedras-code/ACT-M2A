@@ -9,6 +9,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     const [metrics, setMetrics] = useState({
         time: { total: 0, used: 0, revised: 0, balance: 0, percent: 0 },
         dates: { start: "", original: "", revised: "", fmis: "", substantial: "", administrative: "" },
+        retention: { fivePercent: 0, extra: 0, priceAdjustment: 0, insuranceFines: 0, otherPenalties: 0, returned: 0, total: 0 },
         cost: {
             original: 0,
             certTotal: 0,
@@ -21,22 +22,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             actProjected: 0,
             fhwaProjected: 0,
             materialOnSite: 0,
+            mosBalances: [] as { item_num: string, balance: number }[],
             priceAdjustment: 0,
         },
-        chos: {
-            approvedTotal: 0,
-            approvedCount: 0,
-            approvedDays: 0,
-            pendingTotal: 0,
-            pendingCount: 0,
-            pendingDays: 0,
-            total: 0,
-            totalDays: 0,
-            percentChange: 0,
-            percentDays: 0,
-        },
-        penalties: { liquidated: 0, dlqReimbursement: 0, security: 0, others: 0, total: 0 },
-        retention: { fivePercent: 0, extra: 0, returned: 0, total: 0 },
         liquidation: { 
             totalItems: 0, adminSigned: 0, contractorSigned: 0, liquidatorSigned: 0, percent: 0,
             federalDocs: [] as string[]
@@ -160,9 +148,15 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         let lastCertNum = 0;
         let totalRetentionDeducted = 0;
         let totalRetentionReturned = 0;
-        let mosBalance = 0;
+        let totalExtraRetention = 0;
+        let totalPriceAdjustment = 0;
+        let totalInsuranceFines = 0;
+        let totalOtherPenalties = 0;
+        let totalRefund = 0;
 
-        certs?.forEach((cert) => {
+        const perItemMosBalance: Record<string, number> = {};
+
+        certs?.forEach((cert: any) => {
             const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
             let certAmount = 0;
 
@@ -184,12 +178,14 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 }
                 certAmount = roundedAmt(certAmount + amount, 2);
 
+                if (!perItemMosBalance[item.item_num]) perItemMosBalance[item.item_num] = 0;
+                
                 const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
-                if (mosInvoice > 0) mosBalance = roundedAmt(mosBalance + mosInvoice, 2);
+                if (mosInvoice > 0) perItemMosBalance[item.item_num] = roundedAmt(perItemMosBalance[item.item_num] + mosInvoice, 2);
                 
                 const qtyFromMos = parseFloat(item.qty_from_mos) || 0;
                 const mosPU = parseFloat(item.mos_unit_price) || up;
-                if (qtyFromMos > 0) mosBalance = roundedAmt(mosBalance - roundedAmt(qtyFromMos * mosPU, 2), 2);
+                if (qtyFromMos > 0) perItemMosBalance[item.item_num] = roundedAmt(perItemMosBalance[item.item_num] - roundedAmt(qtyFromMos * mosPU, 2), 2);
             });
 
             if ((cert.cert_num || 0) > lastCertNum) {
@@ -208,7 +204,18 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             if (cert.show_retention_return && cert.retention_return_amount) {
                 totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
             }
+
+            totalExtraRetention = roundedAmt(totalExtraRetention + (parseFloat(cert.extra_retention) || 0), 2);
+            totalPriceAdjustment = roundedAmt(totalPriceAdjustment + (parseFloat(cert.price_adjustment) || 0), 2);
+            totalInsuranceFines = roundedAmt(totalInsuranceFines + (parseFloat(cert.insurance_fines) || 0), 2);
+            totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseFloat(cert.other_penalties) || 0), 2);
+            totalRefund = roundedAmt(totalRefund + (parseFloat(cert.refund) || 0), 2);
         });
+
+        const mosEntries = Object.entries(perItemMosBalance)
+            .filter(([_, balance]) => balance > 0.01)
+            .map(([item_num, balance]) => ({ item_num, balance }));
+        const mosTotal = mosEntries.reduce((acc, e) => roundedAmt(acc + e.balance, 2), 0);
 
         const certified = roundedAmt(actTotal + fhwaTotal, 2);
         const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : null;
@@ -260,6 +267,15 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 administrative: adminDateStr || "",
                 fmis: proj?.fmis_end_date || ""
             },
+            retention: {
+                fivePercent: totalRetentionDeducted || 0,
+                extra: totalExtraRetention || 0,
+                priceAdjustment: totalPriceAdjustment || 0,
+                insuranceFines: totalInsuranceFines || 0,
+                otherPenalties: totalOtherPenalties || 0,
+                returned: totalRetentionReturned || 0,
+                total: roundedAmt(totalRetentionDeducted - totalRetentionReturned + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalPriceAdjustment - totalRefund, 2)
+            },
             cost: {
                 original: originalCost || 0,
                 certTotal: certified || 0,
@@ -271,8 +287,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 fhwaTotal: fhwaTotal || 0,
                 actProjected: actProjected || 0,
                 fhwaProjected: fhwaProjected || 0,
-                materialOnSite: Math.max(mosBalance || 0, 0),
-                priceAdjustment: 0,
+                materialOnSite: mosTotal,
+                mosBalances: mosEntries,
+                priceAdjustment: totalPriceAdjustment || 0,
             },
             chos: {
                 approvedTotal: approvedCHO || 0,
@@ -288,16 +305,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             },
             penalties: {
                 liquidated: liqDamages || 0,
-                dlqReimbursement: 0,
-                security: 0,
-                others: 0,
-                total: liqDamages || 0
-            },
-            retention: {
-                fivePercent: totalRetentionDeducted || 0,
-                extra: 0,
-                returned: totalRetentionReturned || 0,
-                total: roundedAmt(totalRetentionDeducted - totalRetentionReturned, 2)
+                dlqReimbursement: totalRefund || 0,
+                security: totalInsuranceFines || 0,
+                others: totalOtherPenalties || 0,
+                total: roundedAmt(liqDamages + totalInsuranceFines + totalOtherPenalties, 2)
             },
             liquidation: {
                 totalItems: totalItemsCount || 0,
@@ -408,10 +419,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <MetricRow label="Terminación Administrativa" value={metrics.dates.administrative} color="text-amber-800 font-bold" />
                         <MetricRow label="FMIS End Date" value={metrics.dates.fmis} color="text-emerald-700" />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Tiempo Contrato" value={`${formatNumber(metrics.time.total)} días`} />
-                        <MetricRow label="Tiempo Revisado" value={`${formatNumber(metrics.time.revised)} días`} />
-                        <MetricRow label="Tiempo Usado" value={`${formatNumber(metrics.time.used)} días`} />
-                        <MetricRow label="Balance de Tiempo" value={`${formatNumber(metrics.time.balance)} días`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} />
+                        <MetricRow label="Días Contrato" value={`${formatNumber(metrics.time.total, 0)} días`} />
+                        <MetricRow label="Días Revisados (Original + CHO)" value={`${formatNumber(metrics.time.revised, 0)} días`} />
+                        <MetricRow label="Tiempo transcurrido a la fecha" value={`${formatNumber(metrics.time.used, 0)} días`} />
+                        <MetricRow label="Balance de días" value={`${formatNumber(metrics.time.balance, 0)} días`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} />
                         <div className="pt-2">
                             <div className="flex justify-between text-xs mb-1 font-bold text-slate-800 dark:text-slate-200">
                                 <span>Progreso de Tiempo</span>
@@ -437,10 +448,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         </div>
                         <CHORow label="Aprobados" count={metrics.chos.approvedCount} days={metrics.chos.approvedDays} amount={formatCurrency(metrics.chos.approvedTotal)} color="text-emerald-800 dark:text-emerald-400" />
                         <CHORow label="En Trámite" count={metrics.chos.pendingCount} days={metrics.chos.pendingDays} amount={formatCurrency(metrics.chos.pendingTotal)} color="text-amber-800 dark:text-amber-400" />
-                        <CHORow label="Total" count={metrics.chos.approvedCount + metrics.chos.pendingCount} days={metrics.chos.totalDays} amount={formatCurrency(metrics.chos.total)} color="font-black text-slate-950 dark:text-white" />
+                        <CHORow label="Resumen" count={metrics.chos.approvedCount + metrics.chos.pendingCount} days={metrics.chos.totalDays} amount={formatCurrency(metrics.chos.total)} color="font-black text-slate-950 dark:text-white" />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="% de Cambio (Precio)" value={`${metrics.chos.percentChange}%`} color="text-amber-800 font-bold" />
-                        <MetricRow label="% de Cambio (Tiempo)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" />
+                        <MetricRow label="% de Cambio (Costo)" value={`${metrics.chos.percentChange}%`} color="text-amber-800 font-bold" />
+                        <MetricRow label="% de Cambio (Días)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" />
                     </div>
                 </div>
 
@@ -450,10 +461,14 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="5% Retenido (Acum.)" value={formatCurrency(metrics.retention.fivePercent)} />
-                        <MetricRow label="Retención Devuelta" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
+                        <MetricRow label="Extra Retenido ($)" value={formatCurrency(metrics.retention.extra)} />
+                        <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(-metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment !== 0 ? "text-blue-700" : ""} />
+                        <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
+                        <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
+                        <MetricRow label="Reembolso" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
                         <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Total Retenido (Neto)" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
+                        <MetricRow label="Ajustes y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
                     </div>
                 </div>
 
@@ -509,10 +524,22 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
                         <div className="space-y-1">
                             <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
-                            <MetricRow label="Costo Proyecto (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-slate-950 dark:text-white font-black" />
-                            <MetricRow label={`Últ. Certificación #${metrics.cost.lastCertNum}`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
+                            <MetricRow label="Costo (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-slate-950 dark:text-white font-black" />
+                            <MetricRow label={`Últ. Certificación (#${metrics.cost.lastCertNum})`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
                             <MetricRow label="Total Certificado" value={formatCurrency(metrics.cost.certTotal)} color="text-blue-700 font-black" />
-                            <MetricRow label="Material en Sitio (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700" />
+                            <div className="pt-2">
+                                <MetricRow label="Material en Sitio (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
+                                {metrics.cost.mosBalances.length > 0 && (
+                                    <div className="pl-3 mt-1 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800">
+                                        {metrics.cost.mosBalances.map((mb, i) => (
+                                            <div key={i} className="flex justify-between text-[10px] font-bold">
+                                                <span className="text-slate-500">Partida {mb.item_num}</span>
+                                                <span className="text-amber-600 italic">{formatCurrency(mb.balance)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="space-y-1">
                             <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />

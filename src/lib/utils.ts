@@ -105,7 +105,7 @@ export function formatDate(date: string | Date | null | undefined): string {
         // Manejar formato YYYY-MM-DD directamente para evitar desfases de zona horaria
         if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             const [year, month, day] = date.split("-");
-            return `${month}-${day}-${year}`;
+            return `${month}/${day}/${year}`;
         }
         d = new Date(date);
     } else {
@@ -117,7 +117,7 @@ export function formatDate(date: string | Date | null | undefined): string {
     const month = (d.getMonth() + 1).toString().padStart(2, '0');
     const day = d.getDate().toString().padStart(2, '0');
     const year = d.getFullYear();
-    return `${month}-${day}-${year}`;
+    return `${month}/${day}/${year}`;
 }
 
 /**

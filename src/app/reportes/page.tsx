@@ -8,7 +8,8 @@ import {
     FileText, Download, AlertCircle, CheckCircle2,
     Package, ListChecks, ArrowLeft, Loader2,
     Activity, Info, Files, BadgeAlert, FileDigit,
-    ChevronDown, Search, FileCheck, BarChart, Calculator, ShieldCheck
+    ChevronDown, Search, FileCheck, BarChart, Calculator, 
+    ShieldCheck as ShieldCheckIcon
 } from "lucide-react";
 import Link from "next/link";
 import { getLocalStorageItem, setLocalStorageItem, formatProjectNumber } from "@/lib/utils";
@@ -632,7 +633,7 @@ function ReportesContent() {
                 </DropdownGroup>
 
                 {/* ICC */}
-                <DropdownGroup title="Initial Certification" icon={<ShieldCheck size={18} className="text-blue-500" />}>
+                <DropdownGroup title="Initial Certification" icon={<ShieldCheckIcon size={18} className="text-blue-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
@@ -640,7 +641,7 @@ function ReportesContent() {
                             id: 'icc',
                             label: 'Resumen de ICC (BORRADOR)',
                             description: 'Vigencia de 60 días de certificaciones.',
-                            icon: <ShieldCheck size={18} className="text-blue-500" />,
+                            icon: <ShieldCheckIcon size={18} className="text-blue-500" />,
                             action: () => generateIccReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
