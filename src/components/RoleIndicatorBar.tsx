@@ -68,7 +68,7 @@ export default function RoleIndicatorBar() {
     return (
         <div className={`w-full h-2 fixed top-16 left-0 z-[49] ${config.color} transition-colors duration-500`}>
             <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-white dark:bg-slate-900 px-4 py-0.5 rounded-b-xl shadow-md border-x border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
-                <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                <span className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-tighter">
                     {config.letter} ({config.label})
                 </span>
                 <Shield size={10} className="text-slate-400" />

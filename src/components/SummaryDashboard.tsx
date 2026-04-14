@@ -48,6 +48,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     const [fmisAlert, setFmisAlert] = useState<{ status: 'warning' | 'expired'; daysLeft: number } | null>(null);
     const [mounted, setMounted] = useState(false);
     const [liveIndicator, setLiveIndicator] = useState(false);
+    const [showMOSDetails, setShowMOSDetails] = useState(false);
 
     useEffect(() => {
         setMounted(true);
@@ -425,12 +426,12 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <Clock size={16} /> TIEMPO
                     </div>
                     <div className="space-y-1">
-                        <MetricRow label="Comienzo Proyecto" value={metrics.dates.start} color="text-slate-800" />
-                        <MetricRow label="Terminación Original" value={metrics.dates.original} color="text-slate-800" />
-                        <MetricRow label="Terminación Revisada" value={metrics.dates.revised} color="text-slate-800" />
-                        <MetricRow label="Terminación Sustancial" value={metrics.dates.substantial} color="text-blue-800 font-bold" />
-                        <MetricRow label="Terminación Administrativa" value={metrics.dates.administrative} color="text-amber-800 font-bold" />
-                        <MetricRow label="FMIS End Date" value={metrics.dates.fmis} color="text-emerald-700" />
+                        <MetricRow label="Comienzo Proyecto" value={formatDate(metrics.dates.start)} color="text-slate-800" />
+                        <MetricRow label="Terminación Original" value={formatDate(metrics.dates.original)} color="text-slate-800" />
+                        <MetricRow label="Terminación Revisada" value={formatDate(metrics.dates.revised)} color="text-slate-800" />
+                        <MetricRow label="Terminación Sustancial" value={formatDate(metrics.dates.substantial)} color="text-blue-800 font-bold" />
+                        <MetricRow label="Terminación Administrativa" value={formatDate(metrics.dates.administrative)} color="text-amber-800 font-bold" />
+                        <MetricRow label="FMIS End Date" value={formatDate(metrics.dates.fmis)} color="text-emerald-700" />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="Días Contrato" value={`${formatNumber(metrics.time.total, 0)} días`} />
                         <MetricRow label="Días Revisados (Original + CHO)" value={`${formatNumber(metrics.time.revised, 0)} días`} />
@@ -541,9 +542,14 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             <MetricRow label={`Últ. Certificación (#${metrics.cost.lastCertNum})`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
                             <MetricRow label="Total Certificado" value={formatCurrency(metrics.cost.certTotal)} color="text-blue-700 font-black" />
                             <div className="pt-2">
-                                <MetricRow label="Material en Sitio (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
-                                {metrics.cost.mosBalances.length > 0 && (
-                                    <div className="pl-3 mt-1 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800">
+                                <button 
+                                    onClick={() => setShowMOSDetails(!showMOSDetails)}
+                                    className="w-full flex justify-between items-center group"
+                                >
+                                    <MetricRow label="Material en Sitio (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
+                                </button>
+                                {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
+                                    <div className="pl-3 mt-1 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800 animate-in slide-in-from-top-1 duration-200">
                                         {metrics.cost.mosBalances.map((mb, i) => (
                                             <div key={i} className="flex justify-between text-[10px] font-bold">
                                                 <span className="text-slate-500">Partida {mb.item_num}</span>

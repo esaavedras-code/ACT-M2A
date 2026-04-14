@@ -49,6 +49,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
     const [loading, setLoading] = useState(false);
     const [expandedCHO, setExpandedCHO] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         setMounted(true);
@@ -340,8 +341,29 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                         Change Orders / Enmiendas
                     </h2>
                 </div>
+                <div className="flex-1 max-w-md mx-6 hidden md:block">
+                    <div className="relative group">
+                        <input 
+                            type="text"
+                            placeholder="Buscar por descripción o nº de ítem..."
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
                 <div className="flex gap-2">
                 </div>
+            </div>
+
+            <div className="md:hidden px-4 mb-2">
+                <input 
+                    type="text"
+                    placeholder="Buscar por descripción o nº de ítem..."
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
 
             <FloatingFormActions
@@ -512,7 +534,13 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                            {(cho.items || []).map((item: any, itIdx: number) => (
+                                            {(cho.items || []).map((item: any, originalItIdx: number) => ({ item, originalItIdx }))
+                                                .filter(({ item }: any) => {
+                                                    if (!searchTerm) return true;
+                                                    const term = searchTerm.toLowerCase();
+                                                    return item.description?.toLowerCase().includes(term) || item.item_num?.toString().includes(term);
+                                                })
+                                                .map(({ item, originalItIdx: itIdx }: any) => (
                                                 <tr key={itIdx}>
                                                     <td className="py-0.5 px-0.5 text-center">
                                                         <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-primary" checked={item.is_new || false} onChange={(e) => updateCHOItem(idx, itIdx, 'is_new', e.target.checked)} disabled={item.is_admin_amendment} />

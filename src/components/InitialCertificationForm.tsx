@@ -15,6 +15,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
     const [uploading, setUploading] = useState<number | null>(null);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         setMounted(true);
@@ -213,7 +214,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                         if (child.item_id) {
                             childItemsToUpsert.push({
                                 item_id: child.item_id,
-                                quantity: child.quantity,
+                                quantity: c.quantity || 0,
                                 icc_id: c.id
                             });
                         }
@@ -262,16 +263,24 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
         return { expiration: baseDate, linkedCert: certToUse };
     };
 
-    if (!mounted) return null;
+if (!mounted) return null;
 
     return (
         <div className="w-full px-4 flex flex-col space-y-6">
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <ShieldCheck className="text-primary" /> Initial Contract Certification (ICC)
-                    </h2>
-                    <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest mt-1">Válido por 60 días desde la firma del Ing. Residente en la Certificación de Pago</p>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <ShieldCheck className="text-primary" /> 14. Initial Certification
+                </h2>
+                <div className="flex-1 max-w-md mx-6 hidden md:block">
+                    <div className="relative group">
+                        <input 
+                            type="text"
+                            placeholder="Buscar por desc., ítem o cert. de pago..."
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     {certs.some(c => {
@@ -292,8 +301,37 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />
 
-            <div className="flex flex-col space-y-3">
-                {certs.map((c, idx) => {
+            <div className="flex flex-col space-y-4">
+                <div className="md:hidden px-4 mb-2">
+                    <input 
+                        type="text"
+                        placeholder="Buscar por desc., ítem o cert. de pago..."
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                
+                {certs.map((c, originalIdx) => ({ c, originalIdx })).filter(({ c }) => {
+                    if (!searchTerm) return true;
+                    const term = searchTerm.toLowerCase();
+                    if (c.material_description?.toLowerCase().includes(term)) return true;
+                    if (c.manufacturer_name?.toLowerCase().includes(term)) return true;
+                    
+                    const pCert = paymentCerts.find(pc => pc.id === c.payment_cert_id);
+                    if (pCert && pCert.cert_num?.toString().includes(term)) return true;
+                    
+                    if (c.multiple_items && c.initial_certification_items) {
+                        return c.initial_certification_items.some((child: any) => {
+                            const it = contractItems.find(i => i.id === child.item_id);
+                            return it && (it.item_num?.toLowerCase().includes(term) || it.description?.toLowerCase().includes(term));
+                        });
+                    } else if (c.item_id) {
+                        const it = contractItems.find(i => i.id === c.item_id);
+                        return it && (it.item_num?.toLowerCase().includes(term) || it.description?.toLowerCase().includes(term));
+                    }
+                    return false;
+                }).map(({ c, originalIdx: idx }) => {
                     const res = calculateExpiration(c);
                     const expiration = res?.expiration || null;
                     const today = new Date();
@@ -305,7 +343,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                     const selectedItem = contractItems.find(it => it.id === c.item_id);
 
                     return (
-                        <div key={idx} className="flex flex-col bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all p-2 pr-6 overflow-hidden">
+                        <div key={idx} className={`p-5 rounded-[2rem] border-2 shadow-sm transition-all ${isExpired ? 'bg-red-50/50 border-red-200/50 dark:bg-red-900/10 dark:border-red-900/30 shadow-red-500/5' : isNearExpiration ? 'bg-amber-50/50 border-amber-200/50 dark:bg-amber-900/10 dark:border-amber-900/30' : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-800'}`}>
                             <div className="flex items-center gap-4">
                                 {/* Item Selector / Badge (Single or Status) */}
                                 <div className="flex flex-col items-start gap-1 ml-2">
@@ -382,17 +420,15 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                 </div>
 
                                 {/* Quantity Input */}
-                                {!c.multiple_items && (
-                                    <div className="w-24">
-                                        <input 
-                                            type="number"
-                                            step="0.01"
-                                            className="w-full bg-[#A7FFC3]/20 dark:bg-[#1E5128]/20 border border-[#A7FFC3]/50 rounded-2xl py-3 px-4 text-center text-sm font-black text-emerald-700 dark:text-emerald-400"
-                                            value={c.quantity || 0}
-                                            onChange={e => updateCert(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                                        />
-                                    </div>
-                                )}
+                                <div className="w-24">
+                                    <input 
+                                        type="number"
+                                        step="0.01"
+                                        className={`w-full bg-slate-50 dark:bg-slate-800/50 border rounded-2xl py-3 px-4 text-center text-sm font-black ${c.quantity ? 'text-emerald-700 dark:text-emerald-400 border-emerald-500/50' : 'text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}
+                                        value={c.quantity || 0}
+                                        onChange={e => updateCert(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                                    />
+                                </div>
 
                                 {/* Date Badge - Arreglado para máxima interactividad */}
                                 <div 
@@ -501,13 +537,6 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                                     <div className="text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-md shrink-0">
                                                         {childItem?.unit || "UNIT"}
                                                     </div>
-                                                    <input 
-                                                        type="number"
-                                                        step="0.01"
-                                                        className="w-20 bg-slate-50 dark:bg-slate-800 border-none rounded-lg py-1 px-2 text-center text-xs font-black text-slate-700"
-                                                        value={child.quantity || 0}
-                                                        onChange={e => updateChildItem(idx, cIdx, 'quantity', parseFloat(e.target.value) || 0)}
-                                                    />
                                                     <button 
                                                         onClick={() => removeChildItem(idx, cIdx)}
                                                         className="p-1 px-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"

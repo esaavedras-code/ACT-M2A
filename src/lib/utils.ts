@@ -78,8 +78,8 @@ export function formatNumber(value: number | string | null | undefined, decimals
     }
     const roundedValue = roundedAmt(numericValue, decimals);
     return roundedValue.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
     });
 }
 

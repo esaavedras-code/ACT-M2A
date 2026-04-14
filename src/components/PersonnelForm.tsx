@@ -112,19 +112,21 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
      */
     const handleSuccessorBlur = (idx: number, newName: string) => {
         const p = personnel[idx];
-        if (newName.trim() !== "" && p.new_start_date) {
+        if (newName.trim() !== "") {
+            const today = new Date().toISOString().split('T')[0];
             const newP = {
                 role: p.role,
                 name: newName.trim(),
-                active_from: p.new_start_date,
+                active_from: today,
                 active_to: null,
                 phone_office: p.phone_office || "",
                 phone_mobile: p.phone_mobile || "",
                 email: p.email || "",
+                is_successor: true // Nueva marca para color
             };
             const updated = personnel.map((item, i) =>
                 i === idx
-                    ? { ...item, active_to: p.new_start_date, show_successor: false, new_name: "", new_start_date: "" }
+                    ? { ...item, active_to: today, show_successor: false, new_name: "", new_start_date: "" }
                     : item
             );
             setPersonnel([newP, ...updated]);
@@ -363,7 +365,10 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                             <input
                                                 type="text"
                                                 className="input-field text-xs min-h-[38px] !py-1.5 font-bold"
-                                                style={{ backgroundColor: isHistorico ? '#F1F5F9' : '#66FF99' }}
+                                                style={{ 
+                                                    backgroundColor: isHistorico ? '#F1F5F9' : (p.is_successor ? '#E0F2FE' : '#66FF99'),
+                                                    borderColor: p.is_successor ? '#3B82F6' : undefined
+                                                }}
                                                 value={p.name || ""}
                                                 placeholder="Nombre del funcionario"
                                                 onChange={(e) => updateItem(idx, 'name', e.target.value)}
@@ -439,47 +444,43 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
 
                                     {/* Fila expandible para registrar cambio de nombre */}
                                     {p.show_successor && !isHistorico && (
-                                        <tr key={`suc-${idx}`} className="bg-emerald-50/30 dark:bg-emerald-900/10 border-l-4 border-emerald-500">
+                                        <tr key={`suc-${idx}`} className="bg-sky-50 dark:bg-sky-900/10 border-l-4 border-sky-500">
                                             <td className="px-2 py-3" colSpan={2}>
                                                 <div className="flex flex-col items-center">
-                                                    <span className="text-[10px] font-bold text-emerald-600 uppercase mb-1">
-                                                        Fecha en que inicia la nueva persona
+                                                    <span className="text-[10px] font-bold text-sky-600 uppercase mb-1">
+                                                        Transición Automática
                                                     </span>
-                                                    <input
-                                                        type="date"
-                                                        className="input-field text-xs min-h-[34px] !py-1 text-center font-black"
-                                                        style={{ borderColor: '#10B981' }}
-                                                        value={p.new_start_date || ""}
-                                                        onChange={(e) => {
-                                                            updateItem(idx, 'new_start_date', e.target.value);
-                                                        }}
-                                                    />
-                                                    <span className="text-[8px] text-slate-400 italic mt-1">
-                                                        La persona actual terminará en esta fecha
-                                                    </span>
+                                                    <div className="text-[10px] text-slate-500 font-medium">
+                                                        Fecha: {new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-2 py-3">
                                                 <div className="flex flex-col">
-                                                    <span className="text-[10px] font-bold text-emerald-600 uppercase mb-1">
-                                                        Nombre de la nueva persona
+                                                    <span className="text-[10px] font-bold text-sky-600 uppercase mb-1">
+                                                        Nombre del Nuevo Funcionario
                                                     </span>
                                                     <input
                                                         type="text"
                                                         className="input-field text-xs min-h-[34px] !py-1 font-black"
-                                                        style={{ borderColor: '#10B981' }}
+                                                        style={{ borderColor: '#0EA5E9', backgroundColor: '#F0F9FF' }}
                                                         value={p.new_name || ""}
-                                                        placeholder="Nombre del nuevo funcionario..."
+                                                        placeholder="Escriba el nombre y presione Enter..."
                                                         onChange={(e) => updateItem(idx, 'new_name', e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                handleSuccessorBlur(idx, (e.target as HTMLInputElement).value);
+                                                            }
+                                                        }}
                                                         onBlur={(e) => handleSuccessorBlur(idx, e.target.value)}
+                                                        autoFocus
                                                     />
                                                 </div>
                                             </td>
                                             <td className="px-2 py-3" colSpan={5}>
-                                                <div className="text-[10px] text-emerald-600 font-semibold italic">
-                                                    ✓ Se creará un nuevo registro para la nueva persona.<br />
-                                                    <span className="text-slate-400">El registro actual quedará como historial con su fecha de finalización.</span><br />
-                                                    <span className="text-slate-400 font-normal">Este proceso puede repetirse cuantas veces sea necesario durante el proyecto.</span>
+                                                <div className="text-[10px] text-sky-600 font-semibold italic">
+                                                    ✓ El funcionario actual terminará hoy y el nuevo comenzará mañana.<br />
+                                                    <span className="text-slate-400 font-normal">Este registro se marcará en color celeste para diferenciarlo.</span>
                                                 </div>
                                             </td>
                                         </tr>

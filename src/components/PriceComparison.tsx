@@ -58,10 +58,9 @@ export default function PriceComparison({ projectId }: { projectId?: string }) {
                     <div className="card bg-slate-50 dark:bg-slate-800/20 border-slate-100 dark:border-slate-800">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Buscar en Historial</label>
                         <div className="relative group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
                             <input 
                                 type="text" 
-                                className="input-field pl-12 bg-white dark:bg-slate-950" 
+                                className="input-field pl-4 bg-white dark:bg-slate-950" 
                                 placeholder="Espec. o Nombre..." 
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}

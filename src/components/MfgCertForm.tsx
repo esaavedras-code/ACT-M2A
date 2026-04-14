@@ -42,6 +42,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
 
     const [contractorName, setContractorName] = useState("");
     const [showValidationIdx, setShowValidationIdx] = useState<number | null>(null);
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         setMounted(true);
@@ -303,7 +304,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             for (const c of certs) {
                 if (c.is_multiple && c.item_ids?.length > 0) {
                     for (const iId of c.item_ids) {
-                        expanded.push({ ...c, item_id: iId, is_multiple: false, item_ids: undefined, quantity: c.multiple_quantities?.[iId] || 0 });
+                        expanded.push({ ...c, item_id: iId, is_multiple: false, item_ids: undefined, quantity: c.quantity || 0 });
                     }
                 } else if (c.item_id) expanded.push(c);
             }
@@ -345,6 +346,17 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Factory className="text-primary" /> 8. Certificados de Manufactura
                 </h2>
+                <div className="flex-1 max-w-md mx-6 hidden md:block">
+                    <div className="relative group">
+                        <input 
+                            type="text"
+                            placeholder="Buscar por ítem o fabricante..."
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
                 <div className="flex gap-2">
                     <button onClick={() => exportSectionToJSON("mfg_certs", certs)} className="p-2 border rounded-lg hover:bg-slate-50"><Download size={18}/></button>
                 </div>
@@ -357,17 +369,24 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
 
             <div className="flex flex-col space-y-3">
                 {/* Header Row (Optional for reference) */}
-                <div className="hidden md:flex items-center gap-4 px-4 text-[10px] font-black text-slate-400 uppercase">
-                    <div className="w-6">#</div>
-                    <div className="flex-1 min-w-[200px]">Partida / Item</div>
-                    <div className="w-16 text-center">Unidad</div>
-                    <div className="flex-1 min-w-[150px]">Fabricante / Referencia</div>
-                    <div className="w-24 text-center">Cantidad</div>
-                    <div className="w-36 text-center">Fecha Cert.</div>
-                    <div className="w-8"></div>
+                <div className="md:hidden px-4 mb-4">
+                    <input 
+                        type="text"
+                        placeholder="Buscar por ítem o fabricante..."
+                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
 
-                {certs.map((c, idx) => {
+                {certs.map((c, originalIdx) => ({ c, originalIdx })).filter(({ c }) => {
+                    if (!searchTerm) return true;
+                    const term = searchTerm.toLowerCase();
+                    const itemMatch = contractItems.find(it => it.id === c.item_id);
+                    if (itemMatch && (itemMatch.item_num?.toLowerCase().includes(term) || itemMatch.description?.toLowerCase().includes(term))) return true;
+                    if (c.manufacturer_name?.toLowerCase().includes(term)) return true;
+                    return false;
+                }).map(({ c, originalIdx: idx }) => {
                     const selectedItem = contractItems.find(it => it.id === c.item_id);
                     return (
                         <div key={idx} className="flex flex-wrap md:flex-nowrap items-center gap-3 p-4 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
@@ -394,23 +413,11 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                                             onChange={e => {
                                                                 const newList = [...certs];
                                                                 if(!newList[idx].item_ids) newList[idx].item_ids = [];
-                                                                if(!newList[idx].multiple_quantities) newList[idx].multiple_quantities = {};
-                                                                
                                                                 if(e.target.checked) {
                                                                     newList[idx].item_ids.push(item.id);
-                                                                    // Inicializar cantidad para este ítem si no existe
-                                                                    if (newList[idx].multiple_quantities[item.id] === undefined) {
-                                                                        newList[idx].multiple_quantities[item.id] = 0;
-                                                                    }
                                                                 } else {
                                                                     newList[idx].item_ids = newList[idx].item_ids.filter((id:any)=>id!==item.id);
-                                                                    delete newList[idx].multiple_quantities[item.id];
                                                                 }
-                                                                
-                                                                // Actualizar cantidad total como suma de las partes
-                                                                const total = Object.values(newList[idx].multiple_quantities).reduce((acc: number, q: any) => acc + (parseFloat(q) || 0), 0);
-                                                                newList[idx].quantity = total;
-                                                                
                                                                 setCerts(newList);
                                                             }} 
                                                         /> 
@@ -456,49 +463,6 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     <span className="text-[9px] font-black text-slate-400 group-hover:text-emerald-500 uppercase transition-colors">Múltiples Ítems</span>
                                 </label>
 
-                                {c.is_multiple && c.item_ids?.length > 0 && (
-                                    <div className="mt-3 space-y-2 p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/20">
-                                        <p className="text-[8px] font-black text-emerald-600 uppercase mb-2">Cantidades por Partida:</p>
-                                        <div className="grid grid-cols-1 gap-2">
-                                            {([...(c.item_ids || [])]).sort((a, b) => {
-                                                const itemA = contractItems.find(it => it.id === a);
-                                                const itemB = contractItems.find(it => it.id === b);
-                                                if (!itemA || !itemB) return 0;
-                                                return (parseInt(itemA.item_num) || 0) - (parseInt(itemB.item_num) || 0);
-                                            }).map((itemId: string) => {
-                                                const item = contractItems.find(it => it.id === itemId);
-                                                if (!item) return null;
-                                                return (
-                                                    <div key={itemId} className="flex items-center justify-between gap-4">
-                                                        <span className="text-[10px] font-bold text-slate-600 truncate flex-1" title={item.description}>Pt. {item.item_num}: {item.description}</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <input 
-                                                                type="number"
-                                                                step="0.0001"
-                                                                className="w-20 bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-900/30 rounded-full px-3 py-1 text-[10px] font-black text-center focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all"
-                                                                value={c.multiple_quantities?.[itemId] ?? 0}
-                                                                onChange={e => {
-                                                                    const nl = [...certs];
-                                                                    if (!nl[idx].multiple_quantities) nl[idx].multiple_quantities = {};
-                                                                    const val = parseFloat(e.target.value) || 0;
-                                                                    nl[idx].multiple_quantities[itemId] = val;
-                                                                    
-                                                                    // Actualizar cantidad total
-                                                                    const total = Object.values(nl[idx].multiple_quantities).reduce((acc: number, q: any) => acc + (parseFloat(q) || 0), 0);
-                                                                    nl[idx].quantity = total;
-                                                                    
-                                                                    setCerts(nl);
-                                                                    if (onDirty) onDirty();
-                                                                }}
-                                                            />
-                                                            <span className="text-[8px] font-bold text-slate-400">{item.unit}</span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
                             {/* Unit */}

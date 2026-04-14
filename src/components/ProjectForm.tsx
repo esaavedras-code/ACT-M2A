@@ -405,11 +405,29 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
         return revDate.toISOString().split("T")[0];
     };
 
+    const calculateLiquidatedDamages = (cost: number) => {
+        if (cost <= 0) return 0;
+        if (cost <= 100000) return 350;
+        if (cost <= 500000) return 450;
+        if (cost <= 1000000) return 600;
+        if (cost <= 2000000) return 750;
+        if (cost <= 5000000) return 900;
+        if (cost <= 10000000) return 1100;
+        return 1400;
+    };
+
     const terminacionAdministrativa = getTerminacionAdministrativa();
 
     const handleChange = (field: string, value: any) => {
         setFormData(prev => {
-            const nextData = { ...prev, [field]: value };
+            let nextData = { ...prev, [field]: value };
+            
+            // Si cambia el costo original, recalcular LD automáticamente
+            if (field === 'cost_original') {
+                const newCost = parseFloat(value) || 0;
+                nextData.liquidated_damages_amount = calculateLiquidatedDamages(newCost);
+            }
+
             formDataRef.current = nextData;
             return nextData;
         });
@@ -1090,24 +1108,29 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                 </div>
                 <div className="space-y-1">
                     <label className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Daños Líquidos Diarios ($)</label>
-                    <input
-                        type={isDlqFocused ? "text" : "text"}
-                        className="input-field border-red-100 focus:ring-red-500 font-bold"
-                        style={getFieldStyle('liquidated_damages_amount')}
-                        value={isDlqFocused
-                            ? (formData.liquidated_damages_amount === 0 ? "" : formData.liquidated_damages_amount.toString())
-                            : formatCurrency(formData.liquidated_damages_amount)}
-                        onFocus={() => setIsDlqFocused(true)}
-                        onBlur={(e) => {
-                            setIsDlqFocused(false);
-                            const val = parseFloat(e.target.value);
-                            handleChange('liquidated_damages_amount', isNaN(val) ? 0 : val);
-                        }}
-                        onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            handleChange('liquidated_damages_amount', isNaN(val) ? 0 : val);
-                        }}
-                    />
+                    <div className="relative group">
+                        <input
+                            type={isDlqFocused ? "text" : "text"}
+                            className="input-field border-red-100 focus:ring-red-500 font-bold pr-20"
+                            style={getFieldStyle('liquidated_damages_amount')}
+                            value={isDlqFocused
+                                ? (formData.liquidated_damages_amount === 0 ? "" : formData.liquidated_damages_amount.toString())
+                                : formatCurrency(formData.liquidated_damages_amount)}
+                            onFocus={() => setIsDlqFocused(true)}
+                            onBlur={(e) => {
+                                setIsDlqFocused(false);
+                                const val = parseFloat(e.target.value);
+                                handleChange('liquidated_damages_amount', isNaN(val) ? 0 : val);
+                            }}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                handleChange('liquidated_damages_amount', isNaN(val) ? 0 : val);
+                            }}
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-[9px] text-slate-400 font-medium italic">Editable</span>
+                        </div>
+                    </div>
                 </div>
                 <div className="space-y-1 md:col-span-2">
                     <label className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
@@ -1221,9 +1244,9 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hoy (Automática)</label>
                             <input
-                                type="date"
-                                className="input-field bg-slate-50 dark:bg-slate-800 text-slate-500 cursor-not-allowed"
-                                value={todayDate}
+                                type="text"
+                                className="input-field bg-slate-50 dark:bg-slate-800 text-slate-500 cursor-not-allowed font-medium"
+                                value={new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
                                 disabled
                             />
                         </div>
@@ -1416,14 +1439,6 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             </form>
             <FloatingFormActions 
                 actions={[
-                    {
-                        label: loading ? "Analizando..." : "Analizar con ACT-GPT",
-                        icon: loading ? <Loader2 className="animate-spin" /> : <BrainCircuit className="text-purple-500" />,
-                        onClick: handleAiAnalysis,
-                        description: "Extraer datos automáticamente de los documentos PDF subidos",
-                        variant: 'secondary',
-                        disabled: loading || !projectId
-                    },
                     {
                         label: loading ? "Guardando..." : "Guardar Proyecto",
                         icon: loading ? <Loader2 className="animate-spin" /> : <Save />,

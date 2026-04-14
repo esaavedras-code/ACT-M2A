@@ -45,6 +45,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     const [projectData, setProjectData] = useState<any>(null);
     const [timeExtension, setTimeExtension] = useState(0);
     const [mounted, setMounted] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         setMounted(true);
@@ -652,9 +653,30 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     <FileCheck className="text-primary" />
                     Certificaciones de Pago
                 </h2>
+                <div className="flex-1 max-w-md mx-6 hidden md:block">
+                    <div className="relative group">
+                        <input 
+                            type="text"
+                            placeholder="Buscar por descripción o nº de ítem..."
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
                 <div className="flex gap-2">
                     {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>
+            </div>
+
+            <div className="md:hidden px-4 mb-2">
+                <input 
+                    type="text"
+                    placeholder="Buscar por descripción o nº de ítem..."
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
 
             <FloatingFormActions
@@ -1107,6 +1129,11 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                             </thead>
                                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                                                 {(c.items || []).map((item: any, originalItIdx: number) => ({ item, originalItIdx }))
+                                                    .filter(({ item }: any) => {
+                                                        if (!searchTerm) return true;
+                                                        const term = searchTerm.toLowerCase();
+                                                        return item.description?.toLowerCase().includes(term) || item.item_num?.toString().includes(term);
+                                                    })
                                                     .sort((a: any, b: any) => (parseInt(a.item.item_num) || 0) - (parseInt(b.item.item_num) || 0))
                                                     .map(({ item, originalItIdx: itIdx }: { item: any; originalItIdx: number }) => {
                                                     const mosAmount = item.has_material_on_site

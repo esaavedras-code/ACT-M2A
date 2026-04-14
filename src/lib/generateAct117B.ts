@@ -337,10 +337,8 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
             const rowY = ty + th + (filledInPage * rowH) + rowH / 2;
             
             // Labels spread across the first 4 columns
-            drawText("BALANCE", (cols[0] + cols[1]) / 2, rowY + 3.5, 8, true, true);
-            drawText("TOTAL EN", (cols[1] + cols[2]) / 2, rowY + 3.5, 7.5, true, true);
-            drawText("INVENTARIO", (cols[2] + cols[3]) / 2, rowY + 3.5, 8, true, true);
-            drawText("(MOS):", cols[4] - 5, rowY + 3.5, 8, true, false, true);
+            // Combined label across the first 4 columns to avoid cramping
+            drawText("BALANCE TOTAL EN INVENTARIO (MOS):", (cols[0] + cols[4]) / 2, rowY + 3.5, 8, true, true);
 
             // Final Balances in Cols 5 and 6
             const isZeroQty = Math.abs(cumulativeQty) < 0.0001;
