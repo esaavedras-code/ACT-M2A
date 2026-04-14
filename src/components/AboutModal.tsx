@@ -66,7 +66,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                             <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Versión</p>
-                            <p className="text-base font-black text-slate-900 dark:text-white">v3.26.0413</p>
+                            <p className="text-base font-black text-slate-900 dark:text-white">v3.26.0414</p>
                         </div>
                         <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                             <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Plataforma</p>
