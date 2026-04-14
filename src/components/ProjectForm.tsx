@@ -446,42 +446,37 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             setLoading(true);
             let finalNumAct = formatProjectNumber(currentNumAct);
             
-            // Check for duplicates if it's a new project
-            if (!projectId && !silent) {
-                const baseNumAct = finalNumAct.substring(0, 9); // e.g. "AC-123456"
-                const { data: existing } = await supabase.from("projects").select("num_act").like("num_act", `${baseNumAct}%`);
+            // 1. Colisión ACT vs Contratista (Mismo número, diferente origen)
+            if (!projectId) {
+                const { data: existing } = await supabase
+                    .from("projects")
+                    .select("id, project_origin")
+                    .eq("num_act", finalNumAct)
+                    .maybeSingle();
+
+                if (existing && existing.project_origin !== currentData.project_origin) {
+                    const suffix = currentData.project_origin === 'Contratista' ? 'C' : 'A';
+                    finalNumAct = finalNumAct + suffix;
+                }
+            }
+            
+            // 2. Colisión General (Si el número final ya existe, buscamos la siguiente letra disponible automáticamente)
+            if (!projectId) {
+                let isDuplicate = true;
+                let attempt = 0;
+                const baseNum = finalNumAct.substring(0, 9); // e.g. "AC-123456"
                 
-                if (existing && existing.length > 0) {
-                    const exactMatch = existing.find(p => p.num_act === finalNumAct);
-                    if (exactMatch) {
-                        // Find highest letter used
-                        let maxCode = 64; // before 'A'
-                        if (existing.some(p => p.num_act === baseNumAct)) {
-                            maxCode = 65; // 'A' if base exists
-                        }
-                        
-                        existing.forEach(p => {
-                            if (p.num_act.length === 10) {
-                                const code = p.num_act.charCodeAt(9);
-                                if (code > maxCode) maxCode = code;
-                            }
-                        });
-                        
-                        // We will start offering at least 'B' (66)
-                        const nextCode = Math.max(maxCode + 1, 66);
-                        const nextLetter = String.fromCharCode(nextCode);
-                        const suggestedNumAct = baseNumAct + nextLetter;
-                        
-                        const confirmDouble = window.confirm(`El proyecto ${finalNumAct} ya existe. ¿Desea crearlo de todos modos agregándole la letra ${nextLetter} (${suggestedNumAct})?`);
-                        if (!confirmDouble) {
-                            setLoading(false);
-                            return;
-                        }
-                        
-                        finalNumAct = suggestedNumAct;
-                        const nextData = { ...currentData, num_act: finalNumAct };
-                        setFormData(nextData);
-                        formDataRef.current = nextData;
+                while (isDuplicate && attempt < 10) {
+                    const { data } = await supabase.from("projects").select("id").eq("num_act", finalNumAct).maybeSingle();
+                    if (!data) {
+                        isDuplicate = false;
+                    } else {
+                        attempt++;
+                        // Si ya tiene sufijo (A/C/etc), probamos la siguiente letra del abecedario
+                        // Pero respetando la restricción de longitud. 
+                        // Simplemente añadimos letras B, D, E... si A/C ya están ocupadas
+                        const nextLetter = String.fromCharCode(64 + attempt + (attempt > 2 ? 1 : 0)); // Evitar confusión si queremos
+                        finalNumAct = baseNum + nextLetter;
                     }
                 }
             }
@@ -786,7 +781,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                 <div className="flex items-center gap-2 -mt-4 mb-4">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
                     <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
-                        {formData.num_act}
+                        {formatProjectNumber(formData.num_act, true)}
                     </span>
                 </div>
             )}

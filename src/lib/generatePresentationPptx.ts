@@ -55,10 +55,11 @@ async function urlToBase64(url: string): Promise<string | null> {
   }
 }
 
-/** Detecta extensión de imagen a partir de URL */
-function getImgExt(url: string): "png" | "jpg" {
+/** Detecta extensión de imagen a partir de URL y devuelve MimeType */
+function getMimeType(url: string): string {
+  if (!url) return "image/jpeg";
   const clean = url.split("?")[0].toLowerCase();
-  return clean.endsWith(".png") ? "png" : "jpg";
+  return clean.endsWith(".png") ? "image/png" : "image/jpeg";
 }
 
 export async function generatePresentationPptx(data: PresentationData): Promise<Blob> {
@@ -229,7 +230,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
       if (b64) {
         // Marco externo negro grueso (Fiel a la foto)
         slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X - 0.05, y: y - 0.05, w: PHOTO_W + 0.1, h: PHOTO_H + 0.1, line: { pt: 4, color: "000000" }, fill: { color: "none" } });
-        slide2.addImage({ data: `image/${getImgExt(url).replace('jpg', 'jpeg')};base64,${b64}`, x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H } });
+        slide2.addImage({ data: `${getMimeType(url)};base64,${b64}`, x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, sizing: { type: "cover", w: PHOTO_W, h: PHOTO_H } });
       }
     } else {
        slide2.addShape(pptx.ShapeType.rect, { x: RIGHT_X, y: y, w: PHOTO_W, h: PHOTO_H, fill: { color: "F3F4F6" }, line: { color: "000000", pt: 1.5 } });

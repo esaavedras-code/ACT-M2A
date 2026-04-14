@@ -154,13 +154,23 @@ export function setLocalStorageItem(key: string, value: string): void {
 
 /**
  * Formato estandarizado para números de proyecto: AC-XXXXXX
+ * cleanSuffix: Si es true, quita las letras A o C finales que se usan internamente
  */
-export function formatProjectNumber(value: string | null | undefined): string {
+export function formatProjectNumber(value: string | null | undefined, cleanSuffix = false): string {
     if (!value) return "";
     let cleanValue = value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-    // Si ya tiene el prefijo AC o similares, lo limpia
+    
+    // Si ya tiene el prefijo AC o similares, lo limpia temporalmente para procesar el cuerpo
     if (cleanValue.startsWith("AC")) {
         cleanValue = cleanValue.substring(2);
     }
+
+    if (cleanSuffix) {
+        // Quita 'C' o 'A' si están al final (usados para duplicados entre Contratista/ACT)
+        if (cleanValue.endsWith("C") || cleanValue.endsWith("A")) {
+            cleanValue = cleanValue.substring(0, cleanValue.length - 1);
+        }
+    }
+
     return `AC-${cleanValue}`;
 }

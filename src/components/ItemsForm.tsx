@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileText, Download, Upload } from "lucide-react";
+import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileText, Download, Upload, Search } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatCurrency, formatNumber, roundedAmt } from "@/lib/utils";
@@ -27,6 +27,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
     const [priceSuggestions, setPriceSuggestions] = useState<Record<string, number[]>>({});
     const [expandedItem, setExpandedItem] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
         if (projectId) {
@@ -276,6 +277,20 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         </span>
                     </div>
                 </div>
+
+                <div className="flex-1 max-w-md mx-6">
+                    <div className="relative group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={16} />
+                        <input 
+                            type="text"
+                            placeholder="Buscar por item, especificación o descripción..."
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-10 pr-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
+
                 <div className="flex gap-3">
                     {/* Los botones ahora son flotantes para mayor accesibilidad */}
                 </div>

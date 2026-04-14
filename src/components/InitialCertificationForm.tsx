@@ -395,15 +395,31 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                                 )}
 
                                 {/* Date Badge */}
-                                <div className={`relative group ${isExpired ? 'bg-red-100 text-red-600' : isNearExpiration ? 'bg-amber-100 text-amber-600' : 'bg-[#A7FFC3] text-[#1D3A20]'} px-6 py-3 rounded-full flex items-center gap-2 font-black text-sm`}>
+                                <div 
+                                    className={`relative group ${isExpired ? 'bg-red-100 text-red-600' : isNearExpiration ? 'bg-amber-100 text-amber-600' : 'bg-[#A7FFC3] text-[#1D3A20]'} px-6 py-3 rounded-full flex items-center gap-2 font-black text-sm hover:scale-[1.02] active:scale-95 transition-all cursor-pointer shadow-sm hover:shadow-md border border-black/5`}
+                                    onClick={(e) => {
+                                        const input = e.currentTarget.querySelector('input');
+                                        if (input) {
+                                            if (input.showPicker) input.showPicker();
+                                            else input.click();
+                                        }
+                                    }}
+                                >
                                     <input 
                                         type="date"
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                         value={c.cert_date || ""}
-                                        onChange={e => updateCert(idx, 'cert_date', e.target.value)}
+                                        onChange={e => {
+                                            e.stopPropagation();
+                                            updateCert(idx, 'cert_date', e.target.value);
+                                        }}
+                                        onClick={e => e.stopPropagation()}
                                     />
+                                    <Calendar size={14} className="opacity-60" />
                                     <span>{c.cert_date ? formatDate(c.cert_date) : "Fecha"}</span>
-                                    <span className="text-[10px] bg-white/50 px-1.5 rounded-md">HOY</span>
+                                    {c.cert_date === new Date().toISOString().split('T')[0] && (
+                                        <span className="text-[10px] bg-white/50 px-1.5 rounded-md font-black uppercase tracking-tighter">HOY</span>
+                                    )}
                                 </div>
 
                                 {/* Payment Cert Link */}
