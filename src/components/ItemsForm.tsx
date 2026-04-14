@@ -364,7 +364,18 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                        {items.map((item, originalIndex) => ({ item, originalIndex }))
+                        {items
+                                .map((item, originalIndex) => ({ item, originalIndex }))
+                                .filter(({ item }) => {
+                                    if (!searchTerm) return true;
+                                    const s = searchTerm.toLowerCase().trim();
+                                    return (
+                                        item.item_num?.toLowerCase().includes(s) ||
+                                        item.specification?.toLowerCase().includes(s) ||
+                                        item.description?.toLowerCase().includes(s) ||
+                                        item.additional_description?.toLowerCase().includes(s)
+                                    );
+                                })
                                 .sort((a, b) => (parseInt(a.item.item_num) || 0) - (parseInt(b.item.item_num) || 0))
                                 .map(({ item, originalIndex: idx }) => {
                             const choQty = getCHOQty(item.item_num);
