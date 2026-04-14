@@ -500,9 +500,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <div className="mt-2 space-y-1">
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Firmadas por:</span>
                             <div className="pl-2 space-y-1">
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.adminSigned)}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.contractorSigned)}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.liquidatorSigned)}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.adminSigned, 0)}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.contractorSigned, 0)}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.liquidatorSigned, 0)}</span></div>
                             </div>
                         </div>
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />

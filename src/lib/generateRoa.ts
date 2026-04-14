@@ -501,7 +501,7 @@ export async function generateRoa(projectId: string, choId: string) {
         }
 
         const pdfBytes = await pdfDoc.save();
-        alert("Recordatorio: Recuerde que en el documento PDF hay datos pendientes que usted debe completar manualmente.");
+        alert("Proyectos ACT says:\n\nRecordatorio: Recuerde que en el documento PDF hay datos pendientes que usted debe completar manualmente o por computadora.");
         return new Blob([pdfBytes as any], { type: 'application/pdf' });
     } catch (err: any) { console.error("Error generating ROA:", err); throw err; }
 }

@@ -193,7 +193,7 @@ export const createPdfBlob = async (
         const detailRows = [
             `Num. Federal: ${projectInfo.num_federal || 'N/A'}  |  Contrato: ${projectInfo.num_contrato || 'N/A'}  |  Región: ${projectInfo.region || 'N/A'}`,
             `Municipios: ${mun}  |  Contratista: ${projectInfo.contractor_name || 'N/A'}`,
-            `Admin: ${projectInfo.admin_name || 'N/A'}  |  PM: ${projectInfo.project_manager_name || 'N/A'}`
+            `${projectInfo.admin_title || 'Admin'}: ${projectInfo.admin_name || 'N/A'}  |  PM: ${projectInfo.project_manager_name || 'N/A'}`
         ];
 
         detailRows.forEach(line => {
@@ -266,7 +266,8 @@ export const createPdfBlob = async (
             const isSubtitle = /^\s*\d+\.\s+[A-ZÁÉÍÓÚÑ]/.test(textStr);
             const isItemNum = !isHeader && idx === 0 && row[0] && /^\d+([-(A-Z]|$)/.test(textStr);
             
-            const useBold = isHeader || isPartida || isSubtitle || isItemNum || rowIsSpecial || isSubtitleRow || textStr.endsWith(':') ||
+            const excludeAutoBold = title.includes('CERTIFICADOS DE MANUFACTURA');
+            const useBold = isHeader || isPartida || isSubtitleRow || ((isSubtitle || isItemNum || rowIsSpecial) && !excludeAutoBold) || textStr.endsWith(':') ||
                 textStr.toLowerCase() === 'sí' || textStr.toLowerCase() === 'si' ||
                 textStr === 'Rol / Puesto' || textStr === 'Nombre' || textStr === 'Contacto' || textStr === 'Oficina' || textStr === 'Celular' || textStr === 'Email';
             const cellFont = useBold ? timesRomanBoldFont : timesRomanFont;
@@ -893,7 +894,7 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
         }
         const fullDescription = [b.description, b.additional_description].filter(Boolean).join(' - ');
         return { item_num: b.item_num, spec: b.specification || '', desc: fullDescription || '', unit: b.unit || '', certQty, mfgQty, missing, date: dateMissing };
-    }).filter((m: any) => m.missing > 0);
+    }).filter((m: any) => m.missing >= 0.0001);
 
     if (missingCerts.length === 0) throw new Error("NO_FALTA_NINGUNO");
 
@@ -943,8 +944,8 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
                 const group = groupedItems.get(it.item_num);
                 if (hasAddition) group.activities.push({ certNum: c.cert_num, type: 'Adición (Factura)', qty: parseFloat(it.mos_quantity) || 0, cost: parseFloat(it.mos_invoice_total) || 0 });
                 if (hasDeduction) {
-                    const mp = getInvoicePU(certs, it.item_num, cIdx);
-                    const p = mp > 0 ? mp : (parseFloat(it.unit_price) || 0);
+                    const up = parseFloat(it.unit_price) || 0;
+                    const p = parseFloat(it.mos_unit_price) || up;
                     const qty = parseFloat(it.qty_from_mos) || 0;
                     group.activities.push({ certNum: c.cert_num, type: 'Deducción (WP)', qty: -qty, cost: -(qty * p) });
                 }
@@ -977,9 +978,9 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
         totalFinalBalance += itemBalance;
         reportData.push(['', '', '', '', '', '', '', '', '']);
     });
-    reportData.push(['BALANCE TOTAL EN INVENTARIO (MOS):', '', '', '', '', '', '', '', formatCurrency(totalFinalBalance)]);
+    reportData.push(['', '', '', '', '', '', '', '   BALANCE TOTAL (MOS):', formatCurrency(totalFinalBalance)]);
 
-    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [60, 80, 180, 50, 90, 60, 40, 70, 70], 'landscape', format, 'Reporte_Material_On_Site.pdf');
+    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [60, 80, 180, 50, 90, 60, 40, 85, 55], 'landscape', format, 'Reporte_Material_On_Site.pdf');
 };
 
 export const generateCCMLReportLogic = async (projectId: string, choId?: string) => {
@@ -1771,10 +1772,10 @@ export const generateFaRelacionEquipoLogic = async(projectId: string, format: st
 };
 
 export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
-    const { project, certs: paymentCerts } = await fetchAllReportData(projectId);
+    const { project, certs: paymentCerts, items } = await fetchAllReportData(projectId);
     const { data: iccs } = await supabase
         .from("initial_certifications")
-        .select("*")
+        .select(`*, initial_certification_items(*)`)
         .eq("project_id", projectId)
         .order("cert_date", { ascending: true });
 
@@ -1789,7 +1790,6 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
 
     iccs.forEach(icc => {
         const pc = paymentCerts?.find(p => p.id === icc.payment_cert_id);
-        const item = project.items?.find((it: any) => it.id === icc.item_id);
         const residentDate = pc?.resident_engineer_date;
         let expiration = "PENDIENTE";
         let status = "PENDIENTE";
@@ -1812,17 +1812,35 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
             else status = "VÁLIDO";
         }
 
-        reportData.push([
-            item ? `Pt. ${item.item_num}` : (icc.multiple_items ? 'MÚLTIPLES' : 'N/A'),
-            icc.material_description || "N/A",
-            icc.quantity || 0,
-            icc.manufacturer_name || "N/A",
-            icc.notarized ? 'SÍ' : 'NO',
-            pc ? `#${pc.cert_num}` : "N/A",
-            residentDate ? formatDate(residentDate) : "SIN FIRMA",
-            expiration,
-            status
-        ]);
+        if (icc.multiple_items && icc.initial_certification_items && icc.initial_certification_items.length > 0) {
+            icc.initial_certification_items.forEach((child: any, idx: number) => {
+                const childItem = items?.find((it: any) => it.id === child.item_id);
+                reportData.push([
+                    childItem ? `Pt. ${childItem.item_num}` : 'N/A',
+                    idx === 0 ? (icc.material_description || "N/A") : '',
+                    child.quantity || 0,
+                    idx === 0 ? (icc.manufacturer_name || "N/A") : '',
+                    idx === 0 ? (icc.notarized ? 'SÍ' : 'NO') : '',
+                    idx === 0 ? (pc ? `#${pc.cert_num}` : "N/A") : '',
+                    idx === 0 ? (residentDate ? formatDate(residentDate) : "SIN FIRMA") : '',
+                    idx === 0 ? expiration : '',
+                    idx === 0 ? status : ''
+                ]);
+            });
+        } else {
+            const item = items?.find((it: any) => it.id === icc.item_id || it.item_num === icc.item_num);
+            reportData.push([
+                item ? `Pt. ${item.item_num}` : 'N/A',
+                icc.material_description || "N/A",
+                icc.quantity || 0,
+                icc.manufacturer_name || "N/A",
+                icc.notarized ? 'SÍ' : 'NO',
+                pc ? `#${pc.cert_num}` : "N/A",
+                residentDate ? formatDate(residentDate) : "SIN FIRMA",
+                expiration,
+                status
+            ]);
+        }
     });
 
     // Usamos el import dinámico para evitar problemas de dependencias circulares si los hubiera

@@ -237,8 +237,14 @@ export async function generateTimeExtensionChart(projectId: string, choId: strin
         const extensionStartX = getX(revisedEndDatePrior);
         if (totalExtensionEndX > extensionStartX) {
             drawRect(page, extensionStartX, yellowY, totalExtensionEndX - extensionStartX, bh - 5, true, colorYellow, colorYellow, 0);
-            // Split into two lines to avoid overflow, slightly smaller font (8pt)
-            drawText(page, `${thisExtTotal} días\n(tiempo de extensión)`, extensionStartX + (totalExtensionEndX - extensionStartX)/2, yellowY + 12, fontBold, 8, true);
+            const boxWith = totalExtensionEndX - extensionStartX;
+            if (boxWith < 80 && boxWith > 30) {
+                drawText(page, `${thisExtTotal} días\n(tiempo\nde ext.)`, extensionStartX + boxWith/2, yellowY + 4, fontBold, 7, true);
+            } else if (boxWith <= 30) {
+                drawText(page, `${thisExtTotal} d.\n(ext)`, extensionStartX + boxWith/2, yellowY + 6, fontBold, 6, true);
+            } else {
+                drawText(page, `${thisExtTotal} días\n(tiempo de extensión)`, extensionStartX + boxWith/2, yellowY + 12, fontBold, 8, true);
+            }
         }
 
         // 4. Vertical Finish Box
