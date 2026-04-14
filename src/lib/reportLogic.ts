@@ -230,6 +230,7 @@ export const createPdfBlob = async (
     const colCount = data[0]?.length || 1;
     const colWidths = customColWidths || Array(colCount).fill(contentWidth / colCount);
     const totalTableWidth = colWidths.reduce((acc, w) => acc + w, 0);
+    const tableMarginX = marginX + Math.max(0, (contentWidth - totalTableWidth) / 2);
 
     let savedHeader: { height: number, lines: any[] } | null = null;
 
@@ -298,12 +299,12 @@ export const createPdfBlob = async (
             if (!isHeader && savedHeader) {
                 const headerHeight = savedHeader.height;
                 page.drawRectangle({
-                    x: marginX, y: y - headerHeight,
+                    x: tableMarginX, y: y - headerHeight,
                     width: totalTableWidth, height: headerHeight,
                     color: rgb(0.05, 0.2, 0.45),
                 });
                 
-                let cx = marginX;
+                let cx = tableMarginX;
                 savedHeader.lines.forEach((cellData, cellIdx) => {
                     const cw = colWidths[cellIdx] || 50;
                     cellData.lines.forEach((line: string, lineIdx: number) => {
@@ -326,21 +327,21 @@ export const createPdfBlob = async (
                 });
                  // Final Vertical Border
                 page.drawLine({
-                    start: { x: marginX + totalTableWidth, y },
-                    end: { x: marginX + totalTableWidth, y: y - headerHeight },
+                    start: { x: tableMarginX + totalTableWidth, y },
+                    end: { x: tableMarginX + totalTableWidth, y: y - headerHeight },
                     thickness: 0.5,
                     color: rgb(0.8, 0.8, 0.8),
                 });
                 // Top/Bottom Borders
                 page.drawLine({
-                    start: { x: marginX, y },
-                    end: { x: marginX + totalTableWidth, y },
+                    start: { x: tableMarginX, y },
+                    end: { x: tableMarginX + totalTableWidth, y },
                     thickness: 0.5,
                     color: rgb(0.8, 0.8, 0.8),
                 });
                 page.drawLine({
-                    start: { x: marginX, y: y - headerHeight },
-                    end: { x: marginX + totalTableWidth, y: y - headerHeight },
+                    start: { x: tableMarginX, y: y - headerHeight },
+                    end: { x: tableMarginX + totalTableWidth, y: y - headerHeight },
                     thickness: 0.5,
                     color: rgb(0.8, 0.8, 0.8),
                 });
@@ -352,25 +353,25 @@ export const createPdfBlob = async (
         // Row background
         if (isHeader) {
             page.drawRectangle({
-                x: marginX, y: y - rowHeight,
+                x: tableMarginX, y: y - rowHeight,
                 width: totalTableWidth, height: rowHeight,
                 color: rgb(0.05, 0.2, 0.45),
             });
         } else if (isSubtitleRow) {
             page.drawRectangle({
-                x: marginX, y: y - rowHeight,
+                x: tableMarginX, y: y - rowHeight,
                 width: totalTableWidth, height: rowHeight,
                 color: rgb(0.18, 0.32, 0.55),
             });
         } else if (isPartida) {
             page.drawRectangle({
-                x: marginX, y: y - rowHeight,
+                x: tableMarginX, y: y - rowHeight,
                 width: totalTableWidth, height: rowHeight,
                 color: rgb(0.95, 0.96, 0.98),
             });
         }
 
-        let currX = marginX;
+        let currX = tableMarginX;
         cellLines.forEach((cellData, cellIdx) => {
             if (isSubtitleRow && cellIdx > 0) return;
 
@@ -418,8 +419,8 @@ export const createPdfBlob = async (
 
         // Final Vertical Border
         page.drawLine({
-            start: { x: marginX + totalTableWidth, y },
-            end: { x: marginX + totalTableWidth, y: y - rowHeight },
+            start: { x: tableMarginX + totalTableWidth, y },
+            end: { x: tableMarginX + totalTableWidth, y: y - rowHeight },
             thickness: 0.5,
             color: rgb(0.8, 0.8, 0.8),
         });
@@ -427,15 +428,15 @@ export const createPdfBlob = async (
         // Top/Bottom Borders
         if (isHeader) {
             page.drawLine({
-                start: { x: marginX, y },
-                end: { x: marginX + totalTableWidth, y },
+                start: { x: tableMarginX, y },
+                end: { x: tableMarginX + totalTableWidth, y },
                 thickness: 0.5,
                 color: rgb(0.8, 0.8, 0.8),
             });
         }
         page.drawLine({
-            start: { x: marginX, y: y - rowHeight },
-            end: { x: marginX + totalTableWidth, y: y - rowHeight },
+            start: { x: tableMarginX, y: y - rowHeight },
+            end: { x: tableMarginX + totalTableWidth, y: y - rowHeight },
             thickness: 0.5,
             color: rgb(0.8, 0.8, 0.8),
         });
@@ -836,7 +837,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
         reportData.push(['', '', '', '', '', '', '', '', '']);
     });
 
-    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [38, 45, 140, 50, 50, 30, 55, 60, 60], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`, endDate);
+    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [45, 55, 230, 70, 70, 50, 70, 70, 70], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`, endDate);
 };
 
 export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -1233,8 +1234,8 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
         ['Fecha de Comienzo:', formatDate(proj.date_project_start), 'Term. Original:', formatDate(proj.date_orig_completion)],
         ['Term. Revisada:', formatDate(proj.date_rev_completion), 'Term. Sustancial:', formatDate(proj.date_substantial_completion)],
         ['FMIS End Date:', formatDate(proj.fmis_end_date), '', ''],
-        ['Tiempo Contrato:', `${totalDays} días`, 'Prórrogas (CHOs):', `${approvedDays} días`],
-        ['Tiempo Revisado:', `${revisedDaysTotal} días`, 'Tiempo Usado:', `${usedDays} días`],
+        ['Tiempo Contrato:', `${totalDays} días`, 'Extensiones de Tiempo (CHOs):', `${approvedDays} días`],
+        ['Tiempo Revisado (original+CHO):', `${revisedDaysTotal} días`, 'Tiempo Usado:', `${usedDays} días`],
         ['Balance de Tiempo:', `${timeBalance} días`, 'Progreso Tiempo:', `${percentTime.toFixed(2)}%`],
         ['', '', '', ''],
         ['2. RESUMEN DE COSTOS ($)', '', '', ''],
@@ -1248,18 +1249,23 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
         ['Provision ACT:', formatCurrency(actProjected), 'Provision FHWA:', formatCurrency(fhwaProjected)],
         ['', '', '', ''],
         ['4. RETENCIÓN Y PENALIDADES ($)', '', '', ''],
-        ['5% Retenido (Bruto):', formatCurrency(totalRetentionDeducted), 'Retención Devuelta:', formatCurrency(totalRetentionReturned)],
+        ['5% Retenido (Bruto):', `(${formatCurrency(totalRetentionDeducted)})`, 'Retención Devuelta:', formatCurrency(totalRetentionReturned)],
         ['Daños Líquidos (Dlq):', formatCurrency(liqDamages), 'Reembolso:', formatCurrency(totalRefund)],
         ['Extra Retenido:', formatCurrency(totalExtraRetention), 'Ajuste de Precio:', formatCurrency(totalPriceAdj)],
         ['Multas Seguro:', formatCurrency(totalInsuranceFines), 'Otras Penalidades:', formatCurrency(totalOtherPenalties)],
-        ['Total Retenido (Neto):', formatCurrency(totalRetainedWithPenalties), '', ''],
+        ['Total Retenido (Neto):', `(${formatCurrency(totalRetainedWithPenalties)})`, '', ''],
         ['', '', '', ''],
         ['5. ÓRDENES DE CAMBIO (CHOs)', '', '', ''],
         ['Aprobados:', formatCurrency(approvedCHO), 'En Trámite:', formatCurrency(pendingCHO)],
         ['Balance Total CHOs:', formatCurrency(roundedAmt(approvedCHO + pendingCHO, 2)), '% de Cambio (Precio):', `${originalCost > 0 ? Math.round((approvedCHO / originalCost) * 100) : 0}%`],
         ['', '', '', ''],
         ['6. CONTRATISTA', '', '', ''],
-        ['Nombre:', contractor?.name || 'N/A', 'Empresa SS:', contractor?.ss_patronal || 'N/A'],
+        ['Nombre:', contractor?.name || 'N/A', 'Empresa SS:', (function(ss){
+            if(!ss) return 'N/A';
+            const digits = ss.replace(/\D/g, '');
+            if(digits.length >= 9) return `${digits.slice(0,3)}-${digits.slice(3,5)}-${digits.slice(5,7)}-${digits.slice(7)}`;
+            return ss;
+        })(contractor?.ss_patronal)],
         ['Representante:', contractor?.representative || 'N/A', 'Email:', contractor?.email || 'N/A'],
         ['Oficina:', contractor?.phone_office || 'N/A', 'Celular:', contractor?.phone_mobile || 'N/A'],
         ['', '', '', ''],
@@ -1446,7 +1452,7 @@ import { generateDbeCertificationReport } from "./generateDbeCertificationReport
 import { generateFinalConstructionReport } from "./generateFinalConstructionReport";
 import { generateLiquidacionItemsReportLogic as generateLiquidacionGenerator } from "./generateLiquidacionReport";
 
-export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'pdf', isFinal?: boolean) => {
     if (format === 'excel') {
         alert("El reporte ACT-117C no está disponible en formato Excel por requerimiento.");
         return;
@@ -1458,8 +1464,8 @@ export const generateAct117CReportLogic = async (projectId: string, certId?: str
         alert("No se encontró la certificación de pago.");
         return;
     }
-    const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
-    downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}.pdf`);
+    const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date, isFinal);
+    downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}${isFinal ? '_FINAL' : ''}.pdf`);
 };
 
 export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -1513,17 +1519,17 @@ export const generateFinalConstructionReportLogic = async (projectId: string, fo
     if (blob) downloadBlob(blob, `Final_Construction_Report_${project.num_act}.pdf`);
 };
 
-export const generateAct122ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateAct122ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf', isFinal?: boolean) => {
     const { project, chos } = await fetchAllReportData(projectId);
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
 
     if (format === 'excel') {
         const blob = await generateAct122Excel(projectId, choId);
-        downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}.xlsx`);
+        downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}${isFinal ? '_FINAL' : ''}.xlsx`);
     } else {
-        const blob = await generateAct122(projectId, choId);
-        if (blob) downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}.pdf`);
+        const blob = await generateAct122(projectId, choId, isFinal);
+        if (blob) downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}${isFinal ? '_FINAL' : ''}.pdf`);
     }
 };
 

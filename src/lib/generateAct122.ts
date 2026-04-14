@@ -64,7 +64,7 @@ const drawRect = (p: any, x: number, y: number, w: number, h: number, fill = fal
 /**
  * Genera el reporte ACT-122 (Revision 12/2024)
  */
-export async function generateAct122(projectId: string, choId: string) {
+export async function generateAct122(projectId: string, choId: string, isFinal?: boolean) {
     try {
         const { data: projData } = await supabase.from('projects').select('*').eq('id', projectId).single();
         if (!projData) throw new Error("Proyecto no encontrado");
@@ -163,7 +163,7 @@ export async function generateAct122(projectId: string, choId: string) {
             drawF("5", "Oracle Num.:", c1, ly+lh*4, 230, projData.num_oracle);
             drawF("6", "Contract Num.:", c1, ly+lh*5, 205, projData.num_contrato);
             drawF("7", "Amendment:", c1, ly+lh*6, 150, choData.amendment_letter || "0");
-            drawF("8", "CHO Number:", c1, ly+lh*7, 150, choData.cho_num);
+            drawF("8", "CHO Number:", c1, ly+lh*7, 150, isFinal ? `${choData.cho_num} FINAL` : choData.cho_num);
 
             // Right column: 9. Date (CHO date), 9a. Contract Beginning Date, 10-14
             drawF("9", "Date:", c2, ry, PW-45, formatDate(choData.cho_date));

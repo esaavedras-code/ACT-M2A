@@ -1084,6 +1084,80 @@ function ReportesContent() {
                         onAction={handleAction}
                         loading={loading}
                         option={{
+                            id: 'cho-final',
+                            label: 'CHO Final',
+                            description: 'Forma ACT-122 marcada como FINAL. Requiere que todas las hojas de liquidación estén firmadas.',
+                            icon: <FileCheck size={18} className="text-purple-600" />,
+                            action: async () => {
+                                try {
+                                    const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
+                                    const { data: ci } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
+                                    const liqData = proj?.liquidation_data || {};
+                                    const liquidatedItems = liqData.liquidated_items || [];
+                                    const allSigned = ci?.every(it => {
+                                        const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
+                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
+                                    });
+                                    if (!allSigned) {
+                                        alert("Faltan firmas en las hojas de liquidación. No se puede generar el reporte CHO Final.");
+                                        setLoading(false);
+                                        return;
+                                    }
+                                    const { data: lastCho } = await supabase.from('chos').select('id').eq('project_id', projectId).order('cho_num', { ascending: false }).limit(1);
+                                    if (!lastCho || lastCho.length === 0) {
+                                        alert("No se encontró ningún Change Order.");
+                                        setLoading(false);
+                                        return;
+                                    }
+                                    await generateAct122ReportLogic(projectId, lastCho[0].id, reportFormat, true);
+                                    setStatus("Reporte generado.");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    />
+                    <StandardReportItem
+                        isLiquidation={true}
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'cert-final',
+                            label: 'Certificación Final',
+                            description: 'Forma ACT-117C marcada como FINAL. Requiere que todas las hojas de liquidación estén firmadas.',
+                            icon: <FileCheck size={18} className="text-emerald-600" />,
+                            action: async () => {
+                                try {
+                                    const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
+                                    const { data: ci } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
+                                    const liqData = proj?.liquidation_data || {};
+                                    const liquidatedItems = liqData.liquidated_items || [];
+                                    const allSigned = ci?.every(it => {
+                                        const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
+                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
+                                    });
+                                    if (!allSigned) {
+                                        alert("Faltan firmas en las hojas de liquidación. No se puede generar la Certificación Final.");
+                                        setLoading(false);
+                                        return;
+                                    }
+                                    await generateAct117CReportLogic(projectId, undefined, reportFormat, true);
+                                    setStatus("Reporte generado.");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    />
+                    <StandardReportItem
+                        isLiquidation={true}
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
                             id: 'acceptance-official',
                             label: 'Final Acceptance Report (Oficial)',
                             description: 'Formulario oficial de aceptación final (FHWA). Réplica exacta del formato impreso.',

@@ -2,7 +2,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
 import { formatDate, formatProjectNumber } from './utils';
 
-export async function generateAct117C(projectId: string, certId: string, certNum: number, certDate: string) {
+export async function generateAct117C(projectId: string, certId: string, certNum: number, certDate: string, isFinal?: boolean) {
     try {
         // 1. Fetch Data
         const { data: projData } = await supabase.from('projects').select('*').eq('id', projectId).single();
@@ -356,7 +356,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             const rx = 330;
             const rEnd = V_LINES[8]; // Aligned with start of Column 25 (Amount)
             field("9", "Date:", rx, ry, rEnd, certDate ? formatDate(certDate) : formatDate(new Date()));
-            field("10", "Cert. Num.:", rx, ry + lh, rEnd, certNum.toString());
+            field("10", "Cert. Num.:", rx, ry + lh, rEnd, isFinal ? `${certNum} FINAL` : certNum.toString());
             field("11", "Work Performed up to:", rx, ry + lh * 2, rEnd, formatDate(currentCert?.wp_up_to || certDate));
             field("12", "Contract Beginning Date:", rx, ry + lh * 3, rEnd, formatDate(projData.date_project_start));
             field("13", "Contract Completion Date:", rx, ry + lh * 4, rEnd, formatDate(projData.date_orig_completion));
