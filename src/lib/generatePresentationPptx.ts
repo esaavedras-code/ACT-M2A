@@ -78,17 +78,8 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
   // ─────────────────────────────────────────────────────────────
   const slide1 = pptx.addSlide();
 
-  // Fondo con degradado naranja suave (Fiel a la foto 1)
-  slide1.background = { 
-    fill: { 
-      type: "gradient", 
-      angle: 0, // Vertical
-      stops: [
-        { offset: 0, color: "FFFFFF" },
-        { offset: 100, color: "FDBA74" }
-      ] 
-    } 
-  };
+  // Fondo naranja suave (gradiente no soportado nativamente, se usa color sólido cálido)
+  slide1.background = { fill: "FFF7ED" };
 
   // Logo ACT
   if (data.actLogoUrl) {
@@ -172,7 +163,7 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   slide2.addText("Descripción del Proyecto:", { x: COL_X, y: 1.5, w: TABLE_W, h: 0.3, bold: true, italic: true, fontSize: 11, color: "000000" });
   slide2.addText(String(proj.description || "Sin descripción."), {
-    x: COL_X, y: 1.85, w: TABLE_W, h: 1.5, line: { pt: 1, color: "000000" },
+    x: COL_X, y: 1.85, w: TABLE_W, h: 1.5, border: { pt: 1, color: "000000" },
     valign: "top", margin: 5, fontSize: 10, fontFace: "Calibri",
   });
 
@@ -210,13 +201,13 @@ export async function generatePresentationPptx(data: PresentationData): Promise<
 
   slide2.addText("Actividades Realizándose:", { x: MID_X, y: 1.5, w: MID_W, h: 0.3, bold: true, italic: true, fontSize: 13, color: "000000" });
   slide2.addText(String(data.activities || "1. Pendiente."), {
-    x: MID_X, y: 1.85, w: MID_W, h: 3.2, line: { pt: 1, color: "000000" },
+    x: MID_X, y: 1.85, w: MID_W, h: 3.2, border: { pt: 1, color: "000000" },
     valign: "top", margin: 5, fontFace: "Calibri", fontSize: 11
   });
 
   slide2.addText("Puntos críticos a atender:", { x: MID_X, y: 5.15, w: MID_W, h: 0.3, bold: true, italic: true, fontSize: 13, color: "000000" });
   slide2.addText(String(data.criticalPoints || "1. Ninguno."), {
-    x: MID_X, y: 5.45, w: MID_W, h: 1.95, line: { pt: 1, color: "000000" },
+    x: MID_X, y: 5.45, w: MID_W, h: 1.95, border: { pt: 1, color: "000000" },
     valign: "top", margin: 5, fontFace: "Calibri", fontSize: 11
   });
 

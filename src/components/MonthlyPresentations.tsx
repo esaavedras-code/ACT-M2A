@@ -264,7 +264,11 @@ const MonthlyPresentations = forwardRef<FormRef, { projectId?: string, numAct?: 
             const { data: items } = await supabase.from('contract_items').select('quantity, unit_price').eq('project_id', projectId);
             const { data: chos } = await supabase.from('chos').select('proposed_change').eq('project_id', projectId).eq('doc_status', 'Aprobado');
 
-            const certsTotal = (certs || []).reduce((acc: number, c: any) => acc + (parseFloat(c.amount) || 0), 0);
+            const certsTotal = (certs || []).reduce((acc: number, c: any) => {
+                const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+                const certAmt = certItems.reduce((s: number, it: any) => s + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)), 0);
+                return acc + certAmt;
+            }, 0);
             const lastCert = certs && certs.length > 0 ? certs[0] : null;
 
             const originalCost = proj?.cost_original || (items || []).reduce((acc: number, it: any) => acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)), 0);
