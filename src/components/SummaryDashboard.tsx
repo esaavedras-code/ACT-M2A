@@ -25,6 +25,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             mosBalances: [] as { item_num: string, balance: number }[],
             priceAdjustment: 0,
         },
+        chos: {
+            approvedTotal: 0,
+            approvedCount: 0,
+            approvedDays: 0,
+            pendingTotal: 0,
+            pendingCount: 0,
+            pendingDays: 0,
+            total: 0,
+            totalDays: 0,
+            percentChange: 0,
+            percentDays: 0,
+        },
+        penalties: { liquidated: 0, dlqReimbursement: 0, security: 0, others: 0, total: 0 },
         liquidation: { 
             totalItems: 0, adminSigned: 0, contractorSigned: 0, liquidatorSigned: 0, percent: 0,
             federalDocs: [] as string[]
