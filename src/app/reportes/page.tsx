@@ -8,7 +8,7 @@ import {
     FileText, Download, AlertCircle, CheckCircle2,
     Package, ListChecks, ArrowLeft, Loader2,
     Activity, Info, Files, BadgeAlert, FileDigit,
-    ChevronDown, Search, FileCheck, BarChart, Calculator
+    ChevronDown, Search, FileCheck, BarChart, Calculator, ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
 import { getLocalStorageItem, setLocalStorageItem, formatProjectNumber } from "@/lib/utils";
