@@ -9,7 +9,7 @@ import {
     Eye, X, ExternalLink, Loader2
 } from "lucide-react";
 
-// ─── Secciones del proyecto ────────────────────────────────────────
+// --- Secciones del proyecto ----------------------------------------
 const PROJECT_SECTIONS = [
     { id: "project",    label: "Datos del Proyecto",    bucket: "project-documents" },
     { id: "personnel",  label: "Firmas ACT",            bucket: "project-documents" },
@@ -21,14 +21,14 @@ const PROJECT_SECTIONS = [
     { id: "mfg",        label: "Certificados CM",       bucket: "project-documents" },
     { id: "minutes",    label: "Minutas",               bucket: "project-documents" },
     { id: "logs",       label: "Informes de Actividades", bucket: "project-documents" },
-    { id: "inspection", label: "Inspección",           bucket: "project-documents" },
+    { id: "inspection", label: "Inspeccion",           bucket: "project-documents" },
     { id: "force",      label: "Force Account",        bucket: "project-documents" },
-    { id: "liquidation",label: "Liquidación",          bucket: "project-documents" },
+    { id: "liquidation",label: "Liquidacion",          bucket: "project-documents" },
     { id: "icc",        label: "Initial Certification", bucket: "project-documents" },
     { id: "presentations", label: "Presentaciones",      bucket: "project-documents" },
     { id: "tables",     label: "Tablas",               bucket: "project-documents" },
     { id: "general",    label: "General / Sin clasificar", bucket: "project-documents" },
-    { id: "photos",     label: "📸 Galería de Fotos",       bucket: "project-documents" },
+    { id: "photos",     label: "Galeria de Fotos",       bucket: "project-documents" },
 ];
 
 interface DocRecord {
@@ -51,20 +51,13 @@ function getFileIcon(name: string) {
     return <File size={16} className="text-slate-400" />;
 }
 
-function formatFileSize(bytes?: number) {
-    if (!bytes) return "";
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-}
-
 function formatDate(str: string) {
     try {
         return new Date(str).toLocaleDateString("es-PR", { year: "numeric", month: "short", day: "numeric" });
     } catch { return str; }
 }
 
-// ─── Props ────────────────────────────────────────────────────────
+// --- Props --------------------------------------------------------
 interface Props {
     projectId?: string;
     userRole?: string;
@@ -101,8 +94,7 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
         try {
             const { data, error } = await supabase.storage
                 .from("project-documents")
-                .createSignedUrl(path, 3600); // URL válida por 1 hora
-            
+                .createSignedUrl(path, 3600);
             if (error) throw error;
             setPreviewUrl(data.signedUrl);
         } catch (err) {
@@ -143,19 +135,11 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
             try {
                 const dateFolder = new Date().toISOString().split('T')[0];
                 const timestamp = Date.now();
-                // Normalizar tildes/acentos y limpiar para Supabase Storage (no acepta caracteres no-ASCII)
-                const safeName = file.name
-                    .normalize('NFD')                          // descompone tildes: é → e + ́
-                    .replace(/[\u0300-\u036f]/g, '')           // elimina marcas diacríticas
-                    .replace(/[^a-zA-Z0-9._-]/g, '_');         // reemplaza todo lo demás con _
+                const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
                 const storagePath = `${projectId}/${selectedSection}/${dateFolder}/${timestamp}_${safeName}`;
 
-                // 1. Subir al bucket de storage
-                const { error: storageErr } = await supabase.storage
-                    .from("project-documents")
-                    .upload(storagePath, file);
+                const { error: storageErr } = await supabase.storage.from("project-documents").upload(storagePath, file);
 
-                // 2. Registrar en base de datos (aunque falle storage)
                 const { error: dbErr } = await supabase.from("project_documents").insert({
                     project_id: projectId,
                     file_name: file.name,
@@ -166,10 +150,7 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
 
                 if (!dbErr) {
                     uploaded++;
-                    // Auto-expandir la sección donde se subió
                     setExpandedSections(prev => new Set([...prev, selectedSection]));
-                } else {
-                    console.error("DB error:", dbErr.message);
                 }
             } catch (err: any) {
                 console.error("Upload error:", err);
@@ -177,10 +158,8 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
         }
 
         if (uploaded > 0) {
-            alert(`✓ ${uploaded} archivo(s) subido(s) a la sección "${PROJECT_SECTIONS.find(s => s.id === selectedSection)?.label}"`);
+            alert(`Archivos subidos correctamente`);
             await fetchDocs();
-        } else {
-            alert("No se pudo subir el archivo. Verifique su conexión.");
         }
         setUploading(false);
     };
@@ -188,58 +167,34 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     const handleDownload = async (doc: DocRecord) => {
         try {
             if (doc.storage_path) {
-                // Descargar desde Supabase Storage
-                const { data, error } = await supabase.storage
-                    .from("project-documents")
-                    .download(doc.storage_path);
-
-                if (error || !data) {
-                    alert("No se pudo descargar el archivo desde el servidor. Es posible que haya sido subido con una versión anterior del sistema.");
-                    return;
-                }
-
+                const { data, error } = await supabase.storage.from("project-documents").download(doc.storage_path);
+                if (error || !data) throw error;
                 const url = URL.createObjectURL(data);
                 const a = document.createElement("a");
                 a.href = url;
                 a.download = doc.file_name;
                 a.click();
-                URL.revokeObjectURL(url);
-            } else {
-                alert(`El archivo "${doc.file_name}" fue registrado sin contenido descargable (subido con una versión anterior del sistema).`);
             }
         } catch (err: any) {
-            alert("Error al descargar: " + err.message);
+            alert("Error al descargar");
         }
     };
 
     const handleDelete = async (doc: DocRecord) => {
-        if (!confirm(`¿Eliminar el archivo "${doc.file_name}"? Esta acción no se puede deshacer.`)) return;
-
+        if (!confirm(`Eliminar ${doc.file_name}?`)) return;
         try {
-            // Eliminar de storage si tiene ruta
-            if (doc.storage_path) {
-                await supabase.storage.from("project-documents").remove([doc.storage_path]);
-            }
-            // Eliminar de base de datos
+            if (doc.storage_path) await supabase.storage.from("project-documents").remove([doc.storage_path]);
             await supabase.from("project_documents").delete().eq("id", doc.id);
-            setDocs(prev => prev.filter(d => d.id !== doc.id));
-            if (selectedDoc?.id === doc.id) {
-                setSelectedDoc(null);
-                setPreviewUrl(null);
-            }
+            await fetchDocs();
         } catch (err: any) {
-            alert("Error al eliminar: " + err.message);
+            alert("Error al eliminar");
         }
     };
 
-    // ─── Filtrar docs por búsqueda ───────────────────────────────
-    const filtered = searchTerm
-        ? docs.filter(d => d.file_name.toLowerCase().includes(searchTerm.toLowerCase()))
-        : docs;
+    const filtered = searchTerm ? docs.filter(d => d.file_name.toLowerCase().includes(searchTerm.toLowerCase())) : docs;
 
     const getDocsForSection = (sectionId: string) => {
         if (sectionId === "photos") {
-            // Esta sección es una vista agregada de todas las fotos subidas en cualquier sección
             return filtered.filter(d => {
                 const ext = (d.file_name.split(".").pop() || "").toLowerCase();
                 return ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
@@ -250,312 +205,87 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
 
     const totalFiles = docs.length;
     const availableSections = userRole === 'F' 
-        ? PROJECT_SECTIONS.filter(s => s.id !== "general" && s.id !== "presentations" && s.id !== "logs" && s.id !== "inspection" && s.id !== "force" && s.id !== "liquidation" && s.id !== "ccml" && s.id !== "update-tables" && s.id !== "personnel") 
+        ? PROJECT_SECTIONS.filter(s => !["general", "presentations", "logs", "inspection", "force", "liquidation", "ccml", "update-tables", "personnel"].includes(s.id)) 
         : userRole === 'E'
         ? PROJECT_SECTIONS.filter(s => s.id === "photos" || s.id === "logs")
         : PROJECT_SECTIONS;
-    const sectionsWithFiles = availableSections.filter(s => getDocsForSection(s.id).length > 0);
-
-    if (!projectId) {
-        return (
-            <div className="flex items-center justify-center p-20 text-slate-400">
-                <AlertCircle size={24} className="mr-2" />
-                <span className="font-bold">Guarde el proyecto primero para gestionar archivos.</span>
-            </div>
-        );
-    }
 
     const isPreviewable = (fileName: string) => {
-        const ext = (fileName.split(".").pop() || "").toLowerCase();
+        if (!fileName) return false;
+        const ext = fileName.split(".").pop()?.toLowerCase() || "";
         return ["pdf", "jpg", "jpeg", "png", "webp", "gif"].includes(ext);
     };
 
+    if (!projectId) return <div className="p-10 font-bold">Guarde el proyecto.</div>;
+
     return (
         <div className="w-full">
-            {/* ── Sticky Header ─────────────────────────────────── */}
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 border-b border-slate-200 dark:border-slate-800 mb-6">
+            <div className="sticky top-0 z-40 bg-white dark:bg-slate-900 pt-6 pb-4 border-b mb-6">
                 <div className="flex items-center justify-between flex-wrap gap-4 px-4 md:px-0">
                     <div className="flex items-center gap-3">
-                        <FolderOpen className="text-amber-500" size={26} />
+                        <FolderOpen size={26} />
                         <div>
-                            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Explorador de Archivos</h2>
-                            <p className="text-xs text-slate-400">{totalFiles} archivo(s) en {sectionsWithFiles.length} sección(es)</p>
+                            <h2 className="text-2xl font-bold">Explorador de Archivos</h2>
+                            <p className="text-xs text-slate-400">{totalFiles} archivos</p>
                         </div>
                     </div>
-
                     <div className="flex items-center gap-2 flex-wrap">
-                        <select
-                            value={selectedSection}
-                            onChange={e => setSelectedSection(e.target.value)}
-                            className="input-field text-xs py-2 px-3 max-w-[200px]"
-                        >
-                            {availableSections.map(s => (
-                                <option key={s.id} value={s.id}>{s.label}</option>
-                            ))}
+                        <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)} className="input-field text-xs">
+                            {availableSections.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                         </select>
-
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={uploading}
-                            className="btn-primary text-xs py-2 px-4"
-                        >
-                            <Upload size={16} />
-                            {uploading ? "Subiendo..." : "Subir Archivo(s)"}
+                        <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn-primary text-xs">
+                             {uploading ? "Subiendo..." : "Subir"}
                         </button>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            className="hidden"
-                            onChange={e => handleUpload(e.target.files)}
-                            onClick={(e: any) => { e.target.value = null; }}
-                        />
-
-                        <button
-                            onClick={fetchDocs}
-                            disabled={loading}
-                            className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all dark:bg-slate-900 dark:border-slate-800"
-                            title="Refrescar"
-                        >
-                            <RefreshCw size={16} className={`text-slate-500 ${loading ? "animate-spin" : ""}`} />
+                        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={e => handleUpload(e.target.files)} />
+                        <button onClick={fetchDocs} disabled={loading} className="p-2 border rounded-xl">
+                            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                         </button>
                     </div>
                 </div>
-
-                <div className="mt-4 relative px-4 md:px-0">
-                    <input
-                        type="text"
-                        placeholder="Buscar archivo por nombre..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="input-field pl-6 py-2.5 text-sm"
-                    />
+                <div className="mt-4 px-4 md:px-0">
+                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="input-field" />
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 items-start">
-                {/* ── Panel de Preview (A mano izquierda) ─────────────── */}
-                <div className={`transition-all duration-500 ease-in-out ${selectedDoc ? 'w-full lg:w-[60%] opacity-100' : 'w-0 opacity-0 overflow-hidden hidden lg:block'}`}>
-                    {selectedDoc && (
-                        <div className="sticky top-40 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col h-[700px]">
-                            {/* Header de Preview */}
-                            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                                        {getFileIcon(selectedDoc.file_name)}
-                                    </div>
-                                    <div className="overflow-hidden">
-                                        <h3 className="text-sm font-bold text-slate-800 dark:text-white truncate" title={selectedDoc.file_name}>
-                                            {selectedDoc.file_name}
-                                        </h3>
-                                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                                            {PROJECT_SECTIONS.find(s => s.id === selectedDoc.section)?.label || "Documento"}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={() => handleDownload(selectedDoc)}
-                                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
-                                        title="Descargar"
-                                    >
-                                        <Download size={18} />
-                                    </button>
-                                    <button 
-                                        onClick={() => setSelectedDoc(null)}
-                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                                        title="Cerrar vista previa"
-                                    >
-                                        <X size={18} />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Contenido de Preview */}
-                            <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-auto relative p-4">
-                                {previewLoading ? (
-                                    <div className="flex flex-col items-center gap-3">
-                                        <Loader2 size={32} className="text-blue-500 animate-spin" />
-                                        <p className="text-xs text-slate-400 font-medium">Generando vista previa segura...</p>
-                                    </div>
-                                ) : !selectedDoc.storage_path ? (
-                                    <div className="text-center p-8">
-                                        <AlertCircle size={48} className="mx-auto text-amber-400 mb-4" />
-                                        <p className="text-slate-500 font-medium">Este archivo no tiene contenido asociado (versión antigua).</p>
-                                    </div>
-                                ) : !isPreviewable(selectedDoc.file_name) ? (
-                                    <div className="text-center p-8 max-w-sm">
-                                        <FileText size={64} className="mx-auto text-slate-300 mb-4" />
-                                        <h4 className="text-slate-700 dark:text-slate-300 font-bold mb-2 text-lg">Sin vista previa disponible</h4>
-                                        <p className="text-slate-400 text-sm mb-6">El formato de este archivo no se puede visualizar directamente en el navegador.</p>
-                                        <button 
-                                            onClick={() => handleDownload(selectedDoc)}
-                                            className="btn-primary w-full"
-                                        >
-                                            <Download size={16} />
-                                            Descargar para ver
-                                        </button>
-                                    </div>
-                                ) : previewUrl ? (
-                                    selectedDoc.file_name.toLowerCase().endsWith('.pdf') ? (
-                                        <iframe 
-                                            src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
-                                            className="w-full h-full rounded-xl border-0 shadow-sm bg-white"
-                                            title="PDF Preview"
-                                        />
-                                    ) : (
-                                        <img 
-                                            src={previewUrl} 
-                                            alt={selectedDoc.file_name}
-                                            className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
-                                        />
-                                    )
-                                ) : (
-                                    <div className="text-center p-8">
-                                        <AlertCircle size={48} className="mx-auto text-red-400 mb-4" />
-                                        <p className="text-slate-500 font-medium">Error al cargar la vista previa. Intente descargando el archivo.</p>
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {/* Footer de Preview */}
-                            <div className="px-6 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                                <span className="text-[10px] text-slate-400 font-medium">
-                                    Subido el: {formatDate(selectedDoc.uploaded_at)}
-                                </span>
-                                {previewUrl && isPreviewable(selectedDoc.file_name) && (
-                                    <a 
-                                        href={previewUrl} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="text-[10px] text-blue-500 font-bold hover:underline flex items-center gap-1"
-                                    >
-                                        Abrir en pantalla completa <ExternalLink size={10} />
-                                    </a>
-                                )}
-                            </div>
+            <div className="flex flex-col lg:flex-row gap-6">
+                {selectedDoc && (
+                    <div className="w-full lg:w-[60%] border rounded-3xl overflow-hidden h-[700px] flex flex-col">
+                        <div className="px-6 py-4 bg-slate-50 border-b flex justify-between">
+                            <span className="font-bold truncate">{selectedDoc.file_name}</span>
+                            <button onClick={() => setSelectedDoc(null)}><X size={18} /></button>
                         </div>
-                    )}
-                </div>
-
-                {/* ── Lista de Archivos ───────────────────────────────── */}
-                <div className={`flex-1 transition-all duration-500 ${selectedDoc ? 'lg:w-[40%]' : 'w-full'}`}>
-                    {loading ? (
-                <div className="flex items-center justify-center p-16 text-slate-400">
-                    <RefreshCw size={24} className="animate-spin mr-3" /> Cargando archivos...
-                </div>
-            ) : totalFiles === 0 && !searchTerm ? (
-                <div className="flex flex-col items-center justify-center p-20 text-slate-400 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                    <FolderOpen size={48} className="mb-4 text-slate-300" />
-                    <p className="font-bold text-lg">No hay archivos subidos aún</p>
-                    <p className="text-sm mt-1">Seleccione una sección y haga clic en "Subir Archivo(s)"</p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-4 rounded-2xl">
-                        <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                            <Info size={14} /> 
-                            <span>Para gestionar archivos: entra en la carpeta correspondiente. Puedes <b>descargar</b> (flecha azul) o <b>eliminar permanentemente</b> (papelera roja) cada documento.</span>
-                        </p>
+                        <div className="flex-1 bg-slate-100 flex items-center justify-center overflow-auto">
+                            {previewLoading ? <Loader2 className="animate-spin" /> : 
+                             previewUrl && isPreviewable(selectedDoc.file_name) ? (
+                                selectedDoc.file_name.toLowerCase().endsWith('.pdf') ? 
+                                <iframe src={previewUrl} className="w-full h-full" /> : 
+                                <img src={previewUrl} className="max-w-full max-h-full" />
+                             ) : <div>Sin vista previa</div>
+                            }
+                        </div>
                     </div>
+                )}
+                <div className="flex-1">
                     {availableSections.map(section => {
                         const sectionDocs = getDocsForSection(section.id);
-                        const isExpanded = expandedSections.has(section.id);
-                        const hasFiles = sectionDocs.length > 0;
-
-                        // Mostrar todas las secciones si hay búsqueda, si no solo las que tienen archivos o están expandidas
-                        if (!searchTerm && !hasFiles && !isExpanded) return null;
-
+                        if (!searchTerm && sectionDocs.length === 0) return null;
                         return (
-                            <div key={section.id} className={`rounded-2xl border overflow-hidden transition-all ${hasFiles ? "border-slate-200 bg-white shadow-sm" : "border-dashed border-slate-200 bg-slate-50/50"}`}>
-                                {/* ── Encabezado de sección ─── */}
-                                <button
-                                    onClick={() => toggleSection(section.id)}
-                                    className={`w-full flex items-center gap-3 px-5 py-3.5 text-left transition-all hover:bg-slate-50 ${hasFiles ? "font-bold" : "font-medium text-slate-400"}`}
-                                >
-                                    {isExpanded
-                                        ? <ChevronDown size={16} className="text-slate-400 shrink-0" />
-                                        : <ChevronRight size={16} className="text-slate-400 shrink-0" />
-                                    }
-                                    {hasFiles
-                                        ? <FolderOpen size={18} className="text-amber-400 shrink-0" />
-                                        : <Folder size={18} className="text-slate-300 shrink-0" />
-                                    }
-                                    <span className={`text-sm ${hasFiles ? "text-slate-700" : "text-slate-400"}`}>
-                                        {section.label}
-                                    </span>
-                                    {hasFiles && (
-                                        <span className="ml-auto bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-200">
-                                            {sectionDocs.length} archivo{sectionDocs.length !== 1 ? "s" : ""}
-                                        </span>
-                                    )}
+                            <div key={section.id} className="border rounded-2xl mb-4">
+                                <button onClick={() => toggleSection(section.id)} className="w-full p-4 flex justify-between font-bold">
+                                    <span>{section.label}</span>
+                                    <span>{sectionDocs.length}</span>
                                 </button>
-
-                                {/* ── Lista de archivos ─── */}
-                                {isExpanded && (
-                                    <div className="border-t border-slate-100">
-                                        {sectionDocs.length === 0 ? (
-                                            <p className="px-12 py-4 text-xs text-slate-400 italic">
-                                                No hay archivos en esta sección. Selecciónela en el menú superior y haga clic en "Subir Archivo(s)".
-                                            </p>
-                                        ) : (
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-slate-50 border-b border-slate-100">
-                                                    <tr>
-                                                        <th className="px-5 py-2 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 pl-12">Archivo</th>
-                                                        <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-slate-400 hidden md:table-cell">Fecha</th>
-                                                        <th className="px-3 py-2 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Acciones</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-50">
-                                                    {sectionDocs.map(doc => (
-                                                        <tr 
-                                                            key={doc.id} 
-                                                            onClick={() => setSelectedDoc(doc)}
-                                                            className={`transition-colors cursor-pointer group ${selectedDoc?.id === doc.id ? 'bg-blue-100/50 dark:bg-blue-900/30' : 'hover:bg-blue-50/30'}`}
-                                                        >
-                                                            <td className="px-5 py-3 pl-12">
-                                                                <div className="flex items-center gap-2.5">
-                                                                    <div className={`${selectedDoc?.id === doc.id ? 'scale-110' : ''} transition-transform`}>
-                                                                        {getFileIcon(doc.file_name)}
-                                                                    </div>
-                                                                    <span className={`font-medium truncate max-w-[200px] md:max-w-[300px] ${selectedDoc?.id === doc.id ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-700 dark:text-slate-300'}`} title={doc.file_name}>
-                                                                        {doc.file_name}
-                                                                    </span>
-                                                                    {!doc.storage_path && (
-                                                                        <span className="text-[9px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-bold border border-amber-200">
-                                                                            Sin contenido
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-3 py-3 text-xs text-slate-400 hidden md:table-cell whitespace-nowrap">
-                                                                {formatDate(doc.uploaded_at)}
-                                                            </td>
-                                                            <td className="px-3 py-3 text-right">
-                                                                <div className="flex items-center justify-end gap-1 opacity-100">
-                                                                    <button
-                                                                        onClick={() => handleDownload(doc)}
-                                                                        disabled={!doc.storage_path}
-                                                                        className="p-2 rounded-xl text-blue-500 hover:bg-blue-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                                                        title="Descargar"
-                                                                    >
-                                                                        <Download size={15} />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleDelete(doc)}
-                                                                        className="p-2 rounded-xl text-red-400 hover:bg-red-50 transition-all"
-                                                                        title="Eliminar"
-                                                                    >
-                                                                        <Trash2 size={15} />
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        )}
+                                {expandedSections.has(section.id) && (
+                                    <div className="border-t">
+                                        {sectionDocs.map(doc => (
+                                            <div key={doc.id} onClick={() => setSelectedDoc(doc)} className="p-3 border-b hover:bg-slate-50 cursor-pointer flex justify-between">
+                                                <span>{doc.file_name}</span>
+                                                <div className="flex gap-2">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}><Download size={14}/></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(doc); }}><Trash2 size={14}/></button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
