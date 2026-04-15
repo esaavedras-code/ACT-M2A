@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { User, LogOut, ShieldCheck, Settings, Key, History, Users, Info } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { setLocalStorageItem } from "@/lib/utils";
-
+import { useBackupGuardContext } from "@/components/BackupModal";
 import { useUserRole } from "@/hooks/useUserRole";
 
 export default function UserAccessButton() {
@@ -13,9 +13,10 @@ export default function UserAccessButton() {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { role, roleGlobal } = useUserRole();
-    const isAdmin = role === 'A' || role === 'B'; // Keeping existing logic for project admin access in menu (Dashboard, profile, etc)
+    const isAdmin = role === 'A' || role === 'B';
     const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
     const [loadingToggle, setLoadingToggle] = useState(false);
+    const { requestExitWithBackupCheck } = useBackupGuardContext();
 
     useEffect(() => {
         const loadUser = async () => {
@@ -67,8 +68,7 @@ export default function UserAccessButton() {
         .toUpperCase()
         .substring(0, 2);
 
-    const handleLogout = async () => {
-        setIsMenuOpen(false);
+    const doLogout = async () => {
         try {
             localStorage.removeItem("pact_registration");
             sessionStorage.removeItem("pact_registration");
@@ -78,6 +78,11 @@ export default function UserAccessButton() {
         }
         await supabase.auth.signOut();
         window.location.href = "/login";
+    };
+
+    const handleLogout = () => {
+        setIsMenuOpen(false);
+        requestExitWithBackupCheck(doLogout, "logout");
     };
 
     const toggleMaintenanceMode = async () => {

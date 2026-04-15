@@ -17,6 +17,8 @@ import MaintenanceGuard from "@/components/MaintenanceGuard";
 import PlatformIndicator from "@/components/PlatformIndicator";
 import BrandName from "@/components/BrandName";
 import MainHeader from "@/components/MainHeader";
+import BeforeUnloadBackup from "@/components/BeforeUnloadBackup";
+import ClientProviders from "@/components/ClientProviders";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,7 +34,9 @@ export default function RootLayout({
     return (
         <html lang="es" suppressHydrationWarning>
             <body className="antialiased min-h-screen relative font-sans text-slate-900 bg-slate-50" suppressHydrationWarning>
+                <ClientProviders>
                 <TranslationProvider>
+                    <BeforeUnloadBackup />
                     <PlatformIndicator />
                     <UserPresenceTracker />
                     <Suspense fallback={null}>
@@ -72,6 +76,7 @@ export default function RootLayout({
                         </Suspense>
                     </div>
                 </TranslationProvider>
+                </ClientProviders>
             </body>
         </html>
     );
