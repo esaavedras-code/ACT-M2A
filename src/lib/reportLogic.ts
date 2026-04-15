@@ -1087,21 +1087,21 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
 
         reportData.push(['', '', '', '', '', '']);
         reportData.push(['DESGLOSE DE MONTOS', '', '', '', '', '']);
-        reportData.push(['+ Trabajo Ejecutado (WP):', '', '', '', '', formatCurrency(subtotal)]);
-        if (mosDelta !== 0) reportData.push([`${mosDelta >= 0 ? '+' : ''} Ajuste MOS (Neto):`, '', '', '', '', formatCurrency(mosDelta)]);
-        if (!cert.skip_retention) reportData.push(['- 5% Retenido:', '', '', '', '', formatCurrency(-Math.abs(grossRetention), "Retenido")]);
-        if (returnedAmount > 0) reportData.push(['+ Devolución Retención:', '', '', '', '', formatCurrency(returnedAmount)]);
-        if (liqDamages > 0) reportData.push(['- Daños Líquidos:', '', '', '', '', formatCurrency(-Math.abs(liqDamages), "Deduccion")]);
-        if (refund !== 0) reportData.push([`${refund >= 0 ? '+' : ''} Reembolso:`, '', '', '', '', formatCurrency(refund)]);
-        if (extraRetention !== 0) reportData.push(['- Extra Retenido:', '', '', '', '', formatCurrency(-Math.abs(extraRetention), "Retenido")]);
-        if (priceAdj !== 0) reportData.push([`${priceAdj >= 0 ? '+' : ''} Ajuste de Precio:`, '', '', '', '', formatCurrency(priceAdj)]);
-        if (insuranceFines !== 0) reportData.push(['- Multas Seguro:', '', '', '', '', formatCurrency(-Math.abs(insuranceFines), "Deduccion")]);
-        if (otherPenalties !== 0) reportData.push(['- Otras Penalidades:', '', '', '', '', formatCurrency(-Math.abs(otherPenalties), "Deduccion")]);
-        reportData.push(['TOTAL NETO DE ESTA CERTIFICACIÓN:', '', '', '', '', formatCurrency(totalNeto)]);
+        reportData.push(['+', 'Trabajo', 'Ejecutado', '(WP):', '', formatCurrency(subtotal)]);
+        if (mosDelta !== 0) reportData.push([mosDelta >= 0 ? '+' : '', 'Ajuste MOS', '(Neto):', '', '', formatCurrency(mosDelta)]);
+        if (!cert.skip_retention) reportData.push(['-', '5% Retenido:', '', '', '', formatCurrency(-Math.abs(grossRetention), "Retenido")]);
+        if (returnedAmount > 0) reportData.push(['+', 'Devolución', 'Retención:', '', '', formatCurrency(returnedAmount)]);
+        if (liqDamages > 0) reportData.push(['-', 'Daños', 'Líquidos:', '', '', formatCurrency(-Math.abs(liqDamages), "Deduccion")]);
+        if (refund !== 0) reportData.push([refund >= 0 ? '+' : '', 'Reembolso:', '', '', '', formatCurrency(refund)]);
+        if (extraRetention !== 0) reportData.push(['-', 'Extra', 'Retenido:', '', '', formatCurrency(-Math.abs(extraRetention), "Retenido")]);
+        if (priceAdj !== 0) reportData.push([priceAdj >= 0 ? '+' : '', 'Ajuste', 'de', 'Precio:', '', formatCurrency(priceAdj)]);
+        if (insuranceFines !== 0) reportData.push(['-', 'Multas', 'Seguro:', '', '', formatCurrency(-Math.abs(insuranceFines), "Deduccion")]);
+        if (otherPenalties !== 0) reportData.push(['-', 'Otras', 'Penalidades:', '', '', formatCurrency(-Math.abs(otherPenalties), "Deduccion")]);
+        reportData.push(['TOTAL NETO', 'DE ESTA', 'CERTIFICACIÓN:', '', '', formatCurrency(totalNeto)]);
         reportData.push(['', '', '', '', '', '']);
     });
     const certNums = selectedCerts.map(c => c.cert_num).join('-');
-    await generateReport('REPORTE DE CERTIFICACIONES DE PAGO', reportData, project, [80, 250, 100, 80, 110, 110], 'landscape', format, `Reporte_Cert_${certNums}_${project?.num_act || projectId}.pdf`);
+    await generateReport(`REPORTE DE CERTIFICACIONES DE PAGO - CERTIFICACIÓN #${certNums}`, reportData, project, [80, 250, 100, 80, 110, 110], 'landscape', format, `Reporte_Cert_${certNums}_${project?.num_act || projectId}.pdf`);
 };
 
 

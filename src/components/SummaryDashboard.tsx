@@ -495,7 +495,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <div className="flex justify-between items-center py-1">
                             <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase">Total Partidas</span>
                             <div className="bg-white dark:bg-slate-800 border border-slate-400 dark:border-slate-600 px-3 py-1 rounded shadow-inner font-mono font-black text-slate-900 dark:text-slate-100 italic">
-                                {formatNumber(metrics.liquidation.totalItems)}
+                                {formatNumber(metrics.liquidation.totalItems, 0)}
                             </div>
                         </div>
                         <div className="mt-2 space-y-1">
