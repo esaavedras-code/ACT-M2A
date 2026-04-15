@@ -214,7 +214,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
                         if (child.item_id) {
                             childItemsToUpsert.push({
                                 item_id: child.item_id,
-                                quantity: c.quantity || 0,
+                                quantity: child.quantity || 0,
                                 icc_id: c.id
                             });
                         }
@@ -536,6 +536,16 @@ if (!mounted) return null;
                                                     </div>
                                                     <div className="text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-md shrink-0">
                                                         {childItem?.unit || "UNIT"}
+                                                    </div>
+                                                    <div className="w-20 shrink-0">
+                                                        <input 
+                                                            type="number"
+                                                            step="0.01"
+                                                            placeholder="Cant."
+                                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 text-center text-[11px] font-bold text-emerald-700"
+                                                            value={child.quantity || 0}
+                                                            onChange={e => updateChildItem(idx, cIdx, 'quantity', parseFloat(e.target.value) || 0)}
+                                                        />
                                                     </div>
                                                     <button 
                                                         onClick={() => removeChildItem(idx, cIdx)}

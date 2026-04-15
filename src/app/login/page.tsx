@@ -6,11 +6,13 @@ import { NextPage } from "next";
 import { LogIn, Lock, Mail, ArrowRight, ShieldCheck, UserPlus, Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AccessRequestModal from "@/components/AccessRequestModal";
 import BrandName from "@/components/BrandName";
 import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
 
 const LoginPage: NextPage = () => {
+    const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isForgotLoading, setIsForgotLoading] = useState(false);
@@ -41,7 +43,7 @@ const LoginPage: NextPage = () => {
         const checkAuth = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                window.location.href = "/";
+                router.push("/");
             }
         };
         checkAuth();
@@ -72,7 +74,7 @@ const LoginPage: NextPage = () => {
         const registrationStr = getLocalStorageItem("pact_registration");
         setLocalStorageItem("pact_registration", JSON.stringify(registrationData));
 
-        window.location.href = "/";
+        router.push("/");
     };
 
     const handleLogin = async (e: React.FormEvent) => {

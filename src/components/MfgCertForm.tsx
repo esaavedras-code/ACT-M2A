@@ -228,7 +228,8 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         return {
             item_id: itemId, quantity, cert_date: certDate, validation,
             manufacturer_name: manufacturerName, material_description: materialDescription,
-            is_multiple: itemIds.length > 1, item_ids: itemIds
+            is_multiple: itemIds.length > 1, item_ids: itemIds,
+            multiple_quantities: itemIds.length > 1 ? Object.fromEntries(itemIds.map(id => [id, quantity])) : {}
         };
     };
 
@@ -304,7 +305,8 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             for (const c of certs) {
                 if (c.is_multiple && c.item_ids?.length > 0) {
                     for (const iId of c.item_ids) {
-                        expanded.push({ ...c, item_id: iId, is_multiple: false, item_ids: undefined, quantity: c.quantity || 0 });
+                        const qty = c.multiple_quantities?.[iId] ?? c.quantity;
+                        expanded.push({ ...c, item_id: iId, is_multiple: false, item_ids: undefined, quantity: qty || 0 });
                     }
                 } else if (c.item_id) expanded.push(c);
             }
@@ -401,7 +403,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                             <span>{c.item_ids?.length || 0} PARTIDAS SELECCIONADAS</span>
                                             <Plus size={14} />
                                         </div>
-                                        <div className="absolute top-full left-0 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-800 border dark:border-slate-700 shadow-2xl rounded-2xl mt-1 z-50 hidden group-hover/multi:block p-3">
+                                        <div className="absolute top-full left-0 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-800 border dark:border-slate-700 shadow-2xl rounded-2xl mt-1 z-[70] hidden group-hover/multi:block p-3">
                                             <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">Seleccionar partidas:</p>
                                             <div className="grid grid-cols-1 gap-1">
                                                 {contractItems.filter(it => it.requires_mfg_cert).map(item => (
@@ -415,6 +417,8 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                                                 if(!newList[idx].item_ids) newList[idx].item_ids = [];
                                                                 if(e.target.checked) {
                                                                     newList[idx].item_ids.push(item.id);
+                                                                    if(!newList[idx].multiple_quantities) newList[idx].multiple_quantities = {};
+                                                                    if(!newList[idx].multiple_quantities[item.id]) newList[idx].multiple_quantities[item.id] = newList[idx].quantity || 0;
                                                                 } else {
                                                                     newList[idx].item_ids = newList[idx].item_ids.filter((id:any)=>id!==item.id);
                                                                 }
@@ -450,20 +454,70 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                         </div>
                                     </div>
                                 )}
-                                <label className="flex items-center gap-2 px-3 cursor-pointer group">
+                                <label className="flex items-center gap-2 px-3 mt-1 cursor-pointer group">
                                     <div className="relative flex items-center justify-center">
                                         <input 
                                             type="checkbox" 
-                                            className="peer h-3 w-3 cursor-pointer appearance-none rounded border border-slate-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all"
+                                            className="peer h-3 w-3 cursor-pointer appearance-none rounded border border-slate-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all font-black"
                                             checked={!!c.is_multiple} 
-                                            onChange={e => {const nl = [...certs]; nl[idx].is_multiple = e.target.checked; setCerts(nl);}} 
+                                            onChange={e => {
+                                                const nl = [...certs]; 
+                                                nl[idx].is_multiple = e.target.checked; 
+                                                if (e.target.checked && nl[idx].item_id && (!nl[idx].item_ids || nl[idx].item_ids.length === 0)) {
+                                                    nl[idx].item_ids = [nl[idx].item_id];
+                                                    nl[idx].multiple_quantities = { [nl[idx].item_id]: nl[idx].quantity };
+                                                }
+                                                setCerts(nl);
+                                            }} 
                                         />
                                         <CheckCircle2 size={8} className="absolute text-white transition-opacity opacity-0 peer-checked:opacity-100" />
                                     </div>
-                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-emerald-500 uppercase transition-colors">Múltiples Ítems</span>
+                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-emerald-500 uppercase transition-colors underline decoration-slate-100">Múltiples Ítems</span>
                                 </label>
-
                             </div>
+
+                            {/* Multiple Items Quantities UI */}
+                            {c.is_multiple && c.item_ids?.length > 0 && (
+                                <div className="absolute top-[105%] left-4 right-4 bg-white dark:bg-slate-800 border-2 border-emerald-100 dark:border-emerald-900/30 shadow-2xl rounded-3xl p-4 z-[60] animate-in slide-in-from-top-2">
+                                    <div className="flex items-center justify-between mb-3 px-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                                <Plus size={12} className="text-emerald-600" />
+                                            </div>
+                                            <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Cantidades por Partida</span>
+                                        </div>
+                                        <button onClick={() => updateCert(idx, 'is_multiple', false)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                                        {c.item_ids.map((iId: string) => {
+                                            const it = contractItems.find(i => i.id === iId);
+                                            return (
+                                                <div key={iId} className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                                                    <div className="flex flex-col min-w-0 pr-2">
+                                                        <span className="text-[10px] font-black text-slate-800 truncate">Pt. {it?.item_num}</span>
+                                                        <span className="text-[8px] font-bold text-slate-400 truncate uppercase">{it?.description}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <input 
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="w-20 bg-emerald-50 border border-emerald-100 rounded-xl py-1 px-2 text-center text-[11px] font-black text-emerald-700 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                                                            value={c.multiple_quantities?.[iId] || 0}
+                                                            onChange={e => {
+                                                                const nl = [...certs];
+                                                                if (!nl[idx].multiple_quantities) nl[idx].multiple_quantities = {};
+                                                                nl[idx].multiple_quantities[iId] = parseFloat(e.target.value) || 0;
+                                                                setCerts(nl);
+                                                            }}
+                                                        />
+                                                        <div className="text-[8px] font-black text-slate-400 uppercase w-8">{it?.unit || "UNIT"}</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Unit */}
                             <div className="w-16 flex justify-center">

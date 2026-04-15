@@ -755,30 +755,6 @@ function ReportesContent() {
                         }}
                     />
 
-                    <SelectiveReportItem
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
-                            id: 'act123-selective',
-                            label: 'ACT-123 (Supplementary Form)',
-                            description: 'Seleccione las órdenes de cambio para generar el formulario suplementario ACT-123.',
-                            icon: <FileCheck size={18} className="text-purple-600" />,
-                            selectLabel: "Elegir CHO",
-                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
-                            onGenerate: async (ids) => {
-                                try {
-                                    for(const id of ids) {
-                                        await generateAct123ReportLogic(projectId, id, reportFormat);
-                                    }
-                                    setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }
-                        }}
-                    />
 
                     <SelectiveReportItem
                         onAction={handleAction}

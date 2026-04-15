@@ -229,7 +229,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const mosEntries = Object.entries(perItemMosBalance)
             .filter(([_, balance]) => balance > 0.01)
             .map(([item_num, balance]) => ({ item_num, balance }));
-        const mosTotal = mosEntries.reduce((acc, e) => roundedAmt(acc + e.balance, 2), 0);
+        // mosTotal includes ALL items (positives and negatives) to match the MOS report total
+        const mosTotal = roundedAmt(Object.values(perItemMosBalance).reduce((acc, b) => roundedAmt(acc + b, 2), 0), 2);
 
         const certified = roundedAmt(actTotal + fhwaTotal, 2);
         const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : null;
@@ -500,9 +501,27 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <div className="mt-2 space-y-1">
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Firmadas por:</span>
                             <div className="pl-2 space-y-1">
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.adminSigned, 0)}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.contractorSigned, 0)}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span><span className="font-mono text-sm font-bold">{formatNumber(metrics.liquidation.liquidatorSigned, 0)}</span></div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span>
+                                    <span className="font-mono text-sm font-bold flex items-center gap-2">
+                                        {formatNumber(metrics.liquidation.adminSigned, 0)} 
+                                        <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.adminSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span>
+                                    <span className="font-mono text-sm font-bold flex items-center gap-2">
+                                        {formatNumber(metrics.liquidation.contractorSigned, 0)} 
+                                        <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.contractorSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span>
+                                    <span className="font-mono text-sm font-bold flex items-center gap-2">
+                                        {formatNumber(metrics.liquidation.liquidatorSigned, 0)} 
+                                        <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.liquidatorSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
@@ -521,13 +540,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 )}
                             </div>
                         </div>
-                        <hr className="my-3 border-slate-200 dark:border-slate-800" />
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">% Liquidación</span>
-                            <div className="bg-blue-600 text-white px-3 py-1 rounded-lg font-mono font-black text-lg">
-                                {metrics.liquidation.percent} %
-                            </div>
-                        </div>
+                        
                     </div>
                 </div>
 
@@ -546,7 +559,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                     onClick={() => setShowMOSDetails(!showMOSDetails)}
                                     className="w-full flex justify-between items-center group"
                                 >
-                                    <MetricRow label="Material en Sitio (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
+                                    <MetricRow label="Material en Sitio   (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
                                 </button>
                                 {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
                                     <div className="pl-3 mt-1 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800 animate-in slide-in-from-top-1 duration-200">

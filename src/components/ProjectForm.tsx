@@ -38,6 +38,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
         carreteras: "",
         designer: "",
         admin_name: "",
+        admin_title: "",  // e.g. "Ing.", "Lcda.", "Arq."
         contractor_name: "",
         liquidador_name: "",
         date_contract_sign: "",
@@ -523,6 +524,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                 pay_items_er_funds: currentData.pay_items_er_funds,
                 project_manager_name: currentData.project_manager_name || null,
                 admin_name: currentData.admin_name || null,
+                admin_title: (currentData as any).admin_title || null,
                 contractor_name: currentData.contractor_name || null,
                 liquidador_name: currentData.liquidador_name || null,
                 regional_director: currentData.regional_director || null,
@@ -1425,6 +1427,28 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                 <button type="button" onClick={() => handleChange('pay_items_er_funds', true)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${formData.pay_items_er_funds ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-600'}`}>SÍ</button>
                                 <button type="button" onClick={() => handleChange('pay_items_er_funds', false)} className={`px-4 py-1 text-xs font-bold rounded-md transition-all ${!formData.pay_items_er_funds ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-600'}`}>NO</button>
                             </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nombre del Administrador</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={getFieldStyle('admin_name')}
+                                placeholder="Ej. Juan Pérez"
+                                value={formData.admin_name || ""}
+                                onChange={(e) => handleChange('admin_name', e.target.value)}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Título del Administrador (Ej: Ing.)</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={getFieldStyle('admin_title')}
+                                placeholder="Ej. Ing., Arq., Lcdo."
+                                value={(formData as any).admin_title || ""}
+                                onChange={(e) => handleChange('admin_title', e.target.value)}
+                            />
                         </div>
                     </div>
 

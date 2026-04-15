@@ -49,11 +49,9 @@ export function useBackupGuard(): UseBackupGuardReturn {
         if (!isLoggedIn) return;
 
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            // Mostrar el diálogo nativo del navegador para que el usuario pueda cancelar
-            // (el diálogo de backup lo mostramos solo si el usuario cancela)
-            e.preventDefault();
-            // returnValue vacío activa el diálogo nativo del browser
-            e.returnValue = "";
+            // Omitido por solicitud del usuario: no interceptar forzosamente
+            // e.preventDefault();
+            // e.returnValue = "";
         };
 
         const handleUnload = () => {

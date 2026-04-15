@@ -39,9 +39,7 @@ export default function BeforeUnloadBackup() {
          */
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (!isLoggedIn.current) return;
-            e.preventDefault();
-            // Este mensaje puede o no mostrarse según el navegador; el texto nativo varía
-            e.returnValue = "¿Desea salir? Considere hacer un backup de sus datos antes de cerrar.";
+            // Omitido por solicitud del usuario: e.preventDefault() causaba spam de diálogos nativos
         };
 
         window.addEventListener("beforeunload", handleBeforeUnload);

@@ -183,7 +183,7 @@ export async function generateAndDownloadBackup(): Promise<BackupResult> {
                 project_documents: projectDocuments,
                 project_agreement_funds: projectAgreementFunds,
                 initial_certifications: initialCertifications,
-                initial_certification_items: initCertItems,
+                initial_certification_items: initialCertItems,
                 memberships,
             },
         };

@@ -978,7 +978,8 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
         totalFinalBalance += itemBalance;
         reportData.push(['', '', '', '', '', '', '', '', '']);
     });
-    reportData.push(['', '', '', '', '', '', '', '   BALANCE TOTAL (MOS):', formatCurrency(totalFinalBalance)]);
+    // Last row: spread title across columns so it's not compressed in one cell
+    reportData.push(['BALANCE', 'TOTAL EN', 'INVENTARIO (MOS):', '', '', '', '', formatCurrency(totalFinalBalance), '']);
 
     await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [60, 80, 180, 50, 90, 60, 40, 85, 55], 'landscape', format, 'Reporte_Material_On_Site.pdf');
 };
@@ -1789,14 +1790,18 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
     ];
 
     iccs.forEach(icc => {
-        const pc = paymentCerts?.find(p => p.id === icc.payment_cert_id);
+        const pc = paymentCerts?.find(p => p.id === icc.payment_cert_id || p.cert_num === icc.payment_cert_id);
         const residentDate = pc?.resident_engineer_date;
         let expiration = "PENDIENTE";
         let status = "PENDIENTE";
         
-        if (residentDate) {
-            const baseDate = new Date(`${residentDate}T00:00:00`);
-            baseDate.setDate(baseDate.getDate() + 60);
+        // Use resident_engineer_date if available, otherwise fall back to icc.cert_date
+        const signingDate = residentDate || icc.cert_date || null;
+        
+        if (signingDate) {
+            const validDays = icc.valid_days || 60;
+            const baseDate = new Date(`${signingDate}T00:00:00`);
+            baseDate.setDate(baseDate.getDate() + validDays);
             
             const day = baseDate.getDate().toString().padStart(2, '0');
             const month = (baseDate.getMonth() + 1).toString().padStart(2, '0');
@@ -1814,9 +1819,14 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
 
         if (icc.multiple_items && icc.initial_certification_items && icc.initial_certification_items.length > 0) {
             icc.initial_certification_items.forEach((child: any, idx: number) => {
-                const childItem = items?.find((it: any) => it.id === child.item_id);
+                // Match child item by item_id or by item_num stored on child record
+                const childItem = items?.find((it: any) =>
+                    (child.item_id && it.id === child.item_id) ||
+                    (child.item_num && it.item_num === child.item_num)
+                );
+                const childDisplayNum = childItem?.item_num || child.item_num || null;
                 reportData.push([
-                    childItem ? `Pt. ${childItem.item_num}` : 'N/A',
+                    childDisplayNum ? `Pt. ${childDisplayNum}` : 'N/A',
                     idx === 0 ? (icc.material_description || "N/A") : '',
                     child.quantity || 0,
                     idx === 0 ? (icc.manufacturer_name || "N/A") : '',
@@ -1828,9 +1838,14 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
                 ]);
             });
         } else {
-            const item = items?.find((it: any) => it.id === icc.item_id || it.item_num === icc.item_num);
+            // Try to match by item_id first, then by item_num stored on the ICC itself
+            const item = items?.find((it: any) =>
+                (icc.item_id && it.id === icc.item_id) ||
+                (icc.item_num && it.item_num === icc.item_num)
+            );
+            const displayItemNum = item?.item_num || icc.item_num || null;
             reportData.push([
-                item ? `Pt. ${item.item_num}` : 'N/A',
+                displayItemNum ? `Pt. ${displayItemNum}` : 'N/A',
                 icc.material_description || "N/A",
                 icc.quantity || 0,
                 icc.manufacturer_name || "N/A",
