@@ -377,24 +377,29 @@ if (!mounted) return null;
                                         )}
                                     </div>
                                     
-                                    {/* Multiple Items Checkbox */}
-                                    <label className="flex items-center gap-2 ml-4 cursor-pointer group">
-                                        <input 
-                                            type="checkbox" 
-                                            className="w-4 h-4 rounded border-slate-300 text-[#1E5128] focus:ring-[#1E5128]/20"
-                                            checked={!!c.multiple_items}
-                                            onChange={e => {
-                                                updateCert(idx, 'multiple_items', e.target.checked);
-                                                if (e.target.checked && (!c.initial_certification_items || c.initial_certification_items.length === 0)) {
-                                                    // Si activa múltiples y no hay ninguno, añadir el actual si existe
-                                                    const currentItems = [];
-                                                    if (c.item_id) currentItems.push({ item_id: c.item_id, quantity: c.quantity });
-                                                    else currentItems.push({ item_id: null, quantity: 0 });
-                                                    updateCert(idx, 'initial_certification_items', currentItems);
-                                                }
-                                            }}
-                                        />
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter group-hover:text-slate-600 transition-colors underline decoration-slate-200">Multiple Items</span>
+                                    {/* Multiple Items Toggle - REDISEÑADO PARA VISIBILIDAD */}
+                                    <label className="flex items-center gap-3 ml-4 cursor-pointer group bg-emerald-50 dark:bg-emerald-900/10 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-500 transition-all">
+                                        <div className="relative flex items-center justify-center">
+                                            <input 
+                                                type="checkbox" 
+                                                className="peer appearance-none w-5 h-5 rounded-lg border-2 border-emerald-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all cursor-pointer"
+                                                checked={!!c.multiple_items}
+                                                onChange={e => {
+                                                    updateCert(idx, 'multiple_items', e.target.checked);
+                                                    if (e.target.checked && (!c.initial_certification_items || c.initial_certification_items.length === 0)) {
+                                                        const currentItems = [];
+                                                        if (c.item_id) currentItems.push({ item_id: c.item_id, quantity: c.quantity });
+                                                        else currentItems.push({ item_id: null, quantity: 0 });
+                                                        updateCert(idx, 'initial_certification_items', currentItems);
+                                                    }
+                                                }}
+                                            />
+                                            <CheckCircle2 size={12} className="absolute text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-tighter">Múltiples Ítems</span>
+                                            <span className="text-[7px] font-bold text-emerald-600/60 uppercase">Activar para añadir varias partidas</span>
+                                        </div>
                                     </label>
                                 </div>
 

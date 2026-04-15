@@ -454,11 +454,11 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                         </div>
                                     </div>
                                 )}
-                                <label className="flex items-center gap-2 px-3 mt-1 cursor-pointer group">
+                                <label className="flex items-center gap-3 px-4 py-2 mt-1 cursor-pointer group bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-500 transition-all max-w-fit">
                                     <div className="relative flex items-center justify-center">
                                         <input 
                                             type="checkbox" 
-                                            className="peer h-3 w-3 cursor-pointer appearance-none rounded border border-slate-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all font-black"
+                                            className="peer appearance-none w-5 h-5 rounded-lg border-2 border-emerald-300 checked:border-emerald-500 checked:bg-emerald-500 transition-all cursor-pointer"
                                             checked={!!c.is_multiple} 
                                             onChange={e => {
                                                 const nl = [...certs]; 
@@ -470,9 +470,12 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                                 setCerts(nl);
                                             }} 
                                         />
-                                        <CheckCircle2 size={8} className="absolute text-white transition-opacity opacity-0 peer-checked:opacity-100" />
+                                        <CheckCircle2 size={12} className="absolute text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
                                     </div>
-                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-emerald-500 uppercase transition-colors underline decoration-slate-100">Múltiples Ítems</span>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-tighter">Múltiples Ítems</span>
+                                        <span className="text-[7px] font-bold text-emerald-600/60 uppercase">Activar para varias cantidades</span>
+                                    </div>
                                 </label>
                             </div>
 
