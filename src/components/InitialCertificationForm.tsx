@@ -497,8 +497,31 @@ if (!mounted) return null;
                                     onClick={() => removeCert(idx)}
                                     className="p-3 text-red-100 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all border border-transparent hover:border-red-100"
                                 >
-                                    <Trash2 size={18} />
                                 </button>
+                            </div>
+
+                            {/* Additional Details (Description & Manufacturer) */}
+                            <div className="mt-4 px-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Material / Descripción</span>
+                                    <input 
+                                        type="text"
+                                        placeholder="Ej: Agregado Fino, Tubería PVC..."
+                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-2 px-4 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                                        value={c.material_description || ""}
+                                        onChange={e => updateCert(idx, 'material_description', e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Fabricante / Manufacturer</span>
+                                    <input 
+                                        type="text"
+                                        placeholder="Ej: Cemex, Master Builders..."
+                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-2 px-4 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+                                        value={c.manufacturer_name || ""}
+                                        onChange={e => updateCert(idx, 'manufacturer_name', e.target.value)}
+                                    />
+                                </div>
                             </div>
 
                             {/* Sub-formulario para múltiples ítems */}

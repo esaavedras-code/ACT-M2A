@@ -552,14 +552,14 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <div className="space-y-1">
                             <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
                             <MetricRow label="Costo (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-slate-950 dark:text-white font-black" />
-                            <MetricRow label={`Últ. Certificación (#${metrics.cost.lastCertNum})`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
+                            <MetricRow label={`Últ. Certificación pagada (#${metrics.cost.lastCertNum})`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
                             <MetricRow label="Total Certificado" value={formatCurrency(metrics.cost.certTotal)} color="text-blue-700 font-black" />
                             <div className="pt-2">
                                 <button 
                                     onClick={() => setShowMOSDetails(!showMOSDetails)}
                                     className="w-full flex justify-between items-center group"
                                 >
-                                    <MetricRow label="Material en Sitio   (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
+                                    <MetricRow label="Material en Sitio&nbsp;&nbsp;&nbsp;(MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
                                 </button>
                                 {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
                                     <div className="pl-3 mt-1 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800 animate-in slide-in-from-top-1 duration-200">

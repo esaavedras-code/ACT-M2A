@@ -526,15 +526,26 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                 </span>
                             </div>
 
-                            {/* Manufacturer Info */}
-                            <div className="flex-1 min-w-[150px]">
-                                <input 
-                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-700 transition-all placeholder:text-slate-300"
-                                    placeholder="Nombre del fabricante..."
-                                    value={c.manufacturer_name || ""} 
-                                    onChange={e=>updateCert(idx, 'manufacturer_name', e.target.value)} 
-                                />
-                                {c.material_description && <p className="mt-1 px-3 text-[8px] font-bold text-slate-400 uppercase truncate max-w-[200px]">{c.material_description}</p>}
+                            {/* Manufacturer & Description Info */}
+                            <div className="flex-[1.5] flex flex-col gap-2 min-w-[250px]">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-3">Fabricante / Manufacturer</span>
+                                    <input 
+                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-700 transition-all placeholder:text-slate-300"
+                                        placeholder="Nombre del fabricante..."
+                                        value={c.manufacturer_name || ""} 
+                                        onChange={e=>updateCert(idx, 'manufacturer_name', e.target.value)} 
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-3">Material / Descripción</span>
+                                    <input 
+                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-700 transition-all placeholder:text-slate-300 italic"
+                                        placeholder="Ej: Agregado Fino, Tubería..."
+                                        value={c.material_description || ""} 
+                                        onChange={e=>updateCert(idx, 'material_description', e.target.value)} 
+                                    />
+                                </div>
                             </div>
 
                             {/* Quantity */}
