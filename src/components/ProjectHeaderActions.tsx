@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { Users, X, ShieldAlert } from "lucide-react";
+import { Users, X, ShieldAlert, RotateCcw, Check, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import ProjectMemberships from "./ProjectMemberships";
 import { supabase } from "@/lib/supabase";
@@ -12,6 +12,8 @@ export default function ProjectHeaderActions() {
     const [isOpen, setIsOpen] = useState(false);
     const [role, setRole] = useState("C");
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+    const [isUndoing, setIsUndoing] = useState(false);
+    const [undoStatus, setUndoStatus] = useState<'idle' | 'success' | 'error'>('idle');
     
     const searchParams = useSearchParams();
     const projectId = searchParams.get("id");
@@ -38,10 +40,70 @@ export default function ProjectHeaderActions() {
             return;
         }
 
-        // Check memberships if in project detail
         if (isProjectDetail && projectId) {
             const { data: memData } = await supabase.from("memberships").select("role").eq("project_id", projectId).eq("user_id", userId).single();
             if (memData) setRole(memData.role);
+        }
+    };
+
+    const handleUndo = async () => {
+        if (!projectId || isUndoing) return;
+        
+        if (!confirm("¿Estás seguro de que deseas deshacer la última acción grabada en este proyecto?")) return;
+
+        setIsUndoing(true);
+        setUndoStatus('idle');
+
+        try {
+            // Get the last audit log entry for this project
+            const { data: lastLog, error: fetchError } = await supabase
+                .from("audit_log")
+                .select("*")
+                .eq("proyecto_id", projectId)
+                .order("timestamp_utc", { ascending: false })
+                .limit(1)
+                .single();
+
+            if (fetchError || !lastLog) {
+                console.error("No se encontró ninguna acción para deshacer:", fetchError);
+                setUndoStatus('error');
+                setTimeout(() => setUndoStatus('idle'), 3000);
+                return;
+            }
+
+            if (!lastLog.datos_anteriores) {
+                alert("La última acción no tiene datos previos registrados para deshacer.");
+                setUndoStatus('error');
+                setTimeout(() => setUndoStatus('idle'), 3000);
+                return;
+            }
+
+            // Perform the undo: restore previous data
+            const { error: undoError } = await supabase
+                .from(lastLog.tabla)
+                .update(lastLog.datos_anteriores)
+                .eq("id", lastLog.fila_id);
+
+            if (undoError) {
+                console.error("Error al restaurar datos:", undoError);
+                setUndoStatus('error');
+            } else {
+                // Delete the log entry so we can't undo it twice (or we could mark it)
+                await supabase.from("audit_log").delete().eq("id", lastLog.id);
+                setUndoStatus('success');
+                // Refresh the page to reflect changes
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+        } catch (err) {
+            console.error("Excepción en Undo:", err);
+            setUndoStatus('error');
+        } finally {
+            setIsUndoing(false);
+            if (undoStatus !== 'success') {
+                setTimeout(() => setUndoStatus('idle'), 3000);
+            }
         }
     };
 
@@ -52,14 +114,38 @@ export default function ProjectHeaderActions() {
 
     return (
         <>
-            <button 
-                onClick={() => setIsOpen(true)}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-2xl transition-all text-white font-black text-[11px] uppercase tracking-widest border border-white/20 backdrop-blur-md"
-                suppressHydrationWarning
-            >
-                <Users size={16} className="text-blue-200" />
-                <span>Colaboradores</span>
-            </button>
+            <div className="flex items-center gap-2">
+                <button 
+                    onClick={handleUndo}
+                    disabled={isUndoing}
+                    title="Deshacer última acción"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-2xl transition-all font-black text-[11px] uppercase tracking-widest border backdrop-blur-md ${
+                        undoStatus === 'success' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-200' :
+                        undoStatus === 'error' ? 'bg-red-500/20 border-red-500 text-red-200' :
+                        'bg-white/10 hover:bg-white/20 border-white/20 text-white'
+                    }`}
+                >
+                    {isUndoing ? (
+                        <RotateCcw size={16} className="animate-spin" />
+                    ) : undoStatus === 'success' ? (
+                        <Check size={16} />
+                    ) : undoStatus === 'error' ? (
+                        <AlertCircle size={16} />
+                    ) : (
+                        <RotateCcw size={16} className="text-blue-200" />
+                    )}
+                    <span>{undoStatus === 'success' ? 'Hecho' : undoStatus === 'error' ? 'Error' : 'Undo'}</span>
+                </button>
+
+                <button 
+                    onClick={() => setIsOpen(true)}
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-2xl transition-all text-white font-black text-[11px] uppercase tracking-widest border border-white/20 backdrop-blur-md"
+                    suppressHydrationWarning
+                >
+                    <Users size={16} className="text-blue-200" />
+                    <span>Colaboradores</span>
+                </button>
+            </div>
 
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">

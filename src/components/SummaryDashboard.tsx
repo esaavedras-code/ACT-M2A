@@ -472,7 +472,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                 <div className="card border-t-4 border-t-violet-500">
                     <div className="flex items-center gap-2 text-violet-700 font-bold mb-2 uppercase text-xs tracking-wider">
-                        <Layers size={16} /> RETENCIÓN
+                        <Layers size={16} /> RETENCIONES Y PENALIDADES
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="5% Retenido (Acum.)" value={formatCurrency(metrics.retention.fivePercent)} />
@@ -483,7 +483,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <MetricRow label="Reembolso" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
                         <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Ajustes y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
+                        <MetricRow label="Retenciones y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
                     </div>
                 </div>
 
@@ -494,7 +494,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     <div className="space-y-1">
                         <div className="flex justify-between items-center py-1">
                             <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase">Total Partidas</span>
-                            <div className="bg-white dark:bg-slate-800 border border-slate-400 dark:border-slate-600 px-3 py-1 rounded shadow-inner font-mono font-black text-slate-900 dark:text-slate-100 italic">
+                            <div className="bg-white dark:bg-slate-800 border border-slate-400 dark:border-slate-600 px-3 py-1 rounded shadow-inner font-mono font-black text-slate-900 dark:text-slate-100 italic text-center min-w-[60px]">
                                 {formatNumber(metrics.liquidation.totalItems, 0)}
                             </div>
                         </div>
@@ -503,21 +503,21 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             <div className="pl-2 space-y-1">
                                 <div className="flex justify-between items-center">
                                     <span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span>
-                                    <span className="font-mono text-sm font-bold flex items-center gap-2">
+                                    <span className="font-mono text-sm font-bold flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 min-w-[80px]">
                                         {formatNumber(metrics.liquidation.adminSigned, 0)} 
                                         <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.adminSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span>
-                                    <span className="font-mono text-sm font-bold flex items-center gap-2">
+                                    <span className="font-mono text-sm font-bold flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 min-w-[80px]">
                                         {formatNumber(metrics.liquidation.contractorSigned, 0)} 
                                         <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.contractorSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span>
-                                    <span className="font-mono text-sm font-bold flex items-center gap-2">
+                                    <span className="font-mono text-sm font-bold flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 min-w-[80px]">
                                         {formatNumber(metrics.liquidation.liquidatorSigned, 0)} 
                                         <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.liquidatorSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
                                     </span>

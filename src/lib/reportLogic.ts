@@ -1438,8 +1438,7 @@ import { generateAct117C } from "./generateAct117C";
 import { generateAct117B } from "./generateAct117B";
 import { generateAct122 } from "./generateAct122";
 import { generateAct122Excel } from "./generateAct122Excel";
-import { generateAct123 } from "./generateAct123";
-import { generateAct123Excel } from "./generateAct123Excel";
+
 import { generateAct124 } from "./generateAct124";
 import { generateRoa } from "./generateRoa";
 import { generateTimeAnalysisReportLogic as generateTimeAnalysis } from "@/lib/generateTimeAnalysisReport";
@@ -1545,19 +1544,7 @@ export const generateAct123BReportLogic = async (projectId: string, choId: strin
     const blob = await generateAct123B(projectId, choId);
     if (blob) await downloadBlob(blob, `ACT-123B_CHO_${choId}_${project.num_act}.pdf`);
 };
-export const generateAct123ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
-    const { project, chos } = await fetchAllReportData(projectId);
-    const cho = chos?.find(c => c.id === choId);
-    if (!project || !cho) return;
 
-    if (format === 'excel') {
-        const blob = await generateAct123Excel(projectId, choId);
-        downloadBlob(blob, `ACT-123_CHO_${cho.cho_num || choId}_${project.num_act}.xlsx`);
-    } else {
-        const blob = await generateAct123(projectId, choId);
-        if (blob) downloadBlob(blob, `ACT-123_CHO_${cho.cho_num || choId}_${project.num_act}.pdf`);
-    }
-};
 
 export const generateAct124ReportLogic = async (projectId: string, choId: string, selectedItems: string[] = [], format: 'pdf' | 'excel' = 'pdf') => {
     if (format === 'excel') {

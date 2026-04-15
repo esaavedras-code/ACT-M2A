@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase";
 import {
     FolderOpen, Folder, FileText, Download, Upload, Trash2,
     Search, ChevronRight, ChevronDown, RefreshCw, File,
-    Image as ImageIcon, Music, Video, Archive, AlertCircle, Info
+    Image as ImageIcon, Music, Video, Archive, AlertCircle, Info,
+    Eye, X, ExternalLink, Loader2
 } from "lucide-react";
 
 // ─── Secciones del proyecto ────────────────────────────────────────
@@ -76,11 +77,41 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["photos", "project", "general"]));
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedSection, setSelectedSection] = useState(userRole === 'F' ? "project" : "general");
+    const [selectedDoc, setSelectedDoc] = useState<DocRecord | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (projectId) fetchDocs();
+        setSelectedDoc(null);
+        setPreviewUrl(null);
     }, [projectId]);
+
+    useEffect(() => {
+        if (selectedDoc?.storage_path) {
+            generatePreviewUrl(selectedDoc.storage_path);
+        } else {
+            setPreviewUrl(null);
+        }
+    }, [selectedDoc]);
+
+    const generatePreviewUrl = async (path: string) => {
+        setPreviewLoading(true);
+        try {
+            const { data, error } = await supabase.storage
+                .from("project-documents")
+                .createSignedUrl(path, 3600); // URL válida por 1 hora
+            
+            if (error) throw error;
+            setPreviewUrl(data.signedUrl);
+        } catch (err) {
+            console.error("Error generating preview URL:", err);
+            setPreviewUrl(null);
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
 
     const fetchDocs = async () => {
         if (!projectId) return;
@@ -192,6 +223,10 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
             // Eliminar de base de datos
             await supabase.from("project_documents").delete().eq("id", doc.id);
             setDocs(prev => prev.filter(d => d.id !== doc.id));
+            if (selectedDoc?.id === doc.id) {
+                setSelectedDoc(null);
+                setPreviewUrl(null);
+            }
         } catch (err: any) {
             alert("Error al eliminar: " + err.message);
         }
@@ -230,11 +265,16 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
         );
     }
 
+    const isPreviewable = (fileName: string) => {
+        const ext = (fileName.split(".").pop() || "").toLowerCase();
+        return ["pdf", "jpg", "jpeg", "png", "webp", "gif"].includes(ext);
+    };
+
     return (
-        <div className="w-full space-y-6">
+        <div className="w-full">
             {/* ── Sticky Header ─────────────────────────────────── */}
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800">
-                <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 border-b border-slate-200 dark:border-slate-800 mb-6">
+                <div className="flex items-center justify-between flex-wrap gap-4 px-4 md:px-0">
                     <div className="flex items-center gap-3">
                         <FolderOpen className="text-amber-500" size={26} />
                         <div>
@@ -244,7 +284,6 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                        {/* Selector de sección */}
                         <select
                             value={selectedSection}
                             onChange={e => setSelectedSection(e.target.value)}
@@ -255,7 +294,6 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                             ))}
                         </select>
 
-                        {/* Botón Subir */}
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
@@ -273,11 +311,10 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                             onClick={(e: any) => { e.target.value = null; }}
                         />
 
-                        {/* Refrescar */}
                         <button
                             onClick={fetchDocs}
                             disabled={loading}
-                            className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+                            className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all dark:bg-slate-900 dark:border-slate-800"
                             title="Refrescar"
                         >
                             <RefreshCw size={16} className={`text-slate-500 ${loading ? "animate-spin" : ""}`} />
@@ -285,7 +322,7 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                     </div>
                 </div>
 
-                <div className="mt-4 relative">
+                <div className="mt-4 relative px-4 md:px-0">
                     <input
                         type="text"
                         placeholder="Buscar archivo por nombre..."
@@ -296,8 +333,114 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                 </div>
             </div>
 
-            {/* ── Árbol de secciones tipo Windows Explorer ─────── */}
-            {loading ? (
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
+                {/* ── Panel de Preview (A mano izquierda) ─────────────── */}
+                <div className={`transition-all duration-500 ease-in-out ${selectedDoc ? 'w-full lg:w-[60%] opacity-100' : 'w-0 opacity-0 overflow-hidden hidden lg:block'}`}>
+                    {selectedDoc && (
+                        <div className="sticky top-40 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col h-[700px]">
+                            {/* Header de Preview */}
+                            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                        {getFileIcon(selectedDoc.file_name)}
+                                    </div>
+                                    <div className="overflow-hidden">
+                                        <h3 className="text-sm font-bold text-slate-800 dark:text-white truncate" title={selectedDoc.file_name}>
+                                            {selectedDoc.file_name}
+                                        </h3>
+                                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                                            {PROJECT_SECTIONS.find(s => s.id === selectedDoc.section)?.label || "Documento"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => handleDownload(selectedDoc)}
+                                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                                        title="Descargar"
+                                    >
+                                        <Download size={18} />
+                                    </button>
+                                    <button 
+                                        onClick={() => setSelectedDoc(null)}
+                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                        title="Cerrar vista previa"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Contenido de Preview */}
+                            <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-auto relative p-4">
+                                {previewLoading ? (
+                                    <div className="flex flex-col items-center gap-3">
+                                        <Loader2 size={32} className="text-blue-500 animate-spin" />
+                                        <p className="text-xs text-slate-400 font-medium">Generando vista previa segura...</p>
+                                    </div>
+                                ) : !selectedDoc.storage_path ? (
+                                    <div className="text-center p-8">
+                                        <AlertCircle size={48} className="mx-auto text-amber-400 mb-4" />
+                                        <p className="text-slate-500 font-medium">Este archivo no tiene contenido asociado (versión antigua).</p>
+                                    </div>
+                                ) : !isPreviewable(selectedDoc.file_name) ? (
+                                    <div className="text-center p-8 max-w-sm">
+                                        <FileText size={64} className="mx-auto text-slate-300 mb-4" />
+                                        <h4 className="text-slate-700 dark:text-slate-300 font-bold mb-2 text-lg">Sin vista previa disponible</h4>
+                                        <p className="text-slate-400 text-sm mb-6">El formato de este archivo no se puede visualizar directamente en el navegador.</p>
+                                        <button 
+                                            onClick={() => handleDownload(selectedDoc)}
+                                            className="btn-primary w-full"
+                                        >
+                                            <Download size={16} />
+                                            Descargar para ver
+                                        </button>
+                                    </div>
+                                ) : previewUrl ? (
+                                    selectedDoc.file_name.toLowerCase().endsWith('.pdf') ? (
+                                        <iframe 
+                                            src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
+                                            className="w-full h-full rounded-xl border-0 shadow-sm bg-white"
+                                            title="PDF Preview"
+                                        />
+                                    ) : (
+                                        <img 
+                                            src={previewUrl} 
+                                            alt={selectedDoc.file_name}
+                                            className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+                                        />
+                                    )
+                                ) : (
+                                    <div className="text-center p-8">
+                                        <AlertCircle size={48} className="mx-auto text-red-400 mb-4" />
+                                        <p className="text-slate-500 font-medium">Error al cargar la vista previa. Intente descargando el archivo.</p>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Footer de Preview */}
+                            <div className="px-6 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                    Subido el: {formatDate(selectedDoc.uploaded_at)}
+                                </span>
+                                {previewUrl && isPreviewable(selectedDoc.file_name) && (
+                                    <a 
+                                        href={previewUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-[10px] text-blue-500 font-bold hover:underline flex items-center gap-1"
+                                    >
+                                        Abrir en pantalla completa <ExternalLink size={10} />
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Lista de Archivos ───────────────────────────────── */}
+                <div className={`flex-1 transition-all duration-500 ${selectedDoc ? 'lg:w-[40%]' : 'w-full'}`}>
+                    {loading ? (
                 <div className="flex items-center justify-center p-16 text-slate-400">
                     <RefreshCw size={24} className="animate-spin mr-3" /> Cargando archivos...
                 </div>
@@ -366,11 +509,17 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-50">
                                                     {sectionDocs.map(doc => (
-                                                        <tr key={doc.id} className="hover:bg-blue-50/30 transition-colors group">
+                                                        <tr 
+                                                            key={doc.id} 
+                                                            onClick={() => setSelectedDoc(doc)}
+                                                            className={`transition-colors cursor-pointer group ${selectedDoc?.id === doc.id ? 'bg-blue-100/50 dark:bg-blue-900/30' : 'hover:bg-blue-50/30'}`}
+                                                        >
                                                             <td className="px-5 py-3 pl-12">
                                                                 <div className="flex items-center gap-2.5">
-                                                                    {getFileIcon(doc.file_name)}
-                                                                    <span className="font-medium text-slate-700 truncate max-w-[300px]" title={doc.file_name}>
+                                                                    <div className={`${selectedDoc?.id === doc.id ? 'scale-110' : ''} transition-transform`}>
+                                                                        {getFileIcon(doc.file_name)}
+                                                                    </div>
+                                                                    <span className={`font-medium truncate max-w-[200px] md:max-w-[300px] ${selectedDoc?.id === doc.id ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-700 dark:text-slate-300'}`} title={doc.file_name}>
                                                                         {doc.file_name}
                                                                     </span>
                                                                     {!doc.storage_path && (
@@ -413,7 +562,7 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                         );
                     })}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

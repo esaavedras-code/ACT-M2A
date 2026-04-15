@@ -949,61 +949,91 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                             })()
                                         )}</div>
                                         <input
-                                            type="number" step="0.01" min="0"
+                                            type="text"
                                             placeholder="Override manual"
-                                            className="w-full h-7 text-[10px] font-bold border border-rose-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-rose-400 outline-none"
-                                            value={c.liquidated_damages || ""}
-                                            onChange={(e) => updateCert(certIdx, 'liquidated_damages', parseFloat(e.target.value) || 0)}
+                                            className="w-full h-7 text-[10px] font-bold border border-rose-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-rose-400 outline-none text-center"
+                                            value={c.liquidated_damages ? (parseFloat(c.liquidated_damages).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/,/g, '');
+                                                if (!isNaN(parseFloat(val)) || val === "") {
+                                                    updateCert(certIdx, 'liquidated_damages', val === "" ? 0 : parseFloat(val));
+                                                }
+                                            }}
                                         />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-extrabold text-emerald-600 uppercase tracking-widest block">+ Reembolso ($)</label>
                                         <input
-                                            type="number" step="0.01" min="0"
+                                            type="text"
                                             placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-emerald-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-emerald-400 outline-none"
-                                            value={c.refund || ""}
-                                            onChange={(e) => updateCert(certIdx, 'refund', parseFloat(e.target.value) || 0)}
+                                            className="w-full h-8 text-xs font-bold border border-emerald-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-emerald-400 outline-none text-center"
+                                            value={c.refund ? (parseFloat(c.refund).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/,/g, '');
+                                                if (!isNaN(parseFloat(val)) || val === "") {
+                                                    updateCert(certIdx, 'refund', val === "" ? 0 : parseFloat(val));
+                                                }
+                                            }}
                                         />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-extrabold text-amber-600 uppercase tracking-widest block">− Extra Retenido ($)</label>
                                         <input
-                                            type="number" step="0.01" min="0"
+                                            type="text"
                                             placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-amber-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-amber-400 outline-none"
-                                            value={c.extra_retention || ""}
-                                            onChange={(e) => updateCert(certIdx, 'extra_retention', parseFloat(e.target.value) || 0)}
+                                            className="w-full h-8 text-xs font-bold border border-amber-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-amber-400 outline-none text-center"
+                                            value={c.extra_retention ? (parseFloat(c.extra_retention).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/,/g, '');
+                                                if (!isNaN(parseFloat(val)) || val === "") {
+                                                    updateCert(certIdx, 'extra_retention', val === "" ? 0 : parseFloat(val));
+                                                }
+                                            }}
                                         />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-extrabold text-blue-600 uppercase tracking-widest block">± Ajuste de Precio ($)</label>
                                         <input
-                                            type="number" step="0.01"
+                                            type="text"
                                             placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-blue-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-blue-400 outline-none"
-                                            value={c.price_adjustment || ""}
-                                            onChange={(e) => updateCert(certIdx, 'price_adjustment', parseFloat(e.target.value) || 0)}
+                                            className="w-full h-8 text-xs font-bold border border-blue-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-blue-400 outline-none text-center"
+                                            value={c.price_adjustment ? (parseFloat(c.price_adjustment).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/,/g, '');
+                                                if (!isNaN(parseFloat(val)) || val === "-" || val === "") {
+                                                    updateCert(certIdx, 'price_adjustment', val === "" || val === "-" ? 0 : parseFloat(val));
+                                                }
+                                            }}
                                         />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-extrabold text-red-500 uppercase tracking-widest block">− Multas Seguro ($)</label>
                                         <input
-                                            type="number" step="0.01" min="0"
+                                            type="text"
                                             placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-red-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-red-400 outline-none"
-                                            value={c.insurance_fines || ""}
-                                            onChange={(e) => updateCert(certIdx, 'insurance_fines', parseFloat(e.target.value) || 0)}
+                                            className="w-full h-8 text-xs font-bold border border-red-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-red-400 outline-none text-center"
+                                            value={c.insurance_fines ? (parseFloat(c.insurance_fines).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/,/g, '');
+                                                if (!isNaN(parseFloat(val)) || val === "") {
+                                                    updateCert(certIdx, 'insurance_fines', val === "" ? 0 : parseFloat(val));
+                                                }
+                                            }}
                                         />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest block">− Otras Penalidades ($)</label>
                                         <input
-                                            type="number" step="0.01" min="0"
+                                            type="text"
                                             placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-slate-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-slate-400 outline-none"
-                                            value={c.other_penalties || ""}
-                                            onChange={(e) => updateCert(certIdx, 'other_penalties', parseFloat(e.target.value) || 0)}
+                                            className="w-full h-8 text-xs font-bold border border-slate-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-slate-400 outline-none text-center"
+                                            value={c.other_penalties ? (parseFloat(c.other_penalties).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/,/g, '');
+                                                if (!isNaN(parseFloat(val)) || val === "") {
+                                                    updateCert(certIdx, 'other_penalties', val === "" ? 0 : parseFloat(val));
+                                                }
+                                            }}
                                         />
                                     </div>
                                 </div>
@@ -1134,7 +1164,6 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                         const term = searchTerm.toLowerCase();
                                                         return item.description?.toLowerCase().includes(term) || item.item_num?.toString().includes(term);
                                                     })
-                                                    .sort((a: any, b: any) => (parseInt(a.item.item_num) || 0) - (parseInt(b.item.item_num) || 0))
                                                     .map(({ item, originalItIdx: itIdx }: { item: any; originalItIdx: number }) => {
                                                     const mosAmount = item.has_material_on_site
                                                         ? (parseFloat(item.mos_quantity) || 0) * (parseFloat(item.mos_unit_price) || 0)
