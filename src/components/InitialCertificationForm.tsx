@@ -73,7 +73,38 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
             return;
         }
         if (data && data.length > 0) {
-            setCerts(data);
+            const processedData = data.map(icc => {
+                const items = icc.initial_certification_items || [];
+                // Agrupar ítems que tienen la misma cantidad para restaurar la "compartición" visual
+                const itemGroups: any[] = [];
+                const visited = new Set();
+                
+                items.forEach((it: any, idx: number) => {
+                    if (visited.has(idx)) return;
+                    
+                    // Buscar otros con la misma cantidad (y posiblemente logicamente vinculados)
+                    const sharedItems = items.filter((other: any, oIdx: number) => 
+                        !visited.has(oIdx) && other.quantity === it.quantity
+                    );
+                    
+                    if (sharedItems.length > 0) {
+                        itemGroups.push({
+                            item_ids: sharedItems.map((s: any) => s.item_id),
+                            quantity: it.quantity
+                        });
+                        sharedItems.forEach((_: any) => {
+                            const foundIdx = items.findIndex((x: any) => x === _);
+                            if (foundIdx !== -1) visited.add(foundIdx);
+                        });
+                    }
+                });
+
+                return {
+                    ...icc,
+                    initial_certification_items: itemGroups
+                };
+            });
+            setCerts(processedData);
         } else {
             addCert(true);
         }
@@ -126,14 +157,15 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
     const addChildItem = (certIdx: number) => {
         const newList = [...certs];
         const items = newList[certIdx].initial_certification_items || [];
-        newList[certIdx].initial_certification_items = [...items, { item_id: null, quantity: 0 }];
+        // Ahora cada fila de la lista de múltiples ítems puede tener múltiples partidas (compartiendo la cantidad)
+        newList[certIdx].initial_certification_items = [...items, { item_ids: [], quantity: 0 }];
         setCerts(newList);
         if (onDirty) onDirty();
     };
 
-    const updateChildItem = (certIdx: number, itemIdx: number, field: string, value: any) => {
+    const updateChildRow = (certIdx: number, rowIdx: number, field: string, value: any) => {
         const newList = [...certs];
-        newList[certIdx].initial_certification_items[itemIdx][field] = value;
+        newList[certIdx].initial_certification_items[rowIdx][field] = value;
         setCerts(newList);
         if (onDirty) onDirty();
     };
@@ -210,12 +242,14 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
             const childItemsToUpsert: any[] = [];
             finalCertsList.forEach((c) => {
                 if (c.id && c.multiple_items && c.initial_certification_items) {
-                    c.initial_certification_items.forEach((child: any) => {
-                        if (child.item_id) {
-                            childItemsToUpsert.push({
-                                item_id: child.item_id,
-                                quantity: child.quantity || 0,
-                                icc_id: c.id
+                    c.initial_certification_items.forEach((row: any) => {
+                        if (row.item_ids && row.item_ids.length > 0) {
+                            row.item_ids.forEach((itemId: string) => {
+                                childItemsToUpsert.push({
+                                    item_id: itemId,
+                                    quantity: row.quantity || 0,
+                                    icc_id: c.id
+                                });
                             });
                         }
                     });
@@ -364,7 +398,7 @@ if (!mounted) return null;
                                                     <span className="truncate">
                                                         {selectedItem ? `Pt. ${selectedItem.item_num}: ${selectedItem.description}` : "Seleccionar Partida"}
                                                     </span>
-                                                    {c.item_id && <X size={14} className="ml-auto cursor-pointer hover:scale-110" onClick={() => updateCert(idx, 'item_id', null)} />}
+                                                    {c.item_id && <Trash2 size={14} className="ml-auto cursor-pointer hover:scale-110 text-red-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); updateCert(idx, 'item_id', null); }} />}
                                                 </div>
                                             </>
                                         ) : (
@@ -388,8 +422,8 @@ if (!mounted) return null;
                                                     updateCert(idx, 'multiple_items', e.target.checked);
                                                     if (e.target.checked && (!c.initial_certification_items || c.initial_certification_items.length === 0)) {
                                                         const currentItems = [];
-                                                        if (c.item_id) currentItems.push({ item_id: c.item_id, quantity: c.quantity });
-                                                        else currentItems.push({ item_id: null, quantity: 0 });
+                                                        if (c.item_id) currentItems.push({ item_ids: [c.item_id], quantity: c.quantity });
+                                                        else currentItems.push({ item_ids: [], quantity: 0 });
                                                         updateCert(idx, 'initial_certification_items', currentItems);
                                                     }
                                                 }}
@@ -500,8 +534,10 @@ if (!mounted) return null;
                                 {/* Delete Button */}
                                 <button 
                                     onClick={() => removeCert(idx)}
-                                    className="p-3 text-red-100 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all border border-transparent hover:border-red-100"
+                                    className="p-3 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all border border-transparent hover:border-red-100"
+                                    title="Eliminar ICC"
                                 >
+                                    <Trash2 size={18} />
                                 </button>
                             </div>
 
@@ -542,45 +578,74 @@ if (!mounted) return null;
                                         </button>
                                     </div>
                                     
-                                    <div className="grid grid-cols-1 gap-2">
-                                        {(c.initial_certification_items || []).map((child: any, cIdx: number) => {
-                                            const childItem = contractItems.find(it => it.id === child.item_id);
+                                    <div className="flex flex-col gap-2">
+                                        {(c.initial_certification_items || []).map((row: any, rIdx: number) => {
                                             return (
-                                                <div key={cIdx} className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 pl-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                                    <div className="relative flex-1 group">
-                                                        <select 
-                                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                            value={child.item_id || ""}
-                                                            onChange={e => updateChildItem(idx, cIdx, 'item_id', e.target.value)}
-                                                        >
-                                                            <option value="">Seleccionar...</option>
-                                                            {contractItems.map(it => (
-                                                                <option key={it.id} value={it.id}>Pt. {it.item_num}: {it.description}</option>
-                                                            ))}
-                                                        </select>
-                                                        <div className="text-xs font-bold text-slate-600 truncate">
-                                                            {childItem ? `Pt. ${childItem.item_num}: ${childItem.description}` : "Escoger Partida..."}
+                                                <div key={rIdx} className="flex flex-col gap-2 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex-1 relative group">
+                                                            <div className="flex flex-wrap gap-1 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700 min-h-[40px] items-center">
+                                                                {row.item_ids && row.item_ids.length > 0 ? (
+                                                                    row.item_ids.map((itemId: string) => {
+                                                                        const it = contractItems.find(i => i.id === itemId);
+                                                                        return (
+                                                                            <span key={itemId} className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded-lg text-[9px] font-black flex items-center gap-1">
+                                                                                Pt. {it?.item_num}
+                                                                                <X size={10} className="cursor-pointer hover:text-red-500" onClick={() => {
+                                                                                    const updatedIds = row.item_ids.filter((id: string) => id !== itemId);
+                                                                                    updateChildRow(idx, rIdx, 'item_ids', updatedIds);
+                                                                                }} />
+                                                                            </span>
+                                                                        );
+                                                                    })
+                                                                ) : (
+                                                                    <span className="text-[10px] text-slate-400 font-bold ml-2 italic">Añadir partidas que comparten esta cantidad...</span>
+                                                                )}
+                                                                <div className="relative ml-auto">
+                                                                    <select 
+                                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                                        value=""
+                                                                        onChange={e => {
+                                                                            if (!e.target.value) return;
+                                                                            const currentIds = row.item_ids || [];
+                                                                            if (!currentIds.includes(e.target.value)) {
+                                                                                updateChildRow(idx, rIdx, 'item_ids', [...currentIds, e.target.value]);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <option value="">Añadir...</option>
+                                                                        {contractItems.map(it => (
+                                                                            <option key={it.id} value={it.id} disabled={row.item_ids?.includes(it.id)}>
+                                                                                Pt. {it.item_num}: {it.description}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <div className="bg-emerald-500 text-white p-1 rounded-md hover:scale-110 transition-all">
+                                                                        <Plus size={12} />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </div>
+
+                                                        {/* Quantity for this group of items */}
+                                                        <div className="w-24 shrink-0 flex items-center gap-2">
+                                                            <input 
+                                                                type="number"
+                                                                step="0.01"
+                                                                placeholder="Cant."
+                                                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-2 text-center text-xs font-black text-emerald-700 dark:text-emerald-400"
+                                                                value={row.quantity || 0}
+                                                                onChange={e => updateChildRow(idx, rIdx, 'quantity', parseFloat(e.target.value) || 0)}
+                                                            />
+                                                        </div>
+
+                                                        <button 
+                                                            onClick={() => removeChildItem(idx, rIdx)}
+                                                            className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-all"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
-                                                    <div className="text-[9px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-md shrink-0">
-                                                        {childItem?.unit || "UNIT"}
-                                                    </div>
-                                                    <div className="w-20 shrink-0">
-                                                        <input 
-                                                            type="number"
-                                                            step="0.01"
-                                                            placeholder="Cant."
-                                                            className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 text-center text-[11px] font-bold text-emerald-700"
-                                                            value={child.quantity || 0}
-                                                            onChange={e => updateChildItem(idx, cIdx, 'quantity', parseFloat(e.target.value) || 0)}
-                                                        />
-                                                    </div>
-                                                    <button 
-                                                        onClick={() => removeChildItem(idx, cIdx)}
-                                                        className="p-1 px-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
                                                 </div>
                                             );
                                         })}

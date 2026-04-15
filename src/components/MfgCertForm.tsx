@@ -399,15 +399,18 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                             <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
                                 {c.is_multiple ? (
                                     <div className="relative group/multi">
-                                        <div className="w-full bg-[#66FF99] text-emerald-900 rounded-full px-4 py-2.5 text-xs font-black flex items-center justify-between cursor-pointer">
+                                        <div className="w-full bg-[#66FF99] text-emerald-900 rounded-full px-4 py-2.5 text-xs font-black flex items-center justify-between cursor-pointer border border-emerald-400 group-hover/multi:border-emerald-600 transition-all">
                                             <span>{c.item_ids?.length || 0} PARTIDAS SELECCIONADAS</span>
-                                            <Plus size={14} />
+                                            <div className="flex items-center gap-1">
+                                                <Plus size={14} />
+                                                {c.item_ids?.length > 0 && <Trash2 size={14} className="ml-1 hover:text-red-600 transition-colors" onClick={(e) => { e.stopPropagation(); updateCert(idx, 'item_ids', []); }} />}
+                                            </div>
                                         </div>
-                                        <div className="absolute top-full left-0 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-800 border dark:border-slate-700 shadow-2xl rounded-2xl mt-1 z-[70] hidden group-hover/multi:block p-3">
-                                            <p className="text-[10px] font-black text-slate-400 mb-2 uppercase">Seleccionar partidas:</p>
+                                        <div className="absolute top-full left-0 w-full max-h-64 overflow-y-auto bg-white dark:bg-slate-800 border-2 dark:border-slate-700 shadow-2xl rounded-2xl mt-1 z-[70] hidden group-hover/multi:block p-3 animate-in fade-in zoom-in-95 duration-200">
+                                            <p className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Seleccionar partidas:</p>
                                             <div className="grid grid-cols-1 gap-1">
                                                 {contractItems.filter(it => it.requires_mfg_cert).map(item => (
-                                                    <label key={item.id} className="flex items-center gap-3 p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg cursor-pointer transition-colors">
+                                                    <label key={item.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${c.item_ids?.includes(item.id) ? 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600'}`}>
                                                         <input 
                                                             type="checkbox" 
                                                             className="w-4 h-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
@@ -432,9 +435,19 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="relative">
+                                    <div className="relative group/single">
+                                        <div className={`w-full bg-[#66FF99] text-emerald-900 rounded-full px-4 py-2.5 text-xs font-black flex items-center gap-2 border border-emerald-400 transition-all ${!c.item_id ? 'opacity-90' : ''}`}>
+                                            <span className="truncate flex-1">
+                                                {selectedItem ? `Pt. ${selectedItem.item_num}: ${selectedItem.description}` : "SELECCIONAR PARTIDA..."}
+                                            </span>
+                                            {c.item_id ? (
+                                                <Trash2 size={14} className="cursor-pointer hover:text-red-600 transition-colors" onClick={() => updateCert(idx, 'item_id', "")} />
+                                            ) : (
+                                                <Plus size={14} className="rotate-45 opacity-50" />
+                                            )}
+                                        </div>
                                         <select 
-                                            className="w-full appearance-none bg-[#66FF99] text-emerald-900 rounded-full px-4 py-2.5 text-xs font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all pr-8"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                             value={c.item_id || ""} 
                                             onChange={e => {
                                                 const m = contractItems.find(it => it.id === e.target.value);
@@ -444,14 +457,11 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                                 setCerts(nl);
                                             }}
                                         >
-                                            <option value="" className="bg-white">SELECCIONAR PARTIDA...</option>
+                                            <option value="">SELECCIONAR PARTIDA...</option>
                                             {contractItems.filter(it => it.requires_mfg_cert).map(it => (
-                                                <option key={it.id} value={it.id} className="bg-white">Pt. {it.item_num}: {it.description}</option>
+                                                <option key={it.id} value={it.id}>Pt. {it.item_num}: {it.description}</option>
                                             ))}
                                         </select>
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-700">
-                                            <Plus size={14} className="rotate-45" />
-                                        </div>
                                     </div>
                                 )}
                                 <label className="flex items-center gap-3 px-4 py-2 mt-1 cursor-pointer group bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-500 transition-all max-w-fit">
@@ -489,7 +499,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                             </div>
                                             <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Cantidades por Partida</span>
                                         </div>
-                                        <button onClick={() => updateCert(idx, 'is_multiple', false)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                                        <button onClick={() => updateCert(idx, 'is_multiple', false)} className="text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                         {c.item_ids.map((iId: string) => {
