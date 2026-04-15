@@ -248,23 +248,6 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6">
-                {selectedDoc && (
-                    <div className="w-full lg:w-[60%] border rounded-3xl overflow-hidden h-[700px] flex flex-col">
-                        <div className="px-6 py-4 bg-slate-50 border-b flex justify-between">
-                            <span className="font-bold truncate">{selectedDoc.file_name}</span>
-                            <button onClick={() => setSelectedDoc(null)}><X size={18} /></button>
-                        </div>
-                        <div className="flex-1 bg-slate-100 flex items-center justify-center overflow-auto">
-                            {previewLoading ? <Loader2 className="animate-spin" /> : 
-                             previewUrl && isPreviewable(selectedDoc.file_name) ? (
-                                selectedDoc.file_name.toLowerCase().endsWith('.pdf') ? 
-                                <iframe src={previewUrl} className="w-full h-full" /> : 
-                                <img src={previewUrl} className="max-w-full max-h-full" />
-                             ) : <div>Sin vista previa</div>
-                            }
-                        </div>
-                    </div>
-                )}
                 <div className="flex-1">
                     {availableSections.map(section => {
                         const sectionDocs = getDocsForSection(section.id);
@@ -278,11 +261,14 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                                 {expandedSections.has(section.id) && (
                                     <div className="border-t">
                                         {sectionDocs.map(doc => (
-                                            <div key={doc.id} onClick={() => setSelectedDoc(doc)} className="p-3 border-b hover:bg-slate-50 cursor-pointer flex justify-between">
-                                                <span>{doc.file_name}</span>
+                                            <div key={doc.id} onClick={() => setSelectedDoc(doc)} className={`p-3 border-b hover:bg-white dark:hover:bg-slate-800 cursor-pointer flex justify-between transition-colors ${selectedDoc?.id === doc.id ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500' : ''}`}>
+                                                <div className="flex items-center gap-3">
+                                                    {getFileIcon(doc.file_name)}
+                                                    <span className="text-sm">{doc.file_name}</span>
+                                                </div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={(e) => { e.stopPropagation(); handleDownload(doc); }}><Download size={14}/></button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(doc); }}><Trash2 size={14}/></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDownload(doc); }} className="p-1 hover:text-blue-500"><Download size={14}/></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(doc); }} className="p-1 hover:text-red-500"><Trash2 size={14}/></button>
                                                 </div>
                                             </div>
                                         ))}
@@ -292,6 +278,47 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                         );
                     })}
                 </div>
+
+                {selectedDoc && (
+                    <div className="w-full lg:w-[60%] border rounded-3xl overflow-hidden h-[700px] flex flex-col sticky top-40 bg-white dark:bg-slate-900 shadow-xl">
+                        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-b flex justify-between items-center">
+                            <div className="flex flex-col truncate">
+                                <span className="font-bold truncate text-sm">{selectedDoc.file_name}</span>
+                                <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{selectedDoc.section}</span>
+                            </div>
+                            <button onClick={() => setSelectedDoc(null)} className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full text-slate-400 hover:text-red-500 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-auto">
+                            {previewLoading ? (
+                                <div className="flex flex-col items-center gap-2">
+                                    <Loader2 className="animate-spin text-blue-500" size={32} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargando vista previa...</span>
+                                </div>
+                            ) : previewUrl && isPreviewable(selectedDoc.file_name) ? (
+                                selectedDoc.file_name.toLowerCase().endsWith('.pdf') ? 
+                                <iframe src={`${previewUrl}#toolbar=0`} className="w-full h-full border-0" /> : 
+                                <img src={previewUrl} className="max-w-full max-h-full object-contain shadow-lg" />
+                             ) : (
+                                <div className="text-center p-8">
+                                    <AlertCircle size={48} className="mx-auto text-slate-300 mb-4" />
+                                    <p className="text-slate-400 text-sm font-bold">Sin vista previa disponible</p>
+                                    <button onClick={() => handleDownload(selectedDoc)} className="mt-4 text-xs text-blue-500 font-bold hover:underline">Descargar para ver</button>
+                                </div>
+                             )
+                            }
+                        </div>
+                        <div className="px-6 py-3 bg-white dark:bg-slate-900 border-t flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Subido: {formatDate(selectedDoc.uploaded_at)}</span>
+                            {previewUrl && (
+                                <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 font-black uppercase tracking-widest flex items-center gap-1 hover:underline">
+                                    Ver original <ExternalLink size={10} />
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
