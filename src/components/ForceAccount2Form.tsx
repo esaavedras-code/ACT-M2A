@@ -257,25 +257,65 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       fileReader.onload = async e => {
         try {
           const content = JSON.parse(e.target?.result as string);
+          
+          let reportToImport = null;
+
           if (content.ac49Report) {
+            // Estructura FA-2 estándar
+            reportToImport = content.ac49Report;
+          } else if (content.fa_num || content.labor || content.equipment) {
+            // Detectada estructura de Force Account Original (FA-1)
+            // Realizar mapeo de campos al formato FA-2
+            reportToImport = {
+              reportNo: content.fa_num || "IM-01",
+              workDescription: content.descripcion || "Migrado de Force Account original",
+              date: content.fecha_inicio || new Date().toISOString().split('T')[0],
+              labor: (content.labor || []).map((l: any) => ({
+                id: Date.now().toString() + Math.random(),
+                employeeName: l.empleado || "",
+                ssLast4: l.ss_last4 || "",
+                classification: l.clasificacion || "",
+                hoursReg: parseFloat(l.horas_normales || 0),
+                hours15: parseFloat(l.horas_extras_15 || 0),
+                hours20: parseFloat(l.horas_extras_20 || 0),
+                hourlyRate: parseFloat(l.tasa_normal || 0)
+              })),
+              equipment: (content.equipment || []).map((e: any) => ({
+                id: Date.now().toString() + Math.random(),
+                description: e.descripcion || "",
+                model: e.modelo || "",
+                hours: parseFloat(e.horas || 0),
+                dailyRate: parseFloat(e.tarifa_diaria || 0)
+              })),
+              materials: (content.materials || []).map((m: any) => ({
+                id: Date.now().toString() + Math.random(),
+                description: m.descripcion || "",
+                supplier: m.suplidor || "",
+                invoiceNo: m.factura_num || "",
+                quantity: parseFloat(m.cantidad || 0),
+                amount: parseFloat(m.costo_total || 0)
+              }))
+            };
+          }
+
+          if (reportToImport) {
             setLoading(true);
-            // Create a new entry from import
             const { data, error } = await supabase
               .from("fa2_reports")
               .insert([{
                 project_id: projectId,
-                report_no: content.ac49Report.reportNo + " (Importado)",
-                date: content.ac49Report.date || new Date().toISOString().split('T')[0],
-                description: content.ac49Report.workDescription || 'Importado via JSON',
+                report_no: reportToImport.reportNo + " (Cargado)",
+                date: reportToImport.date || new Date().toISOString().split('T')[0],
+                description: reportToImport.workDescription || 'Carga externa',
                 data: {
-                  labor: content.ac49Report.labor || [],
-                  equipment: content.ac49Report.equipment || [],
-                  materials: content.ac49Report.materials || [],
-                  relatedItemNo: content.ac49Report.relatedItemNo || '',
-                  relatedItemDescription: content.ac49Report.relatedItemDescription || '',
-                  relatedItemUnitCost: content.ac49Report.relatedItemUnitCost || 0,
-                  relatedItemAmount: content.ac49Report.relatedItemAmount || 0,
-                  signatures: content.ac49Report.signatures || { contractor: false, projectChief: false }
+                  labor: reportToImport.labor || [],
+                  equipment: reportToImport.equipment || [],
+                  materials: reportToImport.materials || [],
+                  relatedItemNo: reportToImport.relatedItemNo || '',
+                  relatedItemDescription: reportToImport.relatedItemDescription || '',
+                  relatedItemUnitCost: reportToImport.relatedItemUnitCost || 0,
+                  relatedItemAmount: reportToImport.relatedItemAmount || 0,
+                  signatures: reportToImport.signatures || { contractor: false, projectChief: false }
                 }
               }])
               .select()
@@ -285,9 +325,11 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
             if (data) {
               setReports([data, ...reports]);
               handleSelectReport(data);
-              alert("✅ Datos importados y guardados como nuevo registro.");
+              alert("✅ Datos migrados y guardados exitosamente en Force Account 2.");
             }
             if (onDirty) onDirty();
+          } else {
+            throw new Error("Formato de archivo no reconocido");
           }
         } catch (error) {
           alert("❌ Error: Archivo no válido para FA-2.");
