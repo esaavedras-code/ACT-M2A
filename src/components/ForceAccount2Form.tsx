@@ -423,7 +423,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm"
                 >
-                  <Upload size={14} /> Refuerzo JSON
+                  <Upload size={14} /> Importar JSON
                 </button>
                 <button 
                   onClick={saveData}
