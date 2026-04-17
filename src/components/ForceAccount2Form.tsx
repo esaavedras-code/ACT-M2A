@@ -4,13 +4,31 @@ import React, { useState, useMemo, useRef, forwardRef, useImperativeHandle, useE
 import { 
   FileText, Truck, Users, ChevronRight, LayoutDashboard,
   Info, CheckCircle2, Clock, Plus, Trash2, DollarSign,
-  Download, Upload, ShieldCheck, Briefcase, Calculator, ChevronLeft
+  Download, Upload, ShieldCheck, Briefcase, Calculator, ChevronLeft,
+  Search, X
 } from 'lucide-react';
 import { Project, AC49Report, LaborEntry, EquipmentEntry } from '../types/fa2';
 import { EditableTable } from './EditableTable';
 import { calculateLaborTotal, applyAC51Rules, calculateEquipmentRental } from '../lib/fa2Calculations';
 import { supabase } from "@/lib/supabase";
 import { formatCurrency } from "@/lib/utils";
+
+const PREDEFINED_EQUIPMENT_RATES = [
+  { name: 'Pickup Truck (4x4)', model: 'Standard / Lariat', daily: 75, weekly: 350, monthly: 1200 },
+  { name: 'Backhoe Loader', model: 'John Deere 310 / Case 580', daily: 350, weekly: 1400, monthly: 4200 },
+  { name: 'Excavator (Large)', model: 'Cat 320 / Komatsu PC210', daily: 600, weekly: 2400, monthly: 7000 },
+  { name: 'Bulldozer', model: 'Cat D6 / John Deere 750', daily: 550, weekly: 2200, monthly: 6500 },
+  { name: 'Dump Truck', model: '10-12 Cubic Yards', daily: 250, weekly: 1000, monthly: 3200 },
+  { name: 'Air Compressor', model: '185 CFM Diesel', daily: 100, weekly: 400, monthly: 1200 },
+  { name: 'Generator (Power)', model: '50 kW Silence Pack', daily: 150, weekly: 600, monthly: 1800 },
+  { name: 'Compact Roller', model: 'Double Drum Vibratory', daily: 200, weekly: 800, monthly: 2400 },
+  { name: 'Concrete Mixer', model: 'Mobile 1-Bag Unit', daily: 80, weekly: 320, monthly: 1000 },
+  { name: 'Light Tower', model: '4-Bulb Diesel Mobile', daily: 60, weekly: 240, monthly: 750 },
+  { name: 'Skid Steer', model: 'Cat 262 / Bobcat S650', daily: 250, weekly: 1000, monthly: 3000 },
+  { name: 'Man Lift / Scissor Lift', model: '40ft Electric/Diesel', daily: 180, weekly: 700, monthly: 1800 },
+  { name: 'Motor Grader', model: 'Cat 140M / Case 865', daily: 450, weekly: 1800, monthly: 5500 },
+  { name: 'Vibratory Plate', model: 'Walk-behind Gasoline', daily: 45, weekly: 180, monthly: 550 }
+];
 
 
 
@@ -22,6 +40,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   
   // Active Report State
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  
+  // Equipment Search State
+  const [eqSearch, setEqSearch] = useState("");
+  const [showEqSearcher, setShowEqSearcher] = useState(false);
 
   const [project, setProject] = useState<Project>({
     id: projectId || '1',
@@ -542,11 +564,88 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         </h3>
                         <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Acumulado del ciclo {ac49Report.reportNo}</p>
                       </div>
-                      <div className="text-right">
-                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Total Renta Estimado</p>
-                         <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{formatCurrency(summary.equipment.subtotal)}</p>
+                      <div className="flex items-center gap-3">
+                         <button 
+                           onClick={() => setShowEqSearcher(!showEqSearcher)}
+                           className={`btn-secondary text-[9px] px-4 py-2 border-2 ${showEqSearcher ? 'bg-amber-50 border-amber-200 text-amber-600' : ''}`}
+                         >
+                           {showEqSearcher ? 'OCULTAR BUSCADOR' : 'BUSCADOR DE TARIFAS'}
+                         </button>
+                         <div className="text-right ml-4">
+                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Total Renta Estimado</p>
+                            <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{formatCurrency(summary.equipment.subtotal)}</p>
+                         </div>
                       </div>
                     </div>
+
+                    {showEqSearcher && (
+                      <div className="p-8 bg-amber-50/50 dark:bg-amber-900/10 rounded-[2.5rem] border-2 border-amber-100/50 dark:border-amber-800/30 animate-in slide-in-from-top duration-300">
+                        <div className="flex flex-col md:flex-row gap-6 items-end mb-8">
+                          <div className="flex-1 space-y-2">
+                            <label className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest block px-2">¿Qué equipo buscas?</label>
+                            <div className="relative group">
+                              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400 group-hover:text-amber-600 transition-colors" size={16} />
+                              <input 
+                                type="text" 
+                                placeholder="Escribe el nombre del equipo (ej: Excavadora, Pickup...)" 
+                                value={eqSearch}
+                                onChange={(e) => setEqSearch(e.target.value)}
+                                className="input-field pl-12 bg-white dark:bg-slate-900 border-amber-100 dark:border-amber-800/50 focus:border-amber-400 focus:ring-amber-400/20"
+                              />
+                            </div>
+                          </div>
+                          {eqSearch && (
+                             <button onClick={() => setEqSearch("")} className="btn-secondary py-3 text-xs bg-white dark:bg-slate-900">Limpiar</button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                           {PREDEFINED_EQUIPMENT_RATES
+                             .filter(item => 
+                               item.name.toLowerCase().includes(eqSearch.toLowerCase()) || 
+                               item.model.toLowerCase().includes(eqSearch.toLowerCase())
+                             )
+                             .map((item, idx) => (
+                               <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-amber-100 dark:border-amber-800 hover:shadow-xl hover:shadow-amber-500/5 transition-all group relative overflow-hidden">
+                                  <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 dark:bg-amber-900/10 rounded-bl-[2rem] flex items-center justify-center">
+                                    <DollarSign size={16} className="text-amber-500" />
+                                  </div>
+                                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight pr-8">{item.name}</h4>
+                                  <p className="text-[10px] text-slate-400 font-bold mb-6 italic truncate">{item.model}</p>
+                                  
+                                  <div className="space-y-3">
+                                    <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl">
+                                      <span className="text-[9px] font-black text-slate-400 uppercase">Tarifa Diaria</span>
+                                      <span className="text-xs font-black text-amber-600">{formatCurrency(item.daily)}/d</span>
+                                    </div>
+                                    <div className="flex justify-between items-center p-3">
+                                      <span className="text-[8px] font-bold text-slate-400 uppercase italic">Estimado Semanal</span>
+                                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{formatCurrency(item.weekly)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center p-3">
+                                      <span className="text-[8px] font-bold text-slate-400 uppercase italic">Estimado Mensual</span>
+                                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{formatCurrency(item.monthly)}</span>
+                                    </div>
+                                  </div>
+                                  
+                                  <button 
+                                    className="w-full mt-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/10 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0"
+                                    onClick={() => {
+                                      // Optional: Auto-add logic could go here
+                                      alert(`Tarifa diaria sugerida para ${item.name}: ${formatCurrency(item.daily)}. Úselo como referencia en la pestaña AC-49.`);
+                                    }}
+                                  >
+                                    Ver Detalles
+                                  </button>
+                               </div>
+                             ))}
+                        </div>
+                        
+                        <p className="text-[9px] text-slate-400 font-bold italic mt-8 text-center uppercase tracking-widest">
+                          * Precios estimados basados en promedios de mercado 2024. Sujeto a cambios y negociación.
+                        </p>
+                      </div>
+                    )}
 
                     <div className="overflow-x-auto rounded-[2.5rem] border border-slate-100 dark:border-slate-800 bg-slate-50/30">
                        <table className="w-full text-left">
