@@ -118,3 +118,22 @@ body {
 .about-open .project-title-bar {
   display: none !important;
 }
+
+/* Glassmorphism utility - Enhanced for Premium look */
+.glass {
+  background: rgba(15, 15, 20, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.7);
+}
+
+.glass-accent {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(16, 185, 129, 0.1));
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.brand-dark {
+  background-color: #0a0a0c;
+}

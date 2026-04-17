@@ -27,6 +27,7 @@ import DailyLogForm from "@/components/DailyLogForm";
 import LiquidationForm from "@/components/LiquidationForm";
 import MfgCertForm from "@/components/MfgCertForm";
 import ForceAccountForm from "@/components/ForceAccountForm";
+import ForceAccount2Form from "@/components/ForceAccount2Form";
 import InspectionForm from "@/components/InspectionForm";
 import CCMLModificationsForm from "@/components/CCMLModificationsForm";
 import InitialCertificationForm from "@/components/InitialCertificationForm";
@@ -129,6 +130,7 @@ function ProjectDetailContent() {
         { id: "logs",        label: "Actividades",   icon: <Cloud size={12} />, wip: true },
         { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} />, wip: true },
         { id: "force",       label: "Force Account", icon: <Calculator size={12} />, wip: true },
+        { id: "force2",      label: "Force Account 2", icon: <Briefcase size={12} /> },
         { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
         { id: "ccml",        label: "Cambios al CCML", icon: <FileEdit size={12} /> },
         { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} />, wip: true },
@@ -137,7 +139,7 @@ function ProjectDetailContent() {
     ];
 
     // Filtrar pestañas basadas en roles
-    const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "inspection", "logs", "presentations", "personnel"];
+    const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "force2", "inspection", "logs", "presentations", "personnel"];
     const filteredTabs = tabs.filter(t => {
         // Reglas para Inspector ('E') - Únicamente Actividades y Fotos (Explorer)
         if (role === 'E') {
@@ -147,7 +149,7 @@ function ProjectDetailContent() {
         // Reglas generales para No Administradores
         if (role !== 'A') {
             if (t.wip) return false;
-            if (t.id === 'force' || t.id === 'minutes' || t.id === 'logs' || t.id === 'inspection') return false;
+            if (t.id === 'force' || t.id === 'force2' || t.id === 'minutes' || t.id === 'logs' || t.id === 'inspection') return false;
         }
         // Reglas específicas adicionales para Contratista ('F')
         if (role === 'F' && hiddenForContratista.includes(t.id)) {
@@ -189,6 +191,7 @@ function ProjectDetailContent() {
             case "logs": return "Los controles de tiempo de actividades los pueden ver en la pestaña de REPORTES.";
             case "inspection": return "Los informes de inspección los pueden ver en la pestaña de REPORTES.";
             case "force": return "El balance de Force Account lo pueden ver en la pestaña de REPORTES.";
+            case "force2": return "Gestión avanzada de Force Account (AC-49, AC-50 y AC-51) con diseño premium.";
             case "liquidation": return "Las hojas de liquidación y checklists (Final Acceptance) los pueden ver en la pestaña de REPORTES, opción '7. Liquidación'.";
             case "ccml": return "La información de las Cartas de Requerimiento de Modificación (Project Modification Letters) se gestiona en esta sección.";
             case "update-tables": return "";
@@ -478,6 +481,7 @@ function ProjectDetailContent() {
                                 { activeTab === "presentations" && <MonthlyPresentations ref={activeRef} projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 { activeTab === "inspection"  && <InspectionForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "force"       && <ForceAccountForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "force2"      && <ForceAccount2Form ref={activeRef} projectId={id || undefined} />}
                                 {activeTab === "liquidation" && <LiquidationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "ccml"        && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "files"       && <ProjectFilesExplorer projectId={id} userRole={role} />}

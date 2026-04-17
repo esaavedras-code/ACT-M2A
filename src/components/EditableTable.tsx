@@ -1,0 +1,95 @@
+import React from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+
+interface Column<T> {
+  header: string;
+  key: keyof T;
+  type: 'text' | 'number' | 'select';
+  options?: string[];
+}
+
+interface EditableTableProps<T> {
+  title: string;
+  columns: Column<T>[];
+  data: T[];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  onChange: (index: number, key: keyof T, value: any) => void;
+}
+
+export function EditableTable<T extends { id: string }>({ 
+  title, 
+  columns, 
+  data, 
+  onAdd, 
+  onRemove, 
+  onChange 
+}: EditableTableProps<T>) {
+  return (
+    <div className="mb-8 overflow-hidden rounded-[2rem] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+      <div className="flex justify-between items-center px-6 py-5 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+        <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-widest text-[10px] sm:text-xs">{title}</h3>
+        <button 
+          onClick={onAdd}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black rounded-xl transition-all shadow-md shadow-blue-500/10 active:scale-95 uppercase tracking-widest"
+        >
+          <Plus size={14} />
+          AÑADIR
+        </button>
+      </div>
+      <div className="overflow-x-auto custom-scrollbar">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-slate-50/30 dark:bg-slate-900/30 text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">
+              {columns.map((col, i) => (
+                <th key={i} className="px-6 py-4 border-b border-slate-50 dark:border-slate-800">{col.header}</th>
+              ))}
+              <th className="px-6 py-4 border-b border-slate-50 dark:border-slate-800 w-12 text-center"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+            {data.map((item, index) => (
+              <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
+                {columns.map((col, i) => (
+                  <td key={i} className="px-3 py-2">
+                    {col.type === 'select' ? (
+                      <select 
+                        value={String(item[col.key])}
+                        onChange={(e) => onChange(index, col.key, e.target.value)}
+                        className="w-full bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-lg text-xs font-bold text-slate-800 dark:text-white p-2"
+                      >
+                        {col.options?.map(opt => <option key={opt} value={opt} className="bg-white dark:bg-slate-900">{opt}</option>)}
+                      </select>
+                    ) : (
+                      <input 
+                        type={col.type}
+                        value={String(item[col.key])}
+                        onChange={(e) => onChange(index, col.key, col.type === 'number' ? Number(e.target.value) : e.target.value)}
+                        className="w-full bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-3 py-2 outline-none"
+                      />
+                    )}
+                  </td>
+                ))}
+                <td className="px-3 py-2 text-center">
+                  <button 
+                    onClick={() => onRemove(index)}
+                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {data.length === 0 && (
+                <tr>
+                    <td colSpan={columns.length + 1} className="px-6 py-10 text-center text-slate-400 font-bold italic text-xs">
+                        Haga clic en 'Añadir' para ingresar nuevos registros.
+                    </td>
+                </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

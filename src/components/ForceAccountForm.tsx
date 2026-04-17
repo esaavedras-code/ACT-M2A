@@ -393,10 +393,10 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
             <div className="card p-0 overflow-hidden bg-white dark:bg-slate-900 shadow-xl rounded-[2rem]">
                 <div className="bg-slate-50 dark:bg-slate-800/50 flex flex-wrap border-b border-slate-100">
                     <TabBtn id="general" active={editTab} set={setEditTab} label="General" />
-                    <TabBtn id="labor" active={editTab} set={setEditTab} label="Mano de Obra" />
+                    <TabBtn id="labor" active={editTab} set={setEditTab} label="A) Mano de Obra" />
+                    <TabBtn id="material" active={editTab} set={setEditTab} label="B) Materiales y/o Servicios" />
+                    <TabBtn id="equipment" active={editTab} set={setEditTab} label="C) Equipo" />
                     <TabBtn id="photos" active={editTab} set={setEditTab} label="Evidencias/Fotos" />
-                    <TabBtn id="material" active={editTab} set={setEditTab} label="Materiales" />
-                    <TabBtn id="equipment" active={editTab} set={setEditTab} label="Equipo" />
                     <TabBtn id="summary" active={editTab} set={setEditTab} label="Totales" />
                 </div>
 
@@ -456,7 +456,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                             
                             {monthlyMO.length > 0 && (
                                 <div className="space-y-12">
-                                    <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter border-b-4 border-primary/20 pb-2">Resumen de costos de mano de obra</h3>
+                                    <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter border-b-4 border-primary/20 pb-2">A) Resumen de costos de mano de obra</h3>
                                     {monthlyMO.map((res: any) => (
                                         <div key={res.monthKey} className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-slate-200 p-8 shadow-sm">
                                             <div className="flex justify-between items-center mb-6">
@@ -600,6 +600,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                     {/* ===== MATERIALES Y SERVICIOS ===== */}
                     {editTab === "material" && (
                         <div className="space-y-6">
+                            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter border-b-4 border-primary/20 pb-2">B) Materiales y/o Servicios</h3>
                             <p className="text-sm font-bold opacity-50">Informe Diario (del día 1 al 31 del mes)</p>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {[0, 10, 20].map(offset => (
@@ -639,6 +640,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                     {/* ===== EQUIPO ===== */}
                     {editTab === "equipment" && (
                         <div className="space-y-6">
+                            <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter border-b-4 border-primary/20 pb-2">C) Equipo</h3>
                             <TableEditor 
                                 items={currentFA.equipment} 
                                 setItems={(items: any) => setCurrentFA({...currentFA, equipment: items})}
@@ -674,12 +676,12 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                            <div className="bg-white rounded-3xl border-2 border-slate-100 p-8">
                                 <table className="w-full text-left text-sm">
                                     <tbody>
-                                        <tr><td className="py-4 font-bold uppercase tracking-widest border-b text-slate-500 w-2/3">1) Total Mano De Obra</td><td className="py-4 font-black text-right border-b text-lg">{formatCurrency(tManoObra)}</td></tr>
-                                        <tr><td className="py-4 font-bold uppercase tracking-widest border-b text-slate-500">2) Total Materiales y/o Servicios</td><td className="py-4 font-black text-right border-b text-lg">{formatCurrency(tMateriales)}</td></tr>
-                                        <tr><td className="py-4 font-bold uppercase tracking-widest border-b text-slate-500">3) Total De Equipo</td><td className="py-4 font-black text-right border-b text-lg">{formatCurrency(tEquipo)}</td></tr>
-                                        <tr className="bg-slate-50"><td className="py-4 px-4 font-black uppercase border-b text-lg text-primary">4) TOTAL (1+2+3)</td><td className="py-4 font-black text-right border-b text-xl px-4 text-primary">{formatCurrency(sum123)}</td></tr>
-                                        <tr><td className="py-4 font-bold tracking-widest border-b text-slate-500 items-center flex gap-2">5) FIANZAS DE EJECUCION <input className="w-16 border rounded text-center px-1 font-normal text-black" value={currentFA.fa_details.fianzas_pct_mil} onChange={e=>updateDetail('fianzas_pct_mil', +e.target.value)}/> % POR MIL DE (4)</td><td className="py-4 font-black text-right border-b text-lg text-black">{formatCurrency(fianz)}</td></tr>
-                                        <tr className="bg-primary text-white"><td className="py-6 px-4 font-black text-xl rounded-l-2xl">6) COSTO TOTAL DEL TRABAJO POR ADMINISTRACIÓN. (4+5)</td><td className="py-6 font-black text-right text-3xl px-6 rounded-r-2xl text-yellow-300">{formatCurrency(tGlobal)}</td></tr>
+                                        <tr><td className="py-4 font-bold uppercase tracking-widest border-b text-slate-500 w-2/3">A) Total Mano De Obra</td><td className="py-4 font-black text-right border-b text-lg">{formatCurrency(tManoObra)}</td></tr>
+                                        <tr><td className="py-4 font-bold uppercase tracking-widest border-b text-slate-500">B) Total Materiales y/o Servicios</td><td className="py-4 font-black text-right border-b text-lg">{formatCurrency(tMateriales)}</td></tr>
+                                        <tr><td className="py-4 font-bold uppercase tracking-widest border-b text-slate-500">C) Total De Equipo</td><td className="py-4 font-black text-right border-b text-lg">{formatCurrency(tEquipo)}</td></tr>
+                                        <tr className="bg-slate-50"><td className="py-4 px-4 font-black uppercase border-b text-lg text-primary">D) TOTAL (A+B+C)</td><td className="py-4 font-black text-right border-b text-xl px-4 text-primary">{formatCurrency(sum123)}</td></tr>
+                                        <tr><td className="py-4 font-bold tracking-widest border-b text-slate-500 items-center flex gap-2">E) FIANZAS DE EJECUCION <input className="w-16 border rounded text-center px-1 font-normal text-black" value={currentFA.fa_details.fianzas_pct_mil} onChange={e=>updateDetail('fianzas_pct_mil', +e.target.value)}/> % POR MIL DE (D)</td><td className="py-4 font-black text-right border-b text-lg text-black">{formatCurrency(fianz)}</td></tr>
+                                        <tr className="bg-primary text-white"><td className="py-6 px-4 font-black text-xl rounded-l-2xl">F) COSTO TOTAL DEL TRABAJO POR ADMINISTRACIÓN. (D+E)</td><td className="py-6 font-black text-right text-3xl px-6 rounded-r-2xl text-yellow-300">{formatCurrency(tGlobal)}</td></tr>
                                     </tbody>
                                 </table>
                            </div>
