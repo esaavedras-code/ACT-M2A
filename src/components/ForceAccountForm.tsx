@@ -526,9 +526,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                                         <div className="text-5xl font-black text-yellow-300 drop-shadow-lg">{formatCurrency(tManoObra)}</div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            )}
                         </div>
                     )}
 
