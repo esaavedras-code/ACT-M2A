@@ -727,13 +727,12 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           <div className="flex-1 space-y-2">
                             <label className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest block px-2">¿Qué equipo buscas?</label>
                             <div className="relative group">
-                              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400 group-hover:text-amber-600 transition-colors" size={16} />
                               <input 
                                 type="text" 
                                 placeholder="Escribe el nombre del equipo (ej: Excavadora, Pickup...)" 
                                 value={eqSearch}
                                 onChange={(e) => setEqSearch(e.target.value)}
-                                className="input-field pl-12 bg-white dark:bg-slate-900 border-amber-100 dark:border-amber-800/50 focus:border-amber-400 focus:ring-amber-400/20"
+                                className="input-field pl-6 bg-white dark:bg-slate-900 border-amber-100 dark:border-amber-800/50 focus:border-amber-400 focus:ring-amber-400/20"
                               />
                             </div>
                           </div>
