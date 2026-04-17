@@ -1,11 +1,13 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 interface Column<T> {
   header: string;
   key: keyof T;
-  type: 'text' | 'number' | 'select';
+  type: 'text' | 'number' | 'select' | 'computed';
   options?: string[];
+  compute?: (row: T) => number;
 }
 
 interface EditableTableProps<T> {
@@ -25,6 +27,14 @@ export function EditableTable<T extends { id: string }>({
   onRemove, 
   onChange 
 }: EditableTableProps<T>) {
+  // Compute grand total for computed columns
+  const computedTotals = columns
+    .filter(col => col.type === 'computed' && col.compute)
+    .map(col => ({
+      key: col.key,
+      total: data.reduce((sum, item) => sum + (col.compute!(item) || 0), 0)
+    }));
+
   return (
     <div className="mb-8 overflow-hidden rounded-[2rem] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
       <div className="flex justify-between items-center px-6 py-5 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
@@ -42,7 +52,7 @@ export function EditableTable<T extends { id: string }>({
           <thead>
             <tr className="bg-slate-50/30 dark:bg-slate-900/30 text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">
               {columns.map((col, i) => (
-                <th key={i} className="px-6 py-4 border-b border-slate-50 dark:border-slate-800">{col.header}</th>
+                <th key={i} className={`px-6 py-4 border-b border-slate-50 dark:border-slate-800 ${col.type === 'computed' ? 'text-right bg-blue-50/50 dark:bg-blue-900/10 text-blue-500' : ''}`}>{col.header}</th>
               ))}
               <th className="px-6 py-4 border-b border-slate-50 dark:border-slate-800 w-12 text-center"></th>
             </tr>
@@ -51,8 +61,12 @@ export function EditableTable<T extends { id: string }>({
             {data.map((item, index) => (
               <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
                 {columns.map((col, i) => (
-                  <td key={i} className="px-3 py-2">
-                    {col.type === 'select' ? (
+                  <td key={i} className={`px-3 py-2 ${col.type === 'computed' ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}>
+                    {col.type === 'computed' && col.compute ? (
+                      <span className="text-xs font-black text-blue-600 dark:text-blue-400 px-3 py-2 block text-right">
+                        {formatCurrency(col.compute(item))}
+                      </span>
+                    ) : col.type === 'select' ? (
                       <select 
                         value={String(item[col.key])}
                         onChange={(e) => onChange(index, col.key, e.target.value)}
@@ -88,6 +102,25 @@ export function EditableTable<T extends { id: string }>({
                 </tr>
             )}
           </tbody>
+          {/* Grand total row for computed columns */}
+          {data.length > 0 && computedTotals.length > 0 && (
+            <tfoot>
+              <tr className="bg-blue-50/50 dark:bg-blue-900/10 border-t-2 border-blue-200 dark:border-blue-800">
+                {columns.map((col, i) => (
+                  <td key={i} className="px-6 py-4">
+                    {col.type === 'computed' ? (
+                      <span className="text-sm font-black text-blue-700 dark:text-blue-300 block text-right">
+                        {formatCurrency(computedTotals.find(ct => ct.key === col.key)?.total || 0)}
+                      </span>
+                    ) : i === 0 ? (
+                      <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">SUBTOTAL</span>
+                    ) : null}
+                  </td>
+                ))}
+                <td></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>

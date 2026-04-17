@@ -272,11 +272,11 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
               date: content.fecha_inicio || new Date().toISOString().split('T')[0],
               labor: (content.labor || []).map((l: any) => ({
                 id: Date.now().toString() + Math.random(),
-                employeeName: l.empleado || "",
-                ssLast4: l.ss_last4 || "",
+                employeeName: l.nombre || l.empleado || "",
+                ssLast4: l.seguro_social || l.ss_last4 || "",
                 classification: l.clasificacion || "",
                 hoursReg: parseFloat(l.horas_normales || 0),
-                hours15: parseFloat(l.horas_extras_15 || 0),
+                hours15: parseFloat(l.horas_extra || l.horas_extras_15 || 0),
                 hours20: parseFloat(l.horas_extras_20 || 0),
                 hourlyRate: parseFloat(l.tasa_normal || 0)
               })),
@@ -656,6 +656,12 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           { header: 'H. 1.5', key: 'hours15', type: 'number' },
                           { header: 'H. 2.0', key: 'hours20', type: 'number' },
                           { header: '$ / Hora', key: 'hourlyRate', type: 'number' },
+                          { header: 'Total', key: 'total', type: 'computed', compute: (row: any) => {
+                            const reg = (parseFloat(row.hoursReg) || 0) * (parseFloat(row.hourlyRate) || 0);
+                            const ot15 = (parseFloat(row.hours15) || 0) * (parseFloat(row.hourlyRate) || 0) * 1.5;
+                            const ot20 = (parseFloat(row.hours20) || 0) * (parseFloat(row.hourlyRate) || 0) * 2.0;
+                            return reg + ot15 + ot20;
+                          }},
                         ]}
                         data={ac49Report.labor}
                         onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
