@@ -60,18 +60,20 @@ export async function generateFaInformeDiario(projectId: string, faId: string) {
 
     // --- I. Mano de Obra ---
     drawText("I. MANO DE OBRA (LABOR)", 30, y, 10, true); y -= 15;
-    const colsLabor = ["Fecha", "Nombre", "Clase", "Reg", "Ext", "Tasa", "Total"];
-    colsLabor.forEach((c, i) => drawText(c, 35 + (i * 80), y, 8, true)); y -= 12;
+    const colsLabor = ["Fecha", "Nombre", "Clase", "Hrs", "Tasa", "Cantidad total"];
+    colsLabor.forEach((c, i) => {
+        const xPos = 35 + (i * 90);
+        drawText(c, xPos, y, 8, true);
+    }); y -= 12;
 
     laborRows?.forEach(l => {
-        const rowTotal = ((l.horas_normales || 0) * (l.tasa_normal || 0)) + ((l.horas_extra || 0) * (l.tasa_normal || 0) * 1.5);
+        const rowTotal = (l.horas_normales || 0) * (l.tasa_normal || 0);
         drawText(formatDate(l.fecha), 35, y, 7);
-        drawText(l.nombre?.substring(0, 15), 115, y, 7);
-        drawText(l.clasificacion?.substring(0, 12), 195, y, 7);
-        drawText(String(l.horas_normales || 0), 275, y, 7);
-        drawText(String(l.horas_extra || 0), 355, y, 7);
-        drawText(formatCurrency(l.tasa_normal), 435, y, 7);
-        drawText(formatCurrency(rowTotal), 515, y, 7);
+        drawText(l.nombre?.substring(0, 15), 125, y, 7);
+        drawText(l.clasificacion?.substring(0, 12), 215, y, 7);
+        drawText(String(l.horas_normales || 0), 305, y, 7);
+        drawText(formatCurrency(l.tasa_normal), 395, y, 7);
+        drawText(formatCurrency(rowTotal), 485, y, 7);
         y -= 10;
         if (y < 50) { y = height - 50; pdfDoc.addPage(); }
     });
