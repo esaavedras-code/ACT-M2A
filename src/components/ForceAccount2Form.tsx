@@ -45,6 +45,9 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   const [eqSearch, setEqSearch] = useState("");
   const [showEqSearcher, setShowEqSearcher] = useState(false);
 
+  // Contract Items for lookup
+  const [contractItems, setContractItems] = useState<any[]>([]);
+
   const [project, setProject] = useState<Project>({
     id: projectId || '1',
     number: '...',
@@ -65,6 +68,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     equipment: [],
     materials: [],
     workDescription: '',
+    relatedItemNo: '',
+    relatedItemDescription: '',
+    relatedItemUnitCost: 0,
+    relatedItemAmount: 0,
     signatures: { contractor: false, projectChief: false }
   });
 
@@ -91,6 +98,11 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
         .order("date", { ascending: false });
       
       if (rData) setReports(rData);
+
+      // Fetch Contract Items
+      const { data: cData } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
+      if (cData) setContractItems(cData);
+
     } catch (err) {
       console.error(err);
     } finally {
@@ -114,9 +126,34 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       labor: report.data?.labor || [],
       equipment: report.data?.equipment || [],
       materials: report.data?.materials || [],
+      relatedItemNo: report.data?.relatedItemNo || '',
+      relatedItemDescription: report.data?.relatedItemDescription || '',
+      relatedItemUnitCost: report.data?.relatedItemUnitCost || 0,
+      relatedItemAmount: report.data?.relatedItemAmount || 0,
       signatures: report.data?.signatures || { contractor: false, projectChief: false }
     });
     setActiveTab('ac49');
+  };
+
+  const handleItemLookup = (itemNo: string) => {
+    const item = contractItems.find(i => i.item_num === itemNo);
+    if (item) {
+      setAc49Report(prev => ({
+        ...prev,
+        relatedItemNo: item.item_num,
+        relatedItemDescription: item.description,
+        relatedItemUnitCost: item.unit_price,
+        relatedItemAmount: (item.quantity || 0) * (item.unit_price || 0)
+      }));
+    } else {
+      setAc49Report(prev => ({
+        ...prev,
+        relatedItemNo: itemNo,
+        relatedItemDescription: '',
+        relatedItemUnitCost: 0,
+        relatedItemAmount: 0
+      }));
+    }
   };
 
   const handleCreateNew = async () => {
@@ -173,10 +210,13 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           report_no: ac49Report.reportNo,
           date: ac49Report.date,
           description: ac49Report.workDescription || 'Sin descripción',
-          data: {
             labor: ac49Report.labor,
             equipment: ac49Report.equipment,
             materials: ac49Report.materials,
+            relatedItemNo: ac49Report.relatedItemNo,
+            relatedItemDescription: ac49Report.relatedItemDescription,
+            relatedItemUnitCost: ac49Report.relatedItemUnitCost,
+            relatedItemAmount: ac49Report.relatedItemAmount,
             signatures: ac49Report.signatures
           }
         })
@@ -230,6 +270,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                   labor: content.ac49Report.labor || [],
                   equipment: content.ac49Report.equipment || [],
                   materials: content.ac49Report.materials || [],
+                  relatedItemNo: content.ac49Report.relatedItemNo || '',
+                  relatedItemDescription: content.ac49Report.relatedItemDescription || '',
+                  relatedItemUnitCost: content.ac49Report.relatedItemUnitCost || 0,
+                  relatedItemAmount: content.ac49Report.relatedItemAmount || 0,
                   signatures: content.ac49Report.signatures || { contractor: false, projectChief: false }
                 }
               }])
@@ -397,6 +441,62 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                     )}
                   </div>
                   
+                  {/* Item Lookup Panel in Dashboard when selected */}
+                  {selectedReportId && (
+                    <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-[2.5rem] border border-blue-100 dark:border-blue-800 shadow-sm animate-in zoom-in-95 duration-300">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 bg-blue-600 rounded-xl text-white">
+                          <Calculator size={16} />
+                        </div>
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">Partida del Contrato Vinculada</h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-2"># de Item (Partida)</label>
+                          <input 
+                            type="text" 
+                            list="contract-items-list"
+                            placeholder="Ej: 0627-2001"
+                            value={ac49Report.relatedItemNo}
+                            onChange={(e) => handleItemLookup(e.target.value)}
+                            className="input-field font-mono font-black border-blue-200"
+                          />
+                          <datalist id="contract-items-list">
+                            {contractItems.map(i => (
+                              <option key={i.id} value={i.item_num}>{i.description}</option>
+                            ))}
+                          </datalist>
+                        </div>
+                        <div className="md:col-span-2 space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-2">Descripción de la Partida</label>
+                          <input 
+                            type="text" 
+                            disabled
+                            value={ac49Report.relatedItemDescription}
+                            className="input-field bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed opacity-80"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-2">Costo Unitario ($)</label>
+                          <input 
+                            type="text" 
+                            disabled
+                            value={formatCurrency(ac49Report.relatedItemUnitCost || 0)}
+                            className="input-field bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed text-right font-black"
+                          />
+                        </div>
+                      </div>
+
+                      {ac49Report.relatedItemNo && (
+                        <div className="mt-6 pt-6 border-t border-blue-100 dark:border-blue-800/50 flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest italic">Monto Total de Partida en Contrato:</span>
+                          <span className="text-lg font-black text-blue-700 dark:text-blue-400 tracking-tighter">{formatCurrency(ac49Report.relatedItemAmount || 0)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {reports.length > 0 ? reports.map(r => (
                       <div 

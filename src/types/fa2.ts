@@ -48,6 +48,13 @@ export interface AC49Report {
   date: string;
   reportNo: string;
   totalPages: number;
+  
+  // Partida del contrato vinculada
+  relatedItemNo?: string;
+  relatedItemDescription?: string;
+  relatedItemUnitCost?: number;
+  relatedItemAmount?: number;
+
   labor: LaborEntry[];
   equipment: EquipmentEntry[];
   materials: MaterialEntry[];

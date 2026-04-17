@@ -1,6 +1,11 @@
 dist
-node_modules
+**/node_modules
 .next
 out
 .git
-*.exe
+**/*.exe
+**/*.pdf
+**/*.docx
+**/*.xlsx
+!public/*.pdf
+!public/*.xlsx
