@@ -58,6 +58,26 @@ export interface AC49Report {
   labor: LaborEntry[];
   equipment: EquipmentEntry[];
   materials: MaterialEntry[];
+  
+  laborDetails?: {
+    mo_operadores?: number;
+    mo_operadores_pct?: number;
+    mo_carpinteros?: number;
+    mo_carpinteros_pct?: number;
+    mo_adicional?: number;
+    mo_adicional_pct?: number;
+    mo_sin_union_pct?: number;
+    mo_gastos_viaje?: number;
+    mo_beneficio_ind_pct?: number;
+    mo_fondo_estado_pct?: number;
+    mo_seguro_social_pct?: number;
+    mo_desempleo_est_pct?: number;
+    mo_desempleo_fed_pct?: number;
+    mo_resp_publica_pct?: number;
+    mo_incapacidad_pct?: number;
+    mo_beneficio_ind_final_pct?: number;
+  };
+  
   workDescription: string;
   signatures: {
     contractor: boolean;
