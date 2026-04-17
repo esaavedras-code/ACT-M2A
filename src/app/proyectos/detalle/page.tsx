@@ -191,7 +191,7 @@ function ProjectDetailContent() {
             case "logs": return "Los controles de tiempo de actividades los pueden ver en la pestaña de REPORTES.";
             case "inspection": return "Los informes de inspección los pueden ver en la pestaña de REPORTES.";
             case "force": return "El balance de Force Account lo pueden ver en la pestaña de REPORTES.";
-            case "force2": return "Gestión avanzada de Force Account (AC-49, AC-50 y AC-51) con diseño premium.";
+            case "force2": return "Gestión avanzada de Force Account (AC-49, AC-50 y AC-51).";
             case "liquidation": return "Las hojas de liquidación y checklists (Final Acceptance) los pueden ver en la pestaña de REPORTES, opción '7. Liquidación'.";
             case "ccml": return "La información de las Cartas de Requerimiento de Modificación (Project Modification Letters) se gestiona en esta sección.";
             case "update-tables": return "";
@@ -481,7 +481,7 @@ function ProjectDetailContent() {
                                 { activeTab === "presentations" && <MonthlyPresentations ref={activeRef} projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 { activeTab === "inspection"  && <InspectionForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "force"       && <ForceAccountForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "force2"      && <ForceAccount2Form ref={activeRef} projectId={id || undefined} />}
+                                {activeTab === "force2"      && <ForceAccount2Form ref={activeRef} projectId={id || undefined} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "liquidation" && <LiquidationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "ccml"        && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "files"       && <ProjectFilesExplorer projectId={id} userRole={role} />}
