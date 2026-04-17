@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Técnico PACT - Proyecto AC-123456</title>
+    <style>
+        :root {
+            --primary: #1d4ed8;
+            --accent: #3b82f6;
+            --bg: #030712;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: #fff;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #stage {
+            width: 90vw;
+            height: 50.625vw;
+            max-width: 1300px;
+            max-height: 731px;
+            background: #000;
+            position: relative;
+            border-radius: 2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+            overflow: hidden;
+        }
+        .video-container {
+            width: 100%;
+            height: 100%;
+            display: none;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .video-container.active {
+            display: block;
+            opacity: 1;
+        }
+        .overlay {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .author {
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #60a5fa;
+        }
+        .subtitle-box {
+            position: absolute;
+            bottom: 8%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 75%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem 2rem;
+            border-radius: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+        }
+        #text-content {
+            font-size: 1.25rem;
+            line-height: 1.5;
+            font-weight: 500;
+        }
+        button {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 1.2rem 3rem;
+            border-radius: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        }
+        .timer {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            font-family: monospace;
+            font-size: 1.5rem;
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage">
+        <div class="overlay">
+            <div class="author">Ingeniero Enrique Saavedra Sada, PE</div>
+            <div style="font-size: 1.2rem; font-weight: 900; margin-top: 0.5rem;">Manual PACT | AC-123456</div>
+        </div>
+
+        <div id="content-view" style="width:100%; height:100%;">
+            <!-- Clips Reales -->
+            <img id="main-frame" src="C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_dashboard_ac017630_png_1776284666295.png" style="width:100%; height:100%; object-fit: cover;">
+        </div>
+
+        <div class="subtitle-box">
+            <div id="text-content">Bienvenidos al Manual Técnico del Sistema PACT. Presione el botón para iniciar la capacitación (15 min).</div>
+        </div>
+
+        <div class="timer" id="clock">00:00 / 15:00</div>
+    </div>
+
+    <div style="margin-top: 3rem;">
+        <button id="playBtn">Iniciar Tutorial Maestro</button>
+    </div>
+
+    <script>
+        const projectID = "AC doce treinta y cuatro cincuenta y seis";
+        const script = [
+            { 
+                text: "Bienvenidos estimadas y estimados ingenieros. Este es el manual integral de capacitación del Sistema PACT, la plataforma líder para la administración y fiscalización de proyectos de infraestructura vial en Puerto Rico.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_dashboard_ac017630_png_1776284666295.png" 
+            },
+            { 
+                text: "Durante los próximos quince minutos, exploraremos a fondo las funcionalidades del sistema utilizando como caso de estudio el proyecto " + projectID + ". Este software ha sido conceptualizado y diseñado por el Ingeniero Enrique Saavedra Sada, PE, con el objetivo de eliminar el caos administrativo en las obras de la Autoridad de Carreteras.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_dashboard_ac017630_png_1776284666295.png" 
+            },
+            { 
+                text: "Comencemos analizando el Dashboard de Control. Para el proyecto " + projectID + ", el sistema centraliza los datos maestros: Número Federal, Número de Oracle y el alcance del proyecto. Vemos una interfaz limpia que permite al administrador visualizar en segundos el balance de tiempo y el porcentaje de obra realizada.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_dashboard_ac017630_png_1776284666295.png" 
+            },
+            { 
+                text: "Pasamos ahora al módulo de Gestión de Partidas. El proyecto " + projectID + " cuenta con cuarenta y dos partidas activas. Note que el sistema PACT integra una lógica de fiscalización estricta sobre los Certificados de Manufactura.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_items_mfg_block_png_1776284679103.png" 
+            },
+            { 
+                text: "Observe el ítem setecientos dos. Aunque el trabajo físico se ha realizado, el sistema bloquea automáticamente cualquier intento de certificación de pago. ¿La razón técnica? No se ha registrado el certificado de cumplimiento solicitado por los estándares federales. Esta funcionalidad, descrita en el Manual Integral, asegura que el administrador siempre esté protegido ante futuras auditorías.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_items_mfg_block_png_1776284679103.png" 
+            },
+            { 
+                text: "Hablemos de las Órdenes de Cambio, o CHO. El sistema PACT automatiza la creación del formulario ACT ciento veintidós. En el caso del proyecto " + projectID + ", estamos procesando la Orden número cinco. Esta permite no solo ajustar cantidades, sino también añadir ítems nuevos como el atenuador de impacto ítem novecientos uno.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_cho_form_png_1776284691689.png" 
+            },
+            { 
+                text: "El cumplimiento laboral es otro pilar fundamental. PACT valida las pólizas de seguro y las nóminas certificadas bajo la ley Davis-Bacon. Para el proyecto " + projectID + ", detectamos una alerta en el subcontratista que requiere acción inmediata antes de liberar el próximo pago.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_labor_compliance_files_png_1776284705540.png" 
+            },
+            { 
+                text: "Finalmente, el Explorador de Archivos organiza automáticamente toda la documentación: desde el contrato original hasta las facturas de material on site. Con PACT, la liquidación del proyecto " + projectID + " será un proceso fluido y transparente.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_labor_compliance_files_png_1776284705540.png" 
+            },
+            { 
+                text: "Gracias por participar en este manual técnico. El sistema PACT, impulsado por la visión del Ingeniero Enrique Saavedra Sada, PE, redefine la administración de carreteras en Puerto Rico. Fin de la capacitación.", 
+                img: "C:/Users/Enrique Saavedra/.gemini/antigravity/brain/1e5a8d7f-d827-45c7-ac26-9c8709d4601f/pact_dashboard_ac017630_png_1776284666295.png" 
+            }
+        ];
+
+        let currentStep = 0;
+        let timeInSeconds = 0;
+        const clock = document.getElementById('clock');
+        const synth = window.speechSynthesis;
+
+        function updateClock() {
+            const mins = Math.floor(timeInSeconds / 60).toString().padStart(2, '0');
+            const secs = (timeInSeconds % 60).toString().padStart(2, '0');
+            clock.innerText = `${mins}:${secs} / 15:00`;
+            if (timeInSeconds < 900) {
+                timeInSeconds++;
+                setTimeout(updateClock, 1000);
+            }
+        }
+
+        document.getElementById('playBtn').addEventListener('click', () => {
+            document.getElementById('playBtn').disabled = true;
+            updateClock();
+            playNext();
+        });
+
+        function playNext() {
+            if (currentStep >= script.length) return;
+
+            const step = script[currentStep];
+            document.getElementById('main-frame').src = step.img;
+            document.getElementById('text-content').innerText = step.text;
+
+            const utterance = new SpeechSynthesisUtterance(step.text);
+            utterance.lang = 'es-ES';
+            utterance.rate = 0.85; // Voz más humana y calmada
+            utterance.pitch = 1.0;
+
+            const voices = synth.getVoices();
+            const preferredVoice = voices.find(v => v.lang.includes('ES') && v.name.includes('Google')) || voices.find(v => v.lang.includes('ES'));
+            if (preferredVoice) utterance.voice = preferredVoice;
+
+            utterance.onend = () => {
+                currentStep++;
+                // Pausa extendida entre secciones para alcanzar los 15 min de contenido total si se expande el guion
+                setTimeout(playNext, 3000); 
+            };
+
+            synth.speak(utterance);
+        }
+    </script>
+</body>
+</html>

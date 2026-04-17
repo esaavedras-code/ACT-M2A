@@ -417,11 +417,50 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                                     { key: 'clasificacion', label: 'Clasificación', type: 'text' },
                                     { key: 'tasa_normal', label: 'Salario/hora', type: 'number' },
                                     { key: 'union_name', label: 'Unión', type: 'text' },
-                                    { key: 'horas_normales', label: 'Hrs Reg', type: 'number' },
-                                    { key: 'horas_extra', label: 'Hrs Ext', type: 'number' }
+                                    { key: 'horas_normales', label: 'Hrs', type: 'number' },
+                                    { key: 'cantidad_total', label: 'Cantidad total', type: 'readonly_calc', calc: (it: any) => (it.horas_normales||0)*(it.tasa_normal||0) }
                                 ]}
                             />
                             
+                            {(() => {
+                                const laborItems = currentFA.labor || [];
+                                const byMonth: Record<string, number> = {};
+                                let globalTotal = 0;
+                                laborItems.forEach((it: any) => {
+                                    if (it.fecha) {
+                                        const dateObj = new Date(it.fecha);
+                                        // Ajuste de zona horaria local para evitar que brinque al mes anterior
+                                        const localDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
+                                        const monthFormatter = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+                                        const monthStr = monthFormatter.format(localDate).toUpperCase();
+                                        
+                                        if (!byMonth[monthStr]) byMonth[monthStr] = 0;
+                                        const sum = (it.horas_normales || 0) * (it.tasa_normal || 0);
+                                        byMonth[monthStr] += sum;
+                                        globalTotal += sum;
+                                    }
+                                });
+                                const months = Object.keys(byMonth);
+                                if (months.length === 0) return null;
+                                return (
+                                    <div className="bg-white rounded-xl border p-4 shadow-sm mb-4">
+                                        <h4 className="font-bold mb-3 uppercase text-[10px] tracking-widest text-slate-500">Subtotales por Mes (Cantidad Total)</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {months.map(m => (
+                                                <div key={m} className="p-3 bg-slate-50 rounded-lg border flex justify-between items-center text-xs">
+                                                    <span className="font-bold text-slate-600">{m}</span>
+                                                    <span className="text-primary font-black">{formatCurrency(byMonth[m])}</span>
+                                                </div>
+                                            ))}
+                                            <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 flex justify-between items-center text-xs lg:col-start-4">
+                                                <span className="font-black text-primary">TOTAL MO:</span>
+                                                <span className="text-primary font-black text-sm">{formatCurrency(globalTotal)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border p-6">
                                 <h4 className="font-bold mb-4 uppercase text-xs tracking-widest text-slate-500">Resumen y Cálculo de Mano de Obra</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs">
@@ -637,7 +676,9 @@ function TabBtn({ id, active, set, label }: any) {
 function TableEditor({ items, setItems, columns }: any) {
     const handleAdd = () => {
         const newItem = columns.reduce((acc: any, col: any) => {
-            acc[col.key] = col.type === 'number' ? 0 : col.type === 'date' ? new Date().toISOString().split("T")[0] : "";
+            if (col.type !== 'readonly_calc') {
+                acc[col.key] = col.type === 'number' ? 0 : col.type === 'date' ? new Date().toISOString().split("T")[0] : "";
+            }
             return acc;
         }, {});
         setItems([...items, newItem]);
@@ -657,21 +698,29 @@ function TableEditor({ items, setItems, columns }: any) {
                             <tr key={idx} className="border-b focus-within:bg-blue-50">
                                 {columns.map((col: any) => (
                                     <td key={col.key} className="p-0 border-r min-w-[80px] relative">
-                                        <input type={col.type==="number"?"text":col.type} className={`w-full outline-none text-xs px-2 py-2.5 bg-transparent ${col.type === "date" ? "pr-12" : ""}`} value={item[col.key]} onChange={e => {
-                                            const newItems = [...items];
-                                            newItems[idx][col.key] = col.type === 'number' ? (parseFloat(e.target.value) || 0) : e.target.value;
-                                            if (col.key === 'fecha') {
-                                                newItems.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
-                                            }
-                                            setItems(newItems);
-                                        }} />
-                                        {col.type === "date" && (
-                                            <TodayButton onSelect={(date) => {
-                                                const newItems = [...items];
-                                                newItems[idx].fecha = date;
-                                                newItems.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
-                                                setItems(newItems);
-                                            }} />
+                                        {col.type === 'readonly_calc' ? (
+                                            <div className="w-full h-full flex justify-center items-center text-xs px-2 py-2.5 bg-slate-50 font-bold text-slate-600">
+                                                {formatCurrency(col.calc(item))}
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <input type={col.type==="number"?"text":col.type} className={`w-full outline-none text-xs px-2 py-2.5 bg-transparent ${col.type === "date" ? "pr-12" : ""}`} value={item[col.key]} onChange={e => {
+                                                    const newItems = [...items];
+                                                    newItems[idx][col.key] = col.type === 'number' ? (parseFloat(e.target.value) || 0) : e.target.value;
+                                                    if (col.key === 'fecha') {
+                                                        newItems.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
+                                                    }
+                                                    setItems(newItems);
+                                                }} />
+                                                {col.type === "date" && (
+                                                    <TodayButton onSelect={(date) => {
+                                                        const newItems = [...items];
+                                                        newItems[idx].fecha = date;
+                                                        newItems.sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
+                                                        setItems(newItems);
+                                                    }} />
+                                                )}
+                                            </>
                                         )}
                                     </td>
                                 ))}
