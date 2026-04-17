@@ -487,13 +487,8 @@ function ProjectDetailContent() {
                                 {activeTab === "files"       && <ProjectFilesExplorer projectId={id} userRole={role} />}
                                 {activeTab === "update-tables" && <UpdateTablesForm projectId={id || ""} numAct={numAct} />}
                                 {activeTab === "negotiation" && (
-                                    <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-800 flex flex-col items-center justify-center text-center gap-6">
-                                        <Handshake size={64} className="text-blue-600 mb-2" />
-                                        <div>
-                                            <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Zona de Negociación</h3>
-                                            <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto">Consulte el historial de precios oficial de la ACT para apoyar los procesos de negociación y estimación.</p>
-                                        </div>
-                                            <PriceComparison projectId={id || undefined} />
+                                    <div className="space-y-6">
+                                        <PriceComparison projectId={id || undefined} />
                                     </div>
                                 )}
                             </Suspense>
