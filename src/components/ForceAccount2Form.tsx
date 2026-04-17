@@ -210,6 +210,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           report_no: ac49Report.reportNo,
           date: ac49Report.date,
           description: ac49Report.workDescription || 'Sin descripción',
+          data: {
             labor: ac49Report.labor,
             equipment: ac49Report.equipment,
             materials: ac49Report.materials,
