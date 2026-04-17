@@ -7,7 +7,7 @@ import Link from "next/link";
 import { 
     FileText, Building2, ChevronLeft, Loader2, 
     ListChecks, Users, Package, ShieldCheck, 
-    FileCheck, FileEdit, LayoutDashboard, Calculator,
+    FileCheck, FileEdit, LayoutDashboard, Calculator, Briefcase,
     Mic, TrendingUp, Cloud, Factory, Info, FolderOpen, AlertTriangle,
     Save, Presentation, RefreshCcw, Handshake, Image as ImageIcon
 } from "lucide-react";
