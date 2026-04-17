@@ -240,32 +240,64 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
     };
 
     const calcularTotalesGlobales = () => {
-        if(!currentFA) return { tManoObra: 0, tMateriales: 0, tEquipo: 0, tGlobal: 0, fianz: 0, sum123: 0, h_subtotal: 0, g: 0, k: 0, m: 0, s: 0, t: 0, matSer_a: 0, subMat: 0, subSer: 0, matSer_b: 0, b_eq: 0, activo: 0, inactivo: 0 };
+        if(!currentFA) return { tManoObra: 0, tMateriales: 0, tEquipo: 0, tGlobal: 0, fianz: 0, sum123: 0, monthlyMO: [] };
         const d = currentFA.fa_details || defaultFaDetails;
         
-        // MO Math
-        const sumaOP = d.mo_operadores + (d.mo_operadores * (d.mo_operadores_pct/100));
-        const sumaCA = d.mo_carpinteros + (d.mo_carpinteros * (d.mo_carpinteros_pct/100));
-        const sumaAD = d.mo_adicional + (d.mo_adicional * (d.mo_adicional_pct/100));
-        const g = sumaOP + sumaCA + sumaAD; // manual
-        
-        // raw labor sum from table rows
-        const hrsNormales = currentFA.labor?.reduce((acc: number, c: any) => acc + ((c.horas_normales||0)*parseFloat(c.tasa_normal||0)), 0) || 0;
-        const h_subtotal = hrsNormales; 
-        const I_beneficios = h_subtotal * (d.mo_sin_union_pct/100);
-        const k = currentFA.con_union ? (g + d.mo_gastos_viaje) : (h_subtotal + I_beneficios + d.mo_gastos_viaje);
-        const l_benef = k * (d.mo_beneficio_ind_pct/100);
-        const m = k + l_benef;
-        
-        const n_ss_state = h_subtotal * (d.mo_fondo_estado_pct/100);
-        const o_ss = h_subtotal * (d.mo_seguro_social_pct/100);
-        const p_ss_desempleo = h_subtotal * ((d.mo_desempleo_est_pct + d.mo_desempleo_fed_pct)/100);
-        const q_resp = h_subtotal * (d.mo_resp_publica_pct/100);
-        const r_incap = h_subtotal * (d.mo_incapacidad_pct/100);
-        const s = n_ss_state + o_ss + p_ss_desempleo + q_resp + r_incap;
-        const t = s * (d.mo_beneficio_ind_final_pct/100);
-        
-        const tManoObra = m + s + t;
+        // Group labor by month
+        const laborByMonth: Record<string, any[]> = {};
+        (currentFA.labor || []).forEach((it: any) => {
+            if (it.fecha) {
+                const dateObj = new Date(it.fecha);
+                const localDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
+                const monthStr = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(localDate).toUpperCase();
+                if (!laborByMonth[monthStr]) laborByMonth[monthStr] = [];
+                laborByMonth[monthStr].push(it);
+            }
+        });
+
+        const months = Object.keys(laborByMonth);
+        let totalManoObraGlobal = 0;
+        const monthlyResults: any[] = [];
+
+        months.forEach(monthKey => {
+            const monthItems = laborByMonth[monthKey];
+            const h_subtotal = monthItems.reduce((acc: number, c: any) => acc + ((c.horas_normales||0)*parseFloat(c.tasa_normal||0)), 0);
+            
+            // Monthly specific manual data or fallback to global/default
+            const mData = d.monthly_mo?.[monthKey] || {};
+            const mo_op = mData.mo_operadores !== undefined ? mData.mo_operadores : (months.length === 1 ? d.mo_operadores : 0);
+            const mo_ca = mData.mo_carpinteros !== undefined ? mData.mo_carpinteros : (months.length === 1 ? d.mo_carpinteros : 0);
+            const mo_ad = mData.mo_adicional !== undefined ? mData.mo_adicional : (months.length === 1 ? d.mo_adicional : 0);
+            const mo_viaje = mData.mo_gastos_viaje !== undefined ? mData.mo_gastos_viaje : (months.length === 1 ? d.mo_gastos_viaje : 0);
+
+            const sumaOP = mo_op + (mo_op * (d.mo_operadores_pct/100));
+            const sumaCA = mo_ca + (mo_ca * (d.mo_carpinteros_pct/100));
+            const sumaAD = mo_ad + (mo_ad * (d.mo_adicional_pct/100));
+            const g = sumaOP + sumaCA + sumaAD;
+            
+            const I_beneficios = h_subtotal * (d.mo_sin_union_pct/100);
+            const k = currentFA.con_union ? (g + mo_viaje) : (h_subtotal + I_beneficios + mo_viaje);
+            const l_benef = k * (d.mo_beneficio_ind_pct/100);
+            const m = k + l_benef;
+            
+            const n_ss_state = h_subtotal * (d.mo_fondo_estado_pct/100);
+            const o_ss = h_subtotal * (d.mo_seguro_social_pct/100);
+            const p_ss_desempleo = h_subtotal * ((d.mo_desempleo_est_pct + d.mo_desempleo_fed_pct)/100);
+            const q_resp = h_subtotal * (d.mo_resp_publica_pct/100);
+            const r_incap = h_subtotal * (d.mo_incapacidad_pct/100);
+            const s = n_ss_state + o_ss + p_ss_desempleo + q_resp + r_incap;
+            const t = s * (d.mo_beneficio_ind_final_pct/100);
+            
+            const monthTotal = m + s + t;
+            totalManoObraGlobal += monthTotal;
+
+            monthlyResults.push({
+                monthKey, monthTotal, h_subtotal, g, k, m, s, t,
+                mo_op, mo_ca, mo_ad, mo_viaje
+            });
+        });
+
+        const tManoObra = totalManoObraGlobal;
 
         // Materias Math
         let subMat = 0, subSer = 0;
@@ -294,7 +326,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         const fianz = sum123 * (d.fianzas_pct_mil / 1000);
         const tGlobal = sum123 + fianz;
 
-        return { tManoObra, tMateriales, tEquipo, sum123, fianz, tGlobal, h_subtotal, g, k, m, s, t, matSer_a, subMat, subSer, matSer_b, b_eq, activo, inactivo };
+        return { tManoObra, tMateriales, tEquipo, sum123, fianz, tGlobal, monthlyMO: monthlyResults, matSer_a, subMat, subSer, matSer_b, b_eq, activo, inactivo };
     };
 
     if (activeSubTab === "list") {
@@ -326,7 +358,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         );
     }
 
-    const { tManoObra, tMateriales, tEquipo, tGlobal, h_subtotal, g, sum123, fianz, k, m, s, t, matSer_a, subMat, subSer, matSer_b, activo, inactivo, b_eq } = calcularTotalesGlobales();
+    const { tManoObra, tMateriales, tEquipo, tGlobal, sum123, fianz, monthlyMO, matSer_a, subMat, subSer, matSer_b, activo, inactivo, b_eq } = calcularTotalesGlobales();
 
     return (
         <div className="space-y-6">
@@ -422,79 +454,81 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                                 ]}
                             />
                             
-                            {(() => {
-                                const laborItems = currentFA.labor || [];
-                                const byMonth: Record<string, number> = {};
-                                let globalTotal = 0;
-                                laborItems.forEach((it: any) => {
-                                    if (it.fecha) {
-                                        const dateObj = new Date(it.fecha);
-                                        // Ajuste de zona horaria local para evitar que brinque al mes anterior
-                                        const localDate = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000);
-                                        const monthFormatter = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
-                                        const monthStr = monthFormatter.format(localDate).toUpperCase();
-                                        
-                                        if (!byMonth[monthStr]) byMonth[monthStr] = 0;
-                                        const sum = (it.horas_normales || 0) * (it.tasa_normal || 0);
-                                        byMonth[monthStr] += sum;
-                                        globalTotal += sum;
-                                    }
-                                });
-                                const months = Object.keys(byMonth);
-                                if (months.length === 0) return null;
-                                return (
-                                    <div className="bg-white rounded-xl border p-4 shadow-sm mb-4">
-                                        <h4 className="font-bold mb-3 uppercase text-[10px] tracking-widest text-slate-500">Subtotales por Mes (Cantidad Total)</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                            {months.map(m => (
-                                                <div key={m} className="p-3 bg-slate-50 rounded-lg border flex justify-between items-center text-xs">
-                                                    <span className="font-bold text-slate-600">{m}</span>
-                                                    <span className="text-primary font-black">{formatCurrency(byMonth[m])}</span>
+                            {monthlyMO.length > 0 && (
+                                <div className="space-y-12">
+                                    <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter border-b-4 border-primary/20 pb-2">Resumen de costos de mano de obra</h3>
+                                    {monthlyMO.map((res: any) => (
+                                        <div key={res.monthKey} className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl border-2 border-slate-200 p-8 shadow-sm">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <h4 className="font-bold text-primary text-sm uppercase tracking-[0.2em]">{res.monthKey}</h4>
+                                                <div className="bg-primary text-white px-4 py-1 rounded-full font-black text-xs">TOTAL MES: {formatCurrency(res.monthTotal)}</div>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-xs">
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="w-64">a) Subtot Operadores (Unión)</span> $<input className="w-24 text-right bg-white border outline-none font-bold" type="number" step="any" value={res.mo_op} onChange={e=>{
+                                                    const mData = currentFA.fa_details.monthly_mo || {};
+                                                    updateDetail('monthly_mo', { ...mData, [res.monthKey]: { ...(mData[res.monthKey]||{}), mo_operadores: +e.target.value } });
+                                                }}/></div>
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="w-64">b) Beneficios Oper. <input className="w-12 text-center border mr-1 text-xs" type="number" step="any" value={currentFA.fa_details.mo_operadores_pct} onChange={e=>updateDetail('mo_operadores_pct', +e.target.value)}/>%</span> <b>{formatCurrency(res.mo_op * (currentFA.fa_details.mo_operadores_pct/100))}</b></div>
+                                                
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="w-64">c) Subtot Carpinteros</span> $<input className="w-24 text-right bg-white border outline-none font-bold" type="number" step="any" value={res.mo_ca} onChange={e=>{
+                                                    const mData = currentFA.fa_details.monthly_mo || {};
+                                                    updateDetail('monthly_mo', { ...mData, [res.monthKey]: { ...(mData[res.monthKey]||{}), mo_carpinteros: +e.target.value } });
+                                                }}/></div>
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="w-64">d) Beneficios Carp. <input className="w-12 text-center border mr-1 text-xs" type="number" step="any" value={currentFA.fa_details.mo_carpinteros_pct} onChange={e=>updateDetail('mo_carpinteros_pct', +e.target.value)}/>%</span> <b>{formatCurrency(res.mo_ca * (currentFA.fa_details.mo_carpinteros_pct/100))}</b></div>
+                                                
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="w-64">e) Subtot Adicional</span> $<input className="w-24 text-right bg-white border outline-none font-bold" type="number" step="any" value={res.mo_ad} onChange={e=>{
+                                                    const mData = currentFA.fa_details.monthly_mo || {};
+                                                    updateDetail('monthly_mo', { ...mData, [res.monthKey]: { ...(mData[res.monthKey]||{}), mo_adicional: +e.target.value } });
+                                                }}/></div>
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="w-64">f) Beneficios Adic. <input className="w-12 text-center border mr-1 text-xs" type="number" step="any" value={currentFA.fa_details.mo_adicional_pct} onChange={e=>updateDetail('mo_adicional_pct', +e.target.value)}/>%</span> <b>{formatCurrency(res.mo_ad * (currentFA.fa_details.mo_adicional_pct/100))}</b></div>
+                                                
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="font-bold text-primary">g) Suma Unión (a..f)</span> <b>{formatCurrency(res.g)}</b></div>
+                                                <div className="flex items-center justify-between py-2 border-b"></div>
+
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="w-64">h) Subtotal Mano Obra Reg/Ext</span> <b>{formatCurrency(res.h_subtotal)}</b></div>
+                                                <div className="flex items-center justify-between py-2 border-b"><span className="w-64">i) Beneficios marginales <input className="w-12 text-center border mr-1 text-xs" type="number" step="any" value={currentFA.fa_details.mo_sin_union_pct} onChange={e=>updateDetail('mo_sin_union_pct', +e.target.value)}/>%</span>  <b>{formatCurrency(res.h_subtotal * (currentFA.fa_details.mo_sin_union_pct/100))}</b></div>
+                                                
+                                                <div className="col-span-1 md:col-span-2 mt-4 space-y-4">
+                                                    <div className="flex justify-between items-center bg-white p-3 border rounded-xl shadow-sm"><span className="w-64 font-bold">j) Gastos Viaje/Dietas</span> $<input className="w-32 text-right bg-slate-50 border p-1 rounded font-bold" type="number" step="any" value={res.mo_viaje} onChange={e=>{
+                                                        const mData = currentFA.fa_details.monthly_mo || {};
+                                                        updateDetail('monthly_mo', { ...mData, [res.monthKey]: { ...(mData[res.monthKey]||{}), mo_gastos_viaje: +e.target.value } });
+                                                    }}/></div>
+                                                    
+                                                    <div className="space-y-2 pt-2">
+                                                        <div className="flex justify-between items-center p-2"><span className="w-80 font-bold text-slate-500">k) Suma Base (Unión ó Sin Unión + Viajes)</span> <b>{formatCurrency(res.k)}</b></div>
+                                                        <div className="flex justify-between items-center p-2"><span className="w-80 font-bold text-slate-500">l) Beneficio Industrial <input className="w-12 text-center border" type="number" step="any" value={currentFA.fa_details.mo_beneficio_ind_pct} onChange={e=>updateDetail('mo_beneficio_ind_pct', +e.target.value)}/>% de k</span> <b>{formatCurrency(res.k * (currentFA.fa_details.mo_beneficio_ind_pct/100))}</b></div>
+                                                        <div className="flex justify-between items-center p-3 border-b-2 border-slate-300 bg-slate-100 rounded-xl"><span className="font-black uppercase text-[10px] tracking-widest">m) SUMA L+K</span> <b className="text-sm">{formatCurrency(res.m)}</b></div>
+
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 pt-4 opacity-75">
+                                                            <div className="flex justify-between py-1 text-[10px]"><span className="w-48">n) Fondo Seguro Estado <input className="w-10 border text-center" type="number" step="any" value={currentFA.fa_details.mo_fondo_estado_pct} onChange={e=>updateDetail('mo_fondo_estado_pct', +e.target.value)}/>%</span> <b>{formatCurrency(res.h_subtotal * (currentFA.fa_details.mo_fondo_estado_pct/100))}</b></div>
+                                                            <div className="flex justify-between py-1 text-[10px]"><span className="w-48">o) Seguro Social <input className="w-10 border text-center" type="number" step="any" value={currentFA.fa_details.mo_seguro_social_pct} onChange={e=>updateDetail('mo_seguro_social_pct', +e.target.value)}/>%</span> <b>{formatCurrency(res.h_subtotal * (currentFA.fa_details.mo_seguro_social_pct/100))}</b></div>
+                                                            <div className="flex justify-between py-1 text-[10px]"><span className="w-48">p) Desempleo Est. + Fed.</span> <b>{formatCurrency(res.h_subtotal * ((currentFA.fa_details.mo_desempleo_est_pct + currentFA.fa_details.mo_desempleo_fed_pct)/100))}</b></div>
+                                                            <div className="flex justify-between py-1 text-[10px]"><span className="w-48">q) Seg. Resp. Pública <input className="w-10 border text-center" type="number" step="any" value={currentFA.fa_details.mo_resp_publica_pct} onChange={e=>updateDetail('mo_resp_publica_pct', +e.target.value)}/>%</span> <b>{formatCurrency(res.h_subtotal * (currentFA.fa_details.mo_resp_publica_pct/100))}</b></div>
+                                                            <div className="flex justify-between py-1 text-[10px]"><span className="w-48">r) Incapacidad <input className="w-10 border text-center" type="number" step="any" value={currentFA.fa_details.mo_incapacidad_pct} onChange={e=>updateDetail('mo_incapacidad_pct', +e.target.value)}/>%</span> <b>{formatCurrency(res.h_subtotal * (currentFA.fa_details.mo_incapacidad_pct/100))}</b></div>
+                                                        </div>
+
+                                                        <div className="flex justify-between p-2 mt-2"><span className="font-bold">s) Suma (n+o+p+q+r)</span> <b>{formatCurrency(res.s)}</b></div>
+                                                        <div className="flex justify-between p-2"><span className="font-bold">t) Beneficio Industrial final <input className="w-10 border text-center font-normal" type="number" step="any" value={currentFA.fa_details.mo_beneficio_ind_final_pct} onChange={e=>updateDetail('mo_beneficio_ind_final_pct', +e.target.value)}/>%</span> <b>{formatCurrency(res.t)}</b></div>
+                                                    </div>
+
+                                                    <div className="flex justify-between p-4 bg-primary text-white rounded-2xl shadow-lg mt-4"><span className="font-black text-sm uppercase tracking-widest">TOTAL MANO DE OBRA ({res.monthKey})</span> <b className="text-xl">{formatCurrency(res.monthTotal)}</b></div>
                                                 </div>
-                                            ))}
-                                            <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 flex justify-between items-center text-xs lg:col-start-4">
-                                                <span className="font-black text-primary">TOTAL MO:</span>
-                                                <span className="text-primary font-black text-sm">{formatCurrency(globalTotal)}</span>
                                             </div>
                                         </div>
-                                    </div>
-                                );
-                            })()}
-
-                            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl border p-6">
-                                <h4 className="font-bold mb-4 uppercase text-xs tracking-widest text-slate-500">Resumen y Cálculo de Mano de Obra</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs">
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="w-48">a) Subtot Operadores (Unión)</span> $<input className="w-24 text-right bg-white border outline-none" type="number" step="any" value={currentFA.fa_details.mo_operadores} onChange={e=>updateDetail('mo_operadores', +e.target.value)}/></div>
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="w-48">b) Beneficios Oper. <input className="w-12 text-center border mr-1 text-xs" type="number" step="any" value={currentFA.fa_details.mo_operadores_pct} onChange={e=>updateDetail('mo_operadores_pct', +e.target.value)}/>%</span> <b>{formatCurrency(currentFA.fa_details.mo_operadores * (currentFA.fa_details.mo_operadores_pct/100))}</b></div>
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="w-48">c) Subtot Carpinteros</span> $<input className="w-24 text-right bg-white border outline-none" type="number" step="any" value={currentFA.fa_details.mo_carpinteros} onChange={e=>updateDetail('mo_carpinteros', +e.target.value)}/></div>
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="w-48">d) Beneficios Carp. <input className="w-12 text-center border mr-1 text-xs" type="number" step="any" value={currentFA.fa_details.mo_carpinteros_pct} onChange={e=>updateDetail('mo_carpinteros_pct', +e.target.value)}/>%</span> <b>{formatCurrency(currentFA.fa_details.mo_carpinteros * (currentFA.fa_details.mo_carpinteros_pct/100))}</b></div>
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="w-48">e) Subtot Adicional</span> $<input className="w-24 text-right bg-white border outline-none" type="number" step="any" value={currentFA.fa_details.mo_adicional} onChange={e=>updateDetail('mo_adicional', +e.target.value)}/></div>
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="w-48">f) Beneficios Adic. <input className="w-12 text-center border mr-1 text-xs" type="number" step="any" value={currentFA.fa_details.mo_adicional_pct} onChange={e=>updateDetail('mo_adicional_pct', +e.target.value)}/>%</span> <b>{formatCurrency(currentFA.fa_details.mo_adicional * (currentFA.fa_details.mo_adicional_pct/100))}</b></div>
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="font-bold text-primary">g) Suma Unión (a..f)</span> <b>{formatCurrency(g)}</b></div>
-                                    <div className="flex items-center justify-between py-2 border-b"></div>
-
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="w-48">h) Subtotal Mano Obra Reg/Ext</span> <b>{formatCurrency(h_subtotal)}</b></div>
-                                    <div className="flex items-center justify-between py-2 border-b"><span className="w-48">i) Beneficios marginales <input className="w-12 text-center border mr-1 text-xs" type="number" step="any" value={currentFA.fa_details.mo_sin_union_pct} onChange={e=>updateDetail('mo_sin_union_pct', +e.target.value)}/>%</span>  <b>{formatCurrency(h_subtotal * (currentFA.fa_details.mo_sin_union_pct/100))}</b></div>
+                                    ))}
                                     
-                                    <div className="col-span-1 md:col-span-2 mt-4 space-y-2">
-                                        <div className="flex justify-between items-center bg-white p-2 border"><span className="w-48 font-bold">j) Gastos Viaje/Dietas</span> $<input className="w-32 text-right bg-slate-50 border p-1" type="number" step="any" value={currentFA.fa_details.mo_gastos_viaje} onChange={e=>updateDetail('mo_gastos_viaje', +e.target.value)}/></div>
-                                        <div className="flex justify-between items-center p-2"><span className="w-64 font-bold">k) Suma Base (Unión ó Sin Unión + Viajes)</span> <b>{formatCurrency(k)}</b></div>
-                                        <div className="flex justify-between items-center p-2"><span className="w-64 font-bold">l) Beneficio Industrial <input className="w-12 text-center border" type="number" step="any" value={currentFA.fa_details.mo_beneficio_ind_pct} onChange={e=>updateDetail('mo_beneficio_ind_pct', +e.target.value)}/>% de k</span> <b>{formatCurrency(k * (currentFA.fa_details.mo_beneficio_ind_pct/100))}</b></div>
-                                        <div className="flex justify-between items-center p-2 border-b-2 border-slate-300 bg-slate-100"><span className="font-black">m) SUMA L+K</span> <b className="text-lg">{formatCurrency(m)}</b></div>
-
-                                        <div className="flex justify-between py-1 pt-4 text-[11px]"><span className="w-64">n) Fondo Seguro Estado <input className="w-10 border text-center" type="number" step="any" value={currentFA.fa_details.mo_fondo_estado_pct} onChange={e=>updateDetail('mo_fondo_estado_pct', +e.target.value)}/>%</span> <b>{formatCurrency(h_subtotal * (currentFA.fa_details.mo_fondo_estado_pct/100))}</b></div>
-                                        <div className="flex justify-between py-1 text-[11px]"><span className="w-64">o) Seguro Social <input className="w-10 border text-center" type="number" step="any" value={currentFA.fa_details.mo_seguro_social_pct} onChange={e=>updateDetail('mo_seguro_social_pct', +e.target.value)}/>%</span> <b>{formatCurrency(h_subtotal * (currentFA.fa_details.mo_seguro_social_pct/100))}</b></div>
-                                        <div className="flex justify-between py-1 text-[11px]"><span className="w-64">p) Desempleo Est. <input className="w-8 border" type="number" step="any" value={currentFA.fa_details.mo_desempleo_est_pct} onChange={e=>updateDetail('mo_desempleo_est_pct', +e.target.value)}/>% + Fed. <input className="w-8 border" type="number" step="any" value={currentFA.fa_details.mo_desempleo_fed_pct} onChange={e=>updateDetail('mo_desempleo_fed_pct', +e.target.value)}/>%</span> <b>{formatCurrency(h_subtotal * ((currentFA.fa_details.mo_desempleo_est_pct + currentFA.fa_details.mo_desempleo_fed_pct)/100))}</b></div>
-                                        <div className="flex justify-between py-1 text-[11px]"><span className="w-64">q) Seg. Resp. Pública <input className="w-10 border text-center" type="number" step="any" value={currentFA.fa_details.mo_resp_publica_pct} onChange={e=>updateDetail('mo_resp_publica_pct', +e.target.value)}/>%</span> <b>{formatCurrency(h_subtotal * (currentFA.fa_details.mo_resp_publica_pct/100))}</b></div>
-                                        <div className="flex justify-between py-1 text-[11px] border-b"><span className="w-64">r) Incapacidad <input className="w-10 border text-center" type="number" step="any" value={currentFA.fa_details.mo_incapacidad_pct} onChange={e=>updateDetail('mo_incapacidad_pct', +e.target.value)}/>%</span> <b>{formatCurrency(h_subtotal * (currentFA.fa_details.mo_incapacidad_pct/100))}</b></div>
-
-                                        <div className="flex justify-between p-2"><span className="font-bold">s) Suma (n+o+p+q+r)</span> <b>{formatCurrency(s)}</b></div>
-                                        <div className="flex justify-between p-2"><span className="font-bold">t) Beneficio Industrial final <input className="w-10 border text-center font-normal" type="number" step="any" value={currentFA.fa_details.mo_beneficio_ind_final_pct} onChange={e=>updateDetail('mo_beneficio_ind_final_pct', +e.target.value)}/>%</span> <b>{formatCurrency(t)}</b></div>
-
-                                        <div className="flex justify-between p-4 bg-green-50 text-green-900 border border-green-200 mt-4"><span className="font-black text-lg">(1) TOTAL DE MANO DE OBRA (m+s+t)</span> <b className="text-xl">{formatCurrency(tManoObra)}</b></div>
+                                    <div className="p-8 bg-slate-900 text-white rounded-[3rem] shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
+                                        <div className="space-y-1">
+                                            <h3 className="text-2xl font-black uppercase tracking-tighter">Total Acumulado de MO</h3>
+                                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Suma de todos los meses de Force Account</p>
+                                        </div>
+                                        <div className="text-5xl font-black text-yellow-300 drop-shadow-lg">{formatCurrency(tManoObra)}</div>
                                     </div>
                                 </div>
-                            </div>
+                            ))}
+                        </div>
+                    )}
                         </div>
                     )}
 
