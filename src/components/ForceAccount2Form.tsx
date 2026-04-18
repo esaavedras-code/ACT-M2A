@@ -371,7 +371,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                 hoursReg: parseFloat(l.horas_normales || 0),
                 hours15: parseFloat(l.horas_extra || l.horas_extras_15 || 0),
                 hours20: parseFloat(l.horas_extras_20 || 0),
-                hourlyRate: parseFloat(l.tasa_normal || 0)
+                hourlyRate: parseFloat(l.tasa_normal || 0),
+                date: l.fecha || l.date || content.fecha_inicio || ""
               })),
               equipment: (content.equipment || []).map((e: any) => ({
                 id: Date.now().toString() + Math.random(),
