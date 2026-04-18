@@ -1041,39 +1041,20 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
                 {activeTab === 'ac50' && (
                   <div className="card space-y-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6">
-                      <div>
-                        <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase flex items-center gap-2"><Truck className="text-amber-500" /> AC-50: Resumen de Equipo</h3>
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Resumen de costos de renta</p>
+                    <div className="bg-blue-600/5 dark:bg-blue-600/10 p-8 rounded-[2.5rem] border border-blue-100 dark:border-blue-900/30 flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                          <Truck size={32} />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Resumen de Renta Mensual</h4>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Consolidado basado en reportes AC-49</p>
+                        </div>
                       </div>
                       <div className="text-right">
-                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Total Renta Estimado</p>
-                         <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{formatCurrency(summary.rentTotal)}</p>
+                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Renta Estimado</p>
+                         <p className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{formatCurrency(summary.rentTotal)}</p>
                       </div>
-                    </div>
-
-                    <div className="overflow-x-auto rounded-[2.5rem] border bg-slate-50/30">
-                       <h4 className="px-8 py-4 bg-white dark:bg-slate-900 border-b text-[10px] font-black uppercase tracking-widest text-blue-600">Parte A: Detalle de Tiempo Trabajado</h4>
-                       <table className="w-full text-left">
-                         <thead>
-                           <tr className="bg-white dark:bg-slate-900 text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] border-b">
-                             <th className="px-8 py-5">Equipo / Maquinaria</th>
-                             <th className="px-8 py-5 text-center">Horas</th>
-                             <th className="px-8 py-5 text-right">Monto</th>
-                           </tr>
-                         </thead>
-                         <tbody className="divide-y">
-                           {ac49Report.equipment.length > 0 ? ac49Report.equipment.map((eq) => (
-                             <tr key={eq.id}>
-                               <td className="px-8 py-6 text-slate-900 dark:text-white font-black text-[11px] uppercase">
-                                  {eq.description} ({eq.model})
-                               </td>
-                               <td className="px-8 py-6 text-center font-black">{eq.hours}</td>
-                               <td className="px-8 py-6 text-right text-emerald-600 font-black text-sm">{formatCurrency(Number(eq.hours) * (Number(eq.dailyRate) || 0))}</td>
-                             </tr>
-                           )) : <tr><td colSpan={3} className="px-8 py-20 text-center text-slate-300 italic font-bold">Sin equipos registrados en este reporte.</td></tr>}
-                         </tbody>
-                       </table>
                     </div>
 
                     <div className="overflow-x-auto rounded-[2.5rem] border bg-slate-50/30">
