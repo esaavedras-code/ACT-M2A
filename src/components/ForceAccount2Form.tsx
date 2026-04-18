@@ -273,6 +273,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
               labor: (content.labor || []).map((l: any) => ({
                 id: Date.now().toString() + Math.random(),
                 employeeName: l.nombre || l.empleado || "",
+                date: l.fecha || l.date || content.fecha_inicio || new Date().toISOString().split('T')[0],
                 ssLast4: l.seguro_social || l.ss_last4 || "",
                 classification: l.clasificacion || "",
                 hoursReg: parseFloat(l.horas_normales || 0),
@@ -752,6 +753,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         title="A. PERSONAL"
                         columns={[
                           { header: 'Empleado', key: 'employeeName', type: 'text' },
+                          { header: 'Fecha', key: 'date', type: 'text' },
                           { header: 'SS (Últ. 4)', key: 'ssLast4', type: 'text' },
                           { header: 'Clasificación', key: 'classification', type: 'text' },
                           { header: 'H. Reg', key: 'hoursReg', type: 'number' },
@@ -766,7 +768,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           }},
                         ]}
                         data={ac49Report.labor}
-                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
+                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: ac49Report.date, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
                         onRemove={(idx) => setAc49Report({...ac49Report, labor: ac49Report.labor.filter((_, i) => i !== idx)})}
                         onChange={(idx, key, val) => {
                           const newLabor = [...ac49Report.labor];
