@@ -60,6 +60,19 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   const [eqSearch, setEqSearch] = useState("");
   const [showEqSearcher, setShowEqSearcher] = useState(false);
 
+  // Labor Period Filter State
+  const [laborFilterStart, setLaborFilterStart] = useState("");
+  const [laborFilterEnd, setLaborFilterEnd] = useState("");
+
+  const visibleLabor = useMemo(() => {
+    if (!laborFilterStart && !laborFilterEnd) return ac49Report.labor;
+    return ac49Report.labor.filter(l => {
+      const rowDate = l.date || ac49Report.date;
+      return (!laborFilterStart || rowDate >= laborFilterStart) && 
+             (!laborFilterEnd || rowDate <= laborFilterEnd);
+    });
+  }, [ac49Report.labor, laborFilterStart, laborFilterEnd, ac49Report.date]);
+
   // Contract Items for lookup
   const [contractItems, setContractItems] = useState<any[]>([]);
 
@@ -881,7 +894,42 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                       </div>
                     </div>
 
-                    <div className="space-y-12">
+                    <div className="space-y-6">
+                      <div className="flex flex-col md:flex-row items-center gap-4 p-6 bg-blue-50/50 dark:bg-blue-900/5 rounded-[2rem] border border-blue-100 dark:border-blue-900/20">
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Clock size={16} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Filtrar lista de personal por:</span>
+                        </div>
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="flex-1 space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Desde</label>
+                            <input 
+                              type="date" 
+                              value={laborFilterStart}
+                              onChange={(e) => setLaborFilterStart(e.target.value)}
+                              className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-2 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Hasta</label>
+                            <input 
+                              type="date" 
+                              value={laborFilterEnd}
+                              onChange={(e) => setLaborFilterEnd(e.target.value)}
+                              className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-2 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          {(laborFilterStart || laborFilterEnd) && (
+                            <button 
+                              onClick={() => { setLaborFilterStart(""); setLaborFilterEnd(""); }}
+                              className="mt-5 p-2 text-red-500 bg-white dark:bg-slate-800 rounded-xl ring-1 ring-slate-200 hover:bg-red-50 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
                       <EditableTable<LaborEntry>
                         title="A. PERSONAL"
                         columns={[
@@ -900,21 +948,31 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             return reg + ot15 + ot20;
                           }},
                         ]}
-                        data={ac49Report.labor}
-                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: ac49Report.date, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
-                        onRemove={(idx) => setAc49Report({...ac49Report, labor: ac49Report.labor.filter((_, i) => i !== idx)})}
+                        data={visibleLabor}
+                        onAdd={() => {
+                          const newDate = laborFilterStart || ac49Report.date;
+                          setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: newDate, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]});
+                        }}
+                        onRemove={(idx) => {
+                          const itemToRemove = visibleLabor[idx];
+                          setAc49Report({...ac49Report, labor: ac49Report.labor.filter(l => l.id !== itemToRemove.id)});
+                        }}
                         onChange={(idx, key, val) => {
+                          const targetItem = visibleLabor[idx];
+                          const realIdx = ac49Report.labor.findIndex(l => l.id === targetItem.id);
+                          if (realIdx === -1) return;
+
                           const newLabor = [...ac49Report.labor];
-                          (newLabor[idx] as any)[key] = val;
+                          (newLabor[realIdx] as any)[key] = val;
                           
                           // Sugerencia Auto-relleno Personal
                           if (key === 'employeeName' && val) {
                             const term = String(val).trim();
                             const suggested = suggestionsDB.labor[term];
                             if (suggested) {
-                              if (!newLabor[idx].ssLast4) newLabor[idx].ssLast4 = suggested.ssLast4;
-                              if (!newLabor[idx].classification) newLabor[idx].classification = suggested.classification;
-                              if (!newLabor[idx].hourlyRate) newLabor[idx].hourlyRate = suggested.hourlyRate;
+                              if (!newLabor[realIdx].ssLast4) newLabor[realIdx].ssLast4 = suggested.ssLast4;
+                              if (!newLabor[realIdx].classification) newLabor[realIdx].classification = suggested.classification;
+                              if (!newLabor[realIdx].hourlyRate) newLabor[realIdx].hourlyRate = suggested.hourlyRate;
                             }
                           }
                           
