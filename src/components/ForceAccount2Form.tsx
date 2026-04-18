@@ -871,7 +871,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             }},
                           ]}
                           data={visibleLabor}
-                          onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: laborFilterStart || ac49Report.date, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
+                          onAdd={() => {
+                            const lastDate = ac49Report.labor.length > 0 ? (ac49Report.labor[ac49Report.labor.length - 1].date || ac49Report.date) : (laborFilterStart || ac49Report.date);
+                            setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: lastDate, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]});
+                          }}
                           onRemove={(idx) => setAc49Report({...ac49Report, labor: ac49Report.labor.filter(l => l.id !== visibleLabor[idx].id)})}
                           onChange={(idx, key, val) => {
                             const targetItem = visibleLabor[idx];
@@ -906,7 +909,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             { header: 'Monto', key: 'amount', type: 'computed', compute: (row: any) => (parseFloat(row.quantity) || 0) * (parseFloat(row.unitCost) || 0) },
                           ]}
                           data={visibleMaterials}
-                          onAdd={() => setAc49Report({...ac49Report, materials: [...ac49Report.materials, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, type: '', description: '', supplier: '', invoiceNo: '', quantity: 0, unitCost: 0, amount: 0 }]})}
+                          onAdd={() => {
+                            const lastDate = ac49Report.materials.length > 0 ? (ac49Report.materials[ac49Report.materials.length - 1].date || ac49Report.date) : (laborFilterStart || ac49Report.date);
+                            setAc49Report({...ac49Report, materials: [...ac49Report.materials, { id: Date.now().toString(), date: lastDate, type: '', description: '', supplier: '', invoiceNo: '', quantity: 0, unitCost: 0, amount: 0 }]});
+                          }}
                           onRemove={(idx) => setAc49Report({...ac49Report, materials: ac49Report.materials.filter(m => m.id !== visibleMaterials[idx].id)})}
                           onChange={(idx, key, val) => {
                             const targetItem = visibleMaterials[idx];
@@ -937,7 +943,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             { header: 'Total $', key: 'total', type: 'computed', compute: (row: any) => (parseFloat(row.hoursActive) || 0) * (parseFloat(row.dailyRate) || 0) },
                           ]}
                           data={visibleEquipment}
-                          onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, description: '', model: '', year: '', capacity: '', fuelType: '', ownership: '', isRented: false, hours: 0, hoursActive: 0, hoursInactive: 0, hoursRepair: 0, dailyRate: 0 }]})}
+                          onAdd={() => {
+                            const lastDate = ac49Report.equipment.length > 0 ? (ac49Report.equipment[ac49Report.equipment.length - 1].date || ac49Report.date) : (laborFilterStart || ac49Report.date);
+                            setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), date: lastDate, description: '', model: '', year: '', capacity: '', fuelType: '', ownership: '', isRented: false, hours: 0, hoursActive: 0, hoursInactive: 0, hoursRepair: 0, dailyRate: 0 }]});
+                          }}
                           onRemove={(idx) => setAc49Report({...ac49Report, equipment: ac49Report.equipment.filter(e => e.id !== visibleEquipment[idx].id)})}
                           onChange={(idx, key, val) => {
                             const targetItem = visibleEquipment[idx];
