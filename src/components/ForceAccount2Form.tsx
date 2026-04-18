@@ -361,10 +361,34 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     const baseSummary = applyAC51Rules(rawLabor, rawEq, rawMat);
     
     // Override labor calculations with the detailed labor config if requested
+    const auto_mo_op = ac49Report.labor
+      .filter(l => {
+        const c = (l.classification || "").toLowerCase();
+        return c.includes('oper') || c.includes('chof') || c.includes('driver') || c.includes('heavy') || c.includes('mechanic');
+      })
+      .reduce((acc, curr) => acc + calculateLaborTotal(curr), 0);
+      
+    const auto_mo_ca = ac49Report.labor
+      .filter(l => {
+        const c = (l.classification || "").toLowerCase();
+        return c.includes('carp');
+      })
+      .reduce((acc, curr) => acc + calculateLaborTotal(curr), 0);
+      
+    const auto_mo_ad = ac49Report.labor
+      .filter(l => {
+        const c = (l.classification || "").toLowerCase();
+        const isOp = c.includes('oper') || c.includes('chof') || c.includes('driver') || c.includes('heavy') || c.includes('mechanic');
+        const isCa = c.includes('carp');
+        return !isOp && !isCa;
+      })
+      .reduce((acc, curr) => acc + calculateLaborTotal(curr), 0);
+
     const dets = ac49Report.laborDetails || {};
-    const mo_op = dets.mo_operadores || 0;
-    const mo_ca = dets.mo_carpinteros || 0;
-    const mo_ad = dets.mo_adicional || 0;
+    const mo_op = dets.mo_operadores || auto_mo_op;
+    const mo_ca = dets.mo_carpinteros || auto_mo_ca;
+    const mo_ad = dets.mo_adicional || auto_mo_ad;
+
     const g = (mo_op * (1 + (dets.mo_operadores_pct || 0)/100)) +
               (mo_ca * (1 + (dets.mo_carpinteros_pct || 0)/100)) +
               (mo_ad * (1 + (dets.mo_adicional_pct || 0)/100));
@@ -506,11 +530,12 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
               <div className="space-y-8">
                 {/* Statistics of selected report IF selected */}
                 {selectedReportId ? (
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-top duration-500">
+                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in slide-in-from-top duration-500">
                    {[
                      { title: 'Total Liquidar', value: formatCurrency(summary.grandTotal), icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/10' },
-                     { title: 'Renta Equipo', value: formatCurrency(summary.equipment.total), icon: Truck, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/10' },
-                     { title: 'Mano de Obra', value: formatCurrency(summary.labor.total), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/10' },
+                     { title: 'Mano de Obra (A)', value: formatCurrency(summary.detailedLabor?.total || summary.labor.total), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/10' },
+                     { title: 'Materiales (B)', value: formatCurrency(summary.detailedMaterials?.total || summary.materials.total), icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/10' },
+                     { title: 'Equipo (C)', value: formatCurrency(summary.detailedEquipment?.total || summary.equipment.total), icon: Truck, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/10' },
                    ].map((stat, i) => (
                      <div key={i} className="card relative overflow-hidden group border-b-4 border-b-blue-500">
                        <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -519,11 +544,12 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                        <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center mb-6`}>
                          <stat.icon size={24} />
                        </div>
-                       <p className="label-field mb-0">{stat.title}</p>
+                       <p className="label-field mb-0 font-black">{stat.title}</p>
                        <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stat.value}</p>
                      </div>
                    ))}
                  </div>
+
                 ) : (
                   <div className="bg-blue-600 p-8 rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-500/20">
                      <div className="space-y-2">
@@ -723,7 +749,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
                     <div className="space-y-12">
                       <EditableTable<LaborEntry>
-                        title="A. PERSONAL (Mano de Obra Directa)"
+                        title="A. PERSONAL"
                         columns={[
                           { header: 'Empleado', key: 'employeeName', type: 'text' },
                           { header: 'SS (Últ. 4)', key: 'ssLast4', type: 'text' },
@@ -749,26 +775,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         }}
                       />
 
-                      <EditableTable<EquipmentEntry>
-                        title="B. EQUIPO EN USO"
-                        columns={[
-                          { header: 'Descripción / Máquina', key: 'description', type: 'text' },
-                          { header: 'Modelo', key: 'model', type: 'text' },
-                          { header: 'Tarifa Diaria ($)', key: 'dailyRate', type: 'number' },
-                          { header: 'Horas', key: 'hours', type: 'number' },
-                        ]}
-                        data={ac49Report.equipment}
-                        onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), description: '', model: '', capacity: '', isRented: false, hours: 0, dailyRate: 0 }]})}
-                        onRemove={(idx) => setAc49Report({...ac49Report, equipment: ac49Report.equipment.filter((_, i) => i !== idx)})}
-                        onChange={(idx, key, val) => {
-                          const newEq = [...ac49Report.equipment];
-                          (newEq[idx] as any)[key] = val;
-                          setAc49Report({...ac49Report, equipment: newEq});
-                        }}
-                      />
-
                       <EditableTable<MaterialEntry>
-                        title="C. MATERIALES Y/O SERVICIOS"
+                        title="B. MATERIALES Y/O SERVICIOS"
                         columns={[
                           { header: 'Tipo (M) mat. (S) Serv.', key: 'type', type: 'text' },
                           { header: 'Materiales Usados y/o Servicios Prestados', key: 'description', type: 'text' },
@@ -787,6 +795,25 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           setAc49Report({...ac49Report, materials: newMat});
                         }}
                       />
+
+                      <EditableTable<EquipmentEntry>
+                        title="C. EQUIPO EN USO"
+                        columns={[
+                          { header: 'Descripción / Máquina', key: 'description', type: 'text' },
+                          { header: 'Modelo', key: 'model', type: 'text' },
+                          { header: 'Tarifa Diaria ($)', key: 'dailyRate', type: 'number' },
+                          { header: 'Horas', key: 'hours', type: 'number' },
+                        ]}
+                        data={ac49Report.equipment}
+                        onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), description: '', model: '', capacity: '', isRented: false, hours: 0, dailyRate: 0 }]})}
+                        onRemove={(idx) => setAc49Report({...ac49Report, equipment: ac49Report.equipment.filter((_, i) => i !== idx)})}
+                        onChange={(idx, key, val) => {
+                          const newEq = [...ac49Report.equipment];
+                          (newEq[idx] as any)[key] = val;
+                          setAc49Report({...ac49Report, equipment: newEq});
+                        }}
+                      />
+
 
                       <div className="space-y-3">
                         <label className="label-field">Descripción Detallada del Trabajo</label>
@@ -936,7 +963,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                  <Users size={20} />
                                </div>
                                <div>
-                                 <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">I. Resumen de Mano de Obra</h4>
+                                 <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">A. Resumen de Mano de Obra</h4>
                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">({ac49Report.date || 'Sin Fecha'})</p>
                                </div>
                              </div>
@@ -1020,45 +1047,13 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          {/* Equipo Summary */}
-                          <div className="p-10 rounded-[3rem] bg-amber-50/30 dark:bg-amber-900/5 border border-amber-100 dark:border-amber-900/20 shadow-lg">
-                            <div className="flex items-center gap-3 mb-8">
-                               <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-600">
-                                 <Truck size={20} />
-                               </div>
-                               <h4 className="text-[11px] font-black text-amber-900 dark:text-amber-100 uppercase tracking-tight">RESUMEN DE COSTO DE EQUIPO</h4>
-                            </div>
-                            <div className="space-y-4 text-[10px] font-bold text-amber-800/80 uppercase">
-                              <div className="flex justify-between items-center text-amber-900 dark:text-amber-100">
-                                <span>a) Subtotal Renta de Equipo Activo + Inactivo</span>
-                                <span>{formatCurrency(summary.detailedEquipment?.subtotalReq || summary.equipment.subtotal)}</span>
-                              </div>
-                              <div className="flex justify-between items-center italic opacity-80 pl-4">
-                                <span>b) Beneficio Industrial 15% de (a)</span>
-                                <span>{formatCurrency(summary.detailedEquipment?.bi || summary.equipment.bi)}</span>
-                              </div>
-                              <div className="flex justify-between items-center pl-4 opacity-80">
-                                <span>c) Subtotal Renta Eq. Activo (operating cost)</span>
-                                <span>$0.00</span>
-                              </div>
-                              <div className="flex justify-between items-center pl-4 opacity-80">
-                                <span>d) Subtotal Renta de Equipo Inactivo</span>
-                                <span>$0.00</span>
-                              </div>
-                              <div className="pt-4 border-t border-amber-200/50 flex justify-between items-center mt-2">
-                                <span className="font-black text-amber-900 dark:text-amber-100 text-[11px] uppercase tracking-widest">(3) TOTAL DE EQUIPO (b+c+d)</span>
-                                <span className="text-xl font-black text-amber-600">{formatCurrency(summary.detailedEquipment?.total || summary.equipment.total)}</span>
-                              </div>
-                            </div>
-                          </div>
-
                           {/* Materiales Summary */}
                           <div className="p-10 rounded-[3rem] bg-emerald-50/30 dark:bg-emerald-900/5 border border-emerald-100 dark:border-emerald-900/20 shadow-lg">
                             <div className="flex items-center gap-3 mb-8">
                                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600">
                                  <ShieldCheck size={20} />
                                </div>
-                               <h4 className="text-[11px] font-black text-emerald-900 dark:text-emerald-100 uppercase tracking-tight">RESUMEN DE COSTO DE MAT. Y/O SERV.</h4>
+                               <h4 className="text-[11px] font-black text-emerald-900 dark:text-emerald-100 uppercase tracking-tight">B. RESUMEN DE COSTO DE MAT. Y/O SERV.</h4>
                             </div>
                             <div className="space-y-3 text-[10px] font-bold text-emerald-800/80 uppercase">
                               <div className="flex justify-between items-center font-black text-emerald-900 dark:text-emerald-100">
@@ -1093,7 +1088,40 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                               </div>
                             </div>
                           </div>
+
+                          {/* Equipo Summary */}
+                          <div className="p-10 rounded-[3rem] bg-amber-50/30 dark:bg-amber-900/5 border border-amber-100 dark:border-amber-900/20 shadow-lg">
+                            <div className="flex items-center gap-3 mb-8">
+                               <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-600">
+                                 <Truck size={20} />
+                               </div>
+                               <h4 className="text-[11px] font-black text-amber-900 dark:text-amber-100 uppercase tracking-tight">C. RESUMEN DE COSTO DE EQUIPO</h4>
+                            </div>
+                            <div className="space-y-4 text-[10px] font-bold text-amber-800/80 uppercase">
+                              <div className="flex justify-between items-center text-amber-900 dark:text-amber-100">
+                                <span>a) Subtotal Renta de Equipo Activo + Inactivo</span>
+                                <span>{formatCurrency(summary.detailedEquipment?.subtotalReq || summary.equipment.subtotal)}</span>
+                              </div>
+                              <div className="flex justify-between items-center italic opacity-80 pl-4">
+                                <span>b) Beneficio Industrial 15% de (a)</span>
+                                <span>{formatCurrency(summary.detailedEquipment?.bi || summary.equipment.bi)}</span>
+                              </div>
+                              <div className="flex justify-between items-center pl-4 opacity-80">
+                                <span>c) Subtotal Renta Eq. Activo (operating cost)</span>
+                                <span>$0.00</span>
+                              </div>
+                              <div className="flex justify-between items-center pl-4 opacity-80">
+                                <span>d) Subtotal Renta de Equipo Inactivo</span>
+                                <span>$0.00</span>
+                              </div>
+                              <div className="pt-4 border-t border-amber-200/50 flex justify-between items-center mt-2">
+                                <span className="font-black text-amber-900 dark:text-amber-100 text-[11px] uppercase tracking-widest">(3) TOTAL DE EQUIPO (b+c+d)</span>
+                                <span className="text-xl font-black text-amber-600">{formatCurrency(summary.detailedEquipment?.total || summary.equipment.total)}</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
+
 
                         {/* Grand Total Call to Action */}
                         <div className="mt-8 p-12 rounded-[4rem] bg-blue-600 text-white shadow-2xl shadow-blue-500/30 relative overflow-hidden">
