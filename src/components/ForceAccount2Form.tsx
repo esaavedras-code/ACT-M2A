@@ -58,18 +58,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Monitor report changes to set dirty state
-  useEffect(() => {
-    if (initialLoadRef.current) {
-      initialLoadRef.current = false;
-      return;
-    }
-    if (selectedReportId) {
-      setHasUnsavedChanges(true);
-      if (onDirty) onDirty();
-    }
-  }, [ac49Report.labor, ac49Report.equipment, ac49Report.materials, ac49Report.workDescription, ac49Report.photos]);
-
   const filteredReports = useMemo(() => {
     return reports.filter(r => {
       const matchesSearch = r.report_no?.toLowerCase().includes(reportSearch.toLowerCase()) || 
@@ -199,17 +187,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     });
   }, [reports, ac51Month]);
 
-  const updateEquipmentConfig = (key: string, field: string, val: number) => {
-    // Para simplificar, actualizamos los campos en el reporte actual si coincide el equipo
-    // Esto se propagará al resumen ya que ac50Equipment depende de `reports`
-    const newEq = ac49Report.equipment.map(e => {
-        const itemKey = `${e.description?.trim()}-${e.model?.trim()}`.toUpperCase();
-        if (itemKey === key) return { ...e, [field]: val };
-        return e;
-    });
-    setAc49Report({ ...ac49Report, equipment: newEq });
-  };
-
   // Contract Items for lookup
   const [contractItems, setContractItems] = useState<any[]>([]);
 
@@ -229,6 +206,28 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     relatedItemAmount: 0,
     signatures: { contractor: false, projectChief: false }
   });
+
+  // Monitor report changes to set dirty state — MUST be after ac49Report declaration
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+    if (selectedReportId) {
+      setHasUnsavedChanges(true);
+      if (onDirty) onDirty();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ac49Report.labor, ac49Report.equipment, ac49Report.materials, ac49Report.workDescription, ac49Report.photos]);
+
+  const updateEquipmentConfig = (key: string, field: string, val: number) => {
+    const newEq = ac49Report.equipment.map(e => {
+      const itemKey = `${e.description?.trim()}-${e.model?.trim()}`.toUpperCase();
+      if (itemKey === key) return { ...e, [field]: val };
+      return e;
+    });
+    setAc49Report({ ...ac49Report, equipment: newEq });
+  };
 
   const visibleLabor = useMemo(() => {
     if (!laborFilterStart && (!laborFilterEnd && !isSingleDayFilter)) return ac49Report.labor;
