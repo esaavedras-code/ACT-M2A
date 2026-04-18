@@ -35,11 +35,13 @@ export interface EquipmentEntry {
 
 export interface MaterialEntry {
   id: string;
-  description: string;
-  supplier: string;
-  invoiceNo: string;
-  quantity: number;
-  amount: number;
+  type: 'M' | 'S' | ''; // Tipo (M) mat. (S) Serv.
+  description: string; // Materiales Usados y/o Servicios Prestados
+  supplier: string;    // Vendedor
+  invoiceNo: string;   // Número de Factura o Conduce
+  quantity: number;    // Cantidad
+  unitCost?: number;
+  amount?: number;     // Amount (Calculated in AC-50/51)
 }
 
 export interface AC49Report {

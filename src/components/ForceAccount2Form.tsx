@@ -126,7 +126,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       labor: report.data?.labor || [],
       equipment: report.data?.equipment || [],
       materials: report.data?.materials || [],
-      laborDetails: report.data?.laborDetails || undefined,
       relatedItemNo: report.data?.relatedItemNo || '',
       relatedItemDescription: report.data?.relatedItemDescription || '',
       relatedItemUnitCost: report.data?.relatedItemUnitCost || 0,
@@ -161,7 +160,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     if (!projectId) return;
     setLoading(true);
     try {
-      const lastLaborDetails = reports.length > 0 ? reports[0].data?.laborDetails : undefined;
       const newNo = (reports.length + 1).toString().padStart(3, '0');
       const { data, error } = await supabase
         .from("fa2_reports")
@@ -170,7 +168,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           report_no: `FA2-${newNo}`,
           date: new Date().toISOString().split('T')[0],
           description: `Nuevo Force Account ${newNo}`,
-          data: { labor: [], equipment: [], materials: [], laborDetails: lastLaborDetails }
+          data: { labor: [], equipment: [], materials: [] }
         }])
         .select()
         .single();
@@ -216,7 +214,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
             labor: ac49Report.labor,
             equipment: ac49Report.equipment,
             materials: ac49Report.materials,
-            laborDetails: ac49Report.laborDetails,
             relatedItemNo: ac49Report.relatedItemNo,
             relatedItemDescription: ac49Report.relatedItemDescription,
             relatedItemUnitCost: ac49Report.relatedItemUnitCost,
@@ -357,7 +354,9 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   const summary = useMemo(() => {
     const rawLabor = ac49Report.labor.reduce((acc, curr) => acc + calculateLaborTotal(curr), 0);
     const rawEq = ac49Report.equipment.reduce((acc, curr) => acc + calculateEquipmentRental(curr.hours, curr.dailyRate || 0), 0);
-    const rawMat = ac49Report.materials.reduce((acc, curr) => acc + curr.amount, 0);
+    const rawMatM = ac49Report.materials.filter(m => m.type?.toUpperCase() !== 'S').reduce((acc, curr) => acc + ((curr.quantity || 0) * (curr.unitCost || 0)), 0);
+    const rawMatS = ac49Report.materials.filter(m => m.type?.toUpperCase() === 'S').reduce((acc, curr) => acc + ((curr.quantity || 0) * (curr.unitCost || 0)), 0);
+    const rawMat = rawMatM + rawMatS;
     
     const baseSummary = applyAC51Rules(rawLabor, rawEq, rawMat);
     
@@ -392,7 +391,19 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
         mo_op, mo_ca, mo_ad, g, h_subtotal, k, l, m_val, n, o, p, q, r, s, t,
         total: detailedLaborTotal
       },
-      grandTotal: detailedLaborTotal + baseSummary.equipment.total + baseSummary.materials.total
+      detailedMaterials: {
+        subtotalM: rawMatM,
+        subtotalS: rawMatS,
+        biM: rawMatM * 0.15,
+        biS: rawMatS * 0.15,
+        total: (rawMatM + rawMatS) * 1.15
+      },
+      detailedEquipment: {
+        subtotalReq: rawEq,
+        bi: rawEq * 0.15,
+        total: rawEq * 1.15
+      },
+      grandTotal: detailedLaborTotal + (rawEq * 1.15) + ((rawMatM + rawMatS) * 1.15)
     };
   }, [ac49Report]);
 
@@ -722,97 +733,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         }}
                       />
 
-                      {/* Mano de Obra Details (Detailed Form en AC-49) */}
-                      <div className="p-10 rounded-[3rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden mt-6">
-                         <div className="flex items-center justify-between mb-8 pb-4 border-b-2 border-blue-50 dark:border-slate-800">
-                           <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
-                               <Users size={20} />
-                             </div>
-                             <div>
-                               <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">A) Resumen de Costos de Mano de Obra</h4>
-                               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">({ac49Report.date || 'Sin Fecha'})</p>
-                             </div>
-                           </div>
-                           <div className="bg-blue-600 text-white px-6 py-2 rounded-2xl font-black text-xs shadow-lg shadow-blue-500/20">TOTAL MES: {formatCurrency(summary.detailedLabor?.total || 0)}</div>
-                         </div>
-
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-xs">
-                           <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                             <span className="w-64 font-bold text-slate-600 dark:text-slate-300">a) Subtot Operadores (Unión)</span> 
-                             <div className="flex items-center">
-                               <span className="text-slate-400 mr-2">$</span>
-                               <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_op} onChange={e => updateLaborDetail('mo_operadores', +e.target.value)}/>
-                             </div>
-                           </div>
-                           <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                             <span className="w-64 flex items-center gap-2 text-slate-500">b) Beneficios Oper. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_operadores_pct || 0} onChange={e => updateLaborDetail('mo_operadores_pct', +e.target.value)}/>%</span> 
-                             <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_op || 0) * ((ac49Report.laborDetails?.mo_operadores_pct || 0)/100))}</b>
-                           </div>
-                           
-                           <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                             <span className="w-64 font-bold text-slate-600 dark:text-slate-300">c) Subtot Carpinteros</span> 
-                             <div className="flex items-center">
-                               <span className="text-slate-400 mr-2">$</span>
-                               <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_ca} onChange={e => updateLaborDetail('mo_carpinteros', +e.target.value)}/>
-                             </div>
-                           </div>
-                           <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                             <span className="w-64 flex items-center gap-2 text-slate-500">d) Beneficios Carp. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_carpinteros_pct || 0} onChange={e => updateLaborDetail('mo_carpinteros_pct', +e.target.value)}/>%</span> 
-                             <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_ca || 0) * ((ac49Report.laborDetails?.mo_carpinteros_pct || 0)/100))}</b>
-                           </div>
-                           
-                           <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                             <span className="w-64 font-bold text-slate-600 dark:text-slate-300">e) Subtot Adicional</span> 
-                             <div className="flex items-center">
-                               <span className="text-slate-400 mr-2">$</span>
-                               <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_ad} onChange={e => updateLaborDetail('mo_adicional', +e.target.value)}/>
-                             </div>
-                           </div>
-                           <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                             <span className="w-64 flex items-center gap-2 text-slate-500">f) Beneficios Adic. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_adicional_pct || 0} onChange={e => updateLaborDetail('mo_adicional_pct', +e.target.value)}/>%</span> 
-                             <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_ad || 0) * ((ac49Report.laborDetails?.mo_adicional_pct || 0)/100))}</b>
-                           </div>
-                           
-                           <div className="flex items-center justify-between py-2 border-b dark:border-slate-800"><span className="font-black text-blue-600">g) Suma Unión (a..f)</span> <b className="text-blue-700 dark:text-blue-400 font-black">{formatCurrency(summary.detailedLabor?.g || 0)}</b></div>
-                           <div className="flex items-center justify-between py-2 border-b dark:border-slate-800"></div>
-
-                           <div className="flex items-center justify-between py-3 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 px-3 rounded-lg"><span className="w-64 font-black">h) Subtotal Mano Obra Reg/Ext</span> <b className="font-black text-sm">{formatCurrency(summary.detailedLabor?.h_subtotal || 0)}</b></div>
-                           <div className="flex items-center justify-between py-3 border-b dark:border-slate-800"><span className="w-64 flex items-center gap-2 text-slate-500">i) Beneficios marginales <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_sin_union_pct || 0} onChange={e => updateLaborDetail('mo_sin_union_pct', +e.target.value)}/>%</span>  <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.h_subtotal || 0) * ((ac49Report.laborDetails?.mo_sin_union_pct || 0)/100))}</b></div>
-                           
-                           <div className="col-span-1 md:col-span-2 mt-6 space-y-4">
-                             <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-4 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm"><span className="w-64 font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest text-[10px]">j) Gastos Viaje/Dietas</span> 
-                               <div className="flex items-center">
-                                 <span className="text-slate-400 mr-2">$</span>
-                                 <input className="w-32 text-right bg-white dark:bg-slate-900 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-2 rounded-lg font-black outline-none focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_gastos_viaje || ac49Report.laborDetails?.mo_gastos_viaje || 0} onChange={e => updateLaborDetail('mo_gastos_viaje', +e.target.value)}/>
-                               </div>
-                             </div>
-                             
-                             <div className="space-y-3 pt-6">
-                                 <div className="flex justify-between items-center px-4 py-2"><span className="w-80 font-bold text-slate-500 text-[11px] uppercase">k) Suma Base (Unión ó Sin Unión + Viajes)</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.k || 0)}</b></div>
-                                 <div className="flex justify-between items-center px-4 py-2"><span className="w-80 font-bold text-slate-500 flex items-center gap-3">l) Beneficio Industrial <input className="w-14 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 p-1 font-bold" type="number" step="any" value={ac49Report.laborDetails?.mo_beneficio_ind_pct ?? 20} onChange={e => updateLaborDetail('mo_beneficio_ind_pct', +e.target.value)}/>% de k</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.l || 0)}</b></div>
-                                 <div className="flex justify-between items-center p-5 border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 rounded-2xl shadow-inner mt-4"><span className="font-black uppercase text-[11px] tracking-[0.2em] text-slate-700 dark:text-slate-300">m) SUMA L+K</span> <b className="text-lg text-slate-900 dark:text-white tracking-tighter">{formatCurrency(summary.detailedLabor?.m_val || 0)}</b></div>
-
-                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2 pt-6 pl-4 text-slate-600 dark:text-slate-400">
-                                     <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">n) Fondo Seguro Estado <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_fondo_estado_pct || 0} onChange={e => updateLaborDetail('mo_fondo_estado_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.n || 0)}</b></div>
-                                     <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">o) Seguro Social <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_seguro_social_pct ?? 7.65} onChange={e => updateLaborDetail('mo_seguro_social_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.o || 0)}</b></div>
-                                     <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48">p) Desempleo Est. + Fed.</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.p || 0)}</b></div>
-                                     <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">q) Seg. Resp. Pública <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_resp_publica_pct || 0} onChange={e => updateLaborDetail('mo_resp_publica_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.q || 0)}</b></div>
-                                     <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">r) Incapacidad <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_incapacidad_pct || 0} onChange={e => updateLaborDetail('mo_incapacidad_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.r || 0)}</b></div>
-                                 </div>
-
-                                 <div className="flex justify-between items-center px-4 pt-6 mt-4 border-t dark:border-slate-800"><span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-widest">s) Suma (n+o+p+q+r)</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.s || 0)}</b></div>
-                                 <div className="flex justify-between items-center px-4 pb-6"><span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-widest flex items-center gap-3">t) Beneficio Industrial final <input className="w-14 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1 font-bold" type="number" step="any" value={ac49Report.laborDetails?.mo_beneficio_ind_final_pct ?? 10} onChange={e => updateLaborDetail('mo_beneficio_ind_final_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.t || 0)}</b></div>
-                             </div>
-
-                             <div className="flex justify-between p-6 bg-blue-600 text-white rounded-[2rem] shadow-xl shadow-blue-500/20 mt-8">
-                               <span className="font-black text-sm uppercase tracking-widest mt-1">TOTAL MANO DE OBRA ({ac49Report.date || 'MES'})</span> 
-                               <b className="text-3xl tracking-tighter drop-shadow-md">{formatCurrency(summary.detailedLabor?.total || 0)}</b>
-                             </div>
-                           </div>
-                         </div>
-                      </div>
-
                       <EditableTable<EquipmentEntry>
                         title="B. EQUIPO EN USO"
                         columns={[
@@ -828,6 +748,27 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           const newEq = [...ac49Report.equipment];
                           (newEq[idx] as any)[key] = val;
                           setAc49Report({...ac49Report, equipment: newEq});
+                        }}
+                      />
+
+                      <EditableTable<MaterialEntry>
+                        title="C. MATERIALES Y/O SERVICIOS"
+                        columns={[
+                          { header: 'Tipo (M) mat. (S) Serv.', key: 'type', type: 'text' },
+                          { header: 'Materiales Usados y/o Servicios Prestados', key: 'description', type: 'text' },
+                          { header: 'Vendedor', key: 'supplier', type: 'text' },
+                          { header: 'Número de Factura', key: 'invoiceNo', type: 'text' },
+                          { header: 'Cantidad', key: 'quantity', type: 'number' },
+                          { header: '$ Unitario', key: 'unitCost', type: 'number' },
+                          { header: 'Monto', key: 'amount', type: 'computed', compute: (row: any) => (parseFloat(row.quantity) || 0) * (parseFloat(row.unitCost) || 0) },
+                        ]}
+                        data={ac49Report.materials}
+                        onAdd={() => setAc49Report({...ac49Report, materials: [...ac49Report.materials, { id: Date.now().toString(), type: '', description: '', supplier: '', invoiceNo: '', quantity: 0, unitCost: 0, amount: 0 }]})}
+                        onRemove={(idx) => setAc49Report({...ac49Report, materials: ac49Report.materials.filter((_, i) => i !== idx)})}
+                        onChange={(idx, key, val) => {
+                          const newMat = [...ac49Report.materials];
+                          (newMat[idx] as any)[key] = val;
+                          setAc49Report({...ac49Report, materials: newMat});
                         }}
                       />
 
@@ -971,27 +912,94 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                     <div className="card border-none shadow-none bg-transparent p-0">
                       <div className="grid grid-cols-1 gap-8">
                         {/* Mano de Obra Details */}
-                        {/* Mano de Obra Details (Resumen Simplificado) */}
-                        <div className="p-10 rounded-[3rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl relative overflow-hidden">
-                           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-full -mr-16 -mt-16 group-hover:bg-blue-600/10 transition-colors"></div>
-                           <div className="flex items-center gap-3 mb-10">
-                             <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-blue-600">
-                               <Users size={20} />
+                        {/* Mano de Obra Details (Detailed Form) */}
+                        <div className="p-10 rounded-[3rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden">
+                           <div className="flex items-center justify-between mb-8 pb-4 border-b-2 border-blue-50 dark:border-slate-800">
+                             <div className="flex items-center gap-3">
+                               <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
+                                 <Users size={20} />
+                               </div>
+                               <div>
+                                 <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">I. Resumen de Mano de Obra</h4>
+                                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">({ac49Report.date || 'Sin Fecha'})</p>
+                               </div>
                              </div>
-                             <div>
-                               <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">I. Resumen de Mano de Obra</h4>
-                               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Calculado desde tabla AC-49</p>
-                             </div>
+                             <div className="bg-blue-600 text-white px-6 py-2 rounded-2xl font-black text-xs shadow-lg shadow-blue-500/20">TOTAL MES: {formatCurrency(summary.detailedLabor?.total || 0)}</div>
                            </div>
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                              <div className="space-y-1">
-                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Base Liquidable</p>
-                                 <p className="text-xl font-black text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.m_val || 0)}</p>
-                              </div>
-                              <div className="space-y-1 pt-4 md:pt-0 border-l border-slate-100 dark:border-slate-800 pl-8">
-                                 <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">TOTAL MO LIQUIDABLE</p>
-                                 <p className="text-2xl font-black text-blue-600 drop-shadow-sm">{formatCurrency(summary.detailedLabor?.total || 0)}</p>
-                              </div>
+
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-xs">
+                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
+                               <span className="w-64 font-bold text-slate-600 dark:text-slate-300">a) Subtot Operadores (Unión)</span> 
+                               <div className="flex items-center">
+                                 <span className="text-slate-400 mr-2">$</span>
+                                 <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_op} onChange={e => updateLaborDetail('mo_operadores', +e.target.value)}/>
+                               </div>
+                             </div>
+                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
+                               <span className="w-64 flex items-center gap-2 text-slate-500">b) Beneficios Oper. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_operadores_pct || 0} onChange={e => updateLaborDetail('mo_operadores_pct', +e.target.value)}/>%</span> 
+                               <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_op || 0) * ((ac49Report.laborDetails?.mo_operadores_pct || 0)/100))}</b>
+                             </div>
+                             
+                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
+                               <span className="w-64 font-bold text-slate-600 dark:text-slate-300">c) Subtot Carpinteros</span> 
+                               <div className="flex items-center">
+                                 <span className="text-slate-400 mr-2">$</span>
+                                 <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_ca} onChange={e => updateLaborDetail('mo_carpinteros', +e.target.value)}/>
+                               </div>
+                             </div>
+                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
+                               <span className="w-64 flex items-center gap-2 text-slate-500">d) Beneficios Carp. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_carpinteros_pct || 0} onChange={e => updateLaborDetail('mo_carpinteros_pct', +e.target.value)}/>%</span> 
+                               <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_ca || 0) * ((ac49Report.laborDetails?.mo_carpinteros_pct || 0)/100))}</b>
+                             </div>
+                             
+                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
+                               <span className="w-64 font-bold text-slate-600 dark:text-slate-300">e) Subtot Adicional</span> 
+                               <div className="flex items-center">
+                                 <span className="text-slate-400 mr-2">$</span>
+                                 <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_ad} onChange={e => updateLaborDetail('mo_adicional', +e.target.value)}/>
+                               </div>
+                             </div>
+                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
+                               <span className="w-64 flex items-center gap-2 text-slate-500">f) Beneficios Adic. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_adicional_pct || 0} onChange={e => updateLaborDetail('mo_adicional_pct', +e.target.value)}/>%</span> 
+                               <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_ad || 0) * ((ac49Report.laborDetails?.mo_adicional_pct || 0)/100))}</b>
+                             </div>
+                             
+                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800"><span className="font-black text-blue-600">g) Suma Unión (a..f)</span> <b className="text-blue-700 dark:text-blue-400 font-black">{formatCurrency(summary.detailedLabor?.g || 0)}</b></div>
+                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800"></div>
+
+                             <div className="flex items-center justify-between py-3 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 px-3 rounded-lg"><span className="w-64 font-black">h) Subtotal Mano Obra Reg/Ext</span> <b className="font-black text-sm">{formatCurrency(summary.detailedLabor?.h_subtotal || 0)}</b></div>
+                             <div className="flex items-center justify-between py-3 border-b dark:border-slate-800"><span className="w-64 flex items-center gap-2 text-slate-500">i) Beneficios marginales <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_sin_union_pct || 0} onChange={e => updateLaborDetail('mo_sin_union_pct', +e.target.value)}/>%</span>  <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.h_subtotal || 0) * ((ac49Report.laborDetails?.mo_sin_union_pct || 0)/100))}</b></div>
+                             
+                             <div className="col-span-1 md:col-span-2 mt-6 space-y-4">
+                               <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-4 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm"><span className="w-64 font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest text-[10px]">j) Gastos Viaje/Dietas</span> 
+                                 <div className="flex items-center">
+                                   <span className="text-slate-400 mr-2">$</span>
+                                   <input className="w-32 text-right bg-white dark:bg-slate-900 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-2 rounded-lg font-black outline-none focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_gastos_viaje || ac49Report.laborDetails?.mo_gastos_viaje || 0} onChange={e => updateLaborDetail('mo_gastos_viaje', +e.target.value)}/>
+                                 </div>
+                               </div>
+                               
+                               <div className="space-y-3 pt-6">
+                                   <div className="flex justify-between items-center px-4 py-2"><span className="w-80 font-bold text-slate-500 text-[11px] uppercase">k) Suma Base (Unión ó Sin Unión + Viajes)</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.k || 0)}</b></div>
+                                   <div className="flex justify-between items-center px-4 py-2"><span className="w-80 font-bold text-slate-500 flex items-center gap-3">l) Beneficio Industrial <input className="w-14 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 p-1 font-bold" type="number" step="any" value={ac49Report.laborDetails?.mo_beneficio_ind_pct ?? 20} onChange={e => updateLaborDetail('mo_beneficio_ind_pct', +e.target.value)}/>% de k</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.l || 0)}</b></div>
+                                   <div className="flex justify-between items-center p-5 border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 rounded-2xl shadow-inner mt-4"><span className="font-black uppercase text-[11px] tracking-[0.2em] text-slate-700 dark:text-slate-300">m) SUMA L+K</span> <b className="text-lg text-slate-900 dark:text-white tracking-tighter">{formatCurrency(summary.detailedLabor?.m_val || 0)}</b></div>
+
+                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2 pt-6 pl-4 text-slate-600 dark:text-slate-400">
+                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">n) Fondo Seguro Estado <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_fondo_estado_pct || 0} onChange={e => updateLaborDetail('mo_fondo_estado_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.n || 0)}</b></div>
+                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">o) Seguro Social <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_seguro_social_pct ?? 7.65} onChange={e => updateLaborDetail('mo_seguro_social_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.o || 0)}</b></div>
+                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48">p) Desempleo Est. + Fed.</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.p || 0)}</b></div>
+                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">q) Seg. Resp. Pública <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_resp_publica_pct || 0} onChange={e => updateLaborDetail('mo_resp_publica_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.q || 0)}</b></div>
+                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">r) Incapacidad <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_incapacidad_pct || 0} onChange={e => updateLaborDetail('mo_incapacidad_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.r || 0)}</b></div>
+                                   </div>
+
+                                   <div className="flex justify-between items-center px-4 pt-6 mt-4 border-t dark:border-slate-800"><span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-widest">s) Suma (n+o+p+q+r)</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.s || 0)}</b></div>
+                                   <div className="flex justify-between items-center px-4 pb-6"><span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-widest flex items-center gap-3">t) Beneficio Industrial final <input className="w-14 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1 font-bold" type="number" step="any" value={ac49Report.laborDetails?.mo_beneficio_ind_final_pct ?? 10} onChange={e => updateLaborDetail('mo_beneficio_ind_final_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.t || 0)}</b></div>
+                               </div>
+
+                               <div className="flex justify-between p-6 bg-blue-600 text-white rounded-[2rem] shadow-xl shadow-blue-500/20 mt-8">
+                                 <span className="font-black text-sm uppercase tracking-widest mt-1">TOTAL MANO DE OBRA ({ac49Report.date || 'MES'})</span> 
+                                 <b className="text-3xl tracking-tighter drop-shadow-md">{formatCurrency(summary.detailedLabor?.total || 0)}</b>
+                               </div>
+                             </div>
                            </div>
                         </div>
 
@@ -1002,20 +1010,28 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-600">
                                  <Truck size={20} />
                                </div>
-                               <h4 className="text-sm font-black text-amber-900 dark:text-amber-100 uppercase tracking-tight">II. Maquinaria</h4>
+                               <h4 className="text-[11px] font-black text-amber-900 dark:text-amber-100 uppercase tracking-tight">RESUMEN DE COSTO DE EQUIPO</h4>
                             </div>
-                            <div className="space-y-6">
-                              <div className="flex justify-between items-center text-[10px] font-bold text-amber-800/60 uppercase">
-                                <span>Renta Base AC-50</span>
-                                <span>{formatCurrency(summary.equipment.subtotal)}</span>
+                            <div className="space-y-4 text-[10px] font-bold text-amber-800/80 uppercase">
+                              <div className="flex justify-between items-center text-amber-900 dark:text-amber-100">
+                                <span>a) Subtotal Renta de Equipo Activo + Inactivo</span>
+                                <span>{formatCurrency(summary.detailedEquipment?.subtotalReq || summary.equipment.subtotal)}</span>
                               </div>
-                              <div className="flex justify-between items-center text-[10px] font-bold text-amber-600 uppercase italic">
-                                <span>(+) 15% Ben. Ind.</span>
-                                <span>{formatCurrency(summary.equipment.bi)}</span>
+                              <div className="flex justify-between items-center italic opacity-80 pl-4">
+                                <span>b) Beneficio Industrial 15% de (a)</span>
+                                <span>{formatCurrency(summary.detailedEquipment?.bi || summary.equipment.bi)}</span>
                               </div>
-                              <div className="pt-4 border-t border-amber-200/50 flex justify-between items-center">
-                                <span className="font-black text-amber-900 dark:text-amber-100 text-xs uppercase tracking-widest">Total Equipo</span>
-                                <span className="text-2xl font-black text-amber-600">{formatCurrency(summary.equipment.total)}</span>
+                              <div className="flex justify-between items-center pl-4 opacity-80">
+                                <span>c) Subtotal Renta Eq. Activo (operating cost)</span>
+                                <span>$0.00</span>
+                              </div>
+                              <div className="flex justify-between items-center pl-4 opacity-80">
+                                <span>d) Subtotal Renta de Equipo Inactivo</span>
+                                <span>$0.00</span>
+                              </div>
+                              <div className="pt-4 border-t border-amber-200/50 flex justify-between items-center mt-2">
+                                <span className="font-black text-amber-900 dark:text-amber-100 text-[11px] uppercase tracking-widest">(3) TOTAL DE EQUIPO (b+c+d)</span>
+                                <span className="text-xl font-black text-amber-600">{formatCurrency(summary.detailedEquipment?.total || summary.equipment.total)}</span>
                               </div>
                             </div>
                           </div>
@@ -1026,33 +1042,85 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600">
                                  <ShieldCheck size={20} />
                                </div>
-                               <h4 className="text-sm font-black text-emerald-900 dark:text-emerald-100 uppercase tracking-tight">III. Materiales</h4>
+                               <h4 className="text-[11px] font-black text-emerald-900 dark:text-emerald-100 uppercase tracking-tight">RESUMEN DE COSTO DE MAT. Y/O SERV.</h4>
                             </div>
-                            <div className="space-y-6">
-                              <div className="flex justify-between items-center text-[10px] font-bold text-emerald-800/60 uppercase">
-                                <span>Costo Materiales</span>
-                                <span>{formatCurrency(summary.materials.subtotal)}</span>
+                            <div className="space-y-3 text-[10px] font-bold text-emerald-800/80 uppercase">
+                              <div className="flex justify-between items-center font-black text-emerald-900 dark:text-emerald-100">
+                                <span>a) Subtotal de Materiales y/o Servicios</span>
+                                <span></span>
                               </div>
-                              <div className="flex justify-between items-center text-[10px] font-bold text-emerald-600 uppercase italic">
-                                <span>(+) 15% Ben. Ind.</span>
-                                <span>{formatCurrency(summary.materials.bi)}</span>
+                              <div className="flex justify-between items-center pl-4 opacity-80">
+                                <span>Materiales</span>
+                                <span>{formatCurrency(summary.detailedMaterials?.subtotalM || 0)}</span>
                               </div>
-                              <div className="pt-4 border-t border-emerald-200/50 flex justify-between items-center">
-                                <span className="font-black text-emerald-900 dark:text-emerald-100 text-xs uppercase tracking-widest">Total Materiales</span>
-                                <span className="text-2xl font-black text-emerald-600">{formatCurrency(summary.materials.total)}</span>
+                              <div className="flex justify-between items-center pl-4 opacity-80">
+                                <span>Servicios</span>
+                                <span>{formatCurrency(summary.detailedMaterials?.subtotalS || 0)}</span>
+                              </div>
+
+                              <div className="flex justify-between items-center font-black text-emerald-900 dark:text-emerald-100 pt-2">
+                                <span>b) Beneficio Industrial</span>
+                                <span></span>
+                              </div>
+                              <div className="flex justify-between items-center pl-4 italic opacity-80">
+                                <span>15% Materiales</span>
+                                <span>{formatCurrency(summary.detailedMaterials?.biM || 0)}</span>
+                              </div>
+                              <div className="flex justify-between items-center pl-4 italic opacity-80">
+                                <span>15% Servicios</span>
+                                <span>{formatCurrency(summary.detailedMaterials?.biS || 0)}</span>
+                              </div>
+
+                              <div className="pt-4 border-t border-emerald-200/50 flex justify-between items-center mt-2">
+                                <span className="font-black text-emerald-900 dark:text-emerald-100 text-[11px] uppercase tracking-widest">(2) TOTAL DE MAT. Y/O SERV. (A+B)</span>
+                                <span className="text-xl font-black text-emerald-600">{formatCurrency(summary.detailedMaterials?.total || summary.materials.total)}</span>
                               </div>
                             </div>
                           </div>
                         </div>
 
                         {/* Grand Total Call to Action */}
-                        <div className="mt-6 p-12 rounded-[4rem] bg-blue-600 text-white text-center shadow-2xl shadow-blue-500/30 relative overflow-hidden">
+                        <div className="mt-8 p-12 rounded-[4rem] bg-blue-600 text-white shadow-2xl shadow-blue-500/30 relative overflow-hidden">
                           <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700"></div>
                           <div className="relative z-10">
-                            <p className="text-blue-100 font-black uppercase tracking-[0.5em] text-[10px] mb-6">Monto Certificable Final - ACT PR</p>
-                            <p className="text-7xl font-black text-white tracking-tighter drop-shadow-2xl">
-                              {formatCurrency(summary.grandTotal)}
-                            </p>
+                            <h4 className="text-sm font-black uppercase tracking-[0.3em] mb-8 text-blue-200 border-b border-blue-500/50 pb-4">TOTALES - PARA USO DE LIQUIDADOR</h4>
+                            
+                            <div className="space-y-4 text-xs font-bold uppercase tracking-widest text-blue-100 mb-10 w-full lg:w-2/3 mx-auto">
+                              <div className="flex justify-between items-center border-b border-blue-500/30 pb-2">
+                                <span>1) TOTAL MANO DE OBRA</span>
+                                <span className="text-lg text-white font-black">{formatCurrency(summary.detailedLabor?.total || summary.labor.total)}</span>
+                              </div>
+                              <div className="flex justify-between items-center border-b border-blue-500/30 pb-2">
+                                <span>2) TOTAL MATERIALES Y/O SERVICIOS</span>
+                                <span className="text-lg text-white font-black">{formatCurrency(summary.detailedMaterials?.total || summary.materials.total)}</span>
+                              </div>
+                              <div className="flex justify-between items-center border-b border-blue-500/30 pb-2">
+                                <span>3) TOTAL DE EQUIPO</span>
+                                <span className="text-lg text-white font-black">{formatCurrency(summary.detailedEquipment?.total || summary.equipment.total)}</span>
+                              </div>
+                              <div className="flex justify-between items-center border-b border-blue-500/30 pb-2 pt-2 text-white">
+                                <span>4) TOTAL (1 + 2 + 3)</span>
+                                <span className="text-2xl font-black">{formatCurrency(summary.grandTotal)}</span>
+                              </div>
+                              <div className="flex justify-between items-center pt-2">
+                                <span className="flex items-center gap-3">
+                                  5) FIANZAS DE EJECUCION Y PAGO 
+                                  <div className="flex items-center">
+                                    <input type="number" step="any" className="w-16 bg-blue-800 text-white rounded p-1 text-center font-black border-none ring-1 ring-blue-500" value={ac49Report.laborDetails?.fianzas_pct || 0} onChange={e => updateLaborDetail('fianzas_pct' as any, +e.target.value)} />
+                                    <span className="ml-1">% de (4)</span>
+                                  </div>
+                                </span>
+                                <span className="text-lg text-white font-black">{formatCurrency(summary.grandTotal * ((ac49Report.laborDetails?.fianzas_pct || 0) / 100))}</span>
+                              </div>
+                            </div>
+
+                            <div className="text-center mt-10 p-8 bg-blue-900/40 rounded-3xl border border-blue-400/20 backdrop-blur-sm">
+                              <p className="text-blue-200 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">6) COSTO TOTAL DEL TRABAJO POR ADMINISTRACION DELEGADA (4 + 5)</p>
+                              <p className="text-6xl font-black text-white tracking-tighter drop-shadow-2xl">
+                                {formatCurrency(summary.grandTotal * (1 + ((ac49Report.laborDetails?.fianzas_pct || 0) / 100)))}
+                              </p>
+                            </div>
+
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
                                <button className="px-12 py-5 bg-white text-blue-600 font-black uppercase text-xs tracking-widest rounded-[2rem] hover:bg-slate-50 transition-all shadow-2xl hover:scale-105 active:scale-95">
                                  Generar AC-51 (PDF)
