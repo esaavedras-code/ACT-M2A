@@ -7,7 +7,7 @@ import {
   Download, Upload, ShieldCheck, Briefcase, Calculator, ChevronLeft,
   Search, X, Camera, Save, Split, Calendar
 } from 'lucide-react';
-import { Project, AC49Report, LaborEntry, EquipmentEntry } from '../types/fa2';
+import { Project, AC49Report, LaborEntry, EquipmentEntry, MaterialEntry } from '../types/fa2';
 import { EditableTable } from './EditableTable';
 import { calculateLaborTotal, applyAC51Rules, calculateEquipmentRental } from '../lib/fa2Calculations';
 import { supabase } from "@/lib/supabase";
@@ -29,8 +29,6 @@ const PREDEFINED_EQUIPMENT_RATES = [
   { name: 'Motor Grader', model: 'Cat 140M / Case 865', daily: 450, weekly: 1800, monthly: 5500 },
   { name: 'Vibratory Plate', model: 'Walk-behind Gasoline', daily: 45, weekly: 180, monthly: 550 }
 ];
-
-
 
 const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onDirty }: { projectId?: string, onDirty?: () => void }, ref) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -63,6 +61,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   // Labor Period Filter State
   const [laborFilterStart, setLaborFilterStart] = useState("");
   const [laborFilterEnd, setLaborFilterEnd] = useState("");
+  const [isSingleDayFilter, setIsSingleDayFilter] = useState(false);
 
   // AC-51 Monthly Filter
   const [ac51Month, setAc51Month] = useState(new Date().toISOString().slice(0, 7));
@@ -121,13 +120,34 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   });
 
   const visibleLabor = useMemo(() => {
-    if (!laborFilterStart && !laborFilterEnd) return ac49Report.labor;
+    if (!laborFilterStart && (!laborFilterEnd && !isSingleDayFilter)) return ac49Report.labor;
     return ac49Report.labor.filter(l => {
       const rowDate = l.date || ac49Report.date;
+      if (isSingleDayFilter) return rowDate === laborFilterStart;
       return (!laborFilterStart || rowDate >= laborFilterStart) && 
              (!laborFilterEnd || rowDate <= laborFilterEnd);
     });
-  }, [ac49Report.labor, laborFilterStart, laborFilterEnd, ac49Report.date]);
+  }, [ac49Report.labor, laborFilterStart, laborFilterEnd, isSingleDayFilter, ac49Report.date]);
+
+  const visibleMaterials = useMemo(() => {
+    if (!laborFilterStart && (!laborFilterEnd && !isSingleDayFilter)) return ac49Report.materials;
+    return ac49Report.materials.filter(m => {
+      const rowDate = m.date || ac49Report.date;
+      if (isSingleDayFilter) return rowDate === laborFilterStart;
+      return (!laborFilterStart || rowDate >= laborFilterStart) && 
+             (!laborFilterEnd || rowDate <= laborFilterEnd);
+    });
+  }, [ac49Report.materials, laborFilterStart, laborFilterEnd, isSingleDayFilter, ac49Report.date]);
+
+  const visibleEquipment = useMemo(() => {
+    if (!laborFilterStart && (!laborFilterEnd && !isSingleDayFilter)) return ac49Report.equipment;
+    return ac49Report.equipment.filter(e => {
+      const rowDate = e.date || ac49Report.date;
+      if (isSingleDayFilter) return rowDate === laborFilterStart;
+      return (!laborFilterStart || rowDate >= laborFilterStart) && 
+             (!laborFilterEnd || rowDate <= laborFilterEnd);
+    });
+  }, [ac49Report.equipment, laborFilterStart, laborFilterEnd, isSingleDayFilter, ac49Report.date]);
 
 
   const [project, setProject] = useState<Project>({
@@ -146,7 +166,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     const equipmentDB: Record<string, any> = {};
     
     reports.forEach(r => {
-      r.labor?.forEach((l: any) => {
+      r.data?.labor?.forEach((l: any) => {
         if (l.employeeName?.trim()) {
           laborDB[l.employeeName.trim()] = {
             ssLast4: l.ssLast4,
@@ -155,7 +175,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           };
         }
       });
-      r.equipment?.forEach((e: any) => {
+      r.data?.equipment?.forEach((e: any) => {
         if (e.description?.trim()) {
           equipmentDB[e.description.trim()] = {
             model: e.model,
@@ -169,12 +189,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     return { labor: laborDB, equipment: equipmentDB };
   }, [reports]);
 
-
   const fetchProjectAndReports = async () => {
     if (!projectId) return;
     setLoading(true);
     try {
-      // Fetch Project Info
       const { data: pData } = await supabase.from("projects").select("name, num_act, contractor_name").eq("id", projectId).single();
       if (pData) {
         setProject(prev => ({
@@ -185,7 +203,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
         }));
       }
 
-      // Fetch FA2 Reports
       const { data: rData } = await supabase
         .from("fa2_reports")
         .select("*")
@@ -194,7 +211,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       
       if (rData) setReports(rData);
 
-      // Fetch Contract Items
       const { data: cData } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
       if (cData) setContractItems(cData);
 
@@ -214,8 +230,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     setAc49Report({
       id: report.id,
       projectId: report.project_id,
-      date: report.date,
-      reportNo: report.report_no,
+      date: report.date || new Date().toISOString().split('T')[0],
+      reportNo: report.report_no || '',
       totalPages: 1,
       workDescription: report.description || '',
       labor: report.data?.labor || [],
@@ -225,7 +241,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       relatedItemDescription: report.data?.relatedItemDescription || '',
       relatedItemUnitCost: report.data?.relatedItemUnitCost || 0,
       relatedItemAmount: report.data?.relatedItemAmount || 0,
-      signatures: report.data?.signatures || { contractor: false, projectChief: false }
+      signatures: report.data?.signatures || { contractor: false, projectChief: false },
+      laborDetails: report.data?.laborDetails || {}
     });
     setActiveTab('ac49');
   };
@@ -296,12 +313,16 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   };
 
   const splitIntoDays = async () => {
-    if (!ac49Report.labor.length) return;
-    
-    // Identificar fechas únicas (usando la fecha del reporte si el trabajador no tiene una específica)
-    const dates = [...new Set(ac49Report.labor.map(l => l.date || ac49Report.date))];
+    const allItems = [
+      ...ac49Report.labor.map(l => ({ date: l.date || ac49Report.date, type: 'labor' as const, item: l })),
+      ...ac49Report.equipment.map(e => ({ date: e.date || ac49Report.date, type: 'equip' as const, item: e })),
+      ...ac49Report.materials.map(m => ({ date: m.date || ac49Report.date, type: 'mat' as const, item: m }))
+    ];
+
+    if (!allItems.length) return;
+    const dates = [...new Set(allItems.map(i => i.date))];
     if (dates.length <= 1) {
-       alert("No se detectaron múltiples fechas en la lista de trabajadores.");
+       alert("No se detectaron múltiples fechas en la lista de items.");
        return;
     }
 
@@ -311,9 +332,11 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     try {
       for (const d of dates) {
         const laborForDay = ac49Report.labor.filter(l => (l.date || ac49Report.date) === d);
+        const equipForDay = ac49Report.equipment.filter(e => (e.date || ac49Report.date) === d);
+        const matsForDay = ac49Report.materials.filter(m => (m.date || ac49Report.date) === d);
         const newNo = `${ac49Report.reportNo}-${d.split('-').pop()}`;
         
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('fa2_reports')
           .insert([{
             project_id: projectId,
@@ -322,17 +345,13 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
             description: `${ac49Report.workDescription} (Día ${d})`,
             data: { 
               labor: laborForDay, 
-              equipment: ac49Report.equipment, 
-              materials: ac49Report.materials,
+              equipment: equipForDay, 
+              materials: matsForDay,
               laborDetails: ac49Report.laborDetails
             }
-          }])
-          .select()
-          .single();
-          
+          }]);
         if (error) throw error;
       }
-      
       alert("Reportes divididos exitosamente. Revise el Dashboard.");
       await fetchProjectAndReports();
       setActiveTab('dashboard');
@@ -362,15 +381,14 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
             relatedItemDescription: ac49Report.relatedItemDescription,
             relatedItemUnitCost: ac49Report.relatedItemUnitCost,
             relatedItemAmount: ac49Report.relatedItemAmount,
-            signatures: ac49Report.signatures
+            signatures: ac49Report.signatures,
+            laborDetails: ac49Report.laborDetails
           }
         })
         .eq("id", selectedReportId);
 
       if (error) throw error;
       if (!silent) alert("✅ Force Account guardado exitosamente.");
-      
-      // Update local list
       setReports(reports.map(r => r.id === selectedReportId ? { ...r, report_no: ac49Report.reportNo, date: ac49Report.date, description: ac49Report.workDescription } : r));
     } catch (error: any) {
       alert("Error al guardar: " + error.message);
@@ -401,15 +419,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       fileReader.onload = async e => {
         try {
           const content = JSON.parse(e.target?.result as string);
-          
           let reportToImport = null;
-
           if (content.ac49Report) {
-            // Estructura FA-2 estándar
             reportToImport = content.ac49Report;
           } else if (content.fa_num || content.labor || content.equipment) {
-            // Detectada estructura de Force Account Original (FA-1)
-            // Realizar mapeo de campos al formato FA-2
             reportToImport = {
               reportNo: content.fa_num || "IM-01",
               workDescription: content.descripcion || "Migrado de Force Account original",
@@ -466,15 +479,11 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
               .select()
               .single();
 
-            if (error) throw error;
             if (data) {
               setReports([data, ...reports]);
               handleSelectReport(data);
-              alert("✅ Datos migrados y guardados exitosamente en Force Account 2.");
+              alert("✅ Datos migrados y guardados exitosamente.");
             }
-            if (onDirty) onDirty();
-          } else {
-            throw new Error("Formato de archivo no reconocido");
           }
         } catch (error) {
           alert("❌ Error: Archivo no válido para FA-2.");
@@ -489,10 +498,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   const updateLaborDetail = (key: keyof NonNullable<AC49Report['laborDetails']>, val: number) => {
     setAc49Report(prev => ({
       ...prev,
-      laborDetails: {
-        ...(prev.laborDetails || {}),
-        [key]: val
-      }
+      laborDetails: { ...(prev.laborDetails || {}), [key]: val }
     }));
   };
 
@@ -501,38 +507,26 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     const rawEq = ac49Report.equipment.reduce((acc, curr) => acc + calculateEquipmentRental(curr.hours, curr.dailyRate || 0), 0);
     const rawMatM = ac49Report.materials.filter(m => m.type?.toUpperCase() !== 'S').reduce((acc, curr) => acc + ((curr.quantity || 0) * (curr.unitCost || 0)), 0);
     const rawMatS = ac49Report.materials.filter(m => m.type?.toUpperCase() === 'S').reduce((acc, curr) => acc + ((curr.quantity || 0) * (curr.unitCost || 0)), 0);
-    const rawMat = rawMatM + rawMatS;
     
-    const baseSummary = applyAC51Rules(rawLabor, rawEq, rawMat);
+    const baseSummary = applyAC51Rules(rawLabor, rawEq, rawMatM + rawMatS);
     
-    // Override labor calculations with the detailed labor config if requested
     const auto_mo_op = ac49Report.labor
-      .filter(l => {
-        const c = (l.classification || "").toLowerCase();
-        return c.includes('oper') || c.includes('chof') || c.includes('driver') || c.includes('heavy') || c.includes('mechanic');
-      })
+      .filter(l => (l.classification || "").toLowerCase().match(/oper|chof|driver|heavy|mechanic/))
       .reduce((acc, curr) => acc + calculateLaborTotal(curr), 0);
-      
     const auto_mo_ca = ac49Report.labor
-      .filter(l => {
-        const c = (l.classification || "").toLowerCase();
-        return c.includes('carp');
-      })
+      .filter(l => (l.classification || "").toLowerCase().includes('carp'))
       .reduce((acc, curr) => acc + calculateLaborTotal(curr), 0);
-      
     const auto_mo_ad = ac49Report.labor
       .filter(l => {
         const c = (l.classification || "").toLowerCase();
-        const isOp = c.includes('oper') || c.includes('chof') || c.includes('driver') || c.includes('heavy') || c.includes('mechanic');
-        const isCa = c.includes('carp');
-        return !isOp && !isCa;
+        return !c.match(/oper|chof|driver|heavy|mechanic/) && !c.includes('carp');
       })
       .reduce((acc, curr) => acc + calculateLaborTotal(curr), 0);
 
     const dets = ac49Report.laborDetails || {};
-    const mo_op = dets.mo_operadores || auto_mo_op;
-    const mo_ca = dets.mo_carpinteros || auto_mo_ca;
-    const mo_ad = dets.mo_adicional || auto_mo_ad;
+    const mo_op = dets.mo_operadores ?? auto_mo_op;
+    const mo_ca = dets.mo_carpinteros ?? auto_mo_ca;
+    const mo_ad = dets.mo_adicional ?? auto_mo_ad;
 
     const g = (mo_op * (1 + (dets.mo_operadores_pct || 0)/100)) +
               (mo_ca * (1 + (dets.mo_carpinteros_pct || 0)/100)) +
@@ -546,36 +540,22 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     
     const n = h_subtotal * ((dets.mo_fondo_estado_pct || 0)/100);
     const o = h_subtotal * ((dets.mo_seguro_social_pct || 7.65)/100);
-    const p = h_subtotal * (((dets.mo_desempleo_est_pct || 0) + (dets.mo_desempleo_fed_pct || 0))/100);
+    const p = h_subtotal * (((dets.mo_desempleo_est_pct ?? 5.4) + (dets.mo_desempleo_fed_pct ?? 0.8))/100);
     const q = h_subtotal * ((dets.mo_resp_publica_pct || 0)/100);
     const r = h_subtotal * ((dets.mo_incapacidad_pct || 0)/100);
     const s = n + o + p + q + r;
     const t = m_val * ((dets.mo_beneficio_ind_final_pct || 10)/100);
-    
     const detailedLaborTotal = m_val + s + t;
 
     return {
       ...baseSummary,
-      detailedLabor: {
-        mo_op, mo_ca, mo_ad, g, h_subtotal, k, l, m_val, n, o, p, q, r, s, t,
-        total: detailedLaborTotal
-      },
-      detailedMaterials: {
-        subtotalM: rawMatM,
-        subtotalS: rawMatS,
-        biM: rawMatM * 0.15,
-        biS: rawMatS * 0.15,
-        total: (rawMatM + rawMatS) * 1.15
-      },
-      detailedEquipment: {
-        subtotalReq: rawEq,
-        bi: rawEq * 0.15,
-        total: rawEq * 1.15
-      },
-      grandTotal: detailedLaborTotal + (rawEq * 1.15) + ((rawMatM + rawMatS) * 1.15)
+      detailedLabor: { mo_op, mo_ca, mo_ad, g, h_subtotal, k, l, m_val, n, o, p, q, r, s, t, total: detailedLaborTotal },
+      detailedMaterials: { subtotalM: rawMatM, subtotalS: rawMatS, biM: rawMatM * 0.15, biS: rawMatS * 0.15, total: (rawMatM + rawMatS) * 1.15 },
+      detailedEquipment: { subtotalReq: rawEq, bi: rawEq * 0.15, total: rawEq * 1.15 },
+      grandTotal: detailedLaborTotal + (rawEq * 1.15) + ((rawMatM + rawMatS) * 1.15),
+      rentTotal: rawEq
     };
   }, [ac49Report]);
-
 
   const sidebarItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Resumen' },
@@ -588,7 +568,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col lg:flex-row gap-2 items-start relative lg:-ml-6">
-        {/* Navigation Sidebar */}
         <div className="w-full lg:w-44 lg:sticky lg:top-4 overflow-y-auto custom-scrollbar shrink-0">
           <div className="bg-white dark:bg-slate-900 p-4 rounded-[2.5rem] shadow-md border border-slate-100 dark:border-slate-800 space-y-2">
             <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-800/50 mb-2 text-center md:text-left">
@@ -616,54 +595,33 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
               </button>
             ))}
           </div>
-
           <div className="mt-6 p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
             <p className="text-[9px] text-slate-400 font-bold mb-1 uppercase tracking-widest italic">Selección Actual</p>
             <p className="text-[11px] font-black text-slate-800 dark:text-white truncate uppercase">
                {selectedReportId ? ac49Report.reportNo : "Ninguno seleccionado"}
             </p>
-            {selectedReportId && (
-              <div className="mt-3 flex items-center gap-2 text-[9px] text-emerald-600 font-black uppercase bg-emerald-50 dark:bg-emerald-900/10 px-2 py-1 rounded-lg w-fit">
-                <ShieldCheck className="w-3 h-3" /> Editando
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 w-full min-w-0">
+        <div className="flex-1 w-full min-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            <div>
-              <div className="flex items-center gap-2">
-                  {activeTab !== 'dashboard' && (
-                    <button 
-                      onClick={() => setActiveTab('dashboard')} 
-                      className="group flex items-center gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm active:scale-95"
-                    >
-                      <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-                      <span className="text-[10px] font-black uppercase tracking-widest pr-2 hidden sm:inline">Back</span>
-                    </button>
-                  )}
-                  <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
-                   {sidebarItems.find(i => i.id === activeTab)?.label}
-                 </h2>
-               </div>
-               <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1 ml-1 sm:ml-2">ACT PR • GESTIÓN DE REPORTES</p>
+            <div className="flex items-center gap-2">
+              {activeTab !== 'dashboard' && (
+                <button onClick={() => setActiveTab('dashboard')} className="group flex items-center gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm">
+                  <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                  <span className="text-[10px] font-black uppercase tracking-widest pr-2 hidden sm:inline">Back</span>
+                </button>
+              )}
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                {sidebarItems.find(i => i.id === activeTab)?.label}
+              </h2>
             </div>
-            
             {selectedReportId && (
               <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm"
-                >
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
                   <Upload size={14} /> Importar JSON
                 </button>
-                <button 
-                  onClick={saveData}
-                  className="btn-primary"
-                  disabled={loading}
-                >
+                <button onClick={() => saveData()} className="btn-primary" disabled={loading}>
                   <ShieldCheck size={14} /> {loading ? "..." : "Guardar"}
                 </button>
               </div>
@@ -673,298 +631,134 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           <div className="animate-fade-in">
             {activeTab === 'dashboard' && (
               <div className="space-y-8">
-                {/* Statistics of selected report IF selected */}
                 {selectedReportId ? (
                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in slide-in-from-top duration-500">
-                   {[
-                     { title: 'Total Liquidar', value: formatCurrency(summary.grandTotal), icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/10' },
-                     { title: 'Mano de Obra (A)', value: formatCurrency(summary.detailedLabor?.total || summary.labor.total), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/10' },
-                     { title: 'Materiales (B)', value: formatCurrency(summary.detailedMaterials?.total || summary.materials.total), icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/10' },
-                     { title: 'Equipo (C)', value: formatCurrency(summary.detailedEquipment?.total || summary.equipment.total), icon: Truck, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/10' },
-                   ].map((stat, i) => (
-                     <div key={i} className="card relative overflow-hidden group border-b-4 border-b-blue-500">
-                       <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                         <stat.icon className="w-20 h-20" />
-                       </div>
-                       <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center mb-6`}>
-                         <stat.icon size={24} />
-                       </div>
-                       <p className="label-field mb-0 font-black">{stat.title}</p>
-                       <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stat.value}</p>
-                     </div>
-                   ))}
-                 </div>
-
+                    {[
+                      { title: 'Total Liquidar', value: formatCurrency(summary.grandTotal), icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/10' },
+                      { title: 'Mano de Obra (A)', value: formatCurrency(summary.detailedLabor?.total || summary.labor.total), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/10' },
+                      { title: 'Materiales (B)', value: formatCurrency(summary.detailedMaterials?.total || summary.materials.total), icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/10' },
+                      { title: 'Equipo (C)', value: formatCurrency(summary.detailedEquipment?.total || summary.equipment.total), icon: Truck, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/10' },
+                    ].map((stat, i) => (
+                      <div key={i} className="card relative overflow-hidden group border-b-4 border-b-blue-500">
+                        <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10">
+                          <stat.icon className="w-20 h-20" />
+                        </div>
+                        <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center mb-6`}>
+                          <stat.icon size={24} />
+                        </div>
+                        <p className="label-field mb-0 font-black">{stat.title}</p>
+                        <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stat.value}</p>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <div className="bg-blue-600 p-8 rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-500/20">
+                  <div className="bg-blue-600 p-8 rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
                      <div className="space-y-2">
                         <h3 className="text-2xl font-black uppercase tracking-tighter">Bienvenido a Force Account 2</h3>
                         <p className="text-blue-100 font-bold text-xs uppercase tracking-widest">Selecciona un registro de la lista o crea uno nuevo para empezar.</p>
                      </div>
-                     <button onClick={handleCreateNew} className="px-10 py-5 bg-white text-blue-600 font-black uppercase text-xs tracking-widest rounded-3xl hover:bg-slate-100 transition-all flex items-center gap-2 shadow-2xl">
+                     <button onClick={handleCreateNew} className="px-10 py-5 bg-white text-blue-600 font-black uppercase text-xs tracking-widest rounded-3xl shadow-2xl">
                         <Plus size={18} /> Crear Nuevo Reporte
                      </button>
                   </div>
                 )}
 
-                {/* List of Reports */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-4">
                     <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                       <Briefcase size={12} /> Gestión de Ciclos de Force Account
                     </h4>
-                    {!selectedReportId && (
-                       <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-blue-600 uppercase hover:underline">
-                          Importar de Respaldo
-                       </button>
-                    )}
                   </div>
                   
-                  {/* Item Lookup Panel in Dashboard when selected */}
                   {selectedReportId && (
-                    <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm font-sans">
+                    <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                        {/* Fila 1 */}
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">PARTIDA #</label>
-                          <input 
-                            type="text" 
-                            list="contract-items-list"
-                            placeholder="Ej: 28"
-                            value={ac49Report.relatedItemNo}
-                            onChange={(e) => handleItemLookup(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          <input type="text" list="contract-items-list" placeholder="Ej: 28" value={ac49Report.relatedItemNo} onChange={(e) => handleItemLookup(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" />
                           <datalist id="contract-items-list">
-                            {contractItems.map(i => (
-                              <option key={i.id} value={i.item_num}>{i.description}</option>
-                            ))}
+                            {contractItems.map(i => <option key={i.id} value={i.item_num}>{i.description}</option>)}
                           </datalist>
                         </div>
-                        
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">EWO #</label>
-                          <input 
-                            type="text" 
-                            value={ac49Report.relatedEWO || ''}
-                            onChange={(e) => setAc49Report({...ac49Report, relatedEWO: e.target.value})}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          <input type="text" value={ac49Report.relatedEWO || ''} onChange={(e) => setAc49Report({...ac49Report, relatedEWO: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
-
-                        {/* Separador */}
                         <div className="col-span-full h-px bg-slate-200 dark:bg-slate-800 my-2"></div>
-
-                        {/* Fila 2 */}
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">FECHA INICIO FA</label>
-                          <input 
-                            type="date" 
-                            value={ac49Report.startDate || ''}
-                            onChange={(e) => setAc49Report({...ac49Report, startDate: e.target.value})}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          <input type="date" value={ac49Report.startDate || ''} onChange={(e) => setAc49Report({...ac49Report, startDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
-
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">FECHA FIN FA</label>
-                          <input 
-                            type="date" 
-                            value={ac49Report.endDate || ''}
-                            onChange={(e) => setAc49Report({...ac49Report, endDate: e.target.value})}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          <input type="date" value={ac49Report.endDate || ''} onChange={(e) => setAc49Report({...ac49Report, endDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                       </div>
-
-                      {/* Info adicional opcional */}
-                      {ac49Report.relatedItemDescription && (
-                         <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 flex justify-between">
-                            <span><b>Desc:</b> {ac49Report.relatedItemDescription}</span>
-                            <span><b>Costo Unit:</b> {formatCurrency(ac49Report.relatedItemUnitCost || 0)}</span>
-                         </div>
-                      )}
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end p-6 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] shadow-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end p-6 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem]">
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2 flex items-center gap-2">
-                        <Search size={12} /> Buscar por # o descripción
-                       </label>
-                       <input 
-                         type="text" 
-                         placeholder="Ej: MAR-01..."
-                         value={reportSearch}
-                         onChange={(e) => setReportSearch(e.target.value)}
-                         className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-3 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                       />
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2 flex items-center gap-2"><Search size={12} /> Buscar</label>
+                       <input type="text" placeholder="Ej: MAR-01..." value={reportSearch} onChange={(e) => setReportSearch(e.target.value)} className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-3 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Desde (Fecha)</label>
-                       <input 
-                         type="date" 
-                         value={startDateFilter}
-                         onChange={(e) => setStartDateFilter(e.target.value)}
-                         className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-3 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                       />
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Desde</label>
+                       <input type="date" value={startDateFilter} onChange={(e) => setStartDateFilter(e.target.value)} className="w-full bg-white dark:bg-slate-800 ring-1 ring-slate-200 p-3 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500" />
                     </div>
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Hasta (Fecha)</label>
-                       <div className="flex gap-2">
-                         <input 
-                           type="date" 
-                           value={endDateFilter}
-                           onChange={(e) => setEndDateFilter(e.target.value)}
-                           className="flex-1 bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-3 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                         />
-                         {(reportSearch || startDateFilter || endDateFilter) && (
-                           <button onClick={() => { setReportSearch(""); setStartDateFilter(""); setEndDateFilter(""); }} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl hover:text-red-500 transition-colors ring-1 ring-slate-200">
-                             <X size={16} />
-                           </button>
-                         )}
-                       </div>
+                    <div className="space-y-2 text-right">
+                       <button onClick={() => { setReportSearch(""); setStartDateFilter(""); setEndDateFilter(""); }} className="text-[10px] font-black text-red-500 uppercase flex items-center gap-2 ml-auto mb-2"><X size={12}/> Limpiar filtros</button>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredReports.length > 0 ? filteredReports.map(r => (
-                      <div 
-                        key={r.id} 
-                        onClick={() => handleSelectReport(r)}
-                        className={`group p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer relative overflow-hidden ${
-                          selectedReportId === r.id 
-                          ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200' 
-                          : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200'
-                        }`}
-                      >
+                      <div key={r.id} onClick={() => handleSelectReport(r)} className={`group p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer ${selectedReportId === r.id ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}>
                          <div className="flex justify-between items-start">
                             <div className="space-y-1">
                                <div className="flex items-center gap-2">
-                                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${selectedReportId === r.id ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                                    {r.report_no}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400 font-bold">{new Date(r.date).toLocaleDateString('es-ES', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${selectedReportId === r.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{r.report_no}</span>
+                                  <span className="text-[10px] text-slate-400 font-bold">{r.date}</span>
                                </div>
                                <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight line-clamp-1">{r.description || 'Sin descripción'}</h5>
                             </div>
-                            <button 
-                              onClick={(e) => handleDelete(e, r.id)}
-                              className="p-3 bg-red-50 text-red-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                         </div>
-                         <div className="mt-6 flex justify-between items-center opacity-70">
-                            <div className="flex -space-x-2">
-                               <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] font-black">FA</div>
-                               <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] font-black text-blue-600">02</div>
-                            </div>
-                            <ChevronRight size={18} className={`transition-transform ${selectedReportId === r.id ? 'translate-x-1 text-blue-600' : 'group-hover:translate-x-1'}`} />
                          </div>
                       </div>
-                    )) : (
-                      <div className="col-span-full py-20 text-center space-y-4 bg-slate-50/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
-                         <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl mx-auto flex items-center justify-center text-slate-300">
-                           <Briefcase size={32} />
-                         </div>
-                         <p className="text-slate-400 font-bold italic text-sm">No hay reportes de Force Account 2 creados.</p>
-                         <button onClick={handleCreateNew} className="text-blue-600 font-black uppercase text-[10px] tracking-widest hover:underline">+ Crear primer registro</button>
-                      </div>
-                    )}
+                    )) : <div className="col-span-full py-20 text-center text-slate-400 italic font-bold">No hay reportes de Force Account 2.</div>}
                   </div>
                 </div>
-
-                {selectedReportId && (
-                  <div className="card bg-slate-900 text-white p-10 border-none shadow-xl rounded-[3rem] relative overflow-hidden group">
-                     <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 rounded-full blur-[80px] -mr-32 -mt-32"></div>
-                     <div className="flex flex-col md:flex-row items-center justify-between gap-10 relative z-10">
-                        <div className="space-y-2 text-center md:text-left">
-                          <h4 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">
-                            Respaldo del Ciclo Actual
-                            <ShieldCheck className="text-blue-500" />
-                          </h4>
-                          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Descargue los datos de "{ac49Report.reportNo}" por seguridad.</p>
-                        </div>
-                        <div className="flex gap-4">
-                          <button 
-                            onClick={exportData}
-                            className="px-8 py-4 bg-white text-slate-900 font-black text-[11px] uppercase tracking-widest rounded-2xl hover:scale-105 transition-all shadow-lg"
-                          >
-                            <Download size={14} className="inline mr-2" /> Exportar JSON
-                          </button>
-                        </div>
-                     </div>
-                  </div>
-                )}
               </div>
             )}
 
-            {!selectedReportId && activeTab != 'dashboard' ? (
-              <div className="card py-32 text-center animate-in zoom-in duration-300">
-                 <h3 className="text-xl font-black text-slate-800 dark:text-white uppercase mb-4">Acceso Restringido</h3>
-                 <p className="text-slate-400 font-bold text-sm mb-8 italic">Primero debe seleccionar un reporte del listado en el Dashboard.</p>
-                 <button onClick={() => setActiveTab('dashboard')} className="btn-primary">Ir al Dashboard</button>
-              </div>
-            ) : (
+            {selectedReportId && (
               <>
                 {activeTab === 'ac49' && (
                   <div className="card space-y-10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] border border-slate-100">
                       <div className="space-y-2">
                         <label className="label-field flex items-center gap-2"><Clock size={12} className="text-blue-600" /> Fecha del Informe</label>
-                        <input 
-                          type="date" 
-                          value={ac49Report.date}
-                          onChange={(e) => setAc49Report({...ac49Report, date: e.target.value})}
-                          className="input-field"
-                        />
+                        <input type="date" value={ac49Report.date} onChange={(e) => setAc49Report({...ac49Report, date: e.target.value})} className="input-field" />
                       </div>
                       <div className="space-y-2">
                         <label className="label-field">Número de Referencia</label>
-                        <input 
-                          type="text" 
-                          value={ac49Report.reportNo}
-                          onChange={(e) => setAc49Report({...ac49Report, reportNo: e.target.value})}
-                          className="input-field font-black uppercase"
-                          placeholder="Ej: MAR-01"
-                        />
+                        <input type="text" value={ac49Report.reportNo} onChange={(e) => setAc49Report({...ac49Report, reportNo: e.target.value})} className="input-field font-black uppercase" placeholder="Ej: MAR-01" />
                       </div>
                     </div>
 
                     <div className="space-y-6">
-                      <div className="flex flex-col md:flex-row items-center gap-4 p-6 bg-blue-50/50 dark:bg-blue-900/5 rounded-[2rem] border border-blue-100 dark:border-blue-900/20">
-                        <div className="flex items-center gap-2 text-blue-600">
+                      <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-blue-50/50 dark:bg-blue-900/5 rounded-[2rem] border border-blue-100">
+                        <div className="flex items-center gap-4 text-blue-600">
                           <Clock size={16} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Filtrar lista de personal por:</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">Filtrar por días:</span>
+                          <div className="flex items-center gap-2 ml-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-blue-100">
+                             <input type="checkbox" id="singleDay" checked={isSingleDayFilter} onChange={e => setIsSingleDayFilter(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
+                             <label htmlFor="singleDay" className="text-[9px] font-black uppercase cursor-pointer">Día único</label>
+                          </div>
                         </div>
                         <div className="flex items-center gap-4 flex-1">
-                          <div className="flex-1 space-y-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Desde</label>
-                            <input 
-                              type="date" 
-                              value={laborFilterStart}
-                              onChange={(e) => setLaborFilterStart(e.target.value)}
-                              className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-2 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Hasta</label>
-                            <input 
-                              type="date" 
-                              value={laborFilterEnd}
-                              onChange={(e) => setLaborFilterEnd(e.target.value)}
-                              className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-2 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          {(laborFilterStart || laborFilterEnd) && (
-                            <button 
-                              onClick={() => { setLaborFilterStart(""); setLaborFilterEnd(""); }}
-                              className="mt-5 p-2 text-red-500 bg-white dark:bg-slate-800 rounded-xl ring-1 ring-slate-200 hover:bg-red-50 transition-colors"
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
+                          <input type="date" value={laborFilterStart} onChange={(e) => setLaborFilterStart(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 p-2 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500" />
+                          {!isSingleDayFilter && <input type="date" value={laborFilterEnd} onChange={(e) => setLaborFilterEnd(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 p-2 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500" />}
+                          {(laborFilterStart || laborFilterEnd) && <button onClick={() => { setLaborFilterStart(""); setLaborFilterEnd(""); }} className="p-2 text-red-500 bg-white dark:bg-slate-800 rounded-xl hover:bg-red-50 transition-colors"><X size={14}/></button>}
                         </div>
                       </div>
 
@@ -987,33 +781,22 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           }},
                         ]}
                         data={visibleLabor}
-                        onAdd={() => {
-                          const newDate = laborFilterStart || ac49Report.date;
-                          setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: newDate, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]});
-                        }}
-                        onRemove={(idx) => {
-                          const itemToRemove = visibleLabor[idx];
-                          setAc49Report({...ac49Report, labor: ac49Report.labor.filter(l => l.id !== itemToRemove.id)});
-                        }}
+                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: laborFilterStart || ac49Report.date, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
+                        onRemove={(idx) => setAc49Report({...ac49Report, labor: ac49Report.labor.filter(l => l.id !== visibleLabor[idx].id)})}
                         onChange={(idx, key, val) => {
                           const targetItem = visibleLabor[idx];
                           const realIdx = ac49Report.labor.findIndex(l => l.id === targetItem.id);
                           if (realIdx === -1) return;
-
                           const newLabor = [...ac49Report.labor];
                           (newLabor[realIdx] as any)[key] = val;
-                          
-                          // Sugerencia Auto-relleno Personal
                           if (key === 'employeeName' && val) {
-                            const term = String(val).trim();
-                            const suggested = suggestionsDB.labor[term];
+                            const suggested = suggestionsDB.labor[String(val).trim()];
                             if (suggested) {
                               if (!newLabor[realIdx].ssLast4) newLabor[realIdx].ssLast4 = suggested.ssLast4;
                               if (!newLabor[realIdx].classification) newLabor[realIdx].classification = suggested.classification;
                               if (!newLabor[realIdx].hourlyRate) newLabor[realIdx].hourlyRate = suggested.hourlyRate;
                             }
                           }
-                          
                           setAc49Report({...ac49Report, labor: newLabor});
                         }}
                       />
@@ -1021,20 +804,24 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                       <EditableTable<MaterialEntry>
                         title="B. MATERIALES Y/O SERVICIOS"
                         columns={[
-                          { header: 'Tipo (M) mat. (S) Serv.', key: 'type', type: 'text' },
-                          { header: 'Materiales Usados y/o Servicios Prestados', key: 'description', type: 'text' },
+                          { header: 'Fecha', key: 'date', type: 'date' },
+                          { header: 'Tipo (M/S)', key: 'type', type: 'text' },
+                          { header: 'Descripción', key: 'description', type: 'text' },
                           { header: 'Vendedor', key: 'supplier', type: 'text' },
-                          { header: 'Número de Factura', key: 'invoiceNo', type: 'text' },
+                          { header: 'Factura', key: 'invoiceNo', type: 'text' },
                           { header: 'Cantidad', key: 'quantity', type: 'number' },
                           { header: '$ Unitario', key: 'unitCost', type: 'number' },
                           { header: 'Monto', key: 'amount', type: 'computed', compute: (row: any) => (parseFloat(row.quantity) || 0) * (parseFloat(row.unitCost) || 0) },
                         ]}
-                        data={ac49Report.materials}
-                        onAdd={() => setAc49Report({...ac49Report, materials: [...ac49Report.materials, { id: Date.now().toString(), type: '', description: '', supplier: '', invoiceNo: '', quantity: 0, unitCost: 0, amount: 0 }]})}
-                        onRemove={(idx) => setAc49Report({...ac49Report, materials: ac49Report.materials.filter((_, i) => i !== idx)})}
+                        data={visibleMaterials}
+                        onAdd={() => setAc49Report({...ac49Report, materials: [...ac49Report.materials, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, type: '', description: '', supplier: '', invoiceNo: '', quantity: 0, unitCost: 0, amount: 0 }]})}
+                        onRemove={(idx) => setAc49Report({...ac49Report, materials: ac49Report.materials.filter(m => m.id !== visibleMaterials[idx].id)})}
                         onChange={(idx, key, val) => {
+                          const targetItem = visibleMaterials[idx];
+                          const realIdx = ac49Report.materials.findIndex(m => m.id === targetItem.id);
+                          if (realIdx === -1) return;
                           const newMat = [...ac49Report.materials];
-                          (newMat[idx] as any)[key] = val;
+                          (newMat[realIdx] as any)[key] = val;
                           setAc49Report({...ac49Report, materials: newMat});
                         }}
                       />
@@ -1042,70 +829,44 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                       <EditableTable<EquipmentEntry>
                         title="C. EQUIPO EN USO"
                         columns={[
-                          { header: 'Descripción / Máquina', key: 'description', type: 'text' },
+                          { header: 'Fecha', key: 'date', type: 'date' },
+                          { header: 'Descripción', key: 'description', type: 'text' },
                           { header: 'Modelo', key: 'model', type: 'text' },
-                          { header: 'Tarifa Diaria ($)', key: 'dailyRate', type: 'number' },
+                          { header: 'Tarifa Diaria', key: 'dailyRate', type: 'number' },
                           { header: 'Horas', key: 'hours', type: 'number' },
                         ]}
-                        data={ac49Report.equipment}
-                        onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), description: '', model: '', capacity: '', isRented: false, hours: 0, dailyRate: 0 }]})}
-                        onRemove={(idx) => setAc49Report({...ac49Report, equipment: ac49Report.equipment.filter((_, i) => i !== idx)})}
+                        data={visibleEquipment}
+                        onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, description: '', model: '', capacity: '', isRented: false, hours: 0, dailyRate: 0 }]})}
+                        onRemove={(idx) => setAc49Report({...ac49Report, equipment: ac49Report.equipment.filter(e => e.id !== visibleEquipment[idx].id)})}
                         onChange={(idx, key, val) => {
+                          const targetItem = visibleEquipment[idx];
+                          const realIdx = ac49Report.equipment.findIndex(e => e.id === targetItem.id);
+                          if (realIdx === -1) return;
                           const newEq = [...ac49Report.equipment];
-                          (newEq[idx] as any)[key] = val;
-                          
-                          // Sugerencia Auto-relleno Equipo
+                          (newEq[realIdx] as any)[key] = val;
                           if (key === 'description' && val) {
-                            const term = String(val).trim();
-                            const suggested = suggestionsDB.equipment[term];
+                            const suggested = suggestionsDB.equipment[String(val).trim()];
                             if (suggested) {
-                              if (!newEq[idx].model) newEq[idx].model = suggested.model;
-                              if (!newEq[idx].dailyRate) newEq[idx].dailyRate = suggested.dailyRate;
+                              if (!newEq[realIdx].model) newEq[realIdx].model = suggested.model;
+                              if (!newEq[realIdx].dailyRate) newEq[realIdx].dailyRate = suggested.dailyRate;
                             }
                           }
-                          
                           setAc49Report({...ac49Report, equipment: newEq});
                         }}
                       />
 
-
                       <div className="space-y-3">
-                        <label className="label-field">Descripción Detallada del Trabajo</label>
-                        <textarea 
-                          value={ac49Report.workDescription}
-                          onChange={(e) => setAc49Report({...ac49Report, workDescription: e.target.value})}
-                          placeholder="Indique los trabajos específicos realizados..."
-                          className="input-field min-h-[150px] font-bold text-slate-800 dark:text-white p-6"
-                        />
+                        <label className="label-field">Descripción del Trabajo</label>
+                        <textarea value={ac49Report.workDescription} onChange={(e) => setAc49Report({...ac49Report, workDescription: e.target.value})} className="input-field min-h-[150px] font-bold p-6" />
                       </div>
 
-                      <div className="flex flex-col md:flex-row items-center gap-4 mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
-                        <button 
-                          onClick={() => saveData()}
-                          disabled={loading}
-                          className="w-full md:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-3xl transition-all shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
-                        >
-                          {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
-                          {selectedReportId ? "Actualizar Reporte" : "Guardar Nuevo Reporte"}
+                      <div className="flex flex-col md:flex-row items-center gap-4 mt-8 pt-8 border-t border-slate-100">
+                        <button onClick={() => saveData()} disabled={loading} className="w-full md:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-3xl transition-all shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-xs">
+                          {loading ? "..." : <Save size={18} />}Guardar Reporte
                         </button>
-                        
-                        <button 
-                          onClick={splitIntoDays}
-                          disabled={loading || !ac49Report.labor.length}
-                          className="w-full md:w-auto px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-3xl transition-all shadow-xl shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
-                        >
-                          <Split size={18} />
-                          Dividir por Días
+                        <button onClick={splitIntoDays} disabled={loading || !ac49Report.labor.length} className="w-full md:w-auto px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-3xl active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-xs">
+                          <Split size={18} />Dividir por Días
                         </button>
-                        
-                        {selectedReportId && (
-                          <button 
-                            onClick={() => setSelectedReportId(null)}
-                            className="w-full md:w-auto px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-3xl transition-all hover:bg-slate-200 active:scale-95 uppercase tracking-widest text-xs"
-                          >
-                            Nuevo Reporte
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -1113,120 +874,34 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
                 {activeTab === 'ac50' && (
                   <div className="card space-y-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6">
                       <div>
-                        <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                          <Truck className="text-amber-500" /> AC-50: Resumen de Renta
-                        </h3>
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Acumulado del ciclo {ac49Report.reportNo}</p>
+                        <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase flex items-center gap-2"><Truck className="text-amber-500" /> AC-50: Resumen de Equipo</h3>
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Resumen de costos de renta</p>
                       </div>
-                      <div className="flex items-center gap-3">
-                         <button 
-                           onClick={() => setShowEqSearcher(!showEqSearcher)}
-                           className={`btn-secondary text-[9px] px-4 py-2 border-2 ${showEqSearcher ? 'bg-amber-50 border-amber-200 text-amber-600' : ''}`}
-                         >
-                           {showEqSearcher ? 'OCULTAR BUSCADOR' : 'BUSCADOR DE TARIFAS'}
-                         </button>
-                         <div className="text-right ml-4">
-                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Total Renta Estimado</p>
-                            <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{formatCurrency(summary.equipment.subtotal)}</p>
-                         </div>
+                      <div className="text-right">
+                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Total Renta Estimado</p>
+                         <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{formatCurrency(summary.rentTotal)}</p>
                       </div>
                     </div>
 
-                    {showEqSearcher && (
-                      <div className="p-8 bg-amber-50/50 dark:bg-amber-900/10 rounded-[2.5rem] border-2 border-amber-100/50 dark:border-amber-800/30 animate-in slide-in-from-top duration-300">
-                        <div className="flex flex-col md:flex-row gap-6 items-end mb-8">
-                          <div className="flex-1 space-y-2">
-                            <label className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest block px-2">¿Qué equipo buscas?</label>
-                            <div className="relative group">
-                              <input 
-                                type="text" 
-                                placeholder="Escribe el nombre del equipo (ej: Excavadora, Pickup...)" 
-                                value={eqSearch}
-                                onChange={(e) => setEqSearch(e.target.value)}
-                                className="input-field pl-6 bg-white dark:bg-slate-900 border-amber-100 dark:border-amber-800/50 focus:border-amber-400 focus:ring-amber-400/20"
-                              />
-                            </div>
-                          </div>
-                          {eqSearch && (
-                             <button onClick={() => setEqSearch("")} className="btn-secondary py-3 text-xs bg-white dark:bg-slate-900">Limpiar</button>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                           {PREDEFINED_EQUIPMENT_RATES
-                             .filter(item => 
-                               item.name.toLowerCase().includes(eqSearch.toLowerCase()) || 
-                               item.model.toLowerCase().includes(eqSearch.toLowerCase())
-                             )
-                             .map((item, idx) => (
-                               <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-amber-100 dark:border-amber-800 hover:shadow-xl hover:shadow-amber-500/5 transition-all group relative overflow-hidden">
-                                  <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50 dark:bg-amber-900/10 rounded-bl-[2rem] flex items-center justify-center">
-                                    <DollarSign size={16} className="text-amber-500" />
-                                  </div>
-                                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight pr-8">{item.name}</h4>
-                                  <p className="text-[10px] text-slate-400 font-bold mb-6 italic truncate">{item.model}</p>
-                                  
-                                  <div className="space-y-3">
-                                    <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl">
-                                      <span className="text-[9px] font-black text-slate-400 uppercase">Tarifa Diaria</span>
-                                      <span className="text-xs font-black text-amber-600">{formatCurrency(item.daily)}/d</span>
-                                    </div>
-                                    <div className="flex justify-between items-center p-3">
-                                      <span className="text-[8px] font-bold text-slate-400 uppercase italic">Estimado Semanal</span>
-                                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{formatCurrency(item.weekly)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center p-3">
-                                      <span className="text-[8px] font-bold text-slate-400 uppercase italic">Estimado Mensual</span>
-                                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{formatCurrency(item.monthly)}</span>
-                                    </div>
-                                  </div>
-                                  
-                                  <button 
-                                    className="w-full mt-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/10 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0"
-                                    onClick={() => {
-                                      // Optional: Auto-add logic could go here
-                                      alert(`Tarifa diaria sugerida para ${item.name}: ${formatCurrency(item.daily)}. Úselo como referencia en la pestaña AC-49.`);
-                                    }}
-                                  >
-                                    Ver Detalles
-                                  </button>
-                               </div>
-                             ))}
-                        </div>
-                        
-                        <p className="text-[9px] text-slate-400 font-bold italic mt-8 text-center uppercase tracking-widest">
-                          * Precios estimados basados en promedios de mercado 2024. Sujeto a cambios y negociación.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="overflow-x-auto rounded-[2.5rem] border border-slate-100 dark:border-slate-800 bg-slate-50/30">
+                    <div className="overflow-x-auto rounded-[2.5rem] border bg-slate-50/30">
                        <table className="w-full text-left">
                          <thead>
-                           <tr className="bg-white dark:bg-slate-900 text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] border-b border-slate-100 dark:border-slate-800">
+                           <tr className="bg-white dark:bg-slate-900 text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] border-b">
                              <th className="px-8 py-5">Equipo / Maquinaria</th>
-                             <th className="px-8 py-5">Modelo</th>
                              <th className="px-8 py-5 text-center">Horas</th>
                              <th className="px-8 py-5 text-right">Monto</th>
                            </tr>
                          </thead>
-                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                         <tbody className="divide-y">
                            {ac49Report.equipment.length > 0 ? ac49Report.equipment.map((eq) => (
-                             <tr key={eq.id} className="hover:bg-white dark:hover:bg-slate-800/50 transition-colors">
-                               <td className="px-8 py-6 text-slate-900 dark:text-white font-black text-[11px] uppercase">{eq.description}</td>
-                               <td className="px-8 py-6 text-slate-400 font-bold text-[10px]">{eq.model}</td>
-                               <td className="px-8 py-6 text-center text-slate-900 dark:text-white font-black">{eq.hours}</td>
-                               <td className="px-8 py-6 text-right text-emerald-600 font-black text-sm">
-                                 {formatCurrency(calculateEquipmentRental(eq.hours, eq.dailyRate || 0))}
-                               </td>
+                             <tr key={eq.id}>
+                               <td className="px-8 py-6 text-slate-900 dark:text-white font-black text-[11px] uppercase">{eq.description} ({eq.model})</td>
+                               <td className="px-8 py-6 text-center font-black">{eq.hours}</td>
+                               <td className="px-8 py-6 text-right text-emerald-600 font-black text-sm">{formatCurrency(calculateEquipmentRental(eq.hours, eq.dailyRate || 0))}</td>
                              </tr>
-                           )) : (
-                             <tr>
-                               <td colSpan={4} className="px-8 py-20 text-center text-slate-300 italic font-bold">Inicie añadiendo equipos en la pestaña AC-49.</td>
-                             </tr>
-                           )}
+                           )) : <tr><td colSpan={3} className="px-8 py-20 text-center text-slate-300 italic font-bold">Sin equipos registrados.</td></tr>}
                          </tbody>
                        </table>
                     </div>
@@ -1234,167 +909,243 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                 )}
 
                 {activeTab === 'ac51' && (
-                  <div className="space-y-10">
-                    <div className="card border-none shadow-none bg-transparent p-0">
-                      <div className="grid grid-cols-1 gap-8">
-                        {/* Mano de Obra Details */}
-                        {/* Mano de Obra Details (Detailed Form) */}
-                        <div className="p-10 rounded-[3rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden">
-                           <div className="flex items-center justify-between mb-8 pb-4 border-b-2 border-blue-50 dark:border-slate-800">
-                             <div className="flex items-center gap-3">
-                               <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
-                                 <Users size={20} />
-                               </div>
-                               <div>
-                                 <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">A. Resumen de Mano de Obra</h4>
-                                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">({ac49Report.date || 'Sin Fecha'})</p>
-                               </div>
-                             </div>
-                             <div className="bg-blue-600 text-white px-6 py-2 rounded-2xl font-black text-xs shadow-lg shadow-blue-500/20">TOTAL MES: {formatCurrency(summary.detailedLabor?.total || 0)}</div>
-                           </div>
-
-                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-xs">
-                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                               <span className="w-64 font-bold text-slate-600 dark:text-slate-300">a) Subtot Operadores (Unión)</span> 
-                               <div className="flex items-center">
-                                 <span className="text-slate-400 mr-2">$</span>
-                                 <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_op} onChange={e => updateLaborDetail('mo_operadores', +e.target.value)}/>
-                               </div>
-                             </div>
-                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                               <span className="w-64 flex items-center gap-2 text-slate-500">b) Beneficios Oper. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_operadores_pct || 0} onChange={e => updateLaborDetail('mo_operadores_pct', +e.target.value)}/>%</span> 
-                               <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_op || 0) * ((ac49Report.laborDetails?.mo_operadores_pct || 0)/100))}</b>
-                             </div>
-                             
-                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                               <span className="w-64 font-bold text-slate-600 dark:text-slate-300">c) Subtot Carpinteros</span> 
-                               <div className="flex items-center">
-                                 <span className="text-slate-400 mr-2">$</span>
-                                 <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_ca} onChange={e => updateLaborDetail('mo_carpinteros', +e.target.value)}/>
-                               </div>
-                             </div>
-                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                               <span className="w-64 flex items-center gap-2 text-slate-500">d) Beneficios Carp. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_carpinteros_pct || 0} onChange={e => updateLaborDetail('mo_carpinteros_pct', +e.target.value)}/>%</span> 
-                               <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_ca || 0) * ((ac49Report.laborDetails?.mo_carpinteros_pct || 0)/100))}</b>
-                             </div>
-                             
-                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                               <span className="w-64 font-bold text-slate-600 dark:text-slate-300">e) Subtot Adicional</span> 
-                               <div className="flex items-center">
-                                 <span className="text-slate-400 mr-2">$</span>
-                                 <input className="w-24 text-right bg-slate-50 dark:bg-slate-800 border-none rounded p-1 font-bold outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_ad} onChange={e => updateLaborDetail('mo_adicional', +e.target.value)}/>
-                               </div>
-                             </div>
-                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800">
-                               <span className="w-64 flex items-center gap-2 text-slate-500">f) Beneficios Adic. <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_adicional_pct || 0} onChange={e => updateLaborDetail('mo_adicional_pct', +e.target.value)}/>%</span> 
-                               <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.mo_ad || 0) * ((ac49Report.laborDetails?.mo_adicional_pct || 0)/100))}</b>
-                             </div>
-                             
-                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800"><span className="font-black text-blue-600">g) Suma Unión (a..f)</span> <b className="text-blue-700 dark:text-blue-400 font-black">{formatCurrency(summary.detailedLabor?.g || 0)}</b></div>
-                             <div className="flex items-center justify-between py-2 border-b dark:border-slate-800"></div>
-
-                             <div className="flex items-center justify-between py-3 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 px-3 rounded-lg"><span className="w-64 font-black">h) Subtotal Mano Obra Reg/Ext</span> <b className="font-black text-sm">{formatCurrency(summary.detailedLabor?.h_subtotal || 0)}</b></div>
-                             <div className="flex items-center justify-between py-3 border-b dark:border-slate-800"><span className="w-64 flex items-center gap-2 text-slate-500">i) Beneficios marginales <input className="w-12 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 border-none p-1 text-xs" type="number" step="any" value={ac49Report.laborDetails?.mo_sin_union_pct || 0} onChange={e => updateLaborDetail('mo_sin_union_pct', +e.target.value)}/>%</span>  <b className="text-slate-900 dark:text-white">{formatCurrency((summary.detailedLabor?.h_subtotal || 0) * ((ac49Report.laborDetails?.mo_sin_union_pct || 0)/100))}</b></div>
-                             
-                             <div className="col-span-1 md:col-span-2 mt-6 space-y-4">
-                               <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-4 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm"><span className="w-64 font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest text-[10px]">j) Gastos Viaje/Dietas</span> 
-                                 <div className="flex items-center">
-                                   <span className="text-slate-400 mr-2">$</span>
-                                   <input className="w-32 text-right bg-white dark:bg-slate-900 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-2 rounded-lg font-black outline-none focus:ring-blue-500" type="number" step="any" value={summary.detailedLabor?.mo_gastos_viaje || ac49Report.laborDetails?.mo_gastos_viaje || 0} onChange={e => updateLaborDetail('mo_gastos_viaje', +e.target.value)}/>
-                                 </div>
-                               </div>
-                               
-                               <div className="space-y-3 pt-6">
-                                   <div className="flex justify-between items-center px-4 py-2"><span className="w-80 font-bold text-slate-500 text-[11px] uppercase">k) Suma Base (Unión ó Sin Unión + Viajes)</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.k || 0)}</b></div>
-                                   <div className="flex justify-between items-center px-4 py-2"><span className="w-80 font-bold text-slate-500 flex items-center gap-3">l) Beneficio Industrial <input className="w-14 text-center bg-slate-50 dark:bg-slate-800 rounded ring-1 ring-slate-200 p-1 font-bold" type="number" step="any" value={ac49Report.laborDetails?.mo_beneficio_ind_pct ?? 20} onChange={e => updateLaborDetail('mo_beneficio_ind_pct', +e.target.value)}/>% de k</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.l || 0)}</b></div>
-                                   <div className="flex justify-between items-center p-5 border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 rounded-2xl shadow-inner mt-4"><span className="font-black uppercase text-[11px] tracking-[0.2em] text-slate-700 dark:text-slate-300">m) SUMA L+K</span> <b className="text-lg text-slate-900 dark:text-white tracking-tighter">{formatCurrency(summary.detailedLabor?.m_val || 0)}</b></div>
-
-                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2 pt-6 pl-4 text-slate-600 dark:text-slate-400">
-                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">n) Fondo Seguro Estado <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_fondo_estado_pct || 0} onChange={e => updateLaborDetail('mo_fondo_estado_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.n || 0)}</b></div>
-                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">o) Seguro Social <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_seguro_social_pct ?? 7.65} onChange={e => updateLaborDetail('mo_seguro_social_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.o || 0)}</b></div>
-                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48">p) Desempleo Est. + Fed.</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.p || 0)}</b></div>
-                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">q) Seg. Resp. Pública <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_resp_publica_pct || 0} onChange={e => updateLaborDetail('mo_resp_publica_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.q || 0)}</b></div>
-                                       <div className="flex items-center justify-between py-1 text-[10px]"><span className="w-48 flex items-center justify-between">r) Incapacidad <input className="w-12 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1" type="number" step="any" value={ac49Report.laborDetails?.mo_incapacidad_pct || 0} onChange={e => updateLaborDetail('mo_incapacidad_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white">{formatCurrency(summary.detailedLabor?.r || 0)}</b></div>
-                                   </div>
-
-                                   <div className="flex justify-between items-center px-4 pt-6 mt-4 border-t dark:border-slate-800"><span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-widest">s) Suma (n+o+p+q+r)</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.s || 0)}</b></div>
-                                   <div className="flex justify-between items-center px-4 pb-6"><span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-widest flex items-center gap-3">t) Beneficio Industrial final <input className="w-14 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1 font-bold" type="number" step="any" value={ac49Report.laborDetails?.mo_beneficio_ind_final_pct ?? 10} onChange={e => updateLaborDetail('mo_beneficio_ind_final_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.t || 0)}</b></div>
-                               </div>
-                             </div>
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-
+                  <div className="space-y-10 animate-in fade-in duration-700">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 dark:border-slate-800 pb-8">
                       <div>
                         <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter flex items-center gap-3">
-                          <FileText className="text-blue-600" /> AC-51: Resumen Mensual de Liquidación
+                          <FileText className="text-blue-600" /> AC-51: Resumen Mensual
                         </h3>
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">Consolidado de costos por día</p>
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">Resumen consolidado por mes</p>
                       </div>
                       <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-700">
-                        <span className="text-[10px] font-black uppercase text-slate-400">Mes de Reporte:</span>
-                        <input 
-                          type="month" 
-                          value={ac51Month}
-                          onChange={(e) => setAc51Month(e.target.value)}
-                          className="bg-white dark:bg-slate-900 border-none ring-1 ring-slate-200 dark:ring-slate-700 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        <span className="text-[10px] font-black uppercase text-slate-400">Mes:</span>
+                        <input type="month" value={ac51Month} onChange={(e) => setAc51Month(e.target.value)} className="bg-white dark:bg-slate-900 rounded-xl px-4 py-2 text-sm font-bold outline-none" />
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 dark:bg-slate-800/50">
-                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">Fecha</th>
-                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">Reporte №</th>
-                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Mano de Obra</th>
-                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Equipo</th>
-                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Materiales</th>
-                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Total Diario</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                          {ac51Data.length > 0 ? ac51Data.map((row, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                              <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">{row.date}</td>
-                              <td className="px-6 py-4 text-xs font-black text-blue-600 dark:text-blue-400 uppercase">{row.reportNo}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-200 text-right">{formatCurrency(row.labor)}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-200 text-right">{formatCurrency(row.equip)}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-200 text-right">{formatCurrency(row.mats)}</td>
-                              <td className="px-6 py-4 text-xs font-black text-slate-900 dark:text-white text-right bg-slate-50/30 dark:bg-slate-800/20">{formatCurrency(row.total)}</td>
-                            </tr>
-                          )) : (
-                            <tr>
-                              <td colSpan={6} className="px-6 py-20 text-center">
-                                <div className="flex flex-col items-center gap-3">
-                                  <Calendar className="text-slate-200" size={48} />
-                                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">No hay reportes registrados para este mes</p>
+                    <div className="space-y-8">
+                       {[
+                         { label: 'A) MANO DE OBRA', key: 'labor' as const, subtotal: ac51Data.reduce((acc, r) => acc + r.labor, 0) },
+                         { label: 'B) MATERIALES Y SERVICIOS', key: 'mats' as const, subtotal: ac51Data.reduce((acc, r) => acc + r.mats, 0) },
+                         { label: 'C) EQUIPO', key: 'equip' as const, subtotal: ac51Data.reduce((acc, r) => acc + r.equip, 0) }
+                       ].map((section) => {
+                         const [year, month] = ac51Month.split('-').map(Number);
+                         const daysInMonth = new Date(year, month, 0).getDate();
+                         
+                         const getDayData = (day: number) => {
+                           const dateStr = `${ac51Month}-${String(day).padStart(2, '0')}`;
+                           const dayReport = ac51Data.find(r => r.date === dateStr);
+                           const d = new Date(year, month - 1, day);
+                           const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                           return { day, weekDay: weekDays[d.getDay()], amount: dayReport ? (dayReport as any)[section.key] : 0 };
+                         };
+
+                         const renderTableBlock = (start: number, end: number) => (
+                           <div className="flex-1 min-w-[200px] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                             <table className="w-full text-[9px] uppercase font-black">
+                               <thead>
+                                 <tr className="bg-slate-50 dark:bg-slate-800 border-b text-slate-400">
+                                   <th className="px-2 py-2 border-r">Día Sem.</th>
+                                   <th className="px-2 py-2 border-r">Día Mes</th>
+                                   <th className="px-2 py-2 text-right">Monto</th>
+                                 </tr>
+                               </thead>
+                               <tbody>
+                                 {Array.from({ length: end - start + 1 }, (_, i) => {
+                                   const d = start + i;
+                                   if (d > daysInMonth) return null;
+                                   const data = getDayData(d);
+                                   return (
+                                     <tr key={d} className="border-b last:border-0 hover:bg-blue-50/20 transition-colors">
+                                       <td className="px-2 py-2 border-r text-slate-400">{data.weekDay}</td>
+                                       <td className="px-2 py-2 border-r font-bold">{data.day}</td>
+                                       <td className={`px-2 py-2 text-right font-bold ${data.amount > 0 ? 'text-blue-600' : 'text-slate-300'}`}>{formatCurrency(data.amount)}</td>
+                                     </tr>
+                                   );
+                                 })}
+                               </tbody>
+                             </table>
+                           </div>
+                         );
+
+                         return (
+                           <div key={section.key} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl">
+                             <div className="flex items-center justify-between mb-6">
+                               <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-3">
+                                 <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                                 {section.label}
+                               </h4>
+                               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl">
+                                 {section.key === 'equip' ? 'Resumen Parte B' : 'Informe Diario'}
+                               </div>
+                             </div>
+
+                             {section.key !== 'equip' && (
+                               <div className="flex flex-col xl:flex-row gap-6">
+                                 {renderTableBlock(1, 10)}
+                                 {renderTableBlock(11, 20)}
+                                 {renderTableBlock(21, 31)}
+                               </div>
+                             )}
+
+                             {section.key === 'equip' && (
+                               <div className="bg-slate-50 dark:bg-slate-800/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 mb-6 font-bold text-slate-400 text-[10px] italic text-center">
+                                 Para llenar los subtotales de equipo, refiérase a la hoja de Relación de Equipo del Trabajo por Administración Delegada, parte B.
+                               </div>
+                             )}
+
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                               {section.key !== 'equip' && (
+                                 <>
+                                   <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 dark:border-slate-700">
+                                     <span className="text-[9px] font-black text-slate-400 uppercase">Subtotal (1-10)</span>
+                                     <b className="text-xs font-black">{formatCurrency(Array.from({length: 10}, (_, i) => getDayData(i+1).amount).reduce((a,b) => a+b, 0))}</b>
+                                   </div>
+                                   <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 dark:border-slate-700">
+                                     <span className="text-[9px] font-black text-slate-400 uppercase">Subtotal (11-20)</span>
+                                     <b className="text-xs font-black">{formatCurrency(Array.from({length: 10}, (_, i) => getDayData(i+11).amount).reduce((a,b) => a+b, 0))}</b>
+                                   </div>
+                                   <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 dark:border-slate-700">
+                                     <span className="text-[9px] font-black text-slate-400 uppercase">Subtotal (21-31)</span>
+                                     <b className="text-xs font-black">{formatCurrency(Array.from({length: 11}, (_, i) => getDayData(i+21).amount).reduce((a,b) => a+b, 0))}</b>
+                                   </div>
+                                 </>
+                               )}
+                             </div>
+                             
+                             {section.key === 'labor' && (
+                                <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800">
+                                   <h5 className="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em] mb-8">Resumen de Costo de Mano de Obra</h5>
+                                   <div className="space-y-3">
+                                      {[
+                                        { id: 'a', label: 'a) Subtotal Operadores (Unión Equipo Pesado)', value: summary.detailedLabor?.mo_op },
+                                        { id: 'b', label: `b) Beneficios Marginales ${ac49Report.laborDetails?.mo_operadores_pct || 0}% de (a)`, value: (summary.detailedLabor?.mo_op || 0) * ((ac49Report.laborDetails?.mo_operadores_pct || 0)/100) },
+                                        { id: 'c', label: 'c) Subtotal Carpinteros (Unión de Carpinteros)', value: summary.detailedLabor?.mo_ca },
+                                        { id: 'd', label: `d) Beneficios Marginales ${ac49Report.laborDetails?.mo_carpinteros_pct || 0}% de (c)`, value: (summary.detailedLabor?.mo_ca || 0) * ((ac49Report.laborDetails?.mo_carpinteros_pct || 0)/100) },
+                                        { id: 'e', label: 'e) Subtotal Personal Adicional', value: summary.detailedLabor?.mo_ad },
+                                        { id: 'f', label: `f) Beneficios Marginales ${ac49Report.laborDetails?.mo_adicional_pct || 0}% de (e)`, value: (summary.detailedLabor?.mo_ad || 0) * ((ac49Report.laborDetails?.mo_adicional_pct || 0)/100) },
+                                        { id: 'g', label: 'g) Suma de (a, b, c, d, e, f)', value: summary.detailedLabor?.g, highlight: true },
+                                        { id: 'h', label: 'h) Subtotal Mano de Obra (Sin Unión)', value: summary.detailedLabor?.h_subtotal },
+                                        { id: 'i', label: `i) Beneficios Marginales ${ac49Report.laborDetails?.mo_sin_union_pct || 0}% de (h)`, value: (summary.detailedLabor?.h_subtotal || 0) * ((ac49Report.laborDetails?.mo_sin_union_pct || 0)/100) },
+                                        { id: 'j', label: 'j) Gastos de Viaje y Dietas', value: ac49Report.laborDetails?.mo_gastos_viaje || 0 },
+                                        { id: 'k', label: 'k) Suma Base (g+j) ó (h+i+j)', value: summary.detailedLabor?.k, highlight: true },
+                                        { id: 'l', label: `l) Beneficio Industrial ${ac49Report.laborDetails?.mo_beneficio_ind_pct || 20}% de (k)`, value: summary.detailedLabor?.l },
+                                        { id: 'm', label: 'm) Suma de (k+l)', value: summary.detailedLabor?.m_val, highlight: true },
+                                        { id: 'n', label: `n) Fondo Seguro Estado ${ac49Report.laborDetails?.mo_fondo_estado_pct || 0}% de (h)`, value: summary.detailedLabor?.n },
+                                        { id: 'o', label: `o) Seguro Social ${ac49Report.laborDetails?.mo_seguro_social_pct || 7.65}% de (h)`, value: summary.detailedLabor?.o },
+                                        { id: 'p', label: `p) Seguro Desempleo (6.2%) de (h)`, value: summary.detailedLabor?.p },
+                                        { id: 'q', label: `q) Seg. Resp. Pública ${ac49Report.laborDetails?.mo_resp_publica_pct || 0}% de (h)`, value: summary.detailedLabor?.q },
+                                        { id: 'r', label: `r) Seguro Incapacidad ${ac49Report.laborDetails?.mo_incapacidad_pct || 0}% de (h)`, value: summary.detailedLabor?.r },
+                                        { id: 's', label: 's) Suma de (n, o, p, q, r)', value: summary.detailedLabor?.s, highlight: true },
+                                        { id: 't', label: `t) Beneficio Industrial ${ac49Report.laborDetails?.mo_beneficio_ind_final_pct || 10}% de (s)`, value: summary.detailedLabor?.t },
+                                        { id: 'mo_total', label: '(1) TOTAL DE MANO DE OBRA (m+s+t)', value: summary.detailedLabor?.total, total: true }
+                                      ].map((row) => (
+                                        <div key={row.id} className={`flex justify-between items-center px-6 py-3 rounded-xl ${row.total ? 'bg-blue-600 text-white shadow-lg' : row.highlight ? 'bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-100 dark:ring-slate-700 border border-slate-100 dark:border-slate-800' : ''}`}>
+                                           <span className={`text-[10px] uppercase ${row.total || row.highlight ? 'font-black' : 'font-bold text-slate-500'}`}>{row.label}</span>
+                                           <b className={`${row.total ? 'text-sm' : 'text-xs'} font-black`}>{formatCurrency(row.value || 0)}</b>
+                                        </div>
+                                      ))}
+                                   </div>
                                 </div>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                        {ac51Data.length > 0 && (
-                          <tfoot>
-                            <tr className="bg-blue-600 text-white font-black">
-                              <td colSpan={2} className="px-6 py-6 text-xs uppercase tracking-[0.2em]">Totales del Mes</td>
-                              <td className="px-6 py-6 text-xs text-right">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.labor, 0))}</td>
-                              <td className="px-6 py-6 text-xs text-right">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.equip, 0))}</td>
-                              <td className="px-6 py-6 text-xs text-right">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.mats, 0))}</td>
-                              <td className="px-6 py-6 text-sm text-right bg-blue-700">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.total, 0))}</td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
+                             )}
+
+                             {section.key === 'mats' && (
+                                <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800">
+                                   <h5 className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-8">Resumen de Costo de Materiales y/o Servicios</h5>
+                                   <div className="space-y-3">
+                                      <div className="flex justify-between items-center px-6 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800">
+                                         <span className="text-[10px] font-black uppercase text-slate-500">a) Subtotal de Materiales y/o Servicios</span>
+                                         <b className="text-xs font-black">{formatCurrency((summary.detailedMaterials?.subtotalM || 0) + (summary.detailedMaterials?.subtotalS || 0))}</b>
+                                      </div>
+                                      <div className="flex justify-between items-center px-6 py-3 rounded-xl">
+                                         <span className="text-[10px] font-bold uppercase text-slate-500">b) Beneficio Industrial 15%</span>
+                                         <b className="text-xs font-black">{formatCurrency((summary.detailedMaterials?.biM || 0) + (summary.detailedMaterials?.biS || 0))}</b>
+                                      </div>
+                                      <div className="flex justify-between items-center px-6 py-4 rounded-xl bg-emerald-600 text-white shadow-lg">
+                                         <span className="text-[10px] font-black uppercase tracking-widest">(2) TOTAL DE MATERIALES Y/O SERVICIOS (A+B)</span>
+                                         <b className="text-sm font-black">{formatCurrency(summary.detailedMaterials?.total || 0)}</b>
+                                      </div>
+                                   </div>
+                                </div>
+                             )}
+
+                             {section.key === 'equip' && (
+                                <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800">
+                                   <h5 className="text-[11px] font-black text-amber-600 uppercase tracking-[0.2em] mb-8">Resumen de Costo de Equipo</h5>
+                                   <div className="space-y-3">
+                                      <div className="flex justify-between items-center px-6 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800">
+                                         <span className="text-[10px] font-black uppercase text-slate-500">a) Subtotal Renta de Equipo (Activo+Inactivo)</span>
+                                         <b className="text-xs font-black">{formatCurrency(summary.rentTotal)}</b>
+                                      </div>
+                                      <div className="flex justify-between items-center px-6 py-3 rounded-xl">
+                                         <span className="text-[10px] font-bold uppercase text-slate-500">b) Beneficio Industrial 15% de (a)</span>
+                                         <b className="text-xs font-black">{formatCurrency(summary.rentTotal * 0.15)}</b>
+                                      </div>
+                                      <div className="flex justify-between items-center px-6 py-4 rounded-xl bg-amber-500 text-white shadow-lg">
+                                         <span className="text-[10px] font-black uppercase tracking-widest">(3) TOTAL DE EQUIPO (a+b)</span>
+                                         <b className="text-sm font-black">{formatCurrency(summary.rentTotal * 1.15)}</b>
+                                      </div>
+                                   </div>
+                                </div>
+                             )}
+
+                             <div className="mt-8 flex justify-between items-center px-6 py-4 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700">
+                               <span className="text-[10px] font-black uppercase tracking-widest italic opacity-80">Subtotal Neto Mensual {section.label}</span>
+                               <b className="text-lg font-black tracking-tighter">{formatCurrency(section.subtotal)}</b>
+                             </div>
+                           </div>
+                         );
+                       })}
+
+                       <div className="bg-slate-900 text-white p-12 rounded-[4rem] shadow-2xl relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] -mr-48 -mt-48"></div>
+                          <div className="relative z-10 space-y-12">
+                            <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+                               <div className="space-y-3">
+                                  <h3 className="text-4xl font-black uppercase tracking-tighter italic">Total Mensual</h3>
+                                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                    <Info size={12} className="text-blue-500" />
+                                    Suma consolidada de todos los recursos del periodo.
+                                  </p>
+                               </div>
+                               <div className="flex flex-col items-end gap-2">
+                                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resumen Final</div>
+                                  <div className="text-5xl font-black text-emerald-400 tracking-tighter flex items-center gap-4">
+                                     <DollarSign size={40} className="text-emerald-500/50" />
+                                     {formatCurrency(
+                                       (summary.detailedLabor?.total || 0) + 
+                                       (summary.detailedMaterials?.total || 0) + 
+                                       (summary.rentTotal * 1.15)
+                                     )}
+                                  </div>
+                               </div>
+                            </div>
+                            
+                            <div className="pt-8 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-12">
+                               <div className="space-y-4">
+                                  <h6 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-4">Comentarios del Liquidador</h6>
+                                  <textarea className="w-full bg-slate-800/50 border border-slate-700 rounded-3xl p-6 text-xs text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/50 min-h-[120px]" placeholder="Indique notas adicionales para este periodo..." />
+                               </div>
+                               <div className="space-y-4">
+                                  <h6 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-4">Costo Total AC-51</h6>
+                                  <div className="bg-slate-800/80 p-6 rounded-[2rem] border border-slate-700/50">
+                                     <div className="flex justify-between items-center mb-3">
+                                        <span className="text-[9px] font-bold text-slate-500 uppercase">Subtotal (1+2+3)</span>
+                                        <b className="text-xs font-black">{formatCurrency((summary.detailedLabor?.total || 0) + (summary.detailedMaterials?.total || 0) + (summary.rentTotal * 1.15))}</b>
+                                     </div>
+                                     <div className="flex justify-between items-center py-4 border-t border-slate-700/50">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-2">Fianzas de Ejecución y Pago <input className="w-12 bg-slate-900/50 rounded ring-1 ring-slate-700 border-none text-center p-1 font-bold text-blue-400" type="number" step="any" defaultValue={0}/>% por mil</span>
+                                        <b className="text-xs font-black text-emerald-400">{formatCurrency(0)}</b>
+                                     </div>
+                                  </div>
+                               </div>
+                            </div>
+                          </div>
+                       </div>
                     </div>
 
                     <div className="flex justify-end gap-4 mt-10">
-                       <button 
-                         className="px-10 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95 flex items-center gap-3 uppercase tracking-widest text-[10px]"
-                       >
+                       <button className="px-10 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95 flex items-center gap-3 uppercase tracking-widest text-[10px]">
                          <Download size={18} /> Exportar Reporte Mensual (AC-51)
                        </button>
                     </div>
@@ -1432,7 +1183,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                               };
                               input.click();
                             }}
-                            className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg hover:scale-105"
+                            className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase hover:bg-blue-700 shadow-lg"
                           >
                             <Plus size={16} /> Subir de Galería
                           </button>
@@ -1458,7 +1209,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                };
                                input.click();
                              }}
-                            className="flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg hover:scale-105"
+                            className="flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase hover:bg-emerald-700 shadow-lg"
                           >
                             <Camera size={16} /> Abrir Cámara
                           </button>
@@ -1471,12 +1222,11 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             <Camera size={40} />
                           </div>
                           <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay fotos registradas aún</p>
-                          <p className="text-[10px] text-slate-300 mt-2 italic">Capture o suba evidencia de los trabajos realizados</p>
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                           {ac49Report.photos.map((photo, idx) => (
-                            <div key={idx} className="group relative aspect-square rounded-[2rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-md hover:shadow-xl transition-all">
+                            <div key={idx} className="group relative aspect-square rounded-[2rem] overflow-hidden border shadow-md">
                               <img src={photo} alt={`Evidencia ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                 <button 
@@ -1486,24 +1236,22 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                       photos: (prev.photos || []).filter((_, i) => i !== idx)
                                     }));
                                   }}
-                                  className="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg transform hover:scale-110"
+                                  className="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 shadow-lg"
                                 >
                                   <Trash2 size={20} />
                                 </button>
                               </div>
                               <div className="absolute bottom-4 left-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-3 rounded-xl text-center">
-                                <p className="text-[9px] font-black uppercase text-slate-600 dark:text-slate-300">Foto #{idx + 1}</p>
+                                <p className="text-[9px] font-black uppercase text-slate-600">Foto #{idx + 1}</p>
                               </div>
                             </div>
                           ))}
                         </div>
                       )}
                       
-                      <div className="mt-12 p-6 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 rounded-2xl flex items-center gap-4">
+                      <div className="mt-12 p-6 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 rounded-2xl flex items-center gap-4">
                         <Info className="text-amber-600 shrink-0" size={20} />
-                        <p className="text-[10px] font-bold text-amber-800 uppercase leading-relaxed tracking-tight">
-                          Las fotos se guardarán dentro del archivo de respaldo JSON para mantener toda la evidencia consolidada en un solo lugar.
-                        </p>
+                        <p className="text-[10px] font-bold text-amber-800 uppercase tracking-tight">Las fotos se guardarán dentro del archivo de respaldo JSON.</p>
                       </div>
                     </div>
                   </div>
@@ -1513,8 +1261,13 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           </div>
         </div>
       </div>
-
       <input ref={fileInputRef} id="import-fa2-json" type="file" accept=".json" className="hidden" onChange={importData} />
+
+      {/* About Section mandated by User Rules */}
+      <div className="mt-20 pt-10 border-t border-slate-100 dark:border-slate-800 text-center pb-10">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Suite de Soluciones Saavedra</p>
+        <p className="text-[11px] font-bold text-slate-500 mt-2">Diseñador: Ing. Enrique Saavedra Sada, PE</p>
+      </div>
     </div>
   );
 });

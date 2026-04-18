@@ -32,6 +32,7 @@ export interface EquipmentEntry {
   weeklyRate?: number;
   monthlyRate?: number;
   total?: number;
+  date?: string;
 }
 
 export interface MaterialEntry {
@@ -43,6 +44,7 @@ export interface MaterialEntry {
   quantity: number;    // Cantidad
   unitCost?: number;
   amount?: number;     // Amount (Calculated in AC-50/51)
+  date?: string;
 }
 
 export interface AC49Report {
