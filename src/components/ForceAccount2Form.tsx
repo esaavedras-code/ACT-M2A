@@ -245,7 +245,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
         if (e.description?.trim()) {
           equipmentDB[e.description.trim()] = {
             model: e.model,
+            year: e.year,
             capacity: e.capacity,
+            fuelType: e.fuelType,
+            ownership: e.ownership,
             dailyRate: e.dailyRate
           };
         }
@@ -952,6 +955,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                               const suggested = suggestionsDB.equipment[String(val).trim()];
                               if (suggested) {
                                 if (!newEq[realIdx].model) newEq[realIdx].model = suggested.model;
+                                if (!newEq[realIdx].year) newEq[realIdx].year = suggested.year;
+                                if (!newEq[realIdx].capacity) newEq[realIdx].capacity = suggested.capacity;
+                                if (!newEq[realIdx].fuelType) newEq[realIdx].fuelType = suggested.fuelType;
+                                if (!newEq[realIdx].ownership) newEq[realIdx].ownership = suggested.ownership;
                                 if (!newEq[realIdx].dailyRate) newEq[realIdx].dailyRate = suggested.dailyRate;
                               }
                             }
