@@ -519,16 +519,16 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         <span className="text-[8px] font-black">Adm.</span>
                                                     </div>
                                                 </th>
-                                                <th className="py-1 px-0.5 w-16 text-center"># Item</th>
-                                                <th className="py-1 px-0.5 w-24">Espec.</th>
-                                                <th className="py-1 px-0.5 min-w-[250px]">Descripción</th>
-                                                <th className="py-1 px-0.5 w-20 text-center">Unit</th>
-                                                <th className="py-1 px-0.5 w-20 text-right">Qty</th>
-                                                <th className="py-1 px-0.5 w-24 text-right">Unit Price</th>
-                                                <th className="py-1 px-0.5 w-24 text-right">Amount</th>
-                                                <th className="py-1 px-0.5 w-40">Fondos</th>
-                                                <th className="py-1 px-0.5 w-10 text-center" style={{ backgroundColor: '#66FF99' }}>CM</th>
-                                                <th className="py-1 px-0.5 w-16 text-center">Cant. CM</th>
+                                                <th className="py-1 px-0.5 w-20 text-center"># Item</th>
+                                                <th className="py-1 px-0.5 w-28">Espec.</th>
+                                                <th className="py-1 px-0.5 min-w-[300px]">Descripción</th>
+                                                <th className="py-1 px-0.5 w-24 text-center">Unit</th>
+                                                <th className="py-1 px-0.5 w-32 text-right">Qty</th>
+                                                <th className="py-1 px-0.5 w-36 text-right">Unit Price</th>
+                                                <th className="py-1 px-0.5 w-40 text-right">Amount</th>
+                                                <th className="py-1 px-0.5 w-48">Fondos</th>
+                                                <th className="py-1 px-0.5 w-12 text-center" style={{ backgroundColor: '#66FF99' }}>CM</th>
+                                                <th className="py-1 px-0.5 w-20 text-center">Cant. CM</th>
                                                 <th className="py-1 px-0.5 min-w-[150px]">Descr. CM</th>
                                                 <th className="py-1 px-0.5 w-8"></th>
                                             </tr>
