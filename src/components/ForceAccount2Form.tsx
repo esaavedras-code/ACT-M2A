@@ -108,6 +108,25 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     }).sort((a, b) => a.date.localeCompare(b.date));
   }, [reports, ac51Month]);
 
+  const daysInMonth = useMemo(() => {
+    if (!ac51Month) return [];
+    try {
+      const [year, month] = ac51Month.split('-').map(Number);
+      const lastDay = new Date(year, month, 0).getDate();
+      return Array.from({ length: lastDay }, (_, i) => {
+        const day = i + 1;
+        const d = new Date(year, month - 1, day);
+        const sem = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"][d.getDay()];
+        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+        const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const amount = ac51Data.find(r => r.date === isoDate)?.total || 0;
+        return { day, sem, amount, isWeekend };
+      });
+    } catch (e) {
+      return [];
+    }
+  }, [ac51Month, ac51Data]);
+
   // AC-50 Consolidated Equipment State (Parte B)
   const ac50Equipment = useMemo(() => {
     const monthReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
@@ -1312,6 +1331,34 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                   </div>
                                </div>
                             </div>
+
+                            {/* Daily Breakdown Tables */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+                                {[0, 10, 20].map((start, idx) => (
+                                  <div key={idx} className="bg-slate-900/40 rounded-[2rem] border border-slate-800 overflow-hidden shadow-2xl">
+                                    <table className="w-full text-[10px]">
+                                      <thead>
+                                        <tr className="bg-slate-800/80 text-blue-400 font-black uppercase tracking-widest border-b border-slate-700">
+                                          <th className="px-4 py-3 text-left">DÍA SEM.</th>
+                                          <th className="px-4 py-3 text-center">DÍA MES</th>
+                                          <th className="px-4 py-3 text-right">MONTO</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-800">
+                                        {daysInMonth.slice(start, start + (idx === 2 ? 11 : 10)).map((d, i) => (
+                                          <tr key={i} className={`hover:bg-slate-800/50 transition-colors ${d.isWeekend ? 'bg-slate-800/20' : ''}`}>
+                                            <td className={`px-4 py-3 font-black ${d.isWeekend ? 'text-slate-500' : 'text-slate-400'}`}>{d.sem}</td>
+                                            <td className="px-4 py-3 text-center font-black text-slate-200 border-x border-slate-800/50">{d.day}</td>
+                                            <td className={`px-4 py-3 text-right font-black ${d.amount > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>
+                                              {d.amount > 0 ? formatCurrency(d.amount) : "$0.00"}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ))}
+                             </div>
                             
                             <div className="pt-8 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-12">
                                <div className="space-y-4">
