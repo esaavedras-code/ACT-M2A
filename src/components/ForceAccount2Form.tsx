@@ -5,7 +5,7 @@ import {
   FileText, Truck, Users, ChevronRight, LayoutDashboard,
   Info, CheckCircle2, Clock, Plus, Trash2, DollarSign,
   Download, Upload, ShieldCheck, Briefcase, Calculator, ChevronLeft,
-  Search, X, Camera
+  Search, X, Camera, Save, Split
 } from 'lucide-react';
 import { Project, AC49Report, LaborEntry, EquipmentEntry } from '../types/fa2';
 import { EditableTable } from './EditableTable';
@@ -72,6 +72,35 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     itemNumber: '',
     forceAccountNo: ''
   });
+
+  // Database for suggestions
+  const suggestionsDB = useMemo(() => {
+    const laborDB: Record<string, any> = {};
+    const equipmentDB: Record<string, any> = {};
+    
+    reports.forEach(r => {
+      r.labor?.forEach((l: any) => {
+        if (l.employeeName?.trim()) {
+          laborDB[l.employeeName.trim()] = {
+            ssLast4: l.ssLast4,
+            classification: l.classification,
+            hourlyRate: l.hourlyRate
+          };
+        }
+      });
+      r.equipment?.forEach((e: any) => {
+        if (e.description?.trim()) {
+          equipmentDB[e.description.trim()] = {
+            model: e.model,
+            capacity: e.capacity,
+            dailyRate: e.dailyRate
+          };
+        }
+      });
+    });
+    
+    return { labor: laborDB, equipment: equipmentDB };
+  }, [reports]);
 
   const [ac49Report, setAc49Report] = useState<AC49Report>({
     id: 'draft',
@@ -210,6 +239,55 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       if (selectedReportId === id) setSelectedReportId(null);
     } catch (error) {
       alert("Error al eliminar.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const splitIntoDays = async () => {
+    if (!ac49Report.labor.length) return;
+    
+    // Identificar fechas únicas (usando la fecha del reporte si el trabajador no tiene una específica)
+    const dates = [...new Set(ac49Report.labor.map(l => l.date || ac49Report.date))];
+    if (dates.length <= 1) {
+       alert("No se detectaron múltiples fechas en la lista de trabajadores.");
+       return;
+    }
+
+    if (!confirm(`Se crearán ${dates.length} reportes nuevos (uno por cada día detectado). El reporte actual se mantendrá intacto. ¿Continuar?`)) return;
+
+    setLoading(true);
+    try {
+      for (const d of dates) {
+        const laborForDay = ac49Report.labor.filter(l => (l.date || ac49Report.date) === d);
+        const newNo = `${ac49Report.reportNo}-${d.split('-').pop()}`;
+        
+        const { data, error } = await supabase
+          .from('fa2_reports')
+          .insert([{
+            project_id: projectId,
+            date: d,
+            report_no: newNo,
+            description: `${ac49Report.workDescription} (Día ${d})`,
+            data: { 
+              labor: laborForDay, 
+              equipment: ac49Report.equipment, 
+              materials: ac49Report.materials,
+              laborDetails: ac49Report.laborDetails
+            }
+          }])
+          .select()
+          .single();
+          
+        if (error) throw error;
+      }
+      
+      alert("Reportes divididos exitosamente. Revise el Dashboard.");
+      await fetchProjectAndReports();
+      setActiveTab('dashboard');
+    } catch (err: any) {
+      console.error(err);
+      alert("Error al dividir reportes: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -807,6 +885,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         title="A. PERSONAL"
                         columns={[
                           { header: 'Empleado', key: 'employeeName', type: 'text' },
+                          { header: 'Fecha', key: 'date', type: 'text' },
                           { header: 'SS (Últ. 4)', key: 'ssLast4', type: 'text' },
                           { header: 'Clasificación', key: 'classification', type: 'text' },
                           { header: 'H. Reg', key: 'hoursReg', type: 'number' },
@@ -821,11 +900,23 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           }},
                         ]}
                         data={ac49Report.labor}
-                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
+                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: ac49Report.date, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
                         onRemove={(idx) => setAc49Report({...ac49Report, labor: ac49Report.labor.filter((_, i) => i !== idx)})}
                         onChange={(idx, key, val) => {
                           const newLabor = [...ac49Report.labor];
                           (newLabor[idx] as any)[key] = val;
+                          
+                          // Sugerencia Auto-relleno Personal
+                          if (key === 'employeeName' && val) {
+                            const term = String(val).trim();
+                            const suggested = suggestionsDB.labor[term];
+                            if (suggested) {
+                              if (!newLabor[idx].ssLast4) newLabor[idx].ssLast4 = suggested.ssLast4;
+                              if (!newLabor[idx].classification) newLabor[idx].classification = suggested.classification;
+                              if (!newLabor[idx].hourlyRate) newLabor[idx].hourlyRate = suggested.hourlyRate;
+                            }
+                          }
+                          
                           setAc49Report({...ac49Report, labor: newLabor});
                         }}
                       />
@@ -865,6 +956,17 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         onChange={(idx, key, val) => {
                           const newEq = [...ac49Report.equipment];
                           (newEq[idx] as any)[key] = val;
+                          
+                          // Sugerencia Auto-relleno Equipo
+                          if (key === 'description' && val) {
+                            const term = String(val).trim();
+                            const suggested = suggestionsDB.equipment[term];
+                            if (suggested) {
+                              if (!newEq[idx].model) newEq[idx].model = suggested.model;
+                              if (!newEq[idx].dailyRate) newEq[idx].dailyRate = suggested.dailyRate;
+                            }
+                          }
+                          
                           setAc49Report({...ac49Report, equipment: newEq});
                         }}
                       />
@@ -878,6 +980,35 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           placeholder="Indique los trabajos específicos realizados..."
                           className="input-field min-h-[150px] font-bold text-slate-800 dark:text-white p-6"
                         />
+                      </div>
+
+                      <div className="flex flex-col md:flex-row items-center gap-4 mt-8 pt-8 border-t border-slate-100 dark:border-slate-800">
+                        <button 
+                          onClick={() => saveData()}
+                          disabled={loading}
+                          className="w-full md:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-3xl transition-all shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+                        >
+                          {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
+                          {selectedReportId ? "Actualizar Reporte" : "Guardar Nuevo Reporte"}
+                        </button>
+                        
+                        <button 
+                          onClick={splitIntoDays}
+                          disabled={loading || !ac49Report.labor.length}
+                          className="w-full md:w-auto px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-3xl transition-all shadow-xl shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+                        >
+                          <Split size={18} />
+                          Dividir por Días
+                        </button>
+                        
+                        {selectedReportId && (
+                          <button 
+                            onClick={() => setSelectedReportId(null)}
+                            className="w-full md:w-auto px-8 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-black rounded-3xl transition-all hover:bg-slate-200 active:scale-95 uppercase tracking-widest text-xs"
+                          >
+                            Nuevo Reporte
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

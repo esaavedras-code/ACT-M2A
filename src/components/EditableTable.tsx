@@ -70,7 +70,7 @@ export function EditableTable<T extends { id: string }>({
                       <select 
                         value={String(item[col.key])}
                         onChange={(e) => onChange(index, col.key, e.target.value)}
-                        className="w-full bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-lg text-xs font-bold text-slate-800 dark:text-white p-2"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 focus:bg-white dark:focus:bg-slate-800 rounded-lg text-xs font-bold text-slate-800 dark:text-white p-2 outline-none transition-all shadow-sm"
                       >
                         {col.options?.map(opt => <option key={opt} value={opt} className="bg-white dark:bg-slate-900">{opt}</option>)}
                       </select>
@@ -79,7 +79,7 @@ export function EditableTable<T extends { id: string }>({
                         type={col.type}
                         value={String(item[col.key])}
                         onChange={(e) => onChange(index, col.key, col.type === 'number' ? Number(e.target.value) : e.target.value)}
-                        className="w-full bg-transparent border-none focus:ring-2 focus:ring-blue-500/20 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-3 py-2 outline-none"
+                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 focus:bg-white dark:focus:bg-slate-800 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-3 py-2 outline-none transition-all shadow-sm"
                       />
                     )}
                   </td>
