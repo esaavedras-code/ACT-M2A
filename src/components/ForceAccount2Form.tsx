@@ -653,7 +653,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col lg:flex-row gap-2 items-start relative lg:-ml-6">
+      <div className="flex flex-col lg:flex-row gap-4 items-start w-full">
         <div className="w-full lg:w-44 lg:sticky lg:top-4 overflow-y-auto custom-scrollbar shrink-0">
           <div className="bg-white dark:bg-slate-900 p-4 rounded-[2.5rem] shadow-md border border-slate-100 dark:border-slate-800 space-y-2">
             <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-800/50 mb-2 text-center md:text-left">
@@ -689,7 +689,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           </div>
         </div>
 
-        <div className="flex-1 w-full min-0">
+        <div className="flex-1 w-full min-w-0 overflow-x-hidden p-1">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div className="flex items-center gap-2">
               {activeTab !== 'dashboard' && (
@@ -848,111 +848,117 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         </div>
                       </div>
 
-                      <EditableTable<LaborEntry>
-                        title="A. PERSONAL"
-                        columns={[
-                          { header: 'Fecha', key: 'date', type: 'date' },
-                          { header: 'Empleado', key: 'employeeName', type: 'text' },
-                          { header: 'SS (Últ. 4)', key: 'ssLast4', type: 'text' },
-                          { header: 'Clasificación', key: 'classification', type: 'text' },
-                          { header: 'H. Reg', key: 'hoursReg', type: 'number' },
-                          { header: 'H. 1.5', key: 'hours15', type: 'number' },
-                          { header: 'H. 2.0', key: 'hours20', type: 'number' },
-                          { header: '$ / Hora', key: 'hourlyRate', type: 'number' },
-                          { header: 'Total', key: 'total', type: 'computed', compute: (row: any) => {
-                            const reg = (parseFloat(row.hoursReg) || 0) * (parseFloat(row.hourlyRate) || 0);
-                            const ot15 = (parseFloat(row.hours15) || 0) * (parseFloat(row.hourlyRate) || 0) * 1.5;
-                            const ot20 = (parseFloat(row.hours20) || 0) * (parseFloat(row.hourlyRate) || 0) * 2.0;
-                            return reg + ot15 + ot20;
-                          }},
-                        ]}
-                        data={visibleLabor}
-                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: laborFilterStart || ac49Report.date, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
-                        onRemove={(idx) => setAc49Report({...ac49Report, labor: ac49Report.labor.filter(l => l.id !== visibleLabor[idx].id)})}
-                        onChange={(idx, key, val) => {
-                          const targetItem = visibleLabor[idx];
-                          const realIdx = ac49Report.labor.findIndex(l => l.id === targetItem.id);
-                          if (realIdx === -1) return;
-                          const newLabor = [...ac49Report.labor];
-                          (newLabor[realIdx] as any)[key] = val;
-                          if (key === 'employeeName' && val) {
-                            const suggested = suggestionsDB.labor[String(val).trim()];
-                            if (suggested) {
-                              if (!newLabor[realIdx].ssLast4) newLabor[realIdx].ssLast4 = suggested.ssLast4;
-                              if (!newLabor[realIdx].classification) newLabor[realIdx].classification = suggested.classification;
-                              if (!newLabor[realIdx].hourlyRate) newLabor[realIdx].hourlyRate = suggested.hourlyRate;
+                      <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                        <EditableTable<LaborEntry>
+                          title="A. PERSONAL"
+                          columns={[
+                            { header: 'Fecha', key: 'date', type: 'date' },
+                            { header: 'Empleado', key: 'employeeName', type: 'text' },
+                            { header: 'SS (Últ. 4)', key: 'ssLast4', type: 'text' },
+                            { header: 'Clasificación', key: 'classification', type: 'text' },
+                            { header: 'H. Reg', key: 'hoursReg', type: 'number' },
+                            { header: 'H. 1.5', key: 'hours15', type: 'number' },
+                            { header: 'H. 2.0', key: 'hours20', type: 'number' },
+                            { header: '$ / Hora', key: 'hourlyRate', type: 'number' },
+                            { header: 'Total', key: 'total', type: 'computed', compute: (row: any) => {
+                              const reg = (parseFloat(row.hoursReg) || 0) * (parseFloat(row.hourlyRate) || 0);
+                              const ot15 = (parseFloat(row.hours15) || 0) * (parseFloat(row.hourlyRate) || 0) * 1.5;
+                              const ot20 = (parseFloat(row.hours20) || 0) * (parseFloat(row.hourlyRate) || 0) * 2.0;
+                              return reg + ot15 + ot20;
+                            }},
+                          ]}
+                          data={visibleLabor}
+                          onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: laborFilterStart || ac49Report.date, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
+                          onRemove={(idx) => setAc49Report({...ac49Report, labor: ac49Report.labor.filter(l => l.id !== visibleLabor[idx].id)})}
+                          onChange={(idx, key, val) => {
+                            const targetItem = visibleLabor[idx];
+                            const realIdx = ac49Report.labor.findIndex(l => l.id === targetItem.id);
+                            if (realIdx === -1) return;
+                            const newLabor = [...ac49Report.labor];
+                            (newLabor[realIdx] as any)[key] = val;
+                            if (key === 'employeeName' && val) {
+                              const suggested = suggestionsDB.labor[String(val).trim()];
+                              if (suggested) {
+                                if (!newLabor[realIdx].ssLast4) newLabor[realIdx].ssLast4 = suggested.ssLast4;
+                                if (!newLabor[realIdx].classification) newLabor[realIdx].classification = suggested.classification;
+                                if (!newLabor[realIdx].hourlyRate) newLabor[realIdx].hourlyRate = suggested.hourlyRate;
+                              }
                             }
-                          }
-                          setAc49Report({...ac49Report, labor: newLabor});
-                        }}
-                      />
+                            setAc49Report({...ac49Report, labor: newLabor});
+                          }}
+                        />
+                      </div>
 
-                      <EditableTable<MaterialEntry>
-                        title="B. MATERIALES Y/O SERVICIOS"
-                        columns={[
-                          { header: 'Fecha', key: 'date', type: 'date' },
-                          { header: 'Tipo (M) mat. (S) Serv.', key: 'type', type: 'select', options: ['M', 'S', ''] },
-                          { header: 'Materiales Usados y/o Servicios Prestados', key: 'description', type: 'text' },
-                          { header: 'Vendedor', key: 'supplier', type: 'text' },
-                          { header: 'Número de Factura o Conduce', key: 'invoiceNo', type: 'text' },
-                          { header: 'Cantidad', key: 'quantity', type: 'number' },
-                          { header: '$ Unitario', key: 'unitCost', type: 'number' },
-                          { header: 'Monto', key: 'amount', type: 'computed', compute: (row: any) => (parseFloat(row.quantity) || 0) * (parseFloat(row.unitCost) || 0) },
-                        ]}
-                        data={visibleMaterials}
-                        onAdd={() => setAc49Report({...ac49Report, materials: [...ac49Report.materials, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, type: '', description: '', supplier: '', invoiceNo: '', quantity: 0, unitCost: 0, amount: 0 }]})}
-                        onRemove={(idx) => setAc49Report({...ac49Report, materials: ac49Report.materials.filter(m => m.id !== visibleMaterials[idx].id)})}
-                        onChange={(idx, key, val) => {
-                          const targetItem = visibleMaterials[idx];
-                          const realIdx = ac49Report.materials.findIndex(m => m.id === targetItem.id);
-                          if (realIdx === -1) return;
-                          const newMat = [...ac49Report.materials];
-                          (newMat[realIdx] as any)[key] = val;
-                          setAc49Report({...ac49Report, materials: newMat});
-                        }}
-                      />
+                      <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                        <EditableTable<MaterialEntry>
+                          title="B. MATERIALES Y/O SERVICIOS"
+                          columns={[
+                            { header: 'Fecha', key: 'date', type: 'date' },
+                            { header: 'Tipo (M) mat. (S) Serv.', key: 'type', type: 'select', options: ['M', 'S', ''] },
+                            { header: 'Materiales Usados y/o Servicios Prestados', key: 'description', type: 'text' },
+                            { header: 'Vendedor', key: 'supplier', type: 'text' },
+                            { header: 'Número de Factura o Conduce', key: 'invoiceNo', type: 'text' },
+                            { header: 'Cantidad', key: 'quantity', type: 'number' },
+                            { header: '$ Unitario', key: 'unitCost', type: 'number' },
+                            { header: 'Monto', key: 'amount', type: 'computed', compute: (row: any) => (parseFloat(row.quantity) || 0) * (parseFloat(row.unitCost) || 0) },
+                          ]}
+                          data={visibleMaterials}
+                          onAdd={() => setAc49Report({...ac49Report, materials: [...ac49Report.materials, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, type: '', description: '', supplier: '', invoiceNo: '', quantity: 0, unitCost: 0, amount: 0 }]})}
+                          onRemove={(idx) => setAc49Report({...ac49Report, materials: ac49Report.materials.filter(m => m.id !== visibleMaterials[idx].id)})}
+                          onChange={(idx, key, val) => {
+                            const targetItem = visibleMaterials[idx];
+                            const realIdx = ac49Report.materials.findIndex(m => m.id === targetItem.id);
+                            if (realIdx === -1) return;
+                            const newMat = [...ac49Report.materials];
+                            (newMat[realIdx] as any)[key] = val;
+                            setAc49Report({...ac49Report, materials: newMat});
+                          }}
+                        />
+                      </div>
 
-                      <EditableTable<EquipmentEntry>
-                        title="C. EQUIPO EN USO"
-                        columns={[
-                          { header: 'Fecha', key: 'date', type: 'date' },
-                          { header: 'Descripción', key: 'description', type: 'text' },
-                          { header: 'Modelo', key: 'model', type: 'text' },
-                          { header: 'Año', key: 'year', type: 'text' },
-                          { header: 'Capacidad', key: 'capacity', type: 'text' },
-                          { header: 'Combustible', key: 'fuelType', type: 'select', options: ['Gasolina', 'Diesel', ''] },
-                          { header: 'Propiedad', key: 'ownership', type: 'select', options: ['Alquilado', 'Propio', ''] },
-                          { header: 'H. Activas', key: 'hoursActive', type: 'number' },
-                          { header: 'H. Inactivas', key: 'hoursInactive', type: 'number' },
-                          { header: 'H. Reparación', key: 'hoursRepair', type: 'number' },
-                          { header: 'Tarifa', key: 'dailyRate', type: 'number' },
-                          { header: 'Total $', key: 'total', type: 'computed', compute: (row: any) => (parseFloat(row.hoursActive) || 0) * (parseFloat(row.dailyRate) || 0) },
-                        ]}
-                        data={visibleEquipment}
-                        onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, description: '', model: '', year: '', capacity: '', fuelType: '', ownership: '', isRented: false, hours: 0, hoursActive: 0, hoursInactive: 0, hoursRepair: 0, dailyRate: 0 }]})}
-                        onRemove={(idx) => setAc49Report({...ac49Report, equipment: ac49Report.equipment.filter(e => e.id !== visibleEquipment[idx].id)})}
-                        onChange={(idx, key, val) => {
-                          const targetItem = visibleEquipment[idx];
-                          const realIdx = ac49Report.equipment.findIndex(e => e.id === targetItem.id);
-                          if (realIdx === -1) return;
-                          const newEq = [...ac49Report.equipment];
-                          (newEq[realIdx] as any)[key] = val;
-                          
-                          // Sync internal hours for compatibility with other report totals
-                          if (key === 'hoursActive') {
-                            newEq[realIdx].hours = Number(val);
-                          }
-
-                          if (key === 'description' && val) {
-                            const suggested = suggestionsDB.equipment[String(val).trim()];
-                            if (suggested) {
-                              if (!newEq[realIdx].model) newEq[realIdx].model = suggested.model;
-                              if (!newEq[realIdx].dailyRate) newEq[realIdx].dailyRate = suggested.dailyRate;
+                      <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                        <EditableTable<EquipmentEntry>
+                          title="C. EQUIPO EN USO"
+                          columns={[
+                            { header: 'Fecha', key: 'date', type: 'date' },
+                            { header: 'Descripción', key: 'description', type: 'text' },
+                            { header: 'Modelo', key: 'model', type: 'text' },
+                            { header: 'Año', key: 'year', type: 'text' },
+                            { header: 'Capacidad', key: 'capacity', type: 'text' },
+                            { header: 'Combustible', key: 'fuelType', type: 'select', options: ['Gasolina', 'Diesel', ''] },
+                            { header: 'Propiedad', key: 'ownership', type: 'select', options: ['Alquilado', 'Propio', ''] },
+                            { header: 'H. Activas', key: 'hoursActive', type: 'number' },
+                            { header: 'H. Inactivas', key: 'hoursInactive', type: 'number' },
+                            { header: 'H. Reparación', key: 'hoursRepair', type: 'number' },
+                            { header: 'Tarifa', key: 'dailyRate', type: 'number' },
+                            { header: 'Total $', key: 'total', type: 'computed', compute: (row: any) => (parseFloat(row.hoursActive) || 0) * (parseFloat(row.dailyRate) || 0) },
+                          ]}
+                          data={visibleEquipment}
+                          onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, description: '', model: '', year: '', capacity: '', fuelType: '', ownership: '', isRented: false, hours: 0, hoursActive: 0, hoursInactive: 0, hoursRepair: 0, dailyRate: 0 }]})}
+                          onRemove={(idx) => setAc49Report({...ac49Report, equipment: ac49Report.equipment.filter(e => e.id !== visibleEquipment[idx].id)})}
+                          onChange={(idx, key, val) => {
+                            const targetItem = visibleEquipment[idx];
+                            const realIdx = ac49Report.equipment.findIndex(e => e.id === targetItem.id);
+                            if (realIdx === -1) return;
+                            const newEq = [...ac49Report.equipment];
+                            (newEq[realIdx] as any)[key] = val;
+                            
+                            // Sync internal hours for compatibility with other report totals
+                            if (key === 'hoursActive') {
+                              newEq[realIdx].hours = Number(val);
                             }
-                          }
-                          setAc49Report({...ac49Report, equipment: newEq});
-                        }}
-                      />
+
+                            if (key === 'description' && val) {
+                              const suggested = suggestionsDB.equipment[String(val).trim()];
+                              if (suggested) {
+                                if (!newEq[realIdx].model) newEq[realIdx].model = suggested.model;
+                                if (!newEq[realIdx].dailyRate) newEq[realIdx].dailyRate = suggested.dailyRate;
+                              }
+                            }
+                            setAc49Report({...ac49Report, equipment: newEq});
+                          }}
+                        />
+                      </div>
 
                       <div className="space-y-3">
                         <label className="label-field">Descripción del Trabajo</label>
