@@ -64,6 +64,62 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   const [laborFilterStart, setLaborFilterStart] = useState("");
   const [laborFilterEnd, setLaborFilterEnd] = useState("");
 
+  // AC-51 Monthly Filter
+  const [ac51Month, setAc51Month] = useState(new Date().toISOString().slice(0, 7));
+
+  const ac51Data = useMemo(() => {
+    // Agrupar reportes del mes seleccionado
+    const monthReports = reports.filter(r => r.date.startsWith(ac51Month));
+    
+    return monthReports.map(r => {
+      const rd = (r.data || {}) as any;
+      const labor = (rd.labor || []).reduce((acc: number, l: any) => {
+        const reg = (l.hoursReg || 0) * (l.hourlyRate || 0);
+        const ot15 = (l.hours15 || 0) * (l.hourlyRate || 0) * 1.5;
+        const ot20 = (l.hours20 || 0) * (l.hourlyRate || 0) * 2.0;
+        return acc + reg + ot15 + ot20;
+      }, 0);
+      
+      const equip = (rd.equipment || []).reduce((acc: number, e: any) => {
+        return acc + ((e.hours || 0) * (e.dailyRate || 0));
+      }, 0);
+
+      const mats = (rd.materials || []).reduce((acc: number, m: any) => {
+        return acc + ((m.quantity || 0) * (m.unitCost || 0));
+      }, 0);
+
+      return {
+        id: r.id,
+        date: r.date,
+        reportNo: r.report_no,
+        labor,
+        equip,
+        mats,
+        total: labor + equip + mats
+      };
+    }).sort((a, b) => a.date.localeCompare(b.date));
+  }, [reports, ac51Month]);
+
+  // Contract Items for lookup
+  const [contractItems, setContractItems] = useState<any[]>([]);
+
+  const [ac49Report, setAc49Report] = useState<AC49Report>({
+    id: 'draft',
+    projectId: projectId || '1',
+    date: new Date().toISOString().split('T')[0],
+    reportNo: '',
+    totalPages: 1,
+    labor: [],
+    equipment: [],
+    materials: [],
+    workDescription: '',
+    relatedItemNo: '',
+    relatedItemDescription: '',
+    relatedItemUnitCost: 0,
+    relatedItemAmount: 0,
+    signatures: { contractor: false, projectChief: false }
+  });
+
   const visibleLabor = useMemo(() => {
     if (!laborFilterStart && !laborFilterEnd) return ac49Report.labor;
     return ac49Report.labor.filter(l => {
@@ -115,22 +171,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     return { labor: laborDB, equipment: equipmentDB };
   }, [reports]);
 
-  const [ac49Report, setAc49Report] = useState<AC49Report>({
-    id: 'draft',
-    projectId: projectId || '1',
-    date: new Date().toISOString().split('T')[0],
-    reportNo: '',
-    totalPages: 1,
-    labor: [],
-    equipment: [],
-    materials: [],
-    workDescription: '',
-    relatedItemNo: '',
-    relatedItemDescription: '',
-    relatedItemUnitCost: 0,
-    relatedItemAmount: 0,
-    signatures: { contractor: false, projectChief: false }
-  });
 
   const fetchProjectAndReports = async () => {
     if (!projectId) return;
@@ -1288,172 +1328,79 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                  <b className="text-3xl tracking-tighter drop-shadow-md">{formatCurrency(summary.detailedLabor?.total || 0)}</b>
                                </div>
                              </div>
-                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          {/* Materiales Summary */}
-                          <div className="p-10 rounded-[3rem] bg-emerald-50/30 dark:bg-emerald-900/5 border border-emerald-100 dark:border-emerald-900/20 shadow-lg">
-                            <div className="flex items-center gap-3 mb-8">
-                               <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600">
-                                 <ShieldCheck size={20} />
-                               </div>
-                               <h4 className="text-[11px] font-black text-emerald-900 dark:text-emerald-100 uppercase tracking-tight">B. RESUMEN DE COSTO DE MAT. Y/O SERV.</h4>
-                            </div>
-                            <div className="space-y-3 text-[10px] font-bold text-emerald-800/80 uppercase">
-                              <div className="flex justify-between items-center font-black text-emerald-900 dark:text-emerald-100">
-                                <span>a) Subtotal de Materiales y/o Servicios</span>
-                                <span></span>
-                              </div>
-                              <div className="flex justify-between items-center pl-4 opacity-80">
-                                <span>Materiales</span>
-                                <span>{formatCurrency(summary.detailedMaterials?.subtotalM || 0)}</span>
-                              </div>
-                              <div className="flex justify-between items-center pl-4 opacity-80">
-                                <span>Servicios</span>
-                                <span>{formatCurrency(summary.detailedMaterials?.subtotalS || 0)}</span>
-                              </div>
-
-                              <div className="flex justify-between items-center font-black text-emerald-900 dark:text-emerald-100 pt-2">
-                                <span>b) Beneficio Industrial</span>
-                                <span></span>
-                              </div>
-                              <div className="flex justify-between items-center pl-4 italic opacity-80">
-                                <span>15% Materiales</span>
-                                <span>{formatCurrency(summary.detailedMaterials?.biM || 0)}</span>
-                              </div>
-                              <div className="flex justify-between items-center pl-4 italic opacity-80">
-                                <span>15% Servicios</span>
-                                <span>{formatCurrency(summary.detailedMaterials?.biS || 0)}</span>
-                              </div>
-
-                              <div className="pt-4 border-t border-emerald-200/50 flex justify-between items-center mt-2">
-                                <span className="font-black text-emerald-900 dark:text-emerald-100 text-[11px] uppercase tracking-widest">(2) TOTAL DE MAT. Y/O SERV. (A+B)</span>
-                                <span className="text-xl font-black text-emerald-600">{formatCurrency(summary.detailedMaterials?.total || summary.materials.total)}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Equipo Summary */}
-                          <div className="p-10 rounded-[3rem] bg-amber-50/30 dark:bg-amber-900/5 border border-amber-100 dark:border-amber-900/20 shadow-lg">
-                            <div className="flex items-center gap-3 mb-8">
-                               <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-600">
-                                 <Truck size={20} />
-                               </div>
-                               <h4 className="text-[11px] font-black text-amber-900 dark:text-amber-100 uppercase tracking-tight">C. RESUMEN DE COSTO DE EQUIPO</h4>
-                            </div>
-                            <div className="space-y-4 text-[10px] font-bold text-amber-800/80 uppercase">
-                              <div className="flex justify-between items-center text-amber-900 dark:text-amber-100">
-                                <span>a) Subtotal Renta de Equipo Activo + Inactivo</span>
-                                <span>{formatCurrency(summary.detailedEquipment?.subtotalReq || summary.equipment.subtotal)}</span>
-                              </div>
-                              <div className="flex justify-between items-center italic opacity-80 pl-4">
-                                <span>b) Beneficio Industrial 15% de (a)</span>
-                                <span>{formatCurrency(summary.detailedEquipment?.bi || summary.equipment.bi)}</span>
-                              </div>
-                              <div className="flex justify-between items-center pl-4 opacity-80">
-                                <span>c) Subtotal Renta Eq. Activo (operating cost)</span>
-                                <span>$0.00</span>
-                              </div>
-                              <div className="flex justify-between items-center pl-4 opacity-80">
-                                <span>d) Subtotal Renta de Equipo Inactivo</span>
-                                <span>$0.00</span>
-                              </div>
-                              <div className="pt-4 border-t border-amber-200/50 flex justify-between items-center mt-2">
-                                <span className="font-black text-amber-900 dark:text-amber-100 text-[11px] uppercase tracking-widest">(3) TOTAL DE EQUIPO (b+c+d)</span>
-                                <span className="text-xl font-black text-amber-600">{formatCurrency(summary.detailedEquipment?.total || summary.equipment.total)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-
-                        {/* Grand Total Call to Action */}
-                        <div className="mt-8 p-12 rounded-[4rem] bg-blue-600 text-white shadow-2xl shadow-blue-500/30 relative overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700"></div>
-                          <div className="relative z-10">
-                            <h4 className="text-sm font-black uppercase tracking-[0.3em] mb-8 text-blue-200 border-b border-blue-500/50 pb-4">TOTALES - PARA USO DE LIQUIDADOR</h4>
-                            
-                            <div className="space-y-4 text-xs font-bold uppercase tracking-widest text-blue-100 mb-10 w-full lg:w-2/3 mx-auto">
-                              <div className="flex justify-between items-center border-b border-blue-500/30 pb-2">
-                                <span>1) TOTAL MANO DE OBRA</span>
-                                <span className="text-lg text-white font-black">{formatCurrency(summary.detailedLabor?.total || summary.labor.total)}</span>
-                              </div>
-                              <div className="flex justify-between items-center border-b border-blue-500/30 pb-2">
-                                <span>2) TOTAL MATERIALES Y/O SERVICIOS</span>
-                                <span className="text-lg text-white font-black">{formatCurrency(summary.detailedMaterials?.total || summary.materials.total)}</span>
-                              </div>
-                              <div className="flex justify-between items-center border-b border-blue-500/30 pb-2">
-                                <span>3) TOTAL DE EQUIPO</span>
-                                <span className="text-lg text-white font-black">{formatCurrency(summary.detailedEquipment?.total || summary.equipment.total)}</span>
-                              </div>
-                              <div className="flex justify-between items-center border-b border-blue-500/30 pb-2 pt-2 text-white">
-                                <span>4) TOTAL (1 + 2 + 3)</span>
-                                <span className="text-2xl font-black">{formatCurrency(summary.grandTotal)}</span>
-                              </div>
-                              <div className="flex justify-between items-center pt-2">
-                                <span className="flex items-center gap-3">
-                                  5) FIANZAS DE EJECUCION Y PAGO 
-                                  <div className="flex items-center">
-                                    <input type="number" step="any" className="w-16 bg-blue-800 text-white rounded p-1 text-center font-black border-none ring-1 ring-blue-500" value={ac49Report.laborDetails?.fianzas_pct || 0} onChange={e => updateLaborDetail('fianzas_pct' as any, +e.target.value)} />
-                                    <span className="ml-1">% de (4)</span>
-                                  </div>
-                                </span>
-                                <span className="text-lg text-white font-black">{formatCurrency(summary.grandTotal * ((ac49Report.laborDetails?.fianzas_pct || 0) / 100))}</span>
-                              </div>
-                            </div>
-
-                            <div className="text-center mt-10 p-8 bg-blue-900/40 rounded-3xl border border-blue-400/20 backdrop-blur-sm">
-                              <p className="text-blue-200 font-bold uppercase tracking-[0.2em] text-[10px] mb-2">6) COSTO TOTAL DEL TRABAJO POR ADMINISTRACION DELEGADA (4 + 5)</p>
-                              <p className="text-6xl font-black text-white tracking-tighter drop-shadow-2xl">
-                                {formatCurrency(summary.grandTotal * (1 + ((ac49Report.laborDetails?.fianzas_pct || 0) / 100)))}
-                              </p>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
-                               <button className="px-12 py-5 bg-white text-blue-600 font-black uppercase text-xs tracking-widest rounded-[2rem] hover:bg-slate-50 transition-all shadow-2xl hover:scale-105 active:scale-95">
-                                 Generar AC-51 (PDF)
-                               </button>
-                               <button onClick={exportData} className="px-10 py-5 bg-blue-500/20 text-white border border-white/20 font-black uppercase text-xs tracking-widest rounded-[2rem] hover:bg-white/10 transition-all">
-                                 Exportar Respaldo
-                               </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Foto Gallery Overview at the bottom of AC-51 */}
-                        {ac49Report.photos && ac49Report.photos.length > 0 && (
-                          <div className="mt-12 p-10 rounded-[3rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden">
-                            <div className="flex items-center justify-between mb-8 px-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-600">
-                                  <Camera size={20} />
-                                </div>
-                                <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Soporte de Evidencia (Fotos)</h4>
-                              </div>
-                              <button onClick={() => setActiveTab('fotos')} className="text-[10px] font-black text-blue-600 uppercase hover:underline">
-                                Gestionar Fotos
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                              {ac49Report.photos.slice(0, 6).map((photo, idx) => (
-                                <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm">
-                                  <img src={photo} alt={`Evidencia ${idx + 1}`} className="w-full h-full object-cover" />
-                                </div>
-                              ))}
-                              {ac49Report.photos.length > 6 && (
-                                <button 
-                                  onClick={() => setActiveTab('fotos')}
-                                  className="aspect-square rounded-2xl bg-slate-50 dark:bg-slate-800 flex flex-col items-center justify-center text-slate-400 gap-2 border border-dashed border-slate-200 dark:border-slate-700"
-                                >
-                                  <span className="text-lg font-black">{ac49Report.photos.length - 6}+</span>
-                                  <span className="text-[9px] font-bold uppercase tracking-widest">Más fotos</span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                                    {activeTab === 'ac51' && (
+                  <div className="card space-y-8 animate-in fade-in duration-500">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 dark:border-slate-800 pb-8">
+                      <div>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter flex items-center gap-3">
+                          <FileText className="text-blue-600" /> AC-51: Resumen Mensual de Liquidación
+                        </h3>
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">Consolidado de costos por día</p>
                       </div>
+                      <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-700">
+                        <span className="text-[10px] font-black uppercase text-slate-400">Mes de Reporte:</span>
+                        <input 
+                          type="month" 
+                          value={ac51Month}
+                          onChange={(e) => setAc51Month(e.target.value)}
+                          className="bg-white dark:bg-slate-900 border-none ring-1 ring-slate-200 dark:ring-slate-700 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-800/50">
+                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">Fecha</th>
+                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">Reporte №</th>
+                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Mano de Obra</th>
+                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Equipo</th>
+                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Materiales</th>
+                            <th className="px-6 py-5 text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 text-right">Total Diario</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                          {ac51Data.length > 0 ? ac51Data.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                              <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">{row.date}</td>
+                              <td className="px-6 py-4 text-xs font-black text-blue-600 dark:text-blue-400 uppercase">{row.reportNo}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-200 text-right">{formatCurrency(row.labor)}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-200 text-right">{formatCurrency(row.equip)}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-200 text-right">{formatCurrency(row.mats)}</td>
+                              <td className="px-6 py-4 text-xs font-black text-slate-900 dark:text-white text-right bg-slate-50/30 dark:bg-slate-800/20">{formatCurrency(row.total)}</td>
+                            </tr>
+                          )) : (
+                            <tr>
+                              <td colSpan={6} className="px-6 py-20 text-center">
+                                <div className="flex flex-col items-center gap-3">
+                                  <Calendar className="text-slate-200" size={48} />
+                                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">No hay reportes registrados para este mes</p>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                        {ac51Data.length > 0 && (
+                          <tfoot>
+                            <tr className="bg-blue-600 text-white font-black">
+                              <td colSpan={2} className="px-6 py-6 text-xs uppercase tracking-[0.2em]">Totales del Mes</td>
+                              <td className="px-6 py-6 text-xs text-right">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.labor, 0))}</td>
+                              <td className="px-6 py-6 text-xs text-right">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.equip, 0))}</td>
+                              <td className="px-6 py-6 text-xs text-right">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.mats, 0))}</td>
+                              <td className="px-6 py-6 text-sm text-right bg-blue-700">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.total, 0))}</td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
+
+                    <div className="flex justify-end gap-4 mt-10">
+                       <button 
+                         className="px-10 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95 flex items-center gap-3 uppercase tracking-widest text-[10px]"
+                       >
+                         <Download size={18} /> Exportar Reporte Mensual (AC-51)
+                       </button>
                     </div>
                   </div>
                 )}
