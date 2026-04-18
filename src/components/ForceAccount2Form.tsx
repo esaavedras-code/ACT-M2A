@@ -5,7 +5,7 @@ import {
   FileText, Truck, Users, ChevronRight, LayoutDashboard,
   Info, CheckCircle2, Clock, Plus, Trash2, DollarSign,
   Download, Upload, ShieldCheck, Briefcase, Calculator, ChevronLeft,
-  Search, X, Camera, Save, Split
+  Search, X, Camera, Save, Split, Calendar
 } from 'lucide-react';
 import { Project, AC49Report, LaborEntry, EquipmentEntry } from '../types/fa2';
 import { EditableTable } from './EditableTable';
@@ -129,8 +129,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     });
   }, [ac49Report.labor, laborFilterStart, laborFilterEnd, ac49Report.date]);
 
-  // Contract Items for lookup
-  const [contractItems, setContractItems] = useState<any[]>([]);
 
   const [project, setProject] = useState<Project>({
     id: projectId || '1',
@@ -1322,14 +1320,12 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                    <div className="flex justify-between items-center px-4 pt-6 mt-4 border-t dark:border-slate-800"><span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-widest">s) Suma (n+o+p+q+r)</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.s || 0)}</b></div>
                                    <div className="flex justify-between items-center px-4 pb-6"><span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-widest flex items-center gap-3">t) Beneficio Industrial final <input className="w-14 bg-white dark:bg-slate-900 rounded ring-1 ring-slate-200 border-none text-center p-1 font-bold" type="number" step="any" value={ac49Report.laborDetails?.mo_beneficio_ind_final_pct ?? 10} onChange={e => updateLaborDetail('mo_beneficio_ind_final_pct', +e.target.value)}/>%</span> <b className="text-slate-900 dark:text-white font-black">{formatCurrency(summary.detailedLabor?.t || 0)}</b></div>
                                </div>
-
-                               <div className="flex justify-between p-6 bg-blue-600 text-white rounded-[2rem] shadow-xl shadow-blue-500/20 mt-8">
-                                 <span className="font-black text-sm uppercase tracking-widest mt-1">TOTAL MANO DE OBRA ({ac49Report.date || 'MES'})</span> 
-                                 <b className="text-3xl tracking-tighter drop-shadow-md">{formatCurrency(summary.detailedLabor?.total || 0)}</b>
-                               </div>
                              </div>
-                                    {activeTab === 'ac51' && (
-                  <div className="card space-y-8 animate-in fade-in duration-500">
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 dark:border-slate-800 pb-8">
                       <div>
                         <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter flex items-center gap-3">
