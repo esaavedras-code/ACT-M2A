@@ -372,7 +372,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                 hours15: parseFloat(l.horas_extra || l.horas_extras_15 || 0),
                 hours20: parseFloat(l.horas_extras_20 || 0),
                 hourlyRate: parseFloat(l.tasa_normal || 0),
-                date: l.fecha || l.date || content.fecha_inicio || ""
+                date: l.fecha || l.date || l.fecha_trabajo || content.fecha_inicio || ""
               })),
               equipment: (content.equipment || []).map((e: any) => ({
                 id: Date.now().toString() + Math.random(),
@@ -886,7 +886,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         title="A. PERSONAL"
                         columns={[
                           { header: 'Empleado', key: 'employeeName', type: 'text' },
-                          { header: 'Fecha', key: 'date', type: 'text' },
+                          { header: 'Fecha', key: 'date', type: 'date' },
                           { header: 'SS (Últ. 4)', key: 'ssLast4', type: 'text' },
                           { header: 'Clasificación', key: 'classification', type: 'text' },
                           { header: 'H. Reg', key: 'hoursReg', type: 'number' },
