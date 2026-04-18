@@ -885,8 +885,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                       <EditableTable<LaborEntry>
                         title="A. PERSONAL"
                         columns={[
-                          { header: 'Empleado', key: 'employeeName', type: 'text' },
                           { header: 'Fecha', key: 'date', type: 'date' },
+                          { header: 'Empleado', key: 'employeeName', type: 'text' },
                           { header: 'SS (Últ. 4)', key: 'ssLast4', type: 'text' },
                           { header: 'Clasificación', key: 'classification', type: 'text' },
                           { header: 'H. Reg', key: 'hoursReg', type: 'number' },
