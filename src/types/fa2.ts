@@ -56,6 +56,10 @@ export interface AC49Report {
   relatedItemDescription?: string;
   relatedItemUnitCost?: number;
   relatedItemAmount?: number;
+  relatedEWO?: string;
+  startDate?: string;
+  endDate?: string;
+  photos?: string[];
 
   labor: LaborEntry[];
   equipment: EquipmentEntry[];

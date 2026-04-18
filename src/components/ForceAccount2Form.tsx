@@ -5,7 +5,7 @@ import {
   FileText, Truck, Users, ChevronRight, LayoutDashboard,
   Info, CheckCircle2, Clock, Plus, Trash2, DollarSign,
   Download, Upload, ShieldCheck, Briefcase, Calculator, ChevronLeft,
-  Search, X
+  Search, X, Camera
 } from 'lucide-react';
 import { Project, AC49Report, LaborEntry, EquipmentEntry } from '../types/fa2';
 import { EditableTable } from './EditableTable';
@@ -413,6 +413,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     { id: 'ac49', icon: Clock, label: 'AC-49 (Diario)' },
     { id: 'ac50', icon: Truck, label: 'AC-50 (Equipo)' },
     { id: 'ac51', icon: FileText, label: 'AC-51 (Resumen)' },
+    { id: 'fotos', icon: Camera, label: 'Evidencias (Fotos)' },
   ];
 
   return (
@@ -465,16 +466,20 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div>
               <div className="flex items-center gap-2">
-                 {activeTab !== 'dashboard' && (
-                   <button onClick={() => setActiveTab('dashboard')} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400">
-                     <ChevronLeft size={18} />
-                   </button>
-                 )}
-                 <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
-                  {sidebarItems.find(i => i.id === activeTab)?.label}
-                </h2>
-              </div>
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1 ml-10">ACT PR • GESTIÓN DE REPORTES</p>
+                  {activeTab !== 'dashboard' && (
+                    <button 
+                      onClick={() => setActiveTab('dashboard')} 
+                      className="group flex items-center gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm active:scale-95"
+                    >
+                      <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                      <span className="text-[10px] font-black uppercase tracking-widest pr-2 hidden sm:inline">Back</span>
+                    </button>
+                  )}
+                  <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                   {sidebarItems.find(i => i.id === activeTab)?.label}
+                 </h2>
+               </div>
+               <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1 ml-1 sm:ml-2">ACT PR • GESTIÓN DE REPORTES</p>
             </div>
             
             {selectedReportId && (
@@ -546,24 +551,18 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                   
                   {/* Item Lookup Panel in Dashboard when selected */}
                   {selectedReportId && (
-                    <div className="p-8 bg-blue-50 dark:bg-blue-900/10 rounded-[2.5rem] border border-blue-100 dark:border-blue-800 shadow-sm animate-in zoom-in-95 duration-300">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-blue-600 rounded-xl text-white">
-                          <Calculator size={16} />
-                        </div>
-                        <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">Partida del Contrato Vinculada</h4>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm font-sans">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                        {/* Fila 1 */}
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-2"># de Item (Partida)</label>
+                          <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">PARTIDA #</label>
                           <input 
                             type="text" 
                             list="contract-items-list"
-                            placeholder="Ej: 0627-2001"
+                            placeholder="Ej: 28"
                             value={ac49Report.relatedItemNo}
                             onChange={(e) => handleItemLookup(e.target.value)}
-                            className="input-field font-mono font-black border-blue-200"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
                           />
                           <datalist id="contract-items-list">
                             {contractItems.map(i => (
@@ -571,31 +570,48 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             ))}
                           </datalist>
                         </div>
-                        <div className="md:col-span-2 space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-2">Descripción de la Partida</label>
+                        
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">EWO #</label>
                           <input 
                             type="text" 
-                            disabled
-                            value={ac49Report.relatedItemDescription}
-                            className="input-field bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed opacity-80"
+                            value={ac49Report.relatedEWO || ''}
+                            onChange={(e) => setAc49Report({...ac49Report, relatedEWO: e.target.value})}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
+
+                        {/* Separador */}
+                        <div className="col-span-full h-px bg-slate-200 dark:bg-slate-800 my-2"></div>
+
+                        {/* Fila 2 */}
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-2">Costo Unitario ($)</label>
+                          <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">FECHA INICIO FA</label>
                           <input 
-                            type="text" 
-                            disabled
-                            value={formatCurrency(ac49Report.relatedItemUnitCost || 0)}
-                            className="input-field bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed text-right font-black"
+                            type="date" 
+                            value={ac49Report.startDate || ''}
+                            onChange={(e) => setAc49Report({...ac49Report, startDate: e.target.value})}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">FECHA FIN FA</label>
+                          <input 
+                            type="date" 
+                            value={ac49Report.endDate || ''}
+                            onChange={(e) => setAc49Report({...ac49Report, endDate: e.target.value})}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                       </div>
 
-                      {ac49Report.relatedItemNo && (
-                        <div className="mt-6 pt-6 border-t border-blue-100 dark:border-blue-800/50 flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest italic">Monto Total de Partida en Contrato:</span>
-                          <span className="text-lg font-black text-blue-700 dark:text-blue-400 tracking-tighter">{formatCurrency(ac49Report.relatedItemAmount || 0)}</span>
-                        </div>
+                      {/* Info adicional opcional */}
+                      {ac49Report.relatedItemDescription && (
+                         <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 flex justify-between">
+                            <span><b>Desc:</b> {ac49Report.relatedItemDescription}</span>
+                            <span><b>Costo Unit:</b> {formatCurrency(ac49Report.relatedItemUnitCost || 0)}</span>
+                         </div>
                       )}
                     </div>
                   )}
@@ -1131,6 +1147,147 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             </div>
                           </div>
                         </div>
+
+                        {/* Foto Gallery Overview at the bottom of AC-51 */}
+                        {ac49Report.photos && ac49Report.photos.length > 0 && (
+                          <div className="mt-12 p-10 rounded-[3rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden">
+                            <div className="flex items-center justify-between mb-8 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-600">
+                                  <Camera size={20} />
+                                </div>
+                                <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Soporte de Evidencia (Fotos)</h4>
+                              </div>
+                              <button onClick={() => setActiveTab('fotos')} className="text-[10px] font-black text-blue-600 uppercase hover:underline">
+                                Gestionar Fotos
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                              {ac49Report.photos.slice(0, 6).map((photo, idx) => (
+                                <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm">
+                                  <img src={photo} alt={`Evidencia ${idx + 1}`} className="w-full h-full object-cover" />
+                                </div>
+                              ))}
+                              {ac49Report.photos.length > 6 && (
+                                <button 
+                                  onClick={() => setActiveTab('fotos')}
+                                  className="aspect-square rounded-2xl bg-slate-50 dark:bg-slate-800 flex flex-col items-center justify-center text-slate-400 gap-2 border border-dashed border-slate-200 dark:border-slate-700"
+                                >
+                                  <span className="text-lg font-black">{ac49Report.photos.length - 6}+</span>
+                                  <span className="text-[9px] font-bold uppercase tracking-widest">Más fotos</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'fotos' && (
+                  <div className="space-y-8 animate-in slide-in-from-right duration-500">
+                    <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-xl">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+                        <div>
+                          <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Registro de Evidencia Fotográfica</h3>
+                          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Soporte visual para el ciclo {ac49Report.reportNo}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = 'image/*';
+                              input.multiple = true;
+                              input.onchange = (e: any) => {
+                                const files = Array.from(e.target.files);
+                                files.forEach((file: any) => {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    const base64String = reader.result as string;
+                                    setAc49Report(prev => ({
+                                      ...prev,
+                                      photos: [...(prev.photos || []), base64String]
+                                    }));
+                                  };
+                                  reader.readAsDataURL(file);
+                                });
+                              };
+                              input.click();
+                            }}
+                            className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg hover:scale-105"
+                          >
+                            <Plus size={16} /> Subir de Galería
+                          </button>
+                          <button 
+                             onClick={() => {
+                               const input = document.createElement('input');
+                               input.type = 'file';
+                               input.accept = 'image/*';
+                               input.capture = 'environment';
+                               input.onchange = (e: any) => {
+                                 const file = e.target.files[0];
+                                 if (file) {
+                                   const reader = new FileReader();
+                                   reader.onloadend = () => {
+                                     const base64String = reader.result as string;
+                                     setAc49Report(prev => ({
+                                       ...prev,
+                                       photos: [...(prev.photos || []), base64String]
+                                     }));
+                                   };
+                                   reader.readAsDataURL(file);
+                                 }
+                               };
+                               input.click();
+                             }}
+                            className="flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg hover:scale-105"
+                          >
+                            <Camera size={16} /> Abrir Cámara
+                          </button>
+                        </div>
+                      </div>
+
+                      {(!ac49Report.photos || ac49Report.photos.length === 0) ? (
+                        <div className="border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-20 text-center">
+                          <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-300">
+                            <Camera size={40} />
+                          </div>
+                          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay fotos registradas aún</p>
+                          <p className="text-[10px] text-slate-300 mt-2 italic">Capture o suba evidencia de los trabajos realizados</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                          {ac49Report.photos.map((photo, idx) => (
+                            <div key={idx} className="group relative aspect-square rounded-[2rem] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-md hover:shadow-xl transition-all">
+                              <img src={photo} alt={`Evidencia ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <button 
+                                  onClick={() => {
+                                    setAc49Report(prev => ({
+                                      ...prev,
+                                      photos: (prev.photos || []).filter((_, i) => i !== idx)
+                                    }));
+                                  }}
+                                  className="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg transform hover:scale-110"
+                                >
+                                  <Trash2 size={20} />
+                                </button>
+                              </div>
+                              <div className="absolute bottom-4 left-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-3 rounded-xl text-center">
+                                <p className="text-[9px] font-black uppercase text-slate-600 dark:text-slate-300">Foto #{idx + 1}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      <div className="mt-12 p-6 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 rounded-2xl flex items-center gap-4">
+                        <Info className="text-amber-600 shrink-0" size={20} />
+                        <p className="text-[10px] font-bold text-amber-800 uppercase leading-relaxed tracking-tight">
+                          Las fotos se guardarán dentro del archivo de respaldo JSON para mantener toda la evidencia consolidada en un solo lugar.
+                        </p>
                       </div>
                     </div>
                   </div>
