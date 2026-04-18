@@ -58,49 +58,66 @@ export function EditableTable<T extends { id: string }>({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-            {data.map((item, index) => (
-              <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
-                {columns.map((col, i) => (
-                  <td key={i} className={`px-3 py-2 ${col.type === 'computed' ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}>
-                    {col.type === 'computed' && col.compute ? (
-                      <span className="text-xs font-black text-blue-600 dark:text-blue-400 px-3 py-2 block text-right">
-                        {formatCurrency(col.compute(item))}
-                      </span>
-                    ) : col.type === 'select' ? (
-                      <select 
-                        value={String(item[col.key])}
-                        onChange={(e) => onChange(index, col.key, e.target.value)}
-                        className="w-full bg-slate-100/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-2 py-2 outline-none transition-all shadow-sm hover:border-slate-300 dark:hover:border-slate-600"
-                      >
-                        {col.options?.map(opt => <option key={opt} value={opt} className="bg-white dark:bg-slate-900">{opt}</option>)}
-                      </select>
-                      ) : col.type === 'date' ? (
-                        <input 
-                          type="date"
-                          value={String(item[col.key] || '')}
-                          onChange={(e) => onChange(index, col.key, e.target.value)}
-                          className="w-full bg-slate-100/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-3 py-2 outline-none transition-all shadow-sm hover:border-slate-300 dark:hover:border-slate-600"
-                        />
-                      ) : (
-                        <input 
-                          type={col.type}
-                          value={String(item[col.key] || '')}
-                          onChange={(e) => onChange(index, col.key, col.type === 'number' ? Number(e.target.value) : e.target.value)}
-                          className="w-full bg-slate-100/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-3 py-2 outline-none transition-all shadow-sm hover:border-slate-300 dark:hover:border-slate-600"
-                        />
-                      )}
+            {data.map((item, index) => {
+              const lastInteractiveColIdx = columns.map((c, i) => c.type !== 'computed' ? i : -1).filter(i => i !== -1).pop();
+
+              return (
+                <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
+                  {columns.map((col, i) => {
+                    const isLastCell = index === data.length - 1 && i === lastInteractiveColIdx;
+                    const handleKeyDown = (e: React.KeyboardEvent) => {
+                      if (e.key === 'Tab' && !e.shiftKey && isLastCell) {
+                        e.preventDefault();
+                        onAdd();
+                      }
+                    };
+
+                    return (
+                      <td key={i} className={`px-3 py-2 ${col.type === 'computed' ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}>
+                        {col.type === 'computed' && col.compute ? (
+                          <span className="text-xs font-black text-blue-600 dark:text-blue-400 px-3 py-2 block text-right">
+                            {formatCurrency(col.compute(item))}
+                          </span>
+                        ) : col.type === 'select' ? (
+                          <select 
+                            value={String(item[col.key])}
+                            onChange={(e) => onChange(index, col.key, e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="w-full bg-slate-100/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-2 py-2 outline-none transition-all shadow-sm hover:border-slate-300 dark:hover:border-slate-600"
+                          >
+                            {col.options?.map(opt => <option key={opt} value={opt} className="bg-white dark:bg-slate-900">{opt}</option>)}
+                          </select>
+                        ) : col.type === 'date' ? (
+                          <input 
+                            type="date"
+                            value={String(item[col.key] || '')}
+                            onChange={(e) => onChange(index, col.key, e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="w-full bg-slate-100/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-3 py-2 outline-none transition-all shadow-sm hover:border-slate-300 dark:hover:border-slate-600"
+                          />
+                        ) : (
+                          <input 
+                            type={col.type}
+                            value={String(item[col.key] || '')}
+                            onChange={(e) => onChange(index, col.key, col.type === 'number' ? Number(e.target.value) : e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="w-full bg-slate-100/50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white px-3 py-2 outline-none transition-all shadow-sm hover:border-slate-300 dark:hover:border-slate-600"
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 text-center">
+                    <button 
+                      onClick={() => onRemove(index)}
+                      className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </td>
-                ))}
-                <td className="px-3 py-2 text-center">
-                  <button 
-                    onClick={() => onRemove(index)}
-                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </td>
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
             {data.length === 0 && (
                 <tr>
                     <td colSpan={columns.length + 1} className="px-6 py-10 text-center text-slate-400 font-bold italic text-xs">

@@ -249,11 +249,14 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   const suggestionsDB = useMemo(() => {
     const laborDB: Record<string, any> = {};
     const equipmentDB: Record<string, any> = {};
+    const materialsDB: Record<string, any> = {};
     
     reports.forEach(r => {
       r.data?.labor?.forEach((l: any) => {
         if (l.employeeName?.trim()) {
-          laborDB[l.employeeName.trim()] = {
+          const key = l.employeeName.trim().toLowerCase();
+          laborDB[key] = {
+            employeeName: l.employeeName.trim(),
             ssLast4: l.ssLast4,
             classification: l.classification,
             hourlyRate: l.hourlyRate
@@ -262,7 +265,9 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       });
       r.data?.equipment?.forEach((e: any) => {
         if (e.description?.trim()) {
-          equipmentDB[e.description.trim()] = {
+          const key = e.description.trim().toLowerCase();
+          equipmentDB[key] = {
+            description: e.description.trim(),
             model: e.model,
             year: e.year,
             capacity: e.capacity,
@@ -272,9 +277,20 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           };
         }
       });
+      r.data?.materials?.forEach((m: any) => {
+        if (m.description?.trim()) {
+          const key = m.description.trim().toLowerCase();
+          materialsDB[key] = {
+            description: m.description.trim(),
+            supplier: m.supplier,
+            unitCost: m.unitCost,
+            type: m.type
+          };
+        }
+      });
     });
     
-    return { labor: laborDB, equipment: equipmentDB };
+    return { labor: laborDB, equipment: equipmentDB, materials: materialsDB };
   }, [reports]);
 
   const fetchProjectAndReports = async () => {
@@ -902,11 +918,12 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             const newLabor = [...ac49Report.labor];
                             (newLabor[realIdx] as any)[key] = val;
                             if (key === 'employeeName' && val) {
-                              const suggested = suggestionsDB.labor[String(val).trim()];
+                              const suggested = (suggestionsDB as any).labor[String(val).trim().toLowerCase()];
                               if (suggested) {
                                 if (!newLabor[realIdx].ssLast4) newLabor[realIdx].ssLast4 = suggested.ssLast4;
                                 if (!newLabor[realIdx].classification) newLabor[realIdx].classification = suggested.classification;
                                 if (!newLabor[realIdx].hourlyRate) newLabor[realIdx].hourlyRate = suggested.hourlyRate;
+                                newLabor[realIdx].employeeName = suggested.employeeName;
                               }
                             }
                             setAc49Report({...ac49Report, labor: newLabor});
@@ -939,6 +956,15 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             if (realIdx === -1) return;
                             const newMat = [...ac49Report.materials];
                             (newMat[realIdx] as any)[key] = val;
+                            if (key === 'description' && val) {
+                              const suggested = (suggestionsDB as any).materials?.[String(val).trim().toLowerCase()];
+                              if (suggested) {
+                                if (!newMat[realIdx].supplier) newMat[realIdx].supplier = suggested.supplier;
+                                if (!newMat[realIdx].unitCost) newMat[newMat.length - 1].unitCost = suggested.unitCost;
+                                if (!newMat[realIdx].type) newMat[realIdx].type = suggested.type;
+                                newMat[realIdx].description = suggested.description;
+                              }
+                            }
                             setAc49Report({...ac49Report, materials: newMat});
                           }}
                         />
@@ -980,7 +1006,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                             }
 
                             if (key === 'description' && val) {
-                              const suggested = suggestionsDB.equipment[String(val).trim()];
+                              const suggested = (suggestionsDB as any).equipment[String(val).trim().toLowerCase()];
                               if (suggested) {
                                 if (!newEq[realIdx].model) newEq[realIdx].model = suggested.model;
                                 if (!newEq[realIdx].year) newEq[realIdx].year = suggested.year;
@@ -988,6 +1014,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                 if (!newEq[realIdx].fuelType) newEq[realIdx].fuelType = suggested.fuelType;
                                 if (!newEq[realIdx].ownership) newEq[realIdx].ownership = suggested.ownership;
                                 if (!newEq[realIdx].dailyRate) newEq[realIdx].dailyRate = suggested.dailyRate;
+                                newEq[realIdx].description = suggested.description;
                               }
                             }
                             setAc49Report({...ac49Report, equipment: newEq});
