@@ -370,6 +370,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       equipment: report.data?.equipment || [],
       materials: report.data?.materials || [],
       photos: report.data?.photos || [],
+      groupName: report.data?.groupName || '',
+      subGroupName: report.data?.subGroupName || '',
       relatedItemNo: report.data?.relatedItemNo || '',
       relatedItemDescription: report.data?.relatedItemDescription || '',
       relatedItemUnitCost: report.data?.relatedItemUnitCost || 0,
@@ -516,7 +518,9 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
             relatedItemAmount: ac49Report.relatedItemAmount,
             signatures: ac49Report.signatures,
             photos: ac49Report.photos,
-            laborDetails: ac49Report.laborDetails
+            laborDetails: ac49Report.laborDetails,
+            groupName: ac49Report.groupName,
+            subGroupName: ac49Report.subGroupName
           }
         })
         .eq("id", selectedReportId);
@@ -535,7 +539,9 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
         relatedItemAmount: ac49Report.relatedItemAmount,
         signatures: ac49Report.signatures,
         laborDetails: ac49Report.laborDetails,
-        photos: ac49Report.photos
+        photos: ac49Report.photos,
+        groupName: ac49Report.groupName,
+        subGroupName: ac49Report.subGroupName
       };
 
       setReports(reports.map(r => r.id === selectedReportId ? { 
@@ -848,6 +854,14 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">EWO #</label>
                           <input type="text" value={ac49Report.relatedEWO || ''} onChange={(e) => setAc49Report({...ac49Report, relatedEWO: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">Grupo Principal (Ej: AC-200023- FA1)</label>
+                          <input type="text" value={ac49Report.groupName || ''} onChange={(e) => setAc49Report({...ac49Report, groupName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="AC-200023- FA1" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">Subgrupo / Mes (Ej: FA1-septiembre)</label>
+                          <input type="text" value={ac49Report.subGroupName || ''} onChange={(e) => setAc49Report({...ac49Report, subGroupName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="FA1-septiembre" />
+                        </div>
                         <div className="col-span-full h-px bg-slate-200 dark:bg-slate-800 my-2"></div>
                         <div className="space-y-2">
                           <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-wide block">FECHA INICIO FA</label>
@@ -875,20 +889,64 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredReports.length > 0 ? filteredReports.map(r => (
-                      <div key={r.id} onClick={() => handleSelectReport(r)} className={`group p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer ${selectedReportId === r.id ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200'}`}>
-                         <div className="flex justify-between items-start">
-                            <div className="space-y-1">
-                               <div className="flex items-center gap-2">
-                                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${selectedReportId === r.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>{r.report_no}</span>
-                                  <span className="text-[10px] text-slate-400 font-bold">{r.date}</span>
-                               </div>
-                               <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight line-clamp-1">{r.description || 'Sin descripción'}</h5>
-                            </div>
-                         </div>
+                  <div className="space-y-12">
+                    {(() => {
+                      const groups: Record<string, Record<string, any[]>> = {};
+                      filteredReports.forEach(r => {
+                        const gn = r.data?.groupName?.trim() || 'Sin Clasificar (Grupo)';
+                        const sgn = r.data?.subGroupName?.trim() || 'Sin Clasificar (Mes)';
+                        if (!groups[gn]) groups[gn] = {};
+                        if (!groups[gn][sgn]) groups[gn][sgn] = [];
+                        groups[gn][sgn].push(r);
+                      });
+
+                      const sortedGroupNames = Object.keys(groups).sort();
+
+                      return sortedGroupNames.map(gn => (
+                        <div key={gn} className="space-y-6">
+                           <div className="flex items-center gap-4 border-b-2 border-slate-100 dark:border-slate-800 pb-4">
+                              <div className="w-1.5 h-8 bg-blue-600 rounded-full"></div>
+                              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tighter flex items-center gap-3">
+                                <Briefcase className="text-blue-600" size={20} /> {gn}
+                              </h3>
+                           </div>
+                           
+                           <div className="space-y-8 pl-6">
+                              {Object.keys(groups[gn]).sort().map(sgn => (
+                                <div key={sgn} className="space-y-4">
+                                   <div className="flex items-center gap-3 text-slate-400">
+                                      <Calendar size={14} className="text-emerald-500" />
+                                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em]">{sgn}</h4>
+                                   </div>
+                                   
+                                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                      {groups[gn][sgn].sort((a,b) => b.date.localeCompare(a.date)).map(r => (
+                                        <div key={r.id} onClick={() => handleSelectReport(r)} className={`group p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer relative overflow-hidden ${selectedReportId === r.id ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200 shadow-sm'}`}>
+                                           <div className="flex justify-between items-start relative z-10">
+                                              <div className="space-y-1">
+                                                 <div className="flex items-center gap-2">
+                                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${selectedReportId === r.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 font-bold'}`}>{r.report_no}</span>
+                                                    <span className="text-[10px] text-slate-400 font-bold">{r.date}</span>
+                                                 </div>
+                                                 <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight line-clamp-1">{r.description || 'Sin descripción'}</h5>
+                                              </div>
+                                              {selectedReportId === r.id && <CheckCircle2 className="text-blue-600" size={18} />}
+                                           </div>
+                                        </div>
+                                      ))}
+                                   </div>
+                                </div>
+                              ))}
+                           </div>
+                        </div>
+                      ));
+                    })()}
+                    {filteredReports.length === 0 && (
+                      <div className="col-span-full py-40 text-center bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
+                         <Search size={48} className="mx-auto text-slate-200 mb-6" />
+                         <p className="text-slate-400 font-bold tracking-widest uppercase text-xs italic">No se encontraron reportes con los filtros actuales.</p>
                       </div>
-                    )) : <div className="col-span-full py-20 text-center text-slate-400 italic font-bold">No hay reportes de Force Account 2.</div>}
+                    )}
                   </div>
                 </div>
               </div>

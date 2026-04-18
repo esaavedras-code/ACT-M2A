@@ -75,6 +75,8 @@ export interface AC49Report {
   startDate?: string;
   endDate?: string;
   photos?: string[];
+  groupName?: string; // e.g., "AC-200023- FA1"
+  subGroupName?: string; // e.g., "FA1-septiembre"
 
   labor: LaborEntry[];
   equipment: EquipmentEntry[];
