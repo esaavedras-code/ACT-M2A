@@ -918,11 +918,18 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           { header: 'Fecha', key: 'date', type: 'date' },
                           { header: 'Descripción', key: 'description', type: 'text' },
                           { header: 'Modelo', key: 'model', type: 'text' },
-                          { header: 'Tarifa Diaria', key: 'dailyRate', type: 'number' },
-                          { header: 'Horas', key: 'hours', type: 'number' },
+                          { header: 'Año', key: 'year', type: 'text' },
+                          { header: 'Capacidad', key: 'capacity', type: 'text' },
+                          { header: 'Combustible', key: 'fuelType', type: 'select', options: ['Gasolina', 'Diesel', ''] },
+                          { header: 'Propiedad', key: 'ownership', type: 'select', options: ['Alquilado', 'Propio', ''] },
+                          { header: 'H. Activas', key: 'hoursActive', type: 'number' },
+                          { header: 'H. Inactivas', key: 'hoursInactive', type: 'number' },
+                          { header: 'H. Reparación', key: 'hoursRepair', type: 'number' },
+                          { header: 'Tarifa', key: 'dailyRate', type: 'number' },
+                          { header: 'Total $', key: 'total', type: 'computed', compute: (row: any) => (parseFloat(row.hoursActive) || 0) * (parseFloat(row.dailyRate) || 0) },
                         ]}
                         data={visibleEquipment}
-                        onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, description: '', model: '', capacity: '', isRented: false, hours: 0, dailyRate: 0 }]})}
+                        onAdd={() => setAc49Report({...ac49Report, equipment: [...ac49Report.equipment, { id: Date.now().toString(), date: laborFilterStart || ac49Report.date, description: '', model: '', year: '', capacity: '', fuelType: '', ownership: '', isRented: false, hours: 0, hoursActive: 0, hoursInactive: 0, hoursRepair: 0, dailyRate: 0 }]})}
                         onRemove={(idx) => setAc49Report({...ac49Report, equipment: ac49Report.equipment.filter(e => e.id !== visibleEquipment[idx].id)})}
                         onChange={(idx, key, val) => {
                           const targetItem = visibleEquipment[idx];
@@ -930,6 +937,12 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           if (realIdx === -1) return;
                           const newEq = [...ac49Report.equipment];
                           (newEq[realIdx] as any)[key] = val;
+                          
+                          // Sync internal hours for compatibility with other report totals
+                          if (key === 'hoursActive') {
+                            newEq[realIdx].hours = Number(val);
+                          }
+
                           if (key === 'description' && val) {
                             const suggested = suggestionsDB.equipment[String(val).trim()];
                             if (suggested) {

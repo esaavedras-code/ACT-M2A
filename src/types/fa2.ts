@@ -25,9 +25,15 @@ export interface EquipmentEntry {
   id: string;
   description: string;
   model: string;
+  year?: string;
   capacity: string;
-  isRented: boolean;
-  hours: number;
+  fuelType?: 'Gasolina' | 'Diesel' | '';
+  ownership?: 'Alquilado' | 'Propio' | '';
+  isRented: boolean; 
+  hours: number; // Sum total for basic calculations
+  hoursActive: number;
+  hoursInactive: number;
+  hoursRepair: number;
   dailyRate?: number;
   weeklyRate?: number;
   monthlyRate?: number;
