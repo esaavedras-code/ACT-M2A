@@ -43,6 +43,32 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   const [reportSearch, setReportSearch] = useState("");
   const [startDateFilter, setStartDateFilter] = useState("");
   const [endDateFilter, setEndDateFilter] = useState("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const initialLoadRef = useRef(true);
+
+  // Warn on browser close
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Monitor report changes to set dirty state
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+    if (selectedReportId) {
+      setHasUnsavedChanges(true);
+      if (onDirty) onDirty();
+    }
+  }, [ac49Report.labor, ac49Report.equipment, ac49Report.materials, ac49Report.workDescription, ac49Report.photos]);
 
   const filteredReports = useMemo(() => {
     return reports.filter(r => {
@@ -331,6 +357,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
   const handleSelectReport = (report: any) => {
     setSelectedReportId(report.id);
+    initialLoadRef.current = true; // Mark as initial load to avoid setting dirty immediately
+    setHasUnsavedChanges(false);
     setAc49Report({
       id: report.id,
       projectId: report.project_id,
@@ -341,6 +369,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       labor: report.data?.labor || [],
       equipment: report.data?.equipment || [],
       materials: report.data?.materials || [],
+      photos: report.data?.photos || [],
       relatedItemNo: report.data?.relatedItemNo || '',
       relatedItemDescription: report.data?.relatedItemDescription || '',
       relatedItemUnitCost: report.data?.relatedItemUnitCost || 0,
@@ -486,12 +515,14 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
             relatedItemUnitCost: ac49Report.relatedItemUnitCost,
             relatedItemAmount: ac49Report.relatedItemAmount,
             signatures: ac49Report.signatures,
+            photos: ac49Report.photos,
             laborDetails: ac49Report.laborDetails
           }
         })
         .eq("id", selectedReportId);
 
       if (error) throw error;
+      setHasUnsavedChanges(false);
       if (!silent) alert("✅ Force Account guardado exitosamente.");
       
       const updatedData = {
@@ -731,7 +762,16 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div className="flex items-center gap-2">
               {activeTab !== 'dashboard' && (
-                <button onClick={() => setActiveTab('dashboard')} className="group flex items-center gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm">
+                <button 
+                  onClick={() => {
+                    if (hasUnsavedChanges) {
+                      if (!confirm("⚠️ Tienes cambios sin guardar. ¿Deseas salir al resumen de todos modos?\n( Se podrían perder los datos ingresados )")) return;
+                    }
+                    setActiveTab('dashboard');
+                    setHasUnsavedChanges(false);
+                  }} 
+                  className="group flex items-center gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm"
+                >
                   <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
                   <span className="text-[10px] font-black uppercase tracking-widest pr-2 hidden sm:inline">Back</span>
                 </button>
