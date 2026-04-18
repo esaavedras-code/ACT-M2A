@@ -1024,25 +1024,25 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                <tr key={key} className="hover:bg-slate-100/50">
                                  <td className="px-4 py-3 border-r bg-white dark:bg-slate-900">{eq.description}</td>
                                  <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.aa || ''} onChange={(e) => updateEquipmentConfig(key, 'aa_rentaMensual', Number(e.target.value))} className="w-20 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="0" />
+                                    <input type="number" step="any" value={eq.aa || ''} onChange={(e) => updateEquipmentConfig(key, 'aa_rentaMensual', Number(e.target.value))} className="w-20 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-2 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
                                  </td>
                                  <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.bb.toFixed(2)}</td>
                                  <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.cc || ''} onChange={(e) => updateEquipmentConfig(key, 'cc_factorAnos', Number(e.target.value))} className="w-12 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="1" />
+                                    <input type="number" step="any" value={eq.cc || ''} onChange={(e) => updateEquipmentConfig(key, 'cc_factorAnos', Number(e.target.value))} className="w-12 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-1 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="1" />
                                  </td>
                                  <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.dd || ''} onChange={(e) => updateEquipmentConfig(key, 'dd_factorZona', Number(e.target.value))} className="w-12 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="1" />
+                                    <input type="number" step="any" value={eq.dd || ''} onChange={(e) => updateEquipmentConfig(key, 'dd_factorZona', Number(e.target.value))} className="w-12 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-1 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="1" />
                                  </td>
                                  <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.ee.toFixed(2)}</td>
                                  <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.ff || ''} onChange={(e) => updateEquipmentConfig(key, 'ff_horasInactivas', Number(e.target.value))} className="w-12 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="0" />
+                                    <input type="number" step="any" value={eq.ff || ''} onChange={(e) => updateEquipmentConfig(key, 'ff_horasInactivas', Number(e.target.value))} className="w-12 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-1 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
                                  </td>
                                  <td className="px-4 py-3 border-r text-center bg-blue-50/30">{eq.gg.toFixed(2)}</td>
                                  <td className="px-4 py-3 border-r text-center font-black">{eq.jj}</td>
                                  <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.hh}</td>
                                  <td className="px-4 py-3 border-r text-center">{eq.ii.toFixed(2)}</td>
                                  <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.kk || ''} onChange={(e) => updateEquipmentConfig(key, 'kk_costoOperacion', Number(e.target.value))} className="w-16 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="0" />
+                                    <input type="number" step="any" value={eq.kk || ''} onChange={(e) => updateEquipmentConfig(key, 'kk_costoOperacion', Number(e.target.value))} className="w-16 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-2 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
                                  </td>
                                  <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.ll.toFixed(2)}</td>
                                  <td className="px-4 py-3 border-r text-center">{eq.mm.toFixed(2)}</td>
