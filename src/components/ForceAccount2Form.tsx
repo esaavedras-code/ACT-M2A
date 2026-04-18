@@ -68,23 +68,32 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
   const ac51Data = useMemo(() => {
     // Agrupar reportes del mes seleccionado
-    const monthReports = reports.filter(r => r.date.startsWith(ac51Month));
+    const monthReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
     
     return monthReports.map(r => {
       const rd = (r.data || {}) as any;
       const labor = (rd.labor || []).reduce((acc: number, l: any) => {
-        const reg = (l.hoursReg || 0) * (l.hourlyRate || 0);
-        const ot15 = (l.hours15 || 0) * (l.hourlyRate || 0) * 1.5;
-        const ot20 = (l.hours20 || 0) * (l.hourlyRate || 0) * 2.0;
+        const reg = (Number(l.hoursReg) || 0) * (Number(l.hourlyRate) || 0);
+        const ot15 = (Number(l.hours15) || 0) * (Number(l.hourlyRate) || 0) * 1.5;
+        const ot20 = (Number(l.hours20) || 0) * (Number(l.hourlyRate) || 0) * 2.0;
         return acc + reg + ot15 + ot20;
       }, 0);
       
       const equip = (rd.equipment || []).reduce((acc: number, e: any) => {
-        return acc + ((e.hours || 0) * (e.dailyRate || 0));
+        // Usar lógica de renta si están los campos, sino básica
+        if (e.aa_rentaMensual) {
+           const bb = (e.aa_rentaMensual || 0) / 176;
+           const ee = bb * (e.cc_factorAnos || 1) * (e.dd_factorZona || 1);
+           const gg = ee * (e.ff_horasInactivas || 0);
+           const ll = ee + (e.kk_costoOperacion || 0);
+           const mm = (e.hours || 0) * ll;
+           return acc + gg + mm;
+        }
+        return acc + ((Number(e.hours) || 0) * (Number(e.dailyRate) || 0));
       }, 0);
 
       const mats = (rd.materials || []).reduce((acc: number, m: any) => {
-        return acc + ((m.quantity || 0) * (m.unitCost || 0));
+        return acc + ((Number(m.quantity) || 0) * (Number(m.unitCost) || 0));
       }, 0);
 
       return {
@@ -98,6 +107,63 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       };
     }).sort((a, b) => a.date.localeCompare(b.date));
   }, [reports, ac51Month]);
+
+  // AC-50 Consolidated Equipment State (Parte B)
+  const ac50Equipment = useMemo(() => {
+    const monthReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
+    const equipmentMap: Record<string, any> = {};
+
+    monthReports.forEach(r => {
+      const rd = (r.data || {}) as any;
+      (rd.equipment || []).forEach((eq: any) => {
+        const key = `${eq.description?.trim()}-${eq.model?.trim()}`.toUpperCase();
+        if (!equipmentMap[key]) {
+          equipmentMap[key] = { 
+            id: eq.id, 
+            description: eq.description, 
+            model: eq.model, 
+            hours: 0,
+            aa_rentaMensual: eq.aa_rentaMensual ?? 0,
+            cc_factorAnos: eq.cc_factorAnos ?? 1,
+            dd_factorZona: eq.dd_factorZona ?? 1,
+            ff_horasInactivas: eq.ff_horasInactivas ?? 0,
+            kk_costoOperacion: eq.kk_costoOperacion ?? 0
+          };
+        }
+        equipmentMap[key].hours += (Number(eq.hours) || 0);
+      });
+    });
+
+    return Object.values(equipmentMap).map((eq: any) => {
+      const aa = eq.aa_rentaMensual;
+      const bb = aa / 176;
+      const cc = eq.cc_factorAnos;
+      const dd = eq.dd_factorZona;
+      const ee = bb * cc * dd;
+      const ff = eq.ff_horasInactivas;
+      const gg = ee * ff;
+      const jj = eq.hours;
+      const hh = ff + jj;
+      const ii = ee * hh;
+      const kk = eq.kk_costoOperacion;
+      const ll = ee + kk;
+      const mm = jj * ll;
+      const nn = gg + mm;
+
+      return { ...eq, aa, bb, cc, dd, ee, ff, gg, hh, ii, jj, kk, ll, mm, nn };
+    });
+  }, [reports, ac51Month]);
+
+  const updateEquipmentConfig = (key: string, field: string, val: number) => {
+    // Para simplificar, actualizamos los campos en el reporte actual si coincide el equipo
+    // Esto se propagará al resumen ya que ac50Equipment depende de `reports`
+    const newEq = ac49Report.equipment.map(e => {
+        const itemKey = `${e.description?.trim()}-${e.model?.trim()}`.toUpperCase();
+        if (itemKey === key) return { ...e, [field]: val };
+        return e;
+    });
+    setAc49Report({ ...ac49Report, equipment: newEq });
+  };
 
   // Contract Items for lookup
   const [contractItems, setContractItems] = useState<any[]>([]);
@@ -389,7 +455,27 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
       if (error) throw error;
       if (!silent) alert("✅ Force Account guardado exitosamente.");
-      setReports(reports.map(r => r.id === selectedReportId ? { ...r, report_no: ac49Report.reportNo, date: ac49Report.date, description: ac49Report.workDescription } : r));
+      
+      const updatedData = {
+        labor: ac49Report.labor,
+        equipment: ac49Report.equipment,
+        materials: ac49Report.materials,
+        relatedItemNo: ac49Report.relatedItemNo,
+        relatedItemDescription: ac49Report.relatedItemDescription,
+        relatedItemUnitCost: ac49Report.relatedItemUnitCost,
+        relatedItemAmount: ac49Report.relatedItemAmount,
+        signatures: ac49Report.signatures,
+        laborDetails: ac49Report.laborDetails,
+        photos: ac49Report.photos
+      };
+
+      setReports(reports.map(r => r.id === selectedReportId ? { 
+        ...r, 
+        report_no: ac49Report.reportNo, 
+        date: ac49Report.date, 
+        description: ac49Report.workDescription,
+        data: updatedData
+      } : r));
     } catch (error: any) {
       alert("Error al guardar: " + error.message);
     } finally {
@@ -534,7 +620,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     
     const h_subtotal = rawLabor;
     const mo_sin_union = h_subtotal * ((dets.mo_sin_union_pct || 0)/100);
-    const k = g + h_subtotal + mo_sin_union + (dets.mo_gastos_viaje || 0);
+    const k = g + h_subtotal + mo_sin_union + (Number(dets.mo_gastos_viaje) || 0);
     const l = k * ((dets.mo_beneficio_ind_pct || 20)/100);
     const m_val = l + k;
     
@@ -886,6 +972,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                     </div>
 
                     <div className="overflow-x-auto rounded-[2.5rem] border bg-slate-50/30">
+                       <h4 className="px-8 py-4 bg-white dark:bg-slate-900 border-b text-[10px] font-black uppercase tracking-widest text-blue-600">Parte A: Detalle de Tiempo Trabajado</h4>
                        <table className="w-full text-left">
                          <thead>
                            <tr className="bg-white dark:bg-slate-900 text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] border-b">
@@ -897,12 +984,84 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                          <tbody className="divide-y">
                            {ac49Report.equipment.length > 0 ? ac49Report.equipment.map((eq) => (
                              <tr key={eq.id}>
-                               <td className="px-8 py-6 text-slate-900 dark:text-white font-black text-[11px] uppercase">{eq.description} ({eq.model})</td>
+                               <td className="px-8 py-6 text-slate-900 dark:text-white font-black text-[11px] uppercase">
+                                  {eq.description} ({eq.model})
+                               </td>
                                <td className="px-8 py-6 text-center font-black">{eq.hours}</td>
-                               <td className="px-8 py-6 text-right text-emerald-600 font-black text-sm">{formatCurrency(calculateEquipmentRental(eq.hours, eq.dailyRate || 0))}</td>
+                               <td className="px-8 py-6 text-right text-emerald-600 font-black text-sm">{formatCurrency(Number(eq.hours) * (Number(eq.dailyRate) || 0))}</td>
                              </tr>
-                           )) : <tr><td colSpan={3} className="px-8 py-20 text-center text-slate-300 italic font-bold">Sin equipos registrados.</td></tr>}
+                           )) : <tr><td colSpan={3} className="px-8 py-20 text-center text-slate-300 italic font-bold">Sin equipos registrados en este reporte.</td></tr>}
                          </tbody>
+                       </table>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-[2.5rem] border bg-slate-50/30">
+                       <h4 className="px-8 py-4 bg-white dark:bg-slate-900 border-b text-[10px] font-black uppercase tracking-widest text-emerald-600">Parte B: Relación de Equipo (Cálculo Mensual)</h4>
+                       <table className="min-w-[1200px] w-full text-left">
+                         <thead>
+                           <tr className="bg-slate-50 dark:bg-slate-900 text-[8px] text-slate-400 font-black uppercase tracking-tight border-b">
+                             <th className="px-4 py-3 border-r">Descripción</th>
+                             <th className="px-4 py-3 text-center border-r">aa. Renta Mensual</th>
+                             <th className="px-4 py-3 text-center border-r">bb. Renta Hora</th>
+                             <th className="px-4 py-3 text-center border-r">cc. Factor Años</th>
+                             <th className="px-4 py-3 text-center border-r">dd. Factor Zona</th>
+                             <th className="px-4 py-3 text-center border-r">ee. Renta Hora (bb*cc*dd)</th>
+                             <th className="px-4 py-3 text-center border-r">ff. H. Inact.</th>
+                             <th className="px-4 py-3 text-center border-r">gg. Rent. Inac. (ee*ff)</th>
+                             <th className="px-4 py-3 text-center border-r">jj. H. Activas</th>
+                             <th className="px-4 py-3 text-center border-r">hh. H. Totales</th>
+                             <th className="px-4 py-3 text-center border-r">ii. Rent. Tot. (ee*hh)</th>
+                             <th className="px-4 py-3 text-center border-r">kk. Costo Op.</th>
+                             <th className="px-4 py-3 text-center border-r">ll. Rent. Act. H.</th>
+                             <th className="px-4 py-3 text-center border-r">mm. Rent. Act. M.</th>
+                             <th className="px-4 py-3 text-right">nn. Total Renta</th>
+                           </tr>
+                         </thead>
+                         <tbody className="divide-y text-[9px] font-bold">
+                           {ac50Equipment.map((eq: any) => {
+                             const key = `${eq.description?.trim()}-${eq.model?.trim()}`.toUpperCase();
+                             return (
+                               <tr key={key} className="hover:bg-slate-100/50">
+                                 <td className="px-4 py-3 border-r bg-white dark:bg-slate-900">{eq.description}</td>
+                                 <td className="px-4 py-3 border-r text-center">
+                                    <input type="number" step="any" value={eq.aa || ''} onChange={(e) => updateEquipmentConfig(key, 'aa_rentaMensual', Number(e.target.value))} className="w-20 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="0" />
+                                 </td>
+                                 <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.bb.toFixed(2)}</td>
+                                 <td className="px-4 py-3 border-r text-center">
+                                    <input type="number" step="any" value={eq.cc || ''} onChange={(e) => updateEquipmentConfig(key, 'cc_factorAnos', Number(e.target.value))} className="w-12 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="1" />
+                                 </td>
+                                 <td className="px-4 py-3 border-r text-center">
+                                    <input type="number" step="any" value={eq.dd || ''} onChange={(e) => updateEquipmentConfig(key, 'dd_factorZona', Number(e.target.value))} className="w-12 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="1" />
+                                 </td>
+                                 <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.ee.toFixed(2)}</td>
+                                 <td className="px-4 py-3 border-r text-center">
+                                    <input type="number" step="any" value={eq.ff || ''} onChange={(e) => updateEquipmentConfig(key, 'ff_horasInactivas', Number(e.target.value))} className="w-12 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="0" />
+                                 </td>
+                                 <td className="px-4 py-3 border-r text-center bg-blue-50/30">{eq.gg.toFixed(2)}</td>
+                                 <td className="px-4 py-3 border-r text-center font-black">{eq.jj}</td>
+                                 <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.hh}</td>
+                                 <td className="px-4 py-3 border-r text-center">{eq.ii.toFixed(2)}</td>
+                                 <td className="px-4 py-3 border-r text-center">
+                                    <input type="number" step="any" value={eq.kk || ''} onChange={(e) => updateEquipmentConfig(key, 'kk_costoOperacion', Number(e.target.value))} className="w-16 bg-transparent border-none p-0 text-center font-bold text-blue-600 outline-none" placeholder="0" />
+                                 </td>
+                                 <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.ll.toFixed(2)}</td>
+                                 <td className="px-4 py-3 border-r text-center">{eq.mm.toFixed(2)}</td>
+                                 <td className="px-4 py-3 text-right font-black text-blue-600">{formatCurrency(eq.nn)}</td>
+                               </tr>
+                             );
+                           })}
+                         </tbody>
+                         <tfoot>
+                            <tr className="bg-slate-900 text-white font-black text-[10px]">
+                               <td colSpan={7} className="px-4 py-4 text-right">TOTAL RENTA AC-50</td>
+                               <td className="px-4 py-4 text-center">{formatCurrency(ac50Equipment.reduce((a, b) => a + b.gg, 0))}</td>
+                               <td colSpan={2}></td>
+                               <td className="px-4 py-4 text-center">{formatCurrency(ac50Equipment.reduce((a,b) => a + b.ii, 0))}</td>
+                               <td colSpan={2}></td>
+                               <td className="px-4 py-4 text-center">{formatCurrency(ac50Equipment.reduce((a, b) => a + b.mm, 0))}</td>
+                               <td className="px-4 py-4 text-right text-emerald-400">{formatCurrency(ac50Equipment.reduce((a, b) => a + b.nn, 0))}</td>
+                            </tr>
+                         </tfoot>
                        </table>
                     </div>
                   </div>
@@ -1040,8 +1199,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                         { id: 't', label: `t) Beneficio Industrial ${ac49Report.laborDetails?.mo_beneficio_ind_final_pct || 10}% de (s)`, value: summary.detailedLabor?.t },
                                         { id: 'mo_total', label: '(1) TOTAL DE MANO DE OBRA (m+s+t)', value: summary.detailedLabor?.total, total: true }
                                       ].map((row) => (
-                                        <div key={row.id} className={`flex justify-between items-center px-6 py-3 rounded-xl ${row.total ? 'bg-blue-600 text-white shadow-lg' : row.highlight ? 'bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-100 dark:ring-slate-700 border border-slate-100 dark:border-slate-800' : ''}`}>
-                                           <span className={`text-[10px] uppercase ${row.total || row.highlight ? 'font-black' : 'font-bold text-slate-500'}`}>{row.label}</span>
+                                        <div key={row.id} className={`flex justify-between items-center px-6 py-1.5 rounded-xl ${row.total ? 'bg-blue-600 text-white shadow-lg' : row.highlight ? 'bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-100 dark:ring-slate-700 border border-slate-100 dark:border-slate-800' : ''}`}>
+                                           <span className={`text-[9px] uppercase ${row.total || row.highlight ? 'font-black' : 'font-bold text-slate-500'}`}>{row.label}</span>
                                            <b className={`${row.total ? 'text-sm' : 'text-xs'} font-black`}>{formatCurrency(row.value || 0)}</b>
                                         </div>
                                       ))}
@@ -1113,9 +1272,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                   <div className="text-5xl font-black text-emerald-400 tracking-tighter flex items-center gap-4">
                                      <DollarSign size={40} className="text-emerald-500/50" />
                                      {formatCurrency(
-                                       (summary.detailedLabor?.total || 0) + 
-                                       (summary.detailedMaterials?.total || 0) + 
-                                       (summary.rentTotal * 1.15)
+                                       ac51Data.reduce((acc, r) => acc + r.total, 0)
                                      )}
                                   </div>
                                </div>
@@ -1129,9 +1286,17 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                <div className="space-y-4">
                                   <h6 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-4">Costo Total AC-51</h6>
                                   <div className="bg-slate-800/80 p-6 rounded-[2rem] border border-slate-700/50">
-                                     <div className="flex justify-between items-center mb-3">
-                                        <span className="text-[9px] font-bold text-slate-500 uppercase">Subtotal (1+2+3)</span>
-                                        <b className="text-xs font-black">{formatCurrency((summary.detailedLabor?.total || 0) + (summary.detailedMaterials?.total || 0) + (summary.rentTotal * 1.15))}</b>
+                                     <div className="flex justify-between items-center mb-3 text-slate-400">
+                                        <span className="text-[9px] font-bold uppercase">Mano de Obra (1)</span>
+                                        <b className="text-xs font-black">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.labor, 0))}</b>
+                                     </div>
+                                     <div className="flex justify-between items-center mb-3 text-slate-400">
+                                        <span className="text-[9px] font-bold uppercase">Materiales (2)</span>
+                                        <b className="text-xs font-black">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.mats, 0))}</b>
+                                     </div>
+                                     <div className="flex justify-between items-center mb-3 text-slate-400">
+                                        <span className="text-[9px] font-bold uppercase">Equipo (3)</span>
+                                        <b className="text-xs font-black">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.equip, 0))}</b>
                                      </div>
                                      <div className="flex justify-between items-center py-4 border-t border-slate-700/50">
                                         <span className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-2">Fianzas de Ejecución y Pago <input className="w-12 bg-slate-900/50 rounded ring-1 ring-slate-700 border-none text-center p-1 font-bold text-blue-400" type="number" step="any" defaultValue={0}/>% por mil</span>

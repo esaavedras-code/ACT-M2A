@@ -33,6 +33,12 @@ export interface EquipmentEntry {
   monthlyRate?: number;
   total?: number;
   date?: string;
+  // AC-50 Part B Fields
+  aa_rentaMensual?: number;
+  cc_factorAnos?: number;
+  dd_factorZona?: number;
+  ff_horasInactivas?: number;
+  kk_costoOperacion?: number;
 }
 
 export interface MaterialEntry {
