@@ -891,10 +891,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         title="B. MATERIALES Y/O SERVICIOS"
                         columns={[
                           { header: 'Fecha', key: 'date', type: 'date' },
-                          { header: 'Tipo (M/S)', key: 'type', type: 'text' },
-                          { header: 'Descripción', key: 'description', type: 'text' },
+                          { header: 'Tipo (M) mat. (S) Serv.', key: 'type', type: 'select', options: ['M', 'S', ''] },
+                          { header: 'Materiales Usados y/o Servicios Prestados', key: 'description', type: 'text' },
                           { header: 'Vendedor', key: 'supplier', type: 'text' },
-                          { header: 'Factura', key: 'invoiceNo', type: 'text' },
+                          { header: 'Número de Factura o Conduce', key: 'invoiceNo', type: 'text' },
                           { header: 'Cantidad', key: 'quantity', type: 'number' },
                           { header: '$ Unitario', key: 'unitCost', type: 'number' },
                           { header: 'Monto', key: 'amount', type: 'computed', compute: (row: any) => (parseFloat(row.quantity) || 0) * (parseFloat(row.unitCost) || 0) },
