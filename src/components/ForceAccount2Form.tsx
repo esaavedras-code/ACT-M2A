@@ -41,6 +41,21 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   // Active Report State
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   
+  // Report Search & Filter State
+  const [reportSearch, setReportSearch] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+
+  const filteredReports = useMemo(() => {
+    return reports.filter(r => {
+      const matchesSearch = r.report_no?.toLowerCase().includes(reportSearch.toLowerCase()) || 
+                           r.description?.toLowerCase().includes(reportSearch.toLowerCase());
+      const dateMatch = (!startDateFilter || r.date >= startDateFilter) && 
+                       (!endDateFilter || r.date <= endDateFilter);
+      return matchesSearch && dateMatch;
+    });
+  }, [reports, reportSearch, startDateFilter, endDateFilter]);
+
   // Equipment Search State
   const [eqSearch, setEqSearch] = useState("");
   const [showEqSearcher, setShowEqSearcher] = useState(false);
@@ -273,7 +288,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
               labor: (content.labor || []).map((l: any) => ({
                 id: Date.now().toString() + Math.random(),
                 employeeName: l.nombre || l.empleado || "",
-                date: l.fecha || l.date || content.fecha_inicio || new Date().toISOString().split('T')[0],
                 ssLast4: l.seguro_social || l.ss_last4 || "",
                 classification: l.clasificacion || "",
                 hoursReg: parseFloat(l.horas_normales || 0),
@@ -643,8 +657,48 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                     </div>
                   )}
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end p-6 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] shadow-sm">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2 flex items-center gap-2">
+                        <Search size={12} /> Buscar por # o descripción
+                       </label>
+                       <input 
+                         type="text" 
+                         placeholder="Ej: MAR-01..."
+                         value={reportSearch}
+                         onChange={(e) => setReportSearch(e.target.value)}
+                         className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-3 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Desde (Fecha)</label>
+                       <input 
+                         type="date" 
+                         value={startDateFilter}
+                         onChange={(e) => setStartDateFilter(e.target.value)}
+                         className="w-full bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-3 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Hasta (Fecha)</label>
+                       <div className="flex gap-2">
+                         <input 
+                           type="date" 
+                           value={endDateFilter}
+                           onChange={(e) => setEndDateFilter(e.target.value)}
+                           className="flex-1 bg-white dark:bg-slate-800 border-none ring-1 ring-slate-200 dark:ring-slate-700 p-3 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                         />
+                         {(reportSearch || startDateFilter || endDateFilter) && (
+                           <button onClick={() => { setReportSearch(""); setStartDateFilter(""); setEndDateFilter(""); }} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl hover:text-red-500 transition-colors ring-1 ring-slate-200">
+                             <X size={16} />
+                           </button>
+                         )}
+                       </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {reports.length > 0 ? reports.map(r => (
+                    {filteredReports.length > 0 ? filteredReports.map(r => (
                       <div 
                         key={r.id} 
                         onClick={() => handleSelectReport(r)}
@@ -753,7 +807,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         title="A. PERSONAL"
                         columns={[
                           { header: 'Empleado', key: 'employeeName', type: 'text' },
-                          { header: 'Fecha', key: 'date', type: 'text' },
                           { header: 'SS (Últ. 4)', key: 'ssLast4', type: 'text' },
                           { header: 'Clasificación', key: 'classification', type: 'text' },
                           { header: 'H. Reg', key: 'hoursReg', type: 'number' },
@@ -768,7 +821,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           }},
                         ]}
                         data={ac49Report.labor}
-                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', date: ac49Report.date, ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
+                        onAdd={() => setAc49Report({...ac49Report, labor: [...ac49Report.labor, { id: Date.now().toString(), employeeName: '', ssLast4: '', classification: '', hoursReg: 0, hours15: 0, hours20: 0, hourlyRate: 0 }]})}
                         onRemove={(idx) => setAc49Report({...ac49Report, labor: ac49Report.labor.filter((_, i) => i !== idx)})}
                         onChange={(idx, key, val) => {
                           const newLabor = [...ac49Report.labor];

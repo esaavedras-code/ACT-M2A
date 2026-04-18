@@ -18,7 +18,6 @@ export interface LaborEntry {
   hours20: number;
   hourlyRate: number;
   total?: number;
-  date?: string;
 }
 
 export interface EquipmentEntry {
