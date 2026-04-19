@@ -30,7 +30,7 @@ const PREDEFINED_EQUIPMENT_RATES = [
   { name: 'Vibratory Plate', model: 'Walk-behind Gasoline', daily: 45, weekly: 180, monthly: 550 }
 ];
 
-const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onDirty }: { projectId?: string, onDirty?: () => void }, ref) {
+const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => void }>(({ projectId, onDirty }, ref) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -766,7 +766,8 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <>
+      <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col lg:flex-row gap-4 items-start w-full">
         <div className="w-full lg:w-44 lg:sticky lg:top-4 overflow-y-auto custom-scrollbar shrink-0">
           <div className="bg-white dark:bg-slate-900 p-4 rounded-[2.5rem] shadow-md border border-slate-100 dark:border-slate-800 space-y-2">
@@ -1168,10 +1169,9 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
                       <div className="space-y-8 pb-32"></div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {activeTab === 'ac50' && (
+                  {activeTab === 'ac50' && (
                   <div className="space-y-10 animate-in fade-in duration-700">
                     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[3rem] p-10 shadow-xl overflow-hidden">
                        <div className="text-center mb-10">
@@ -1570,7 +1570,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                           </div>
                           <div className="space-y-2">
                              <h3 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">M2A System — PACT</h3>
-                             <p className="text-blue-600 font-bold uppercase tracking-[0.3em] text-xs">Versión 3.26.0418</p>
+                             <p className="text-blue-600 font-bold uppercase tracking-[0.3em] text-xs">Versión 3.26.0419</p>
                           </div>
                           
                           <div className="py-10 border-y border-slate-50 dark:border-slate-800 max-w-md mx-auto">
@@ -1591,19 +1591,20 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
+    </div>
 
       {/* Identificación de Autoría Flotante */}
       <div className="fixed bottom-4 left-4 z-[60] flex flex-col items-start gap-1 p-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl animate-in slide-in-from-left duration-700">
         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Diseñado por:</span>
         <span className="text-[11px] font-black text-blue-600 uppercase tracking-tighter">Ing. Enrique Saavedra Sada, PE</span>
       </div>
-    </div>
+    </>
   );
-};
+});
 
 export default ForceAccount2Form;
