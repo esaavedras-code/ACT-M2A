@@ -81,39 +81,42 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
   const [ac51Month, setAc51Month] = useState(new Date().toISOString().slice(0, 7));
 
   const ac51Data = useMemo(() => {
-    // Agrupar reportes del mes seleccionado
     const monthReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
     
-    return monthReports.map(r => {
-      const rd = (r.data || {}) as any;
-      const labor = (rd.labor || []).reduce((acc: number, l: any) => {
-        const reg = (Number(l.hoursReg) || 0) * (Number(l.hourlyRate) || 0);
-        const ot15 = (Number(l.hours15) || 0) * (Number(l.hourlyRate) || 0) * 1.5;
-        const ot20 = (Number(l.hours20) || 0) * (Number(l.hourlyRate) || 0) * 2.0;
-        return acc + reg + ot15 + ot20;
-      }, 0);
-      
-      const equip = (rd.equipment || []).reduce((acc: number, e: any) => {
-        // Usar lógica de renta si están los campos, sino básica
-        if (e.aa_rentaMensual) {
-           const bb = (e.aa_rentaMensual || 0) / 176;
-           const ee = bb * (e.cc_factorAnos || 1) * (e.dd_factorZona || 1);
-           const gg = ee * (e.ff_horasInactivas || 0);
-           const ll = ee + (e.kk_costoOperacion || 0);
-           const mm = (e.hours || 0) * ll;
-           return acc + gg + mm;
-        }
-        return acc + ((Number(e.hours) || 0) * (Number(e.dailyRate) || 0));
-      }, 0);
+    // Agrupar reportes por fecha para que sumen lo que dice AC-49 para ese día
+    const dateGroups: Record<string, any[]> = {};
+    monthReports.forEach(r => {
+      if (!dateGroups[r.date]) dateGroups[r.date] = [];
+      dateGroups[r.date].push(r);
+    });
 
-      const mats = (rd.materials || []).reduce((acc: number, m: any) => {
-        return acc + ((Number(m.quantity) || 0) * (Number(m.unitCost) || 0));
-      }, 0);
+    return Object.keys(dateGroups).map(date => {
+      const dayReports = dateGroups[date];
+      let labor = 0, equip = 0, mats = 0;
+
+      dayReports.forEach(r => {
+        const rd = (r.data || {}) as any;
+        labor += (rd.labor || []).reduce((acc: number, l: any) => acc + calculateLaborTotal(l), 0);
+        
+        equip += (rd.equipment || []).reduce((acc: number, e: any) => {
+          if (e.aa_rentaMensual) {
+            const bb = (e.aa_rentaMensual || 0) / 176;
+            const ee = bb * (e.cc_factorAnos || 1) * (e.dd_factorZona || 1);
+            const gg = ee * (e.ff_horasInactivas || 0);
+            const ll = ee + (e.kk_costoOperacion || 0);
+            const mm = (e.hours || 0) * ll;
+            return acc + gg + mm;
+          }
+          return acc + ((Number(e.hours) || 0) * (Number(e.dailyRate) || 0));
+        }, 0);
+
+        mats += (rd.materials || []).reduce((acc: number, m: any) => {
+          return acc + ((Number(m.quantity) || 0) * (Number(m.unitCost) || 0));
+        }, 0);
+      });
 
       return {
-        id: r.id,
-        date: r.date,
-        reportNo: r.report_no,
+        date,
         labor,
         equip,
         mats,
@@ -1322,7 +1325,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                </div>
                              </div>
 
-                             {section.key !== 'equip' && (
+                             {true && (
                                <div className="flex flex-col xl:flex-row gap-6">
                                  {renderTableBlock(1, 10)}
                                  {renderTableBlock(11, 20)}
@@ -1337,7 +1340,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                              )}
 
                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                               {section.key !== 'equip' && (
+                               {true && (
                                  <>
                                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 dark:border-slate-700">
                                      <span className="text-[9px] font-black text-slate-400 uppercase">Subtotal (1-10)</span>
@@ -1358,7 +1361,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                              {section.key === 'labor' && (
                                 <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800">
                                    <h5 className="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em] mb-8">Resumen de Costo de Mano de Obra</h5>
-                                   <div className="space-y-3">
+                                   <div className="space-y-1">
                                       {[
                                         { id: 'a', label: 'a) Subtotal Operadores (Unión Equipo Pesado)', value: summary.detailedLabor?.mo_op },
                                         { id: 'b', label: `b) Beneficios Marginales ${ac49Report.laborDetails?.mo_operadores_pct || 0}% de (a)`, value: (summary.detailedLabor?.mo_op || 0) * ((ac49Report.laborDetails?.mo_operadores_pct || 0)/100) },
@@ -1382,7 +1385,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                         { id: 't', label: `t) Beneficio Industrial ${ac49Report.laborDetails?.mo_beneficio_ind_final_pct || 10}% de (s)`, value: summary.detailedLabor?.t },
                                         { id: 'mo_total', label: '(1) TOTAL DE MANO DE OBRA (m+s+t)', value: summary.detailedLabor?.total, total: true }
                                       ].map((row) => (
-                                        <div key={row.id} className={`flex justify-between items-center px-6 py-1.5 rounded-xl ${row.total ? 'bg-blue-600 text-white shadow-lg' : row.highlight ? 'bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-100 dark:ring-slate-700 border border-slate-100 dark:border-slate-800' : ''}`}>
+                                        <div key={row.id} className={`flex justify-between items-center px-6 py-1 rounded-xl ${row.total ? 'bg-blue-600 text-white shadow-lg' : row.highlight ? 'bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-100 dark:ring-slate-700 border border-slate-100 dark:border-slate-800' : ''}`}>
                                            <span className={`text-[9px] uppercase ${row.total || row.highlight ? 'font-black' : 'font-bold text-slate-500'}`}>{row.label}</span>
                                            <b className={`${row.total ? 'text-sm' : 'text-xs'} font-black`}>{formatCurrency(row.value || 0)}</b>
                                         </div>
