@@ -762,6 +762,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
     { id: 'ac50', icon: Truck, label: 'AC-50 (Equipo)' },
     { id: 'ac51', icon: FileText, label: 'AC-51 (Resumen)' },
     { id: 'fotos', icon: Camera, label: 'Evidencias (Fotos)' },
+    { id: 'about', icon: Info, label: 'About' },
   ];
 
   return (
@@ -1000,33 +1001,19 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
               <>
                 {activeTab === 'ac49' && (
                   <div className="card space-y-10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] border border-slate-100">
-                      <div className="space-y-2">
-                        <label className="label-field flex items-center gap-2"><Clock size={12} className="text-blue-600" /> Fecha del Informe</label>
-                        <input type="date" value={ac49Report.date} onChange={(e) => setAc49Report({...ac49Report, date: e.target.value})} className="input-field" />
+                    {/* Configuración de Informe */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 bg-slate-50 dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-inner">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 flex items-center gap-2">
+                          <Clock size={12} className="text-blue-600" /> Fecha del Informe
+                        </label>
+                        <input type="date" value={ac49Report.date} onChange={(e) => setAc49Report({...ac49Report, date: e.target.value})} className="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl font-black text-slate-800 dark:text-white border border-slate-100 dark:border-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
                       </div>
-                      <div className="space-y-2">
-                        <label className="label-field">Número de Referencia</label>
-                        <input type="text" value={ac49Report.reportNo} onChange={(e) => setAc49Report({...ac49Report, reportNo: e.target.value})} className="input-field font-black uppercase" placeholder="Ej: MAR-01" />
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Número de Referencia</label>
+                        <input type="text" value={ac49Report.reportNo} onChange={(e) => setAc49Report({...ac49Report, reportNo: e.target.value})} className="w-full bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl font-black text-slate-800 dark:text-white border border-slate-100 dark:border-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all uppercase" placeholder="Ej: MAR-01" />
                       </div>
                     </div>
-
-                    <div className="space-y-6">
-                      <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-blue-50/50 dark:bg-blue-900/5 rounded-[2rem] border border-blue-100">
-                        <div className="flex items-center gap-4 text-blue-600">
-                          <Clock size={16} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Filtrar por días:</span>
-                          <div className="flex items-center gap-2 ml-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-blue-100">
-                             <input type="checkbox" id="singleDay" checked={isSingleDayFilter} onChange={e => setIsSingleDayFilter(e.target.checked)} className="rounded border-slate-300 text-blue-600" />
-                             <label htmlFor="singleDay" className="text-[9px] font-black uppercase cursor-pointer">Día único</label>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4 flex-1">
-                          <input type="date" value={laborFilterStart} onChange={(e) => setLaborFilterStart(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 p-2 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500" />
-                          {!isSingleDayFilter && <input type="date" value={laborFilterEnd} onChange={(e) => setLaborFilterEnd(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 p-2 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500" />}
-                          {(laborFilterStart || laborFilterEnd) && <button onClick={() => { setLaborFilterStart(""); setLaborFilterEnd(""); }} className="p-2 text-red-500 bg-white dark:bg-slate-800 rounded-xl hover:bg-red-50 transition-colors"><X size={14}/></button>}
-                        </div>
-                      </div>
 
                       <div className="w-full overflow-x-auto custom-scrollbar pb-2">
                         <EditableTable<LaborEntry>
@@ -1169,20 +1156,15 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         <textarea value={ac49Report.workDescription} onChange={(e) => setAc49Report({...ac49Report, workDescription: e.target.value})} className="input-field min-h-[150px] font-bold p-6" />
                       </div>
 
-                      <div className="fixed bottom-10 right-10 z-50 flex flex-col gap-3">
-                        {hasUnsavedChanges && (
-                          <div className="bg-amber-100 text-amber-800 px-6 py-2 rounded-2xl text-[9px] font-black uppercase shadow-xl animate-pulse text-center">
-                            Cambios sin guardar
-                          </div>
-                        )}
-                        <button 
-                           onClick={() => saveData()}
-                           className="flex items-center gap-3 px-10 py-5 bg-blue-600 text-white rounded-full text-xs font-black uppercase hover:bg-blue-700 shadow-[0_20px_50px_rgba(37,99,235,0.4)] transition-all active:scale-95 group"
-                        >
-                          <Save className="group-hover:rotate-12 transition-transform" />
-                          Guardar Reporte Diario (AC-49)
-                        </button>
-                      </div>
+                      {/* Botón Guardar Flotante Premium */}
+                      <button 
+                         onClick={saveData}
+                         className="fixed bottom-10 right-10 z-[70] flex items-center gap-4 px-10 py-6 bg-slate-900 dark:bg-blue-600 text-white rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-[0_30px_60px_rgba(0,0,0,0.3)] hover:scale-105 active:scale-95 transition-all group border border-slate-800 dark:border-blue-500"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-[2.5rem]"></div>
+                        <Save className="group-hover:rotate-12 transition-transform text-blue-400 dark:text-blue-100" size={22} />
+                        <span>Guardar Informe</span>
+                      </button>
 
                       <div className="space-y-8 pb-32"></div>
                     </div>
@@ -1433,9 +1415,9 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                                        const data = getDayData(d);
                                        return (
                                          <tr key={d} className="hover:bg-blue-50/20 transition-colors">
-                                           <td className="px-5 py-3 border-r dark:border-slate-700 text-slate-400 font-black">{data.weekDay}</td>
-                                           <td className="px-5 py-3 border-r dark:border-slate-700 font-black text-center text-slate-700 dark:text-slate-300">{data.day}</td>
-                                           <td className={`px-5 py-3 text-right font-black ${data.amount > 0 ? 'text-blue-600' : 'text-slate-200'}`}>{formatCurrency(data.amount)}</td>
+                                           <td className="px-5 py-1.5 border-r dark:border-slate-700 text-slate-400 font-black">{data.weekDay}</td>
+                                           <td className="px-5 py-1.5 border-r dark:border-slate-700 font-black text-center text-slate-700 dark:text-slate-300">{data.day}</td>
+                                           <td className={`px-5 py-1.5 text-right font-black ${data.amount > 0 ? 'text-blue-600' : 'text-slate-200'}`}>{formatCurrency(data.amount)}</td>
                                          </tr>
                                        );
                                      })}
@@ -1558,3 +1540,70 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                     </div>
                   </div>
                 )}
+
+                {activeTab === 'fotos' && (
+                  <div className="space-y-10 animate-in fade-in duration-700">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[3rem] p-12 shadow-2xl relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-600/5 rounded-full blur-[100px] -mr-48 -mt-48 transition-transform group-hover:scale-110 duration-1000"></div>
+                      <div className="relative z-10">
+                        <div className="flex items-center gap-4 mb-10">
+                          <div className="w-4 h-12 bg-blue-600 rounded-full"></div>
+                          <h3 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Gestión de Evidencias (Fotos)</h3>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-20 border-4 border-dashed border-slate-100 dark:border-slate-800 rounded-[3rem] bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all cursor-pointer group/upload">
+                          <Camera size={64} className="text-slate-200 dark:text-slate-700 mb-6 group-hover/upload:text-blue-500 transition-colors group-hover/upload:scale-110 duration-500" />
+                          <p className="text-sm font-black text-slate-400 uppercase tracking-widest text-center">Arrastra o haz clic para subir fotos del proyecto</p>
+                          <p className="text-[10px] text-slate-300 font-bold mt-2 italic">( Próximamente integración directa con reportes )</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'about' && (
+                  <div className="space-y-10 animate-in fade-in duration-700">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[3rem] p-16 shadow-2xl relative overflow-hidden group text-center">
+                       <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-emerald-500 to-blue-600"></div>
+                       <div className="relative z-10 space-y-8">
+                          <div className="w-24 h-24 bg-blue-50 dark:bg-blue-900/30 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-xl ring-4 ring-white dark:ring-slate-800">
+                             <Info size={48} className="text-blue-600" />
+                          </div>
+                          <div className="space-y-2">
+                             <h3 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">M2A System — PACT</h3>
+                             <p className="text-blue-600 font-bold uppercase tracking-[0.3em] text-xs">Versión 3.26.0418</p>
+                          </div>
+                          
+                          <div className="py-10 border-y border-slate-50 dark:border-slate-800 max-w-md mx-auto">
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 italic">Diseñador y Desarrollador</p>
+                             <h4 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Ing. Enrique Saavedra Sada, PE</h4>
+                          </div>
+
+                          <p className="text-slate-400 text-[10px] font-medium leading-relaxed max-w-sm mx-auto">
+                             Software especializado para la administración de Force Accounts y liquidaciones de proyectos de infraestructura bajo las normativas de la Autoridad de Carreteras y Transportación (ACT).
+                          </p>
+                          
+                          <div className="pt-6">
+                             <div className="inline-block px-6 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                © 2026 Soluciones Saavedra — Todos los derechos reservados
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Identificación de Autoría Flotante */}
+      <div className="fixed bottom-4 left-4 z-[60] flex flex-col items-start gap-1 p-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl animate-in slide-in-from-left duration-700">
+        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Diseñado por:</span>
+        <span className="text-[11px] font-black text-blue-600 uppercase tracking-tighter">Ing. Enrique Saavedra Sada, PE</span>
+      </div>
+    </div>
+  );
+};
+
+export default ForceAccount2Form;
