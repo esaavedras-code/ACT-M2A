@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Users, Plus, Trash2, Download, Upload, History } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
@@ -315,9 +315,8 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                             const isNoContact = ROLES_WITHOUT_CONTACT_INFO.includes(p.role || STAFF_ROLES[0]);
                             const isHistorico = !!p.active_to;
                             return (
-                                <>
+                                <Fragment key={idx}>
                                     <tr
-                                        key={idx}
                                         className={`hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors ${isHistorico ? 'opacity-60 bg-slate-100/50 dark:bg-slate-800/20' : ''}`}
                                     >
                                         <td className="px-2 py-1.5">
@@ -485,7 +484,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                             </td>
                                         </tr>
                                     )}
-                                </>
+                                </Fragment>
                             );
                         })}
                         <tr>

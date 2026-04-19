@@ -248,6 +248,164 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
         e.target.value = "";
     };
 
+    const handleImportPDF = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        if (file.type !== 'application/pdf') {
+            alert("El archivo debe ser un documento PDF.");
+            e.target.value = '';
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const base64 = ev.target?.result as string;
+                
+                try {
+                    const res = await fetch('/api/parse-pdf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ base64 })
+                    });
+                    
+                    const data = await res.json();
+                    if (data.success && data.text) {
+                        const cleanText = data.text.replace(/\|/g, ' ').toUpperCase();
+                        const extractedItems: any[] = [];
+                        const allSpecs = Object.keys(specs);
+                        const posMap = new Map<string, number>();
+
+                        for (const sCode of allSpecs) {
+                            const parts = sCode.split('-');
+                            if (parts.length < 2) continue;
+                            const prefixChars = parts[0].split('').join('\\s*');
+                            const suffixChars = parts[1].split('').join('\\s*');
+                            const patternStr = `(?:1\\s*)?${prefixChars}\\s*[-__.\\s]*\\s*${suffixChars}`;
+                            const regex = new RegExp(patternStr, 'g');
+                            
+                            let match;
+                            while ((match = regex.exec(cleanText)) !== null) {
+                                posMap.set(sCode + '-' + match.index, match.index);
+                                
+                                let lookahead = cleanText.substring(match.index + match[0].length, match.index + match[0].length + 650);
+                                let lookbehind = cleanText.substring(Math.max(0, match.index - 50), match.index);
+                                
+                                let score = 0;
+                                
+                                // 1. Buscar Unidad (Elastic)
+                                const unitPatterns = [/L\s*[\.\s]*\s*S/i, /E\s*[\.\s]*\s*A/i, /S\s*[\.\s]*\s*Q/i, /L\s*[\.\s]*\s*N/i, /H\s*[\.\s]*\s*O\s*U\s*R/i, /D\s*A\s*Y/i, /L\s*F/i, /L\s*M/i, /E\s*A\s*C\s*H/i];
+                                let foundUnit = false;
+                                let uIdx = -1;
+                                for (const up of unitPatterns) {
+                                    let um = lookahead.match(up);
+                                    if (um) { foundUnit = true; uIdx = um.index || 0; break; }
+                                }
+                                if (foundUnit) score += 40;
+
+                                // 2. Buscar Cantidad
+                                let qty = 1;
+                                if (foundUnit) {
+                                    let beforeUnit = lookahead.substring(0, uIdx);
+                                    let qtyM = beforeUnit.match(/(\d+)(?!.*\d)/); 
+                                    if (qtyM) { qty = parseInt(qtyM[1], 10); score += 20; }
+                                }
+
+                                // 3. Buscar Precio/Amount (Decimales o formato moneda)
+                                let hasPrice = lookahead.match(/\d+[\s\.,]+\d{2}/);
+                                if (hasPrice) score += 40;
+                                
+                                // 4. Verificar número de ítem previo (Firma de fila de ACT: Número + Prefijo)
+                                const prefix = sCode.split('-')[0];
+                                const rowSignature = new RegExp(`(?:\\b|ITEM\\s*)\\d{1,3}\\s+${prefix}?\\s*$`, 'i');
+                                if (lookbehind.match(rowSignature)) score += 30;
+
+                                // 5. PENALIZACIÓN DE REFERENCIA Y CONTEXTO
+                                if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|TO\b|LIKE|COMO\b|TYPE|TIPO)/i)) {
+                                    score -= 100;
+                                }
+                                
+                                // Si en el lookahead o lookbehind hay palabras típicas de menciones técnicas (p.ej. soporte de señal)
+                                if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT|TYPE\b|TIPO\b|VERSION)/i)) {
+                                    score -= 60;
+                                }
+
+                                // UMBRAL 60: Las penalizaciones ahora dejarán fuera a los intrusos
+                                if (score < 60) continue; 
+                                
+                                const specInfo = specs[sCode];
+                                let unitStr = (specInfo.unit || "LS").toUpperCase();
+                                if (unitStr === 'EA') unitStr = 'EACH';
+                                if (unitStr === 'SM') unitStr = 'SQM';
+                                if (unitStr === 'LM' || unitStr === 'LF') unitStr = 'LNM';
+                                if (unitStr === 'HR') unitStr = 'HOUR';
+                                if (unitStr === 'LUMP SUM') unitStr = 'LS';
+
+                                extractedItems.push({
+                                    specification: sCode,
+                                    description: specInfo.description || "",
+                                    quantity: qty,
+                                    unit: unitStr,
+                                    pos: match.index
+                                });
+                            }
+                        }
+                        
+                        if (extractedItems.length > 0) {
+                            // Deduplicar por código de especificación (solo una vez por código)
+                            // y filtrar los que NO tengan descripción
+                            const seen = new Set();
+                            const uniqueAndValid = [];
+                            
+                            // Ordenar por posición primero para mantener el orden de aparición
+                            const sorted = extractedItems.sort((a, b) => a.pos - b.pos);
+
+                            for (const it of sorted) {
+                                if (!seen.has(it.specification)) {
+                                    if (it.description && it.description.trim() !== "" && it.description.toUpperCase() !== "N/A") {
+                                        seen.add(it.specification);
+                                        uniqueAndValid.push(it);
+                                    }
+                                }
+                            }
+
+                            const finalItems = uniqueAndValid.map((it, idx) => ({
+                                item_num: (idx + 1).toString().padStart(3, '0'),
+                                specification: it.specification,
+                                description: it.description,
+                                additional_description: "",
+                                quantity: it.quantity,
+                                unit: it.unit,
+                                unit_price: 0,
+                                fund_source: FUND_SOURCES[0],
+                                requires_mfg_cert: (mfgItemsData as Record<string, boolean>)[it.specification] === true,
+                                mfg_cert_qty: 1
+                            }));
+
+                            setItems(finalItems);
+                            if (onDirty) onDirty();
+                            alert(`✓ ¡OPCIÓN NUCLEAR COMPLETADA!\n\nSe detectaron ${finalItems.length} partidas válidas (después de filtrar duplicados y vacías).\n\nCódigos:\n${finalItems.map(it => it.specification).join(', ')}`);
+                        } else {
+                            alert("No se detectaron códigos de partidas automáticamente. Es posible que el PDF sea una imagen escaneada o un formato no soportado.");
+                        }
+                    } else {
+                        alert("No se pudo extraer el texto del PDF.");
+                    }
+                } catch (err: any) {
+                    alert("Error procesando PDF: " + err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            reader.readAsDataURL(file);
+        } catch (e: any) {
+            setLoading(false);
+            alert("Error de lectura: " + e.message);
+        }
+    };
+
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -314,6 +472,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             variant: 'import' as const,
                             disabled: loading
                         },
+                        {
+                            label: "Importar PDF", position: "middle-right" as const, size: "small" as const,
+                            icon: <FileText />,
+                            onClick: () => document.getElementById('import-items-pdf')?.click(),
+                            description: "Extraer formato Proposal (beta)",
+                            variant: 'import' as const,
+                            disabled: loading
+                        },
                     ] : []),
                     {
                         label: "Añadir Item",
@@ -333,6 +499,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 ]}
             />
             <input id="import-items-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+            <input id="import-items-pdf" type="file" accept="application/pdf" className="hidden" onChange={handleImportPDF} />
 
 
             {numAct && (

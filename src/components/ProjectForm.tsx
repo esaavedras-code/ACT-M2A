@@ -8,6 +8,7 @@ import { formatCurrency, getLocalStorageItem, formatProjectNumber } from "@/lib/
 import { exportProjectToFile } from "@/lib/projectFileSystem";
 import ProjectAgreementForm from "./ProjectAgreementForm";
 import mfgItemsData from "@/lib/mfgItems.json";
+import specsData from "@/data/specifications.json";
 
 export interface FormRef { save: () => Promise<void>; }
 
@@ -62,6 +63,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
         chief_project_control: "",
         dir_construction: "",
         project_origin: "ACT",
+        temporaryItems: [] as any[],
     });
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
     const [fieldStatus, setFieldStatus] = useState<Record<string, { reviewed: boolean, updated: boolean }>>({});
@@ -363,13 +365,234 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                 const res = await fetch('/api/parse-pdf', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pdfBase64: base64 })
+                    body: JSON.stringify({ base64 }) // Aseguramos que sea base64 para matchar ItemsForm
                 });
                 return await res.json();
             }
         } catch (e) {
             console.error(e);
             return { success: false };
+        }
+    };
+
+    const handleImportLocalPDFs = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        setLoading(true);
+        let newUpdates: any = {};
+        let statusUpdates: any = {};
+        let foundAny = false;
+
+        try {
+            for(let i=0; i < files.length; i++) {
+                const file = files[i];
+                if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) continue;
+
+                const base64 = await blobToBase64(file);
+                const res = await parsePdf(base64.includes(',') ? base64.split(',')[1] : base64); 
+
+                if(res.success && res.text) {
+                    const text = res.text.replace(/\r\n|\r|\n/g, ' ').replace(/\s+/g, ' ');
+
+                    // 1. Número de proyecto (AC-XXXXX)
+                    const acMatch = text.match(/AC-\d+[A-Z]?|ACT-\d+[A-Z]?/i);
+                    if (acMatch && !newUpdates.num_act) {
+                        newUpdates.num_act = acMatch[0].toUpperCase();
+                        statusUpdates.num_act = { reviewed: true, updated: true };
+                        foundAny = true;
+                    }
+
+                    // 2. Costo original
+                    const costMatch = text.match(/(?:Contract Amount|Sum of|Amount|Total|por la cantidad de|Total Amount).*?\$?\s*([\d,]+\.\d{2})/i);
+                    if (costMatch) {
+                        const cost = parseFloat(costMatch[1].replace(/,/g, ''));
+                        if (cost > 0 && !newUpdates.cost_original) {
+                            newUpdates.cost_original = cost;
+                            statusUpdates.cost_original = { reviewed: true, updated: true };
+                            foundAny = true;
+                        }
+                    }
+
+                    // 3. Fechas de Comienzo (Notice to proceed)
+                    const ntpMatch = text.match(/(?:Notice to Proceed|Fecha de comienzo|Start Date|Commencement Date).*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+                    if (ntpMatch) {
+                        const dateStr = ntpMatch[1];
+                        const parts = dateStr.split(/[\/\-]/);
+                        if (parts.length === 3) {
+                            let y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+                            let m = parts[0].padStart(2, '0');
+                            let d = parts[1].padStart(2, '0');
+                            newUpdates.date_project_start = `${y}-${m}-${d}`;
+                            statusUpdates.date_project_start = { reviewed: true, updated: true };
+                            foundAny = true;
+                        }
+                    }
+
+                    // Terminación / Completion
+                    const completionMatch = text.match(/(?:Completion Date|Terminación original|Terminacion original|End Date).*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i);
+                    if (completionMatch) {
+                        const dateStr = completionMatch[1];
+                        const parts = dateStr.split(/[\/\-]/);
+                        if (parts.length === 3) {
+                            let y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+                            let m = parts[0].padStart(2, '0');
+                            let d = parts[1].padStart(2, '0');
+                            newUpdates.date_orig_completion = `${y}-${m}-${d}`;
+                            statusUpdates.date_orig_completion = { reviewed: true, updated: true };
+                            foundAny = true;
+                        }
+                    }
+
+                    // 4. Contract Number
+                    const contractNMatch = text.match(/(?:Contract No\.|Contrato Núm\.|Contract Number|Contract No)\s*[:]?\s*(\d{4,})/i);
+                    if (contractNMatch && !newUpdates.num_contrato) {
+                        newUpdates.num_contrato = contractNMatch[1];
+                        statusUpdates.num_contrato = { reviewed: true, updated: true };
+                        foundAny = true;
+                    }
+
+                    // 5. Contratista 
+                    // This is an approximation
+                    const contractorMatch = text.match(/(?:Contractor|Contratista)\s*[:]?\s*([A-Z0-9\s\,\.\-]+?)(?=Address|Dirección|Contract|Date)/i);
+                    if (contractorMatch && !newUpdates.contractor_name) {
+                        const cname = contractorMatch[1].trim();
+                        if (cname.length > 3 && cname.length < 50) {
+                            newUpdates.contractor_name = cname;
+                            statusUpdates.contractor_name = { reviewed: true, updated: true };
+                            foundAny = true;
+                        }
+                    }
+
+                    // 6. Extracción de partidas (Version Avanzada "Anti-Glitch OCR v6 - OPCIÓN NUCLEAR")
+                    const cleanTextForItems = text.replace(/\|/g, ' ').toUpperCase();
+                    const extractedItems: any[] = [];
+                    const allValidSpecs = Object.keys(specsData);
+                    const specs = specsData as Record<string, {unit: string, description: string}>;
+
+                    for (const sCode of allValidSpecs) {
+                        const parts = sCode.split('-');
+                        if (parts.length < 2) continue;
+                        const prefixChars = parts[0].split('').join('\\s*');
+                        const suffixChars = parts[1].split('').join('\\s*');
+                        const patternStr = `(?:1\\s*)?${prefixChars}\\s*[-__.\\s]*\\s*${suffixChars}`;
+                        const regex = new RegExp(patternStr, 'g');
+                        
+                        let match;
+                        while ((match = regex.exec(cleanTextForItems)) !== null) {
+                            let lookahead = cleanTextForItems.substring(match.index + match[0].length, match.index + match[0].length + 650);
+                            let lookbehind = cleanTextForItems.substring(Math.max(0, match.index - 50), match.index);
+                            
+                            let score = 0;
+
+                            // 1. Unidades (Elastic)
+                            const unitPatterns = [/L\s*[\.\s]*\s*S/i, /E\s*[\.\s]*\s*A/i, /S\s*[\.\s]*\s*Q/i, /L\s*[\.\s]*\s*N/i, /H\s*[\.\s]*\s*O\s*U\s*R/i, /D\s*A\s*Y/i, /L\s*F/i, /L\s*M/i, /E\s*A\s*C\s*H/i];
+                            let foundUnit = false;
+                            let bIdx = -1;
+                            for (const up of unitPatterns) {
+                                let um = lookahead.match(up);
+                                if (um) { foundUnit = true; bIdx = um.index || 0; break; }
+                            }
+                            if (foundUnit) score += 40;
+
+                            // 2. Cantidad
+                            let qty = 1;
+                            if (foundUnit) {
+                                let beforeUnit = lookahead.substring(0, bIdx);
+                                let qtyM = beforeUnit.match(/(\d+)(?!.*\d)/); 
+                                if (qtyM) { qty = parseInt(qtyM[1], 10); score += 20; }
+                            }
+
+                            // 3. Amount (Decimales)
+                            let hasPrice = lookahead.match(/\d+[\s\.,]+\d{2}/);
+                            if (hasPrice) score += 40;
+
+                            // 4. Precedido por número de ítem (Firma de fila ACT)
+                            const prefix = sCode.split('-')[0];
+                            const rowSig = new RegExp(`(?:\\b|ITEM\\s*)\\d{1,3}\\s+${prefix}?\\s*$`, 'i');
+                            if (lookbehind.match(rowSig)) score += 30;
+
+                            // 5. PENALIZACIÓN DE REFERENCIA Y CONTEXTO
+                            if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|TO\b|LIKE|COMO\b|TYPE|TIPO)/i)) {
+                                score -= 100;
+                            }
+                            
+                            // Contexto técnico (p.ej. soportes para el intruso 654-165)
+                            if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT|TYPE\b|TIPO\b|VERSION)/i)) {
+                                score -= 60;
+                            }
+
+                            // UMBRAL de certeza
+                            if (score < 60) continue;
+
+                            const specInfo = specs[sCode];
+                            let unitStr = (specInfo.unit || "LS").toUpperCase();
+                            if (unitStr === 'EA') unitStr = 'EACH';
+                            if (unitStr === 'SM') unitStr = 'SQM';
+                            if (unitStr === 'LM' || unitStr === 'LF') unitStr = 'LNM';
+                            if (unitStr === 'HR') unitStr = 'HOUR';
+                            if (unitStr === 'LUMP SUM') unitStr = 'LS';
+
+                            extractedItems.push({
+                                specification: sCode,
+                                description: specInfo.description || "",
+                                quantity: qty,
+                                unit: unitStr,
+                                pos: match.index
+                            });
+                        }
+                    }
+
+                    if (extractedItems.length > 0) {
+                        const seen = new Set();
+                        const uniqueAndValid = [];
+                        
+                        // Ordenar por aparición
+                        const sorted = extractedItems.sort((a, b) => a.pos - b.pos);
+                        
+                        for (const it of sorted) {
+                            if (!seen.has(it.specification)) {
+                                if (it.description && it.description.trim() !== "" && it.description.toUpperCase() !== "N/A") {
+                                    seen.add(it.specification);
+                                    uniqueAndValid.push(it);
+                                }
+                            }
+                        }
+
+                        const finalItems = uniqueAndValid.map((it, idx) => ({
+                            item_num: (idx + 1).toString().padStart(3, '0'),
+                            specification: it.specification,
+                            description: it.description,
+                            additional_description: "",
+                            quantity: it.quantity,
+                            unit: it.unit,
+                            unit_price: 0, 
+                            fund_source: "ACT:100%",
+                            requires_mfg_cert: (mfgItemsData as Record<string, boolean>)[it.specification] === true,
+                            mfg_cert_qty: 1
+                        }));
+                        newUpdates.temporaryItems = finalItems;
+                        foundAny = true;
+                    }
+                }
+            }
+
+            if (foundAny) {
+                setFormData(prev => ({ ...prev, ...newUpdates }));
+                setFieldStatus(prev => ({ ...prev, ...statusUpdates }));
+                if (onDirty) onDirty();
+                const itemsCount = newUpdates.temporaryItems?.length || 0;
+                alert(`✓ Se extrajeron datos de los PDFs exitosamente.${itemsCount > 0 ? `\n\nTambién se detectaron e importarán ${itemsCount} partidas bajo la sección de Todas las Partidas.` : ''}\n\nDatos detectados: \n${Object.keys(newUpdates).map(k => `${k}: ${k === 'temporaryItems' ? itemsCount + ' items' : newUpdates[k]}`).join('\n')}\n\nPor favor, repase los campos resaltados en amarillo antes de guardar.`);
+            } else {
+                alert("No se detectaron automáticamente datos generales clave en estos PDFs. Puede usar ACT-GPT o ingresarlos manualmente.");
+            }
+
+        } catch (err: any) {
+            console.error("Local PDF Parse error:", err);
+            alert("Error de procesamiento PDF: " + err.message);
+        } finally {
+            setLoading(false);
+            e.target.value = "";
         }
     };
 
@@ -502,7 +725,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             
             const finalNumActUpper = finalNumAct.toUpperCase();
 
-            const { id, created_at, updated_at, ...restData } = currentData as any;
+            const { id, created_at, updated_at, temporaryItems, ...restData } = currentData as any;
             const dataToSave = {
                 ...restData,
                 num_act: finalNumActUpper,
@@ -585,6 +808,23 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             }
 
             const targetId = projectId || (data && data[0]?.id);
+
+            // Guardar partidas detectadas
+            if (currentData.temporaryItems && currentData.temporaryItems.length > 0 && targetId) {
+                const itemsToInsert = currentData.temporaryItems.map((item: any) => ({
+                    ...item,
+                    project_id: targetId
+                }));
+                // Si es proyecto existente, tal vez ya tenga partidas, se maneja con UPSERT
+                const { error: itemsErr } = await supabase.from("contract_items").upsert(itemsToInsert, { onConflict: 'project_id, item_num' });
+                if (itemsErr) {
+                    console.error("Error saving extracted items:", itemsErr);
+                    if (!silent) alert("Nota: Hubo un problema al guardar las partidas extraídas: " + itemsErr.message);
+                }
+                
+                // Limpiar items temporales
+                setFormData(prev => ({ ...prev, temporaryItems: [] }));
+            }
 
             // EXPORTACIÓN LOCAL: Si hay ruta, grabamos el archivo independiente
             if (dataToSave.folder_path && targetId) {
@@ -856,6 +1096,12 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                             e.target.value = '';
                                         }}
                                     />
+                                </label>
+                                
+                                <label className={`bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 py-2.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer h-11 transition-all ${loading ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-[1.02] active:scale-[0.98]'}`} title="Autollenar datos extrayendo desde Orden de Comienzo o Contrato (PDFs)">
+                                    {loading ? <div className="w-4 h-4 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin" /> : <FileText size={18} />}
+                                    <span>Importar Datos (PDF)</span>
+                                    <input type="file" multiple accept="application/pdf" className="hidden" disabled={loading} onChange={handleImportLocalPDFs} />
                                 </label>
                             </div>
                         )}
