@@ -81,9 +81,30 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
   const [ac51Month, setAc51Month] = useState(new Date().toISOString().slice(0, 7));
 
   const ac51Data = useMemo(() => {
-    const monthReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
+    // Incluir todos los reports guardados del mes, más el reporte actualmente en edición
+    const savedReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
+    
+    // Si el reporte activo es del mismo mes, construir una versión virtual a partir del estado en vivo
+    const liveEntry = selectedReportId && ac49Report.date && ac49Report.date.startsWith(ac51Month)
+      ? {
+          id: selectedReportId,
+          date: ac49Report.date,
+          data: {
+            labor: ac49Report.labor,
+            equipment: ac49Report.equipment,
+            materials: ac49Report.materials
+          }
+        }
+      : null;
+
+    // Combinar: reportes guardados (excluyendo el activo para evitar duplicados) + reporte en vivo
+    const allReports = [
+      ...savedReports.filter(r => r.id !== selectedReportId),
+      ...(liveEntry ? [liveEntry] : [])
+    ];
+
     const dateGroups: Record<string, any[]> = {};
-    monthReports.forEach(r => {
+    allReports.forEach(r => {
       if (!dateGroups[r.date]) dateGroups[r.date] = [];
       dateGroups[r.date].push(r);
     });
@@ -111,7 +132,7 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
 
       return { date, labor, equip, mats, total: labor + equip + mats };
     }).sort((a, b) => a.date.localeCompare(b.date));
-  }, [reports, ac51Month]);
+  }, [reports, ac51Month, selectedReportId, ac49Report]);
 
   const ac50DailyDetail = useMemo(() => {
     const monthReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
@@ -796,12 +817,6 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
               </button>
             ))}
           </div>
-          <div className="mt-6 p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
-            <p className="text-[9px] text-slate-400 font-bold mb-1 uppercase tracking-widest italic">Selección Actual</p>
-            <p className="text-[11px] font-black text-slate-800 dark:text-white truncate uppercase">
-               {selectedReportId ? ac49Report.reportNo : "Ninguno seleccionado"}
-            </p>
-          </div>
         </div>
 
         <div className="flex-1 w-full min-w-0 overflow-x-hidden p-1">
@@ -969,14 +984,23 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
                                       {groups[gn][sgn].sort((a,b) => b.date.localeCompare(a.date)).map(r => (
                                         <div key={r.id} onClick={() => handleSelectReport(r)} className={`group p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer relative overflow-hidden ${selectedReportId === r.id ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200 shadow-sm'}`}>
                                            <div className="flex justify-between items-start relative z-10">
-                                              <div className="space-y-1">
+                                              <div className="space-y-1 flex-1 min-w-0 pr-2">
                                                  <div className="flex items-center gap-2">
                                                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg ${selectedReportId === r.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 font-bold'}`}>{r.report_no}</span>
                                                     <span className="text-[10px] text-slate-400 font-bold">{r.date}</span>
                                                  </div>
                                                  <h5 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight line-clamp-1">{r.description || 'Sin descripción'}</h5>
                                               </div>
-                                              {selectedReportId === r.id && <CheckCircle2 className="text-blue-600" size={18} />}
+                                              <div className="flex items-center gap-2 shrink-0">
+                                                {selectedReportId === r.id && <CheckCircle2 className="text-blue-600" size={18} />}
+                                                <button
+                                                  onClick={(e) => handleDelete(e, r.id)}
+                                                  className="opacity-0 group-hover:opacity-100 transition-all p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 hover:scale-110 active:scale-95"
+                                                  title="Eliminar reporte"
+                                                >
+                                                  <Trash2 size={14} />
+                                                </button>
+                                              </div>
                                            </div>
                                         </div>
                                       ))}
