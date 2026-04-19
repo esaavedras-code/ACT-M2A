@@ -82,8 +82,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
   const ac51Data = useMemo(() => {
     const monthReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
-    
-    // Agrupar reportes por fecha para que sumen lo que dice AC-49 para ese día
     const dateGroups: Record<string, any[]> = {};
     monthReports.forEach(r => {
       if (!dateGroups[r.date]) dateGroups[r.date] = [];
@@ -97,7 +95,6 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       dayReports.forEach(r => {
         const rd = (r.data || {}) as any;
         labor += (rd.labor || []).reduce((acc: number, l: any) => acc + calculateLaborTotal(l), 0);
-        
         equip += (rd.equipment || []).reduce((acc: number, e: any) => {
           if (e.aa_rentaMensual) {
             const bb = (e.aa_rentaMensual || 0) / 176;
@@ -109,20 +106,37 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
           }
           return acc + ((Number(e.hours) || 0) * (Number(e.dailyRate) || 0));
         }, 0);
-
-        mats += (rd.materials || []).reduce((acc: number, m: any) => {
-          return acc + ((Number(m.quantity) || 0) * (Number(m.unitCost) || 0));
-        }, 0);
+        mats += (rd.materials || []).reduce((acc: number, m: any) => acc + ((Number(m.quantity) || 0) * (Number(m.unitCost) || 0)), 0);
       });
 
-      return {
-        date,
-        labor,
-        equip,
-        mats,
-        total: labor + equip + mats
-      };
+      return { date, labor, equip, mats, total: labor + equip + mats };
     }).sort((a, b) => a.date.localeCompare(b.date));
+  }, [reports, ac51Month]);
+
+  const ac50DailyDetail = useMemo(() => {
+    const monthReports = reports.filter(r => r.date && r.date.startsWith(ac51Month));
+    const [year, month] = ac51Month.split('-').map(Number);
+    const lastDay = new Date(year, month, 0).getDate();
+    
+    // Agrupar por equipo y luego por día
+    const equipmentRows: Record<string, { equipment: any, days: number[] }> = {};
+
+    monthReports.forEach(r => {
+      const day = parseInt(r.date.split('-')[2]);
+      const rd = (r.data || {}) as any;
+      (rd.equipment || []).forEach((eq: any) => {
+        const key = `${eq.description}-${eq.model}`.toUpperCase();
+        if (!equipmentRows[key]) {
+          equipmentRows[key] = {
+            equipment: eq,
+            days: Array(32).fill(0)
+          };
+        }
+        equipmentRows[key].days[day] += (Number(eq.hours) || 0);
+      });
+    });
+
+    return Object.values(equipmentRows);
   }, [reports, ac51Month]);
 
   const daysInMonth = useMemo(() => {
@@ -136,12 +150,10 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
         const sem = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"][d.getDay()];
         const isWeekend = d.getDay() === 0 || d.getDay() === 6;
         const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const amount = ac51Data.find(r => r.date === isoDate)?.total || 0;
-        return { day, sem, amount, isWeekend };
+        const dayData = ac51Data.find(r => r.date === isoDate);
+        return { day, sem, amount: dayData?.total || 0, labor: dayData?.labor || 0, equip: dayData?.equip || 0, mats: dayData?.mats || 0, isWeekend };
       });
-    } catch (e) {
-      return [];
-    }
+    } catch (e) { return []; }
   }, [ac51Month, ac51Data]);
 
   // AC-50 Consolidated Equipment State (Parte B)
@@ -814,11 +826,17 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
             </div>
             {selectedReportId && (
               <div className="flex items-center gap-3">
-                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
-                  <Upload size={14} /> Importar JSON
+                <button 
+                  onClick={exportData}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-2 shadow-lg transition-all"
+                >
+                  <Download size={14} /> Exportar JSON
                 </button>
-                <button onClick={() => saveData()} className="btn-primary" disabled={loading}>
-                  <ShieldCheck size={14} /> {loading ? "..." : "Guardar"}
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-all"
+                >
+                  <Upload size={14} /> Importar JSON
                 </button>
               </div>
             )}
@@ -1151,504 +1169,392 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
                         <textarea value={ac49Report.workDescription} onChange={(e) => setAc49Report({...ac49Report, workDescription: e.target.value})} className="input-field min-h-[150px] font-bold p-6" />
                       </div>
 
-                      <div className="flex flex-col md:flex-row items-center gap-4 mt-8 pt-8 border-t border-slate-100">
-                        <button onClick={() => saveData()} disabled={loading} className="w-full md:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-3xl transition-all shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-xs">
-                          {loading ? "..." : <Save size={18} />}Guardar Reporte
-                        </button>
-                        <button onClick={splitIntoDays} disabled={loading || !ac49Report.labor.length} className="w-full md:w-auto px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-3xl active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest text-xs">
-                          <Split size={18} />Dividir por Días
+                      <div className="fixed bottom-10 right-10 z-50 flex flex-col gap-3">
+                        {hasUnsavedChanges && (
+                          <div className="bg-amber-100 text-amber-800 px-6 py-2 rounded-2xl text-[9px] font-black uppercase shadow-xl animate-pulse text-center">
+                            Cambios sin guardar
+                          </div>
+                        )}
+                        <button 
+                           onClick={() => saveData()}
+                           className="flex items-center gap-3 px-10 py-5 bg-blue-600 text-white rounded-full text-xs font-black uppercase hover:bg-blue-700 shadow-[0_20px_50px_rgba(37,99,235,0.4)] transition-all active:scale-95 group"
+                        >
+                          <Save className="group-hover:rotate-12 transition-transform" />
+                          Guardar Reporte Diario (AC-49)
                         </button>
                       </div>
+
+                      <div className="space-y-8 pb-32"></div>
                     </div>
                   </div>
                 )}
 
                 {activeTab === 'ac50' && (
-                  <div className="card space-y-8">
-                    <div className="bg-blue-600/5 dark:bg-blue-600/10 p-8 rounded-[2.5rem] border border-blue-100 dark:border-blue-900/30 flex items-center justify-between shadow-sm">
-                      <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-blue-600 rounded-[1.5rem] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                          <Truck size={32} />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Resumen de Renta Mensual</h4>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Consolidado basado en reportes AC-49</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Total Renta Estimado</p>
-                         <p className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{formatCurrency(summary.rentTotal)}</p>
-                      </div>
-                    </div>
+                  <div className="space-y-10 animate-in fade-in duration-700">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[3rem] p-10 shadow-xl overflow-hidden">
+                       <div className="text-center mb-10">
+                          <h2 className="text-xs font-black uppercase tracking-[0.4em] text-slate-400 mb-2">Autoridad de Carreteras y Transportación</h2>
+                          <h1 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Relación de Equipo del Trabajo por Administración Delegada (AC-50)</h1>
+                       </div>
 
-                    <div className="overflow-x-auto rounded-[2.5rem] border bg-slate-50/30">
-                       <h4 className="px-8 py-4 bg-white dark:bg-slate-900 border-b text-[10px] font-black uppercase tracking-widest text-emerald-600">Parte B: Relación de Equipo (Cálculo Mensual)</h4>
-                       <table className="min-w-[1200px] w-full text-left">
-                         <thead>
-                           <tr className="bg-slate-50 dark:bg-slate-900 text-[8px] text-slate-400 font-black uppercase tracking-tight border-b">
-                             <th className="px-4 py-3 border-r">Descripción</th>
-                             <th className="px-4 py-3 text-center border-r">aa. Renta Mensual</th>
-                             <th className="px-4 py-3 text-center border-r">bb. Renta Hora</th>
-                             <th className="px-4 py-3 text-center border-r">cc. Factor Años</th>
-                             <th className="px-4 py-3 text-center border-r">dd. Factor Zona</th>
-                             <th className="px-4 py-3 text-center border-r">ee. Renta Hora (bb*cc*dd)</th>
-                             <th className="px-4 py-3 text-center border-r">ff. H. Inact.</th>
-                             <th className="px-4 py-3 text-center border-r">gg. Rent. Inac. (ee*ff)</th>
-                             <th className="px-4 py-3 text-center border-r">jj. H. Activas</th>
-                             <th className="px-4 py-3 text-center border-r">hh. H. Totales</th>
-                             <th className="px-4 py-3 text-center border-r">ii. Rent. Tot. (ee*hh)</th>
-                             <th className="px-4 py-3 text-center border-r">kk. Costo Op.</th>
-                             <th className="px-4 py-3 text-center border-r">ll. Rent. Act. H.</th>
-                             <th className="px-4 py-3 text-center border-r">mm. Rent. Act. M.</th>
-                             <th className="px-4 py-3 text-right">nn. Total Renta</th>
-                           </tr>
-                         </thead>
-                         <tbody className="divide-y text-[9px] font-bold">
-                           {ac50Equipment.map((eq: any) => {
-                             const key = `${eq.description?.trim()}-${eq.model?.trim()}`.toUpperCase();
-                             return (
-                               <tr key={key} className="hover:bg-slate-100/50">
-                                 <td className="px-4 py-3 border-r bg-white dark:bg-slate-900">{eq.description}</td>
-                                 <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.aa || ''} onChange={(e) => updateEquipmentConfig(key, 'aa_rentaMensual', Number(e.target.value))} className="w-20 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-2 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
-                                 </td>
-                                 <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.bb.toFixed(2)}</td>
-                                 <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.cc || ''} onChange={(e) => updateEquipmentConfig(key, 'cc_factorAnos', Number(e.target.value))} className="w-12 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-1 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="1" />
-                                 </td>
-                                 <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.dd || ''} onChange={(e) => updateEquipmentConfig(key, 'dd_factorZona', Number(e.target.value))} className="w-12 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-1 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="1" />
-                                 </td>
-                                 <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.ee.toFixed(2)}</td>
-                                 <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.ff || ''} onChange={(e) => updateEquipmentConfig(key, 'ff_horasInactivas', Number(e.target.value))} className="w-12 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-1 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
-                                 </td>
-                                 <td className="px-4 py-3 border-r text-center bg-blue-50/30">{eq.gg.toFixed(2)}</td>
-                                 <td className="px-4 py-3 border-r text-center font-black">{eq.jj}</td>
-                                 <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.hh}</td>
-                                 <td className="px-4 py-3 border-r text-center">{eq.ii.toFixed(2)}</td>
-                                 <td className="px-4 py-3 border-r text-center">
-                                    <input type="number" step="any" value={eq.kk || ''} onChange={(e) => updateEquipmentConfig(key, 'kk_costoOperacion', Number(e.target.value))} className="w-16 bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-200 dark:ring-slate-700 rounded px-2 py-1 text-center font-bold text-blue-600 outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
-                                 </td>
-                                 <td className="px-4 py-3 border-r text-center bg-slate-50/50">{eq.ll.toFixed(2)}</td>
-                                 <td className="px-4 py-3 border-r text-center">{eq.mm.toFixed(2)}</td>
-                                 <td className="px-4 py-3 text-right font-black text-blue-600">{formatCurrency(eq.nn)}</td>
-                               </tr>
-                             );
-                           })}
-                         </tbody>
-                         <tfoot>
-                            <tr className="bg-slate-900 text-white font-black text-[10px]">
-                               <td colSpan={7} className="px-4 py-4 text-right">TOTAL RENTA AC-50</td>
-                               <td className="px-4 py-4 text-center">{formatCurrency(ac50Equipment.reduce((a, b) => a + b.gg, 0))}</td>
-                               <td colSpan={2}></td>
-                               <td className="px-4 py-4 text-center">{formatCurrency(ac50Equipment.reduce((a,b) => a + b.ii, 0))}</td>
-                               <td colSpan={2}></td>
-                               <td className="px-4 py-4 text-center">{formatCurrency(ac50Equipment.reduce((a, b) => a + b.mm, 0))}</td>
-                               <td className="px-4 py-4 text-right text-emerald-400">{formatCurrency(ac50Equipment.reduce((a, b) => a + b.nn, 0))}</td>
-                            </tr>
-                         </tfoot>
-                       </table>
+                       {/* Parte A: Detalle del Tiempo Trabajado */}
+                       <div className="mb-10 overflow-x-auto">
+                          <div className="flex justify-between items-end mb-4">
+                             <h4 className="text-[10px] font-black uppercase bg-slate-900 text-white px-4 py-2 inline-block rounded-t-xl mb-0">Parte A: Detalle del Tiempo Trabajado</h4>
+                             <p className="text-[9px] text-slate-400 font-bold uppercase italic">Reporte basado en horas activas de AC-49</p>
+                          </div>
+                          <table className="w-full border-collapse border border-slate-900 text-[9px]">
+                             <thead>
+                                <tr className="bg-slate-50">
+                                    <th className="border border-slate-900 p-1 w-8 font-black bg-slate-100 italic">A</th>
+                                    <th className="border border-slate-900 p-1 min-w-[200px] uppercase font-black text-center bg-slate-100">Día de la semana</th>
+                                    {Array.from({length: 31}, (_, i) => {
+                                      const [year, month] = ac51Month.split('-').map(Number);
+                                      const d = new Date(year, month - 1, i + 1);
+                                      const weekDay = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'][d.getDay()];
+                                      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                                      return (
+                                        <th key={i} className={`border border-slate-900 p-1 text-center font-black w-[26px] text-[7px] ${isWeekend ? 'bg-slate-200 text-slate-600' : 'bg-white'}`}>
+                                          {weekDay}
+                                        </th>
+                                      );
+                                    })}
+                                    <th rowSpan={2} className="border border-slate-900 p-1 text-center bg-blue-600 text-white font-black min-w-[40px]">Total</th>
+                                 </tr>
+                                 <tr className="bg-slate-50 text-[8px]">
+                                    <th className="border border-slate-900 p-1 font-black bg-slate-200 italic">#</th>
+                                    <th className="border border-slate-900 p-1 uppercase font-black text-center bg-slate-100">Día del mes</th>
+                                    {Array.from({length: 31}, (_, i) => (
+                                      <th key={i} className="border border-slate-900 p-1 text-center font-black w-[26px] bg-slate-50">
+                                        {i + 1}
+                                      </th>
+                                    ))}
+                                </tr>
+                             </thead>
+                              <tbody>
+                                 {ac50DailyDetail.length === 0 ? (
+                                    <tr>
+                                       <td colSpan={34} className="border border-slate-900 p-10 text-center text-slate-300 font-bold uppercase italic bg-slate-50/20">
+                                          No se ha registrado uso de equipo en los reportes diarios de este mes.
+                                       </td>
+                                    </tr>
+                                 ) : ac50DailyDetail.map((row, idx) => {
+                                   let totalAct = row.days.slice(1).reduce((a:number, b:number) => a+b, 0);
+                                   return (
+                                     <tr key={idx} className="hover:bg-blue-50/40 transition-all group">
+                                        <td className="border border-slate-900 p-1 text-center font-black bg-slate-100 group-hover:bg-blue-100/50 text-[8px]">{idx + 1}</td>
+                                        <td className="border border-slate-900 p-1.5 uppercase font-black text-[8px] leading-tight text-left">
+                                           <div className="flex flex-col">
+                                              <span className="text-slate-900">{row.equipment.description}</span>
+                                              <span className="text-blue-600 text-[6px] font-bold mt-0.5 opacity-80">{row.equipment.model}</span>
+                                           </div>
+                                        </td>
+                                        {Array.from({length: 31}, (_, i) => {
+                                          const hasHours = row.days[i+1] > 0;
+                                          return (
+                                            <td key={i} className={`border border-slate-900 p-1 text-center font-black transition-all ${hasHours ? 'text-blue-700 bg-blue-100/60' : 'text-slate-300'}`}>
+                                              {row.days[i+1] || ""}
+                                            </td>
+                                          );
+                                        })}
+                                        <td className="border border-slate-900 p-1 text-center font-black bg-blue-50 text-blue-700 group-hover:bg-blue-100 shadow-inner">{totalAct}</td>
+                                     </tr>
+                                   );
+                                 })}
+                              </tbody>
+                          </table>
+                       </div>
+
+                       {/* Parte B: Cálculos */}
+                       <div className="overflow-x-auto">
+                          <h4 className="text-[10px] font-black uppercase bg-slate-900 text-white px-4 py-2 inline-block rounded-t-xl mb-0">Parte B: Resumen de Costos (Operación aa a nn)</h4>
+                          <table className="w-full border-collapse border border-slate-900 text-[9px]">
+                             <thead>
+                                <tr className="bg-slate-800 text-white font-black text-center">
+                                   <th className="border border-slate-900 p-2">aa</th>
+                                   <th className="border border-slate-900 p-2">bb</th>
+                                   <th className="border border-slate-900 p-2">cc</th>
+                                   <th className="border border-slate-900 p-2">dd</th>
+                                   <th className="border border-slate-900 p-2">ee</th>
+                                   <th className="border border-slate-900 p-2">ff</th>
+                                   <th className="border border-slate-900 p-2">gg</th>
+                                   <th className="border border-slate-900 p-2">hh</th>
+                                   <th className="border border-slate-900 p-2">ii</th>
+                                   <th className="border border-slate-900 p-2">jj</th>
+                                   <th className="border border-slate-900 p-2">kk</th>
+                                   <th className="border border-slate-900 p-2">ll</th>
+                                   <th className="border border-slate-900 p-2">mm</th>
+                                   <th className="border border-slate-900 p-2 bg-blue-600">nn</th>
+                                </tr>
+                                <tr className="bg-slate-100 text-[7px] uppercase font-black text-center">
+                                   <th className="border border-slate-900 p-1 w-20">Renta Mensual</th>
+                                   <th className="border border-slate-900 p-1 w-20">Renta / Hora</th>
+                                   <th className="border border-slate-900 p-1 w-12">Factor Años</th>
+                                   <th className="border border-slate-900 p-1 w-12">Factor Zona</th>
+                                   <th className="border border-slate-900 p-1 w-20">Rent/Hr (ee)</th>
+                                   <th className="border border-slate-900 p-1 w-12">Hrs Ina</th>
+                                   <th className="border border-slate-900 p-1 w-20">Rent. Ina</th>
+                                   <th className="border border-slate-900 p-1 w-12">Hrs Tot</th>
+                                   <th className="border border-slate-900 p-1 w-20">Rent. Tot</th>
+                                   <th className="border border-slate-900 p-1 w-12">Hrs Act</th>
+                                   <th className="border border-slate-900 p-1 w-20">Cost Ops</th>
+                                   <th className="border border-slate-900 p-1 w-20">Rent Act H</th>
+                                   <th className="border border-slate-900 p-1 w-20">Rent Act M</th>
+                                   <th className="border border-slate-900 p-1 w-24 bg-blue-50 text-blue-800">Tot Renta Eq</th>
+                                </tr>
+                             </thead>
+                             <tbody>
+                                {ac50Equipment.map((eq, idx) => (
+                                  <tr key={idx} className="font-bold hover:bg-slate-50 transition-colors">
+                                     <td className="border border-slate-900 p-1.5 text-right font-black">
+                                         <input 
+                                           type="number" 
+                                           value={eq.aa_rentaMensual || ''} 
+                                           onChange={(e) => updateEquipmentConfig(`${eq.description}-${eq.model}`.toUpperCase(), 'aa_rentaMensual', Number(e.target.value))}
+                                           className="w-full bg-transparent border-none text-right font-black text-blue-600 outline-none p-0"
+                                           placeholder="0.00"
+                                         />
+                                     </td>
+                                     <td className="border border-slate-900 p-1.5 text-right bg-slate-50/50">{formatCurrency(eq.bb)}</td>
+                                     <td className="border border-slate-900 p-1.5 text-center">
+                                         <input 
+                                           type="number" 
+                                           value={eq.cc || ''} 
+                                           onChange={(e) => updateEquipmentConfig(`${eq.description}-${eq.model}`.toUpperCase(), 'cc_factorAnos', Number(e.target.value))}
+                                           className="w-full bg-transparent border-none text-center font-bold text-slate-700 outline-none p-0"
+                                           placeholder="1"
+                                         />
+                                     </td>
+                                     <td className="border border-slate-900 p-1.5 text-center">
+                                         <input 
+                                           type="number" 
+                                           value={eq.dd || ''} 
+                                           onChange={(e) => updateEquipmentConfig(`${eq.description}-${eq.model}`.toUpperCase(), 'dd_factorZona', Number(e.target.value))}
+                                           className="w-full bg-transparent border-none text-center font-bold text-slate-700 outline-none p-0"
+                                           placeholder="1"
+                                         />
+                                     </td>
+                                     <td className="border border-slate-900 p-1.5 text-right font-bold bg-slate-50">{formatCurrency(eq.ee)}</td>
+                                     <td className="border border-slate-900 p-1.5 text-center">
+                                         <input 
+                                           type="number" 
+                                           value={eq.ff || ''} 
+                                           onChange={(e) => updateEquipmentConfig(`${eq.description}-${eq.model}`.toUpperCase(), 'ff_horasInactivas', Number(e.target.value))}
+                                           className="w-full bg-transparent border-none text-center font-bold text-blue-600 outline-none p-0"
+                                           placeholder="0"
+                                         />
+                                     </td>
+                                     <td className="border border-slate-900 p-1.5 text-right italic text-slate-500">{formatCurrency(eq.gg)}</td>
+                                     <td className="border border-slate-900 p-1.5 text-center bg-slate-50/50">{eq.hh}</td>
+                                     <td className="border border-slate-900 p-1.5 text-right text-slate-500">{formatCurrency(eq.ii)}</td>
+                                     <td className="border border-slate-900 p-1.5 text-center font-black bg-blue-50/30 text-blue-600">{eq.jj}</td>
+                                     <td className="border border-slate-900 p-1.5 text-right">
+                                         <input 
+                                           type="number" 
+                                           value={eq.kk || ''} 
+                                           onChange={(e) => updateEquipmentConfig(`${eq.description}-${eq.model}`.toUpperCase(), 'kk_costoOperacion', Number(e.target.value))}
+                                           className="w-full bg-transparent border-none text-right font-bold text-blue-600 outline-none p-0"
+                                           placeholder="0.00"
+                                         />
+                                     </td>
+                                     <td className="border border-slate-900 p-1.5 text-right font-bold">{formatCurrency(eq.ll)}</td>
+                                     <td className="border border-slate-900 p-1.5 text-right font-bold">{formatCurrency(eq.mm)}</td>
+                                     <td className="border border-slate-900 p-1.5 text-right bg-blue-600 text-white font-black shadow-inner">{formatCurrency(eq.nn)}</td>
+                                  </tr>
+                                ))}
+                             </tbody>
+                             <tfoot className="bg-slate-900 text-white font-black text-[10px]">
+                                <tr>
+                                   <td colSpan={13} className="border border-slate-900 p-3 text-right uppercase italic tracking-widest">Total Consolidado AC-50</td>
+                                   <td className="border border-slate-900 p-3 text-right text-emerald-400 text-xs">
+                                     {formatCurrency(ac50Equipment.reduce((a, b) => a + b.nn, 0))}
+                                   </td>
+                                </tr>
+                             </tfoot>
+                          </table>
+                       </div>
                     </div>
                   </div>
                 )}
 
                 {activeTab === 'ac51' && (
-                  <div className="space-y-10 animate-in fade-in duration-700">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-100 dark:border-slate-800 pb-8">
-                      <div>
-                        <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter flex items-center gap-3">
-                          <FileText className="text-blue-600" /> AC-51: Resumen Mensual
-                        </h3>
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">Resumen consolidado por mes</p>
+                  <div className="space-y-16 animate-in fade-in duration-1000">
+                    <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-slate-100 dark:border-slate-800 pb-12">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                           <div className="w-4 h-12 bg-blue-600 rounded-full"></div>
+                           <h3 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter italic">Liquidación Mensual (AC-51)</h3>
+                        </div>
+                        <p className="text-slate-400 text-xs font-black uppercase tracking-[0.4em] ml-6 opacity-60">Consolidación de Recursos y Beneficios</p>
                       </div>
-                      <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-700">
-                        <span className="text-[10px] font-black uppercase text-slate-400">Mes:</span>
-                        <input type="month" value={ac51Month} onChange={(e) => setAc51Month(e.target.value)} className="bg-white dark:bg-slate-900 rounded-xl px-4 py-2 text-sm font-bold outline-none" />
+                      <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xl min-w-[300px]">
+                        <Calendar className="text-blue-600" size={24} />
+                        <div className="flex-1">
+                           <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Periodo de Liquidación</p>
+                           <input type="month" value={ac51Month} onChange={(e) => setAc51Month(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2 text-sm font-black outline-none border border-slate-100 dark:border-slate-700" />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-8">
+                    <div className="space-y-20">
                        {[
-                         { label: 'A) MANO DE OBRA', key: 'labor' as const, subtotal: ac51Data.reduce((acc, r) => acc + r.labor, 0) },
-                         { label: 'B) MATERIALES Y SERVICIOS', key: 'mats' as const, subtotal: ac51Data.reduce((acc, r) => acc + r.mats, 0) },
-                         { label: 'C) EQUIPO', key: 'equip' as const, subtotal: ac51Data.reduce((acc, r) => acc + r.equip, 0) }
+                         { label: 'A) MANO DE OBRA', key: 'labor' as const, color: 'blue' },
+                         { label: 'B) MATERIALES Y SERVICIOS', key: 'mats' as const, color: 'emerald' },
+                         { label: 'C) EQUIPO', key: 'equip' as const, color: 'amber' }
                        ].map((section) => {
                          const [year, month] = ac51Month.split('-').map(Number);
-                         const daysInMonth = new Date(year, month, 0).getDate();
+                         const lastDay = new Date(year, month, 0).getDate();
                          
                          const getDayData = (day: number) => {
                            const dateStr = `${ac51Month}-${String(day).padStart(2, '0')}`;
                            const dayReport = ac51Data.find(r => r.date === dateStr);
                            const d = new Date(year, month - 1, day);
-                           const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                           const weekDays = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
                            return { day, weekDay: weekDays[d.getDay()], amount: dayReport ? (dayReport as any)[section.key] : 0 };
                          };
 
-                         const renderTableBlock = (start: number, end: number) => (
-                           <div className="flex-1 min-w-[200px] border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-                             <table className="w-full text-[9px] uppercase font-black">
-                               <thead>
-                                 <tr className="bg-slate-50 dark:bg-slate-800 border-b text-slate-400">
-                                   <th className="px-2 py-2 border-r">Día Sem.</th>
-                                   <th className="px-2 py-2 border-r">Día Mes</th>
-                                   <th className="px-2 py-2 text-right">Monto</th>
-                                 </tr>
-                               </thead>
-                               <tbody>
-                                 {Array.from({ length: end - start + 1 }, (_, i) => {
-                                   const d = start + i;
-                                   if (d > daysInMonth) return null;
-                                   const data = getDayData(d);
-                                   return (
-                                     <tr key={d} className="border-b last:border-0 hover:bg-blue-50/20 transition-colors">
-                                       <td className="px-2 py-2 border-r text-slate-400">{data.weekDay}</td>
-                                       <td className="px-2 py-2 border-r font-bold">{data.day}</td>
-                                       <td className={`px-2 py-2 text-right font-bold ${data.amount > 0 ? 'text-blue-600' : 'text-slate-300'}`}>{formatCurrency(data.amount)}</td>
+                         const renderTableBlock = (start: number, end: number) => {
+                           const subtotal = Array.from({length: end - start + 1}, (_, i) => getDayData(start + i).amount).reduce((a, b) => a + b, 0);
+                           return (
+                             <div className="flex-1 min-w-[280px] space-y-4">
+                               <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+                                 <table className="w-full text-[10px] uppercase font-bold">
+                                   <thead>
+                                     <tr className="bg-slate-50 dark:bg-slate-800/80 text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                                       <th className="px-5 py-4 text-left border-r dark:border-slate-700">Día Sem.</th>
+                                       <th className="px-5 py-4 text-center border-r dark:border-slate-700">Día Mes</th>
+                                       <th className="px-5 py-4 text-right">Monto</th>
                                      </tr>
-                                   );
-                                 })}
-                               </tbody>
-                             </table>
-                           </div>
-                         );
-
-                         return (
-                           <div key={section.key} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-xl">
-                             <div className="flex items-center justify-between mb-6">
-                               <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-3">
-                                 <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
-                                 {section.label}
-                               </h4>
-                               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl">
-                                 {section.key === 'equip' ? 'Resumen Parte B' : 'Informe Diario'}
+                                   </thead>
+                                   <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
+                                     {Array.from({ length: end - start + 1 }, (_, i) => {
+                                       const d = start + i;
+                                       if (d > lastDay) return null;
+                                       const data = getDayData(d);
+                                       return (
+                                         <tr key={d} className="hover:bg-blue-50/20 transition-colors">
+                                           <td className="px-5 py-3 border-r dark:border-slate-700 text-slate-400 font-black">{data.weekDay}</td>
+                                           <td className="px-5 py-3 border-r dark:border-slate-700 font-black text-center text-slate-700 dark:text-slate-300">{data.day}</td>
+                                           <td className={`px-5 py-3 text-right font-black ${data.amount > 0 ? 'text-blue-600' : 'text-slate-200'}`}>{formatCurrency(data.amount)}</td>
+                                         </tr>
+                                       );
+                                     })}
+                                   </tbody>
+                                 </table>
+                               </div>
+                               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-3xl flex justify-between items-center border border-slate-100 dark:border-slate-700 shadow-inner">
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic">Subtotal ({start}-{end})</span>
+                                  <b className="text-sm font-black text-slate-900 dark:text-white">{formatCurrency(subtotal)}</b>
                                </div>
                              </div>
+                           );
+                         };
 
-                             {true && (
-                               <div className="flex flex-col xl:flex-row gap-6">
+                         return (
+                           <div key={section.key} className="space-y-8">
+                              <div className="flex items-center gap-4 ml-4">
+                                 <div className={`w-3 h-8 rounded-full ${section.color === 'blue' ? 'bg-blue-600' : section.color === 'emerald' ? 'bg-emerald-600' : 'bg-amber-500'}`}></div>
+                                 <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{section.label}</h4>
+                              </div>
+                              
+                              <div className="flex flex-col xl:flex-row gap-8">
                                  {renderTableBlock(1, 10)}
                                  {renderTableBlock(11, 20)}
                                  {renderTableBlock(21, 31)}
-                               </div>
-                             )}
+                              </div>
 
-                             {section.key === 'equip' && (
-                               <div className="bg-slate-50 dark:bg-slate-800/30 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 mb-6 font-bold text-slate-400 text-[10px] italic text-center">
-                                 Para llenar los subtotales de equipo, refiérase a la hoja de Relación de Equipo del Trabajo por Administración Delegada, parte B.
-                               </div>
-                             )}
-
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                               {true && (
-                                 <>
-                                   <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 dark:border-slate-700">
-                                     <span className="text-[9px] font-black text-slate-400 uppercase">Subtotal (1-10)</span>
-                                     <b className="text-xs font-black">{formatCurrency(Array.from({length: 10}, (_, i) => getDayData(i+1).amount).reduce((a,b) => a+b, 0))}</b>
-                                   </div>
-                                   <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 dark:border-slate-700">
-                                     <span className="text-[9px] font-black text-slate-400 uppercase">Subtotal (11-20)</span>
-                                     <b className="text-xs font-black">{formatCurrency(Array.from({length: 10}, (_, i) => getDayData(i+11).amount).reduce((a,b) => a+b, 0))}</b>
-                                   </div>
-                                   <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 dark:border-slate-700">
-                                     <span className="text-[9px] font-black text-slate-400 uppercase">Subtotal (21-31)</span>
-                                     <b className="text-xs font-black">{formatCurrency(Array.from({length: 11}, (_, i) => getDayData(i+21).amount).reduce((a,b) => a+b, 0))}</b>
-                                   </div>
-                                 </>
-                               )}
-                             </div>
-                             
-                             {section.key === 'labor' && (
-                                <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800">
-                                   <h5 className="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em] mb-8">Resumen de Costo de Mano de Obra</h5>
-                                   <div className="space-y-1">
-                                      {[
-                                        { id: 'a', label: 'a) Subtotal Operadores (Unión Equipo Pesado)', value: summary.detailedLabor?.mo_op },
-                                        { id: 'b', label: `b) Beneficios Marginales ${ac49Report.laborDetails?.mo_operadores_pct || 0}% de (a)`, value: (summary.detailedLabor?.mo_op || 0) * ((ac49Report.laborDetails?.mo_operadores_pct || 0)/100) },
-                                        { id: 'c', label: 'c) Subtotal Carpinteros (Unión de Carpinteros)', value: summary.detailedLabor?.mo_ca },
-                                        { id: 'd', label: `d) Beneficios Marginales ${ac49Report.laborDetails?.mo_carpinteros_pct || 0}% de (c)`, value: (summary.detailedLabor?.mo_ca || 0) * ((ac49Report.laborDetails?.mo_carpinteros_pct || 0)/100) },
-                                        { id: 'e', label: 'e) Subtotal Personal Adicional', value: summary.detailedLabor?.mo_ad },
-                                        { id: 'f', label: `f) Beneficios Marginales ${ac49Report.laborDetails?.mo_adicional_pct || 0}% de (e)`, value: (summary.detailedLabor?.mo_ad || 0) * ((ac49Report.laborDetails?.mo_adicional_pct || 0)/100) },
-                                        { id: 'g', label: 'g) Suma de (a, b, c, d, e, f)', value: summary.detailedLabor?.g, highlight: true },
-                                        { id: 'h', label: 'h) Subtotal Mano de Obra (Sin Unión)', value: summary.detailedLabor?.h_subtotal },
-                                        { id: 'i', label: `i) Beneficios Marginales ${ac49Report.laborDetails?.mo_sin_union_pct || 0}% de (h)`, value: (summary.detailedLabor?.h_subtotal || 0) * ((ac49Report.laborDetails?.mo_sin_union_pct || 0)/100) },
-                                        { id: 'j', label: 'j) Gastos de Viaje y Dietas', value: ac49Report.laborDetails?.mo_gastos_viaje || 0 },
-                                        { id: 'k', label: 'k) Suma Base (g+j) ó (h+i+j)', value: summary.detailedLabor?.k, highlight: true },
-                                        { id: 'l', label: `l) Beneficio Industrial ${ac49Report.laborDetails?.mo_beneficio_ind_pct || 20}% de (k)`, value: summary.detailedLabor?.l },
-                                        { id: 'm', label: 'm) Suma de (k+l)', value: summary.detailedLabor?.m_val, highlight: true },
-                                        { id: 'n', label: `n) Fondo Seguro Estado ${ac49Report.laborDetails?.mo_fondo_estado_pct || 0}% de (h)`, value: summary.detailedLabor?.n },
-                                        { id: 'o', label: `o) Seguro Social ${ac49Report.laborDetails?.mo_seguro_social_pct || 7.65}% de (h)`, value: summary.detailedLabor?.o },
-                                        { id: 'p', label: `p) Seguro Desempleo (6.2%) de (h)`, value: summary.detailedLabor?.p },
-                                        { id: 'q', label: `q) Seg. Resp. Pública ${ac49Report.laborDetails?.mo_resp_publica_pct || 0}% de (h)`, value: summary.detailedLabor?.q },
-                                        { id: 'r', label: `r) Seguro Incapacidad ${ac49Report.laborDetails?.mo_incapacidad_pct || 0}% de (h)`, value: summary.detailedLabor?.r },
-                                        { id: 's', label: 's) Suma de (n, o, p, q, r)', value: summary.detailedLabor?.s, highlight: true },
-                                        { id: 't', label: `t) Beneficio Industrial ${ac49Report.laborDetails?.mo_beneficio_ind_final_pct || 10}% de (s)`, value: summary.detailedLabor?.t },
-                                        { id: 'mo_total', label: '(1) TOTAL DE MANO DE OBRA (m+s+t)', value: summary.detailedLabor?.total, total: true }
-                                      ].map((row) => (
-                                        <div key={row.id} className={`flex justify-between items-center px-6 py-1 rounded-xl ${row.total ? 'bg-blue-600 text-white shadow-lg' : row.highlight ? 'bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-100 dark:ring-slate-700 border border-slate-100 dark:border-slate-800' : ''}`}>
-                                           <span className={`text-[9px] uppercase ${row.total || row.highlight ? 'font-black' : 'font-bold text-slate-500'}`}>{row.label}</span>
-                                           <b className={`${row.total ? 'text-sm' : 'text-xs'} font-black`}>{formatCurrency(row.value || 0)}</b>
-                                        </div>
-                                      ))}
-                                   </div>
+                              {section.key === 'labor' && (
+                                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[3.5rem] p-12 shadow-2xl mt-12">
+                                    <h5 className="text-[11px] font-black text-blue-600 uppercase tracking-[0.4em] mb-10 flex items-center gap-3">
+                                       <Users size={18} /> Resumen de Costos de Mano de Obra
+                                    </h5>
+                                    <div className="space-y-1">
+                                       {[
+                                         { id: 'a', label: 'a) Subtotal Operadores (Unión Equipo Pesado)', value: summary.detailedLabor?.mo_op },
+                                         { id: 'b', label: `b) Beneficios Marginales ${ac49Report.laborDetails?.mo_operadores_pct || 0}% de (a)`, value: (summary.detailedLabor?.mo_op || 0) * ((ac49Report.laborDetails?.mo_operadores_pct || 0)/100) },
+                                         { id: 'c', label: 'c) Subtotal Carpinteros (Unión de Carpinteros)', value: summary.detailedLabor?.mo_ca },
+                                         { id: 'd', label: `d) Beneficios Marginales ${ac49Report.laborDetails?.mo_carpinteros_pct || 0}% de (c)`, value: (summary.detailedLabor?.mo_ca || 0) * ((ac49Report.laborDetails?.mo_carpinteros_pct || 0)/100) },
+                                         { id: 'e', label: 'e) Subtotal Personal Adicional', value: summary.detailedLabor?.mo_ad },
+                                         { id: 'f', label: `f) Beneficios Marginales ${ac49Report.laborDetails?.mo_adicional_pct || 0}% de (e)`, value: (summary.detailedLabor?.mo_ad || 0) * ((ac49Report.laborDetails?.mo_adicional_pct || 0)/100) },
+                                         { id: 'g', label: 'g) Suma de (a, b, c, d, e, f)', value: summary.detailedLabor?.g, highlight: true },
+                                         { id: 'h', label: 'h) Subtotal Mano de Obra (Sin Unión)', value: summary.detailedLabor?.h_subtotal },
+                                         { id: 'i', label: `i) Beneficios Marginales ${ac49Report.laborDetails?.mo_sin_union_pct || 0}% de (h)`, value: (summary.detailedLabor?.h_subtotal || 0) * ((ac49Report.laborDetails?.mo_sin_union_pct || 0)/100) },
+                                         { id: 'j', label: 'j) Gastos de Viaje y Dietas', value: ac49Report.laborDetails?.mo_gastos_viaje || 0 },
+                                         { id: 'k', label: 'k) Suma Base (g+j) ó (h+i+j)', value: summary.detailedLabor?.k, highlight: true },
+                                         { id: 'l', label: `l) Beneficio Industrial ${ac49Report.laborDetails?.mo_beneficio_ind_pct || 20}% de (k)`, value: summary.detailedLabor?.l },
+                                         { id: 'm', label: 'm) Suma de (k+l)', value: summary.detailedLabor?.m_val, highlight: true },
+                                         { id: 'n', label: `n) Fondo Seguro Estado ${ac49Report.laborDetails?.mo_fondo_estado_pct || 0}% de (h)`, value: summary.detailedLabor?.n },
+                                         { id: 'o', label: `o) Seguro Social ${ac49Report.laborDetails?.mo_seguro_social_pct || 7.65}% de (h)`, value: summary.detailedLabor?.o },
+                                         { id: 'p', label: `p) Seguro Desempleo (6.2%) de (h)`, value: summary.detailedLabor?.p },
+                                         { id: 'q', label: `q) Seg. Resp. Pública ${ac49Report.laborDetails?.mo_resp_publica_pct || 0}% de (h)`, value: summary.detailedLabor?.q },
+                                         { id: 'r', label: `r) Seguro Incapacidad ${ac49Report.laborDetails?.mo_incapacidad_pct || 0}% de (h)`, value: summary.detailedLabor?.r },
+                                         { id: 's', label: 's) Suma de (n, o, p, q, r)', value: summary.detailedLabor?.s, highlight: true },
+                                         { id: 't', label: `t) Beneficio Industrial ${ac49Report.laborDetails?.mo_beneficio_ind_final_pct || 10}% de (s)`, value: summary.detailedLabor?.t },
+                                         { id: 'mo_total', label: '(1) TOTAL DE MANO DE OBRA (m+s+t)', value: summary.detailedLabor?.total, total: true }
+                                       ].map((row) => (
+                                         <div key={row.id} className={`flex justify-between items-center px-8 py-1.5 rounded-2xl ${row.total ? 'bg-blue-600 text-white shadow-2xl' : row.highlight ? 'bg-slate-50 dark:bg-slate-800 ring-1 ring-slate-100 dark:ring-slate-700 transition-all hover:bg-slate-100 dark:hover:bg-slate-700' : ''}`}>
+                                            <span className={`text-[10px] uppercase tracking-wide ${row.total || row.highlight ? 'font-black' : 'font-bold text-slate-500'}`}>{row.label}</span>
+                                            <b className={`${row.total ? 'text-lg' : 'text-sm'} font-black text-right min-w-[120px]`}>{formatCurrency(row.value || 0)}</b>
+                                         </div>
+                                       ))}
+                                    </div>
                                 </div>
-                             )}
-
-                             {section.key === 'mats' && (
-                                <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800">
-                                   <h5 className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-8">Resumen de Costo de Materiales y/o Servicios</h5>
-                                   <div className="space-y-3">
-                                      <div className="flex justify-between items-center px-6 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800">
-                                         <span className="text-[10px] font-black uppercase text-slate-500">a) Subtotal de Materiales y/o Servicios</span>
-                                         <b className="text-xs font-black">{formatCurrency((summary.detailedMaterials?.subtotalM || 0) + (summary.detailedMaterials?.subtotalS || 0))}</b>
-                                      </div>
-                                      <div className="flex justify-between items-center px-6 py-3 rounded-xl">
-                                         <span className="text-[10px] font-bold uppercase text-slate-500">b) Beneficio Industrial 15%</span>
-                                         <b className="text-xs font-black">{formatCurrency((summary.detailedMaterials?.biM || 0) + (summary.detailedMaterials?.biS || 0))}</b>
-                                      </div>
-                                      <div className="flex justify-between items-center px-6 py-4 rounded-xl bg-emerald-600 text-white shadow-lg">
-                                         <span className="text-[10px] font-black uppercase tracking-widest">(2) TOTAL DE MATERIALES Y/O SERVICIOS (A+B)</span>
-                                         <b className="text-sm font-black">{formatCurrency(summary.detailedMaterials?.total || 0)}</b>
-                                      </div>
-                                   </div>
-                                </div>
-                             )}
-
-                             {section.key === 'equip' && (
-                                <div className="mt-10 pt-10 border-t border-slate-100 dark:border-slate-800">
-                                   <h5 className="text-[11px] font-black text-amber-600 uppercase tracking-[0.2em] mb-8">Resumen de Costo de Equipo</h5>
-                                   <div className="space-y-3">
-                                      <div className="flex justify-between items-center px-6 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800">
-                                         <span className="text-[10px] font-black uppercase text-slate-500">a) Subtotal Renta de Equipo (Activo+Inactivo)</span>
-                                         <b className="text-xs font-black">{formatCurrency(summary.rentTotal)}</b>
-                                      </div>
-                                      <div className="flex justify-between items-center px-6 py-3 rounded-xl">
-                                         <span className="text-[10px] font-bold uppercase text-slate-500">b) Beneficio Industrial 15% de (a)</span>
-                                         <b className="text-xs font-black">{formatCurrency(summary.rentTotal * 0.15)}</b>
-                                      </div>
-                                      <div className="flex justify-between items-center px-6 py-4 rounded-xl bg-amber-500 text-white shadow-lg">
-                                         <span className="text-[10px] font-black uppercase tracking-widest">(3) TOTAL DE EQUIPO (a+b)</span>
-                                         <b className="text-sm font-black">{formatCurrency(summary.rentTotal * 1.15)}</b>
-                                      </div>
-                                   </div>
-                                </div>
-                             )}
-
-                             <div className="mt-8 flex justify-between items-center px-6 py-4 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700">
-                               <span className="text-[10px] font-black uppercase tracking-widest italic opacity-80">Subtotal Neto Mensual {section.label}</span>
-                               <b className="text-lg font-black tracking-tighter">{formatCurrency(section.subtotal)}</b>
-                             </div>
+                              )}
                            </div>
                          );
                        })}
 
-                       <div className="bg-slate-900 text-white p-12 rounded-[4rem] shadow-2xl relative overflow-hidden group">
-                          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] -mr-48 -mt-48"></div>
-                          <div className="relative z-10 space-y-12">
-                            <div className="flex flex-col md:flex-row justify-between items-start gap-8">
-                               <div className="space-y-3">
-                                  <h3 className="text-4xl font-black uppercase tracking-tighter italic">Total Mensual</h3>
-                                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                                    <Info size={12} className="text-blue-500" />
-                                    Suma consolidada de todos los recursos del periodo.
-                                  </p>
-                               </div>
-                               <div className="flex flex-col items-end gap-2">
-                                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Resumen Final</div>
-                                  <div className="text-5xl font-black text-emerald-400 tracking-tighter flex items-center gap-4">
-                                     <DollarSign size={40} className="text-emerald-500/50" />
-                                     {formatCurrency(
-                                       ac51Data.reduce((acc, r) => acc + r.total, 0)
-                                     )}
-                                  </div>
-                               </div>
+                       {/* Gran Total Mensual (Efecto Premium) */}
+                       <div className="bg-white dark:bg-slate-900 p-16 rounded-[4rem] border border-slate-100 dark:border-slate-800 shadow-[0_50px_100px_rgba(0,0,0,0.05)] relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] -mr-64 -mt-64 transition-transform group-hover:scale-110 duration-1000"></div>
+                          <div className="relative z-10 space-y-16">
+                            <div className="flex flex-col md:flex-row justify-between items-center gap-12 text-center md:text-left">
+                                <div className="space-y-4">
+                                   <div className="flex items-center justify-center md:justify-start gap-4">
+                                      <div className="w-3 h-12 bg-emerald-500 rounded-full"></div>
+                                      <h3 className="text-6xl font-black uppercase tracking-tighter text-slate-900 dark:text-white italic">Gran Total</h3>
+                                   </div>
+                                   <p className="text-slate-400 text-xs font-black uppercase tracking-[0.5em] ml-2 opacity-60">Certificación Final Consolidada</p>
+                                </div>
+                                <div className="bg-slate-50 dark:bg-slate-800/80 p-12 rounded-[4rem] border border-slate-100 dark:border-slate-700 shadow-inner flex flex-col items-center md:items-end gap-2 px-16">
+                                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.6em] mb-2">Liquidación Mensual</div>
+                                   <div className="text-7xl font-black text-emerald-600 tracking-tighter flex items-center gap-6">
+                                      <DollarSign size={54} className="text-emerald-500/20" />
+                                      {formatCurrency(summary.grandTotal)}
+                                   </div>
+                                </div>
                             </div>
 
-                            {/* Daily Breakdown Tables */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-                                {[0, 10, 20].map((start, idx) => (
-                                  <div key={idx} className="bg-slate-900/40 rounded-[2rem] border border-slate-800 overflow-hidden shadow-2xl">
-                                    <table className="w-full text-[10px]">
-                                      <thead>
-                                        <tr className="bg-slate-800/80 text-blue-400 font-black uppercase tracking-widest border-b border-slate-700">
-                                          <th className="px-4 py-3 text-left">DÍA SEM.</th>
-                                          <th className="px-4 py-3 text-center">DÍA MES</th>
-                                          <th className="px-4 py-3 text-right">MONTO</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-slate-800">
-                                        {daysInMonth.slice(start, start + (idx === 2 ? 11 : 10)).map((d, i) => (
-                                          <tr key={i} className={`hover:bg-slate-800/50 transition-colors ${d.isWeekend ? 'bg-slate-800/20' : ''}`}>
-                                            <td className={`px-4 py-3 font-black ${d.isWeekend ? 'text-slate-500' : 'text-slate-400'}`}>{d.sem}</td>
-                                            <td className="px-4 py-3 text-center font-black text-slate-200 border-x border-slate-800/50">{d.day}</td>
-                                            <td className={`px-4 py-3 text-right font-black ${d.amount > 0 ? 'text-emerald-400' : 'text-slate-600'}`}>
-                                              {d.amount > 0 ? formatCurrency(d.amount) : "$0.00"}
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                                {[
+                                  { label: 'Mano de Obra', value: summary.detailedLabor?.total, color: 'blue' },
+                                  { label: 'Materiales', value: summary.detailedMaterials?.total, color: 'emerald' },
+                                  { label: 'Equipo', value: summary.detailedEquipment?.total, color: 'amber' }
+                                ].map((item, idx) => (
+                                  <div key={idx} className="bg-white dark:bg-slate-800/30 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-700 shadow-xl transition-all hover:shadow-2xl hover:-translate-y-1 group/card">
+                                     <div className="flex flex-col items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg ${item.color === 'blue' ? 'bg-blue-600' : item.color === 'emerald' ? 'bg-emerald-600' : 'bg-amber-500'}`}>
+                                           {item.color === 'blue' ? <Users size={24}/> : item.color === 'emerald' ? <Calculator size={24}/> : <Truck size={24}/>}
+                                        </div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</p>
+                                        <b className={`text-2xl font-black ${item.color === 'blue' ? 'text-blue-600' : item.color === 'emerald' ? 'text-emerald-600' : 'text-amber-500'}`}>
+                                           {formatCurrency(item.value || 0)}
+                                        </b>
+                                     </div>
                                   </div>
                                 ))}
-                             </div>
-                            
-                            <div className="pt-8 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-12">
-                               <div className="space-y-4">
-                                  <h6 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-4">Comentarios del Liquidador</h6>
-                                  <textarea className="w-full bg-slate-800/50 border border-slate-700 rounded-3xl p-6 text-xs text-slate-300 outline-none focus:ring-2 focus:ring-blue-500/50 min-h-[120px]" placeholder="Indique notas adicionales para este periodo..." />
-                               </div>
-                               <div className="space-y-4">
-                                  <h6 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-4">Costo Total AC-51</h6>
-                                  <div className="bg-slate-800/80 p-6 rounded-[2rem] border border-slate-700/50">
-                                     <div className="flex justify-between items-center mb-3 text-slate-400">
-                                        <span className="text-[9px] font-bold uppercase">Mano de Obra (1)</span>
-                                        <b className="text-xs font-black">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.labor, 0))}</b>
-                                     </div>
-                                     <div className="flex justify-between items-center mb-3 text-slate-400">
-                                        <span className="text-[9px] font-bold uppercase">Materiales (2)</span>
-                                        <b className="text-xs font-black">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.mats, 0))}</b>
-                                     </div>
-                                     <div className="flex justify-between items-center mb-3 text-slate-400">
-                                        <span className="text-[9px] font-bold uppercase">Equipo (3)</span>
-                                        <b className="text-xs font-black">{formatCurrency(ac51Data.reduce((acc, r) => acc + r.equip, 0))}</b>
-                                     </div>
-                                     <div className="flex justify-between items-center py-4 border-t border-slate-700/50">
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-2">Fianzas de Ejecución y Pago <input className="w-12 bg-slate-900/50 rounded ring-1 ring-slate-700 border-none text-center p-1 font-bold text-blue-400" type="number" step="any" defaultValue={0}/>% por mil</span>
-                                        <b className="text-xs font-black text-emerald-400">{formatCurrency(0)}</b>
-                                     </div>
-                                  </div>
-                               </div>
                             </div>
                           </div>
                        </div>
                     </div>
 
-                    <div className="flex justify-end gap-4 mt-10">
-                       <button className="px-10 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95 flex items-center gap-3 uppercase tracking-widest text-[10px]">
-                         <Download size={18} /> Exportar Reporte Mensual (AC-51)
+                    <div className="flex justify-end gap-6 pt-10">
+                       <button 
+                         onClick={exportData}
+                         className="px-12 py-5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-3xl transition-all shadow-2xl shadow-emerald-500/20 active:scale-95 flex items-center gap-4 uppercase tracking-widest text-xs"
+                       >
+                         <Download size={20} /> Exportar Reporte Mensual (AC-51)
                        </button>
                     </div>
                   </div>
                 )}
-
-                {activeTab === 'fotos' && (
-                  <div className="space-y-8 animate-in slide-in-from-right duration-500">
-                    <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-xl">
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-                        <div>
-                          <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Registro de Evidencia Fotográfica</h3>
-                          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Soporte visual para el ciclo {ac49Report.reportNo}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button 
-                            onClick={() => {
-                              const input = document.createElement('input');
-                              input.type = 'file';
-                              input.accept = 'image/*';
-                              input.multiple = true;
-                              input.onchange = (e: any) => {
-                                const files = Array.from(e.target.files);
-                                files.forEach((file: any) => {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    const base64String = reader.result as string;
-                                    setAc49Report(prev => ({
-                                      ...prev,
-                                      photos: [...(prev.photos || []), base64String]
-                                    }));
-                                  };
-                                  reader.readAsDataURL(file);
-                                });
-                              };
-                              input.click();
-                            }}
-                            className="flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase hover:bg-blue-700 shadow-lg"
-                          >
-                            <Plus size={16} /> Subir de Galería
-                          </button>
-                          <button 
-                             onClick={() => {
-                               const input = document.createElement('input');
-                               input.type = 'file';
-                               input.accept = 'image/*';
-                               input.capture = 'environment';
-                               input.onchange = (e: any) => {
-                                 const file = e.target.files[0];
-                                 if (file) {
-                                   const reader = new FileReader();
-                                   reader.onloadend = () => {
-                                     const base64String = reader.result as string;
-                                     setAc49Report(prev => ({
-                                       ...prev,
-                                       photos: [...(prev.photos || []), base64String]
-                                     }));
-                                   };
-                                   reader.readAsDataURL(file);
-                                 }
-                               };
-                               input.click();
-                             }}
-                            className="flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase hover:bg-emerald-700 shadow-lg"
-                          >
-                            <Camera size={16} /> Abrir Cámara
-                          </button>
-                        </div>
-                      </div>
-
-                      {(!ac49Report.photos || ac49Report.photos.length === 0) ? (
-                        <div className="border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-20 text-center">
-                          <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-300">
-                            <Camera size={40} />
-                          </div>
-                          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No hay fotos registradas aún</p>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                          {ac49Report.photos.map((photo, idx) => (
-                            <div key={idx} className="group relative aspect-square rounded-[2rem] overflow-hidden border shadow-md">
-                              <img src={photo} alt={`Evidencia ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                <button 
-                                  onClick={() => {
-                                    setAc49Report(prev => ({
-                                      ...prev,
-                                      photos: (prev.photos || []).filter((_, i) => i !== idx)
-                                    }));
-                                  }}
-                                  className="w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 shadow-lg"
-                                >
-                                  <Trash2 size={20} />
-                                </button>
-                              </div>
-                              <div className="absolute bottom-4 left-4 right-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-3 rounded-xl text-center">
-                                <p className="text-[9px] font-black uppercase text-slate-600">Foto #{idx + 1}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      <div className="mt-12 p-6 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 rounded-2xl flex items-center gap-4">
-                        <Info className="text-amber-600 shrink-0" size={20} />
-                        <p className="text-[10px] font-bold text-amber-800 uppercase tracking-tight">Las fotos se guardarán dentro del archivo de respaldo JSON.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-      <input ref={fileInputRef} id="import-fa2-json" type="file" accept=".json" className="hidden" onChange={importData} />
-
-      {/* About Section mandated by User Rules */}
-      <div className="mt-20 pt-10 border-t border-slate-100 dark:border-slate-800 text-center pb-10">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Suite de Soluciones Saavedra</p>
-        <p className="text-[11px] font-bold text-slate-500 mt-2">Diseñador: Ing. Enrique Saavedra Sada, PE</p>
-      </div>
-    </div>
-  );
-});
-
-export default ForceAccount2Form;
