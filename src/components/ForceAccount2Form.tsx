@@ -404,17 +404,40 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
 
   const handleCreateNew = async () => {
     if (!projectId) return;
+
+    const faNum = prompt("Número del Force Account (ej: FA-1, FA-2):", "FA-1");
+    if (!faNum?.trim()) return;
+
+    const monthInput = prompt("Mes y año del reporte (formato AAAA-MM, ej: 2023-09):", new Date().toISOString().slice(0, 7));
+    if (!monthInput?.trim() || !/^\d{4}-\d{2}$/.test(monthInput.trim())) {
+      alert("Formato inválido. Use AAAA-MM (ej: 2023-09).");
+      return;
+    }
+
+    const [year, month] = monthInput.trim().split('-');
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const monthName = monthNames[parseInt(month) - 1];
+    const faClean = faNum.trim().toUpperCase();
+    const groupName = faClean;
+    const subGroupName = `${faClean}-${monthName}-${year}`;
+    const reportNo = `${faClean}-${monthName.substring(0,3).toUpperCase()}-${year}`;
+
     setLoading(true);
     try {
-      const newNo = (reports.length + 1).toString().padStart(3, '0');
       const { data, error } = await supabase
         .from("fa2_reports")
         .insert([{
           project_id: projectId,
-          report_no: `FA2-${newNo}`,
-          date: new Date().toISOString().split('T')[0],
-          description: `Nuevo Force Account ${newNo}`,
-          data: { labor: [], equipment: [], materials: [] }
+          report_no: reportNo,
+          date: `${monthInput.trim()}-01`,
+          description: `${faClean} — ${monthName} ${year}`,
+          data: {
+            labor: [], equipment: [], materials: [],
+            laborDetails: {},
+            groupName,
+            subGroupName,
+            signatures: { contractor: false, projectChief: false }
+          }
         }])
         .select()
         .single();
@@ -423,6 +446,7 @@ const ForceAccount2Form = forwardRef(function ForceAccount2Form({ projectId, onD
       if (data) {
         setReports([data, ...reports]);
         handleSelectReport(data);
+        setActiveTab('ac49');
       }
     } catch (error: any) {
       alert("Error al crear: " + error.message);
