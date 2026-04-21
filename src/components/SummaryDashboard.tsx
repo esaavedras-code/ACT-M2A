@@ -182,7 +182,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 if (!itemNum) return;
                 const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
                 const itemMosPU = parseFloat(item.mos_unit_price) || 0;
-                if (item.has_material_on_site && mosInvoice > 0) {
+                // Detectar adición si el checkbox está on O si hay monto de factura
+                if (item.has_material_on_site || mosInvoice > 0) {
                     perItemMosBalance[itemNum] = (perItemMosBalance[itemNum] || 0) + mosInvoice;
                     if (itemMosPU > 0) perItemMosPU[itemNum] = itemMosPU;
                 }

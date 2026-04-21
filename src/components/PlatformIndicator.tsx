@@ -55,7 +55,7 @@ function PlatformIndicatorContent() {
             {numAct && (
                 <div
                     className="fixed z-[9998] left-1/2 -translate-x-1/2 pointer-events-auto"
-                    style={{ top: '14px' }}  /* Centrado vertical en la barra azul de 64px */
+                    style={{ top: '34px' }}  /* Centrado vertical en la zona azul */
                 >
                     <button
                         onClick={() => {

@@ -310,8 +310,9 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             // ── FASE 1: Acumular adiciones de MOS de esta cert ──────────
             // Hacemos un primer recorrido solo para sumar adiciones
             (c.items || []).forEach((item: any) => {
-                if (item.has_material_on_site) {
-                    const invoiceTotal = parseFloat(item.mos_invoice_total) || 0;
+                const invoiceTotal = parseFloat(item.mos_invoice_total) || 0;
+                // RELAJACIÓN LÓGICA: Si tiene monto de factura, es una adición (aunque el checkbox esté off)
+                if (item.has_material_on_site || invoiceTotal > 0) {
                     const itemMosPU = parseFloat(item.mos_unit_price) || 0;
                     const itemNum = item.item_num;
                     if (invoiceTotal > 0) {
