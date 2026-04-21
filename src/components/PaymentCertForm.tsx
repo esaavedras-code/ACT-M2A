@@ -283,88 +283,81 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         await supabase.from("payment_certifications").delete().eq("project_id", projectId);
 
         // ============================================================
-        // LÓGICA MOS AUTOMÁTICA - Aplica a TODOS los proyectos
+        // LÓGICA MOS AUTOMÁTICA - Correcta para TODOS los proyectos
         // ============================================================
-        // Regla: Si un ítem tiene balance positivo de MOS (material en
-        // sitio facturado y no deducido), al pagarse en una certificación
-        // posterior SE DEBE deducir automáticamente ese balance del monto
-        // a pagar. Se procesa en orden cronológico (cert 1 → N).
+        // El algoritmo funciona igual que en AC-200023:
+        //
+        // Por cada certificación (en orden cronológico):
+        //   FASE 1: Sumar al balance todas las ADICIONES de MOS
+        //           (ítems con has_material_on_site = true)
+        //   FASE 2: Deducir del balance el trabajo pagado en esa cert
+        //           para ítems que tengan balance MOS disponible
+        //
+        // Ejemplo correcto (AC-200023, ítem 008):
+        //   Cert #1: +$50,437.92 (adición) → balance = $50,437.92
+        //            -1870.52 qty × $6.214 = -$11,623.41 (deducción WP)
+        //            → balance = $38,814.51
+        //   Cert #2: -6246.30 qty × $6.214 = -$38,814.51 (deducción WP)
+        //            → balance = $0.00
         // ============================================================
-        
-        // Paso 1: Calcular adiciones MOS totales por ítem en TODAS las certs
-        const mosTotalInvoicedPerItem: Record<string, number> = {};
-        const mosPUPerItem: Record<string, number> = {};
 
-        certs.forEach(cert => {
-            (cert.items || []).forEach((item: any) => {
+        // Balance corriente por ítem (en dólares), se va acumulando
+        const mosBalance: Record<string, number> = {};
+        // Precio unitario del MOS por ítem (para convertir $ ↔ cantidad)
+        const mosPU: Record<string, number> = {};
+
+        const certsWithMOS = certs.map((c) => {
+            // ── FASE 1: Acumular adiciones de MOS de esta cert ──────────
+            // Hacemos un primer recorrido solo para sumar adiciones
+            (c.items || []).forEach((item: any) => {
                 if (item.has_material_on_site) {
                     const invoiceTotal = parseFloat(item.mos_invoice_total) || 0;
-                    const mosPU = parseFloat(item.mos_unit_price) || 0;
+                    const itemMosPU = parseFloat(item.mos_unit_price) || 0;
                     const itemNum = item.item_num;
                     if (invoiceTotal > 0) {
-                        mosTotalInvoicedPerItem[itemNum] = (mosTotalInvoicedPerItem[itemNum] || 0) + invoiceTotal;
-                        if (mosPU > 0) mosPUPerItem[itemNum] = mosPU; // guardar PU del MOS
+                        mosBalance[itemNum] = (mosBalance[itemNum] || 0) + invoiceTotal;
+                        if (itemMosPU > 0) mosPU[itemNum] = itemMosPU;
                     }
                 }
             });
-        });
 
-        // Paso 2: Procesar certs EN ORDEN manteniendo balance disponible por ítem
-        // Track del balance MOS restante por ítem (en dólares)
-        const mosRemainingBalance: Record<string, number> = { ...mosTotalInvoicedPerItem };
-
-        const certsWithMOS = certs.map((c, certIdx) => {
+            // ── FASE 2: Calcular deducciones para cada ítem pagado ──────
             const processedItems = (c.items || []).map((item: any) => {
                 const itemNum = item.item_num;
+                const available = mosBalance[itemNum] || 0;
 
-                // Si este ítem AGREGA MOS (checkbox marcado), no aplicar deducción aquí
-                // La adición ya fue contabilizada en mosTotalInvoicedPerItem
-                // Solo actualizar el estado si hay adición nueva en esta cert
-                // (no restar de la adición misma)
+                // Sin balance MOS → no hay nada que deducir
+                if (available <= 0) return item;
 
-                // Si qty_from_mos ya está explícitamente establecido por el usuario, respetarlo
-                const existingQty = parseFloat(item.qty_from_mos);
-                const hasExplicitQty = !isNaN(existingQty) && existingQty > 0;
-
-                if (hasExplicitQty) {
-                    // El usuario estableció un valor manual: aplicar deducción con ese valor
-                    const mosPU = mosPUPerItem[itemNum] || parseFloat(item.unit_price) || 0;
-                    const deductionAmount = existingQty * mosPU;
-                    // Actualizar balance restante
-                    if (mosRemainingBalance[itemNum] !== undefined) {
-                        mosRemainingBalance[itemNum] = Math.max(0, mosRemainingBalance[itemNum] - deductionAmount);
-                    }
-                    return item; // ya tiene el valor correcto
-                }
-
-                // Verificar si hay balance MOS disponible para este ítem
-                const availableBalance = mosRemainingBalance[itemNum] || 0;
-                if (availableBalance <= 0) return item; // Sin balance, no deducir
-
-                // No deducir del propio ítem que crea el MOS en esta cert
-                // (evitar que la cert que factura el MOS también lo deduzca en sí misma)
-                const addedMOSThisCert = item.has_material_on_site ? (parseFloat(item.mos_invoice_total) || 0) : 0;
+                // Sin trabajo en esta cert → no hay deducción
                 const workQty = parseFloat(item.quantity) || 0;
                 if (workQty <= 0) return item;
 
-                // Calcular PU del MOS para convertir balance a cantidad
-                const mosPU = mosPUPerItem[itemNum] || parseFloat(item.mos_unit_price) || parseFloat(item.unit_price) || 0;
-                if (mosPU <= 0) return item;
+                // Si el usuario ya estableció qty_from_mos manualmente, respetarlo
+                const existingQty = parseFloat(item.qty_from_mos);
+                if (!isNaN(existingQty) && existingQty > 0) {
+                    // Deducir del balance lo que el usuario ingresó
+                    const pu = mosPU[itemNum] || parseFloat(item.unit_price) || 0;
+                    mosBalance[itemNum] = Math.max(0, available - (existingQty * pu));
+                    return item;
+                }
 
-                // Balance disponible para deducción (descontar lo que se agrega en esta misma cert)
-                const balanceForDeduction = Math.max(0, availableBalance - addedMOSThisCert);
-                if (balanceForDeduction <= 0) return item;
+                // Calcular deducción automática
+                const pu = mosPU[itemNum] || parseFloat(item.mos_unit_price) || parseFloat(item.unit_price) || 0;
+                if (pu <= 0) return item;
 
-                const availableQty = balanceForDeduction / mosPU;
+                // Deducir el mínimo entre: cantidad trabajada y cantidad disponible en MOS
+                const availableQty = available / pu;
                 const autoQty = Math.min(workQty, availableQty);
 
                 if (autoQty > 0.0001) {
-                    // Actualizar el balance restante
-                    mosRemainingBalance[itemNum] = Math.max(0, availableBalance - addedMOSThisCert - (autoQty * mosPU));
+                    mosBalance[itemNum] = Math.max(0, available - (autoQty * pu));
                     return { ...item, qty_from_mos: parseFloat(autoQty.toFixed(4)) };
                 }
+
                 return item;
             });
+
             return { ...c, items: processedItems };
         });
 

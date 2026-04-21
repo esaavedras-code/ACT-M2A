@@ -168,25 +168,27 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         let totalOtherPenalties = 0;
         let totalRefund = 0;
 
+        // Balance MOS corriente por ítem (en dólares) - mismo algoritmo que PaymentCertForm
         const perItemMosBalance: Record<string, number> = {};
-
-        // Función auxiliar para obtener el precio de MOS (PU) de certificaciones previas
-        const getMosPU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
-            for (let i = currentCertIdx; i >= 0; i--) {
-                const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
-                const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && (parseFloat(itx.mos_unit_price) > 0));
-                if (match) return parseFloat(match.mos_unit_price);
-            }
-            return 0;
-        };
+        const perItemMosPU: Record<string, number> = {};   // PU del MOS por ítem
 
         certs?.forEach((cert: any, cIdx: number) => {
             const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
             let certAmount = 0;
 
-            const certItemAdditions: Record<string, number> = {};
-            const certItemDeductions: Record<string, number> = {};
+            // ── FASE 1: Acumular adiciones MOS de esta cert ──────────────
+            certItems.forEach((item: any) => {
+                const itemNum = item.item_num;
+                if (!itemNum) return;
+                const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
+                const itemMosPU = parseFloat(item.mos_unit_price) || 0;
+                if (item.has_material_on_site && mosInvoice > 0) {
+                    perItemMosBalance[itemNum] = (perItemMosBalance[itemNum] || 0) + mosInvoice;
+                    if (itemMosPU > 0) perItemMosPU[itemNum] = itemMosPU;
+                }
+            });
 
+            // ── FASE 2: Calcular montos, deducciones y actualizar balance ─
             certItems.forEach((item: any) => {
                 const itemNum = item.item_num;
                 if (!itemNum) return;
@@ -208,52 +210,27 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 }
                 certAmount = roundedAmt(certAmount + amount, 2);
 
-                // Lógica de MOS (Adiciones)
-                const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
-                if (item.has_material_on_site && mosInvoice > 0) {
-                    // Evitar duplicar si el ítem está dividido por fuentes de fondos
-                    certItemAdditions[itemNum] = Math.max(certItemAdditions[itemNum] || 0, mosInvoice);
-                }
-
-                // Lógica de MOS (Deducciones)
-                let qtyFromMos = parseFloat(item.qty_from_mos);
-                
-                // Si no hay un valor explícito en qty_from_mos, intentar calcular deducción automática
-                // Esto sincroniza el dashboard con la lógica visual de PaymentCertForm
-                if (isNaN(qtyFromMos) || item.qty_from_mos === null || item.qty_from_mos === "" || item.qty_from_mos === 0) {
-                    const currentBalDollars = perItemMosBalance[itemNum] || 0;
-                    if (currentBalDollars > 0) {
-                        const workQty = parseFloat(item.quantity) || 0;
-                        if (workQty > 0) {
-                            // Convertir balance en dólares a cantidad usando PU del MOS
-                            const mosPUForAuto = getMosPU(certs, itemNum, cIdx) || up;
-                            if (mosPUForAuto > 0) {
-                                const availableQty = currentBalDollars / mosPUForAuto;
-                                qtyFromMos = Math.min(workQty, availableQty);
-                            }
+                // Lógica de MOS (Deducciones) - misma lógica que PaymentCertForm
+                const available = perItemMosBalance[itemNum] || 0;
+                if (available > 0 && qty > 0) {
+                    let qtyFromMos = parseFloat(item.qty_from_mos);
+                    
+                    // Si no hay valor explícito en BD, calcular automático (igual que PaymentCertForm)
+                    if (isNaN(qtyFromMos) || qtyFromMos === 0) {
+                        const pu = perItemMosPU[itemNum] || up;
+                        if (pu > 0) {
+                            const availableQty = available / pu;
+                            qtyFromMos = Math.min(qty, availableQty);
                         }
                     }
-                }
 
-                if (qtyFromMos && qtyFromMos !== 0) {
-                    const mosPU = getMosPU(certs, itemNum, cIdx) || up;
-                    const deduction = roundedAmt(qtyFromMos * mosPU, 2);
-                    // Las deducciones se suman porque cada instancia de ítem dividido puede estar deduciendo una cantidad
-                    certItemDeductions[itemNum] = (certItemDeductions[itemNum] || 0) + deduction;
+                    if (qtyFromMos > 0.0001) {
+                        const pu = perItemMosPU[itemNum] || up;
+                        const deduction = roundedAmt(qtyFromMos * pu, 2);
+                        perItemMosBalance[itemNum] = Math.max(0, roundedAmt(available - deduction, 2));
+                    }
                 }
-            });
-
-            // Actualizar balances de MOS al final de cada certificación para este ítem
-            const allItemsInvolved = new Set([...Object.keys(certItemAdditions), ...Object.keys(certItemDeductions)]);
-            allItemsInvolved.forEach(itemNum => {
-                if (!perItemMosBalance[itemNum]) perItemMosBalance[itemNum] = 0;
-                const add = certItemAdditions[itemNum] || 0;
-                const ded = certItemDeductions[itemNum] || 0;
-                perItemMosBalance[itemNum] = roundedAmt(perItemMosBalance[itemNum] + add - ded, 2);
-                
-                // Mantener balance mínimo de 0 (como en MaterialsForm)
-                if (perItemMosBalance[itemNum] < 0) perItemMosBalance[itemNum] = 0;
-            });
+            }); // fin certItems.forEach FASE 2
 
             if ((cert.cert_num || 0) > lastCertNum) {
                 lastCertNum = cert.cert_num;
