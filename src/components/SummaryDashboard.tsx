@@ -414,14 +414,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 </div>
             </div>
 
-            {numAct && (
-                <div className="flex items-center gap-2 -mt-6 mb-6">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Proyecto:</span>
-                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
-                        {numAct}
-                    </span>
-                </div>
-            )}
 
             {/* ALERTA: FMIS Date Expiry */}
             {fmisAlert && (

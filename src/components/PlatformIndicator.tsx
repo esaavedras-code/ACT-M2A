@@ -7,7 +7,7 @@ function PlatformIndicatorContent() {
     const [platform, setPlatform] = useState<string | null>(null);
     const searchParams = useSearchParams();
     const projectId = searchParams.get("id");
-    const [projectName, setProjectName] = useState<string | null>(null);
+    const [numAct, setNumAct] = useState<string | null>(null);
 
     useEffect(() => {
         // Detectar si estamos en Electron
@@ -32,12 +32,13 @@ function PlatformIndicatorContent() {
 
     useEffect(() => {
         if (projectId) {
-            supabase.from("projects").select("name").eq("id", projectId).single()
+            supabase.from("projects").select("num_act").eq("id", projectId).single()
                 .then(({ data }) => {
-                    if (data) setProjectName(data.name);
+                    if (data?.num_act) setNumAct(data.num_act);
+                    else setNumAct(null);
                 });
         } else {
-            setProjectName(null);
+            setNumAct(null);
         }
     }, [projectId]);
 
@@ -45,27 +46,25 @@ function PlatformIndicatorContent() {
 
     return (
         <div className="fixed top-0 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center pointer-events-none">
-            <div className="bg-slate-900/90 text-white text-[9px] font-black tracking-[0.3em] uppercase px-6 py-1 rounded-b-xl border-x border-b border-white/20 shadow-2xl backdrop-blur-md">
-                {platform}
-            </div>
-            
-            {projectName && (
-                <div className="mt-2 pointer-events-auto animate-in slide-in-from-top-4 duration-500">
-                    <button 
-                        onClick={() => {
-                            // Si se hace clic, quizás refrescar o ir al detalle si no está ahí
-                            if (!window.location.pathname.includes('/proyectos/detalle')) {
-                                window.location.href = `/proyectos/detalle?id=${projectId}`;
-                            }
-                        }}
-                        className="bg-white/5 hover:bg-white/15 backdrop-blur-sm px-10 py-1.5 rounded-2xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all hover:scale-105 active:scale-95 group"
-                    >
-                        <span className="text-3xl md:text-4xl font-extrabold text-white tracking-tighter uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
-                            {projectName}
+            {/* Etiqueta de plataforma + número de proyecto integrados en una sola pastilla */}
+            <div className="bg-slate-900/90 text-white text-[9px] font-black tracking-[0.3em] uppercase px-5 py-1 rounded-b-xl border-x border-b border-white/20 shadow-2xl backdrop-blur-md flex items-center gap-2">
+                <span>{platform}</span>
+                {numAct && (
+                    <>
+                        <span className="opacity-30">|</span>
+                        <span 
+                            className="text-[10px] font-black tracking-widest text-blue-300 pointer-events-auto cursor-pointer hover:text-blue-100 transition-colors"
+                            onClick={() => {
+                                if (projectId && !window.location.pathname.includes('/proyectos/detalle')) {
+                                    window.location.href = `/proyectos/detalle?id=${projectId}`;
+                                }
+                            }}
+                        >
+                            {numAct}
                         </span>
-                    </button>
-                </div>
-            )}
+                    </>
+                )}
+            </div>
         </div>
     );
 }
