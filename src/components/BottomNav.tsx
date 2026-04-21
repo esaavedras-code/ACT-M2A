@@ -58,7 +58,7 @@ export default function BottomNav() {
         if (role === 'A') return true;
         // Ocultar WIP y secciones administrativas para otros roles
         if (t.wip) return false;
-        const adminOnly = ['force', 'force2', 'minutes', 'logs', 'inspection', 'personnel'];
+        const adminOnly = ['force', 'minutes', 'logs', 'inspection', 'personnel'];
         if (adminOnly.includes(t.id)) return false;
         return true;
     });

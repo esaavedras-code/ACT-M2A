@@ -785,7 +785,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
 
     const sortedItemNums = Array.from(allItemNums).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-    const reportData: any[][] = [['ITEM', 'SPEC.', 'DESCRIPTION / ACTIVITY', 'QUANTITY', 'BALANCE QUANTITY', 'UNIT', 'UNIT PRICE', 'AMOUNT', 'BALANCE AMOUNT']];
+    const reportData: any[][] = [['ITEM', 'SPEC.', 'DESCRIPTION / ACTIVITY', 'QUANTITY', 'UNIT', 'UNIT PRICE', 'AMOUNT', 'BALANCE QUANTITY', 'BALANCE AMOUNT']];
 
     sortedItemNums.forEach(itemNum => {
         const baseItem = items.find(i => i.item_num === itemNum);
@@ -812,7 +812,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
         if (baseItem) {
             const origQty = parseFloat(baseItem.quantity) || 0;
             currentBalance += origQty;
-            reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(4), currentBalance.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2)), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
+            reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2)), currentBalance.toFixed(4), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
         }
 
         const itemChos = filteredChos.filter(c => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === itemNum));
@@ -821,7 +821,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
             if (i) {
                 const choQty = parseFloat(i.proposed_change !== undefined ? i.proposed_change : i.quantity) || 0;
                 currentBalance += choQty;
-                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''} (${formatDate(c.cho_date)})`, choQty.toFixed(4), currentBalance.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2)), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
+                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''} (${formatDate(c.cho_date)})`, choQty.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2)), currentBalance.toFixed(4), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
             }
         });
 
@@ -832,13 +832,13 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
                 const certQty = parseFloat(i.quantity) || 0;
                 currentBalance -= certQty;
                 const amt = roundedAmt(certQty * uPrice, 2);
-                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, (-certQty).toFixed(4), currentBalance.toFixed(4), unit || '', formatCurrency(uPrice), `-${formatCurrency(amt)}`, formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
+                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, (-certQty).toFixed(4), unit || '', formatCurrency(uPrice), `-${formatCurrency(amt)}`, currentBalance.toFixed(4), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
             }
         });
         reportData.push(['', '', '', '', '', '', '', '', '']);
     });
 
-    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [45, 55, 230, 70, 70, 50, 70, 70, 70], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`, endDate);
+    await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [45, 55, 230, 70, 50, 70, 70, 70, 70], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`, endDate);
 };
 
 export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -1664,21 +1664,28 @@ export const generateSignedItemsReportLogic = async (projectId: string, format: 
     }
 };
 
-export const generateMissingSignaturesReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateMissingSignaturesReportLogic = async (
+    projectId: string, 
+    format: 'pdf' | 'excel' = 'pdf',
+    filters: { admin: boolean; contractor: boolean; liquidator: boolean } = { admin: true, contractor: true, liquidator: true }
+) => {
     const { project, items } = await fetchAllReportData(projectId);
     if (!project || !items) return;
 
     const { data: projData } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
     const liquidatedItems: any[] = projData?.liquidation_data?.liquidated_items || [];
 
-    // Find items missing at least one signature
+    // Encontrar partidas a las que les falta al menos UNA de las firmas seleccionadas
     const missingItems = items.filter((item: any) => {
         const liqInfo = liquidatedItems.find((li: any) => li.item_num === item.item_num) || {};
-        return !liqInfo.signed_by_admin || !liqInfo.signed_by_contractor || !liqInfo.signed_by_liquidator;
+        const missingAdmin = filters.admin && !liqInfo.signed_by_admin;
+        const missingContractor = filters.contractor && !liqInfo.signed_by_contractor;
+        const missingLiquidator = filters.liquidator && !liqInfo.signed_by_liquidator;
+        return missingAdmin || missingContractor || missingLiquidator;
     });
 
     if (missingItems.length === 0) {
-        alert('¡Todas las partidas tienen sus firmas completas!');
+        alert('¡No se encontraron partidas con las firmas pendientes seleccionadas!');
         return;
     }
 
@@ -1697,8 +1704,13 @@ export const generateMissingSignaturesReportLogic = async (projectId: string, fo
         })
     ];
 
+    let filterDesc = [];
+    if (filters.admin) filterDesc.push("Administrador");
+    if (filters.contractor) filterDesc.push("Contratista");
+    if (filters.liquidator) filterDesc.push("Liquidador");
+
     await generateReport(
-        'PARTIDAS CON FIRMAS PENDIENTES - LIQUIDACIÓN',
+        `PARTIDAS CON FIRMAS PENDIENTES (${filterDesc.join(', ')})`,
         reportData,
         project,
         [50, 70, 230, 60, 70, 72],

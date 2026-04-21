@@ -18,7 +18,7 @@ export async function POST(req: Request) {
         const PDFParser = require('pdf2json');
         const pdfParser = new PDFParser(null, 1);
 
-        const text: string = await new Promise((resolve, reject) => {
+        const text = await new Promise<string>((resolve, reject) => {
             pdfParser.on('pdfParser_dataError', (errData: any) => {
                 reject(new Error(errData.parserError || 'Error parsing PDF'));
             });
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
             });
             pdfParser.parseBuffer(pdfBuffer);
         });
+
 
 
         return NextResponse.json({ success: true, text });

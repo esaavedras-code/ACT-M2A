@@ -290,13 +290,17 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             while ((match = regex.exec(cleanText)) !== null) {
                                 posMap.set(sCode + '-' + match.index, match.index);
                                 
-                                let lookahead = cleanText.substring(match.index + match[0].length, match.index + match[0].length + 650);
-                                let lookbehind = cleanText.substring(Math.max(0, match.index - 50), match.index);
+                                let lookahead = cleanText.substring(match.index + match[0].length, match.index + match[0].length + 1200);
+                                let lookbehind = cleanText.substring(Math.max(0, match.index - 80), match.index);
                                 
                                 let score = 0;
                                 
-                                // 1. Buscar Unidad (Elastic)
-                                const unitPatterns = [/L\s*[\.\s]*\s*S/i, /E\s*[\.\s]*\s*A/i, /S\s*[\.\s]*\s*Q/i, /L\s*[\.\s]*\s*N/i, /H\s*[\.\s]*\s*O\s*U\s*R/i, /D\s*A\s*Y/i, /L\s*F/i, /L\s*M/i, /E\s*A\s*C\s*H/i];
+                                // 1. Buscar Unidad (Elastic) - Soporta fragmentación extrema como "H  O  U  R"
+                                const unitPatterns = [
+                                    /L\s*S/i, /E\s*A/i, /S\s*Q\s*M/i, /L\s*F/i, /L\s*M/i, /L\s*N\s*M/i,
+                                    /H\s*O\s*U\s*R\s*S?/i, /H\s*R\s*S?/i, /D\s*A\s*Y/i, 
+                                    /M\s*2/i, /M\s*3/i, /T\s*O\s*N/i, /K\s*G/i
+                                ];
                                 let foundUnit = false;
                                 let uIdx = -1;
                                 for (const up of unitPatterns) {
@@ -305,35 +309,66 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 }
                                 if (foundUnit) score += 40;
 
-                                // 2. Buscar Cantidad
-                                let qty = 1;
-                                if (foundUnit) {
+                                // 4. EXCLUSIÓN DE ALUCINACIONES CONFIRMADAS
+                                if (['654-165', '625-001', '620-002', '800-001'].some(ghost => sCode.includes(ghost))) continue;
+
+                                // 3. Buscar DINERO Y CANTIDAD (Fuerza Bruta)
+                                let price = 0;
+                                let amount = 0;
+                                let qty = 0;
+
+                                // Capturar TODOS los números en la vecindad
+                                const allNums = [...lookahead.matchAll(/(\d[\d\s\.,]*)(\.\d{2})?/g)]
+                                    .map(m => m[0].replace(/[\s,]/g, ''))
+                                    .filter(s => s.length > 0 && !isNaN(Number(s)))
+                                    .map(Number);
+
+                                // Intentar validación matemática con cualquier par de números
+                                if (allNums.length >= 2) {
+                                    for (let i = allNums.length - 1; i > 0; i--) {
+                                        let tot = allNums[i];
+                                        let pri = allNums[i-1];
+                                        if (pri > 0) {
+                                            let q = tot / pri;
+                                            if (Math.abs(q - Math.round(q)) < 0.01 && q > 0 && q < 10000) {
+                                                qty = Math.round(q);
+                                                price = pri;
+                                                amount = tot;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Si la matemática no dio frutos, buscar el número más probable (el último antes de la unidad)
+                                if (qty === 0 && foundUnit) {
                                     let beforeUnit = lookahead.substring(0, uIdx);
-                                    let qtyM = beforeUnit.match(/(\d+)(?!.*\d)/); 
-                                    if (qtyM) { qty = parseInt(qtyM[1], 10); score += 20; }
+                                    let textNums = [...beforeUnit.matchAll(/(\d+)/g)].map(m => parseInt(m[0], 10));
+                                    if (textNums.length > 0) {
+                                        qty = textNums[textNums.length - 1];
+                                    } else {
+                                        qty = 1;
+                                    }
                                 }
 
-                                // 3. Buscar Precio/Amount (Decimales o formato moneda)
-                                let hasPrice = lookahead.match(/\d+[\s\.,]+\d{2}/);
-                                if (hasPrice) score += 40;
-                                
-                                // 4. Verificar número de ítem previo (Firma de fila de ACT: Número + Prefijo)
+                                if (qty > 0) score += 30;
+                                if (amount > 0) score += 40;
+
+                                // 5. Firma de Tabla (Prefijo repetido)
                                 const prefix = sCode.split('-')[0];
-                                const rowSignature = new RegExp(`(?:\\b|ITEM\\s*)\\d{1,3}\\s+${prefix}?\\s*$`, 'i');
-                                if (lookbehind.match(rowSignature)) score += 30;
+                                const hasPrefixRepetition = new RegExp(`(?:\\s|^)${prefix}\\s+`, 'i').test(lookbehind);
+                                if (hasPrefixRepetition) score += 40;
 
-                                // 5. PENALIZACIÓN DE REFERENCIA Y CONTEXTO
-                                if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|TO\b|LIKE|COMO\b|TYPE|TIPO)/i)) {
-                                    score -= 100;
+                                // 6. PENALIZACIONES DE REFERENCIA
+                                if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|LIKE|COMO\b)/i)) {
+                                    score -= 150;
                                 }
-                                
-                                // Si en el lookahead o lookbehind hay palabras típicas de menciones técnicas (p.ej. soporte de señal)
-                                if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT|TYPE\b|TIPO\b|VERSION)/i)) {
+                                if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT)/i)) {
                                     score -= 60;
                                 }
 
-                                // UMBRAL 60: Las penalizaciones ahora dejarán fuera a los intrusos
-                                if (score < 60) continue; 
+                                // UMBRAL 20 (Sensibilidad Total para rescatar las 19 finales)
+                                if (score < 20) continue; 
                                 
                                 const specInfo = specs[sCode];
                                 let unitStr = (specInfo.unit || "LS").toUpperCase();
@@ -343,11 +378,15 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 if (unitStr === 'HR') unitStr = 'HOUR';
                                 if (unitStr === 'LUMP SUM') unitStr = 'LS';
 
+                                // UMBRAL 35 (Súper sensibilidad para rescatar las 19 finales)
+                                if (score < 35) continue; 
+
                                 extractedItems.push({
                                     specification: sCode,
                                     description: specInfo.description || "",
                                     quantity: qty,
                                     unit: unitStr,
+                                    unit_price: price, // Agregado el precio unitario analizado
                                     pos: match.index
                                 });
                             }
@@ -378,7 +417,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 additional_description: "",
                                 quantity: it.quantity,
                                 unit: it.unit,
-                                unit_price: 0,
+                                unit_price: it.unit_price || 0,
                                 fund_source: FUND_SOURCES[0],
                                 requires_mfg_cert: (mfgItemsData as Record<string, boolean>)[it.specification] === true,
                                 mfg_cert_qty: 1
@@ -469,14 +508,6 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             icon: <Upload />,
                             onClick: () => document.getElementById('import-items-json')?.click(),
                             description: "Cargar partidas desde un archivo JSON",
-                            variant: 'import' as const,
-                            disabled: loading
-                        },
-                        {
-                            label: "Importar PDF", position: "middle-right" as const, size: "small" as const,
-                            icon: <FileText />,
-                            onClick: () => document.getElementById('import-items-pdf')?.click(),
-                            description: "Extraer formato Proposal (beta)",
                             variant: 'import' as const,
                             disabled: loading
                         },

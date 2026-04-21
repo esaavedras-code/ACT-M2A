@@ -139,17 +139,17 @@ function ProjectDetailContent() {
     ];
 
     // Filtrar pestañas basadas en roles
-    const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "force2", "inspection", "logs", "presentations", "personnel"];
+    const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "inspection", "logs", "presentations", "personnel"];
     const filteredTabs = tabs.filter(t => {
         // Reglas para Inspector ('E') - Únicamente Actividades y Fotos (Explorer)
         if (role === 'E') {
-            return t.id === 'logs' || t.id === 'files';
+            return t.id === 'logs' || t.id === 'files' || t.id === 'force2';
         }
 
         // Reglas generales para No Administradores
         if (role !== 'A') {
             if (t.wip) return false;
-            if (t.id === 'force' || t.id === 'force2' || t.id === 'minutes' || t.id === 'logs' || t.id === 'inspection') return false;
+            if (t.id === 'force' || t.id === 'minutes' || t.id === 'logs' || t.id === 'inspection') return false;
         }
         // Reglas específicas adicionales para Contratista ('F')
         if (role === 'F' && hiddenForContratista.includes(t.id)) {

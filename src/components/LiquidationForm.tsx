@@ -66,6 +66,8 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     const [deletingFile, setDeletingFile] = useState<string | null>(null);
     // Expanded docs (show file list)
     const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
+    const [showMissingFilters, setShowMissingFilters] = useState(false);
+    const [missingFilters, setMissingFilters] = useState({ admin: true, contractor: true, liquidator: true });
 
     useEffect(() => {
         if (projectId) fetchLiquidation();
@@ -107,7 +109,8 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         if (!projectId) return;
         setIsGeneratingMissing(true);
         try {
-            await generateMissingSignaturesReportLogic(projectId);
+            await generateMissingSignaturesReportLogic(projectId, 'pdf', missingFilters);
+            setShowMissingFilters(false);
         } catch (err) {
             console.error("Error al generar reporte de firmas faltantes:", err);
             alert("Error al generar el reporte.");
@@ -313,7 +316,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                         Reporte de Firmas (BORRADOR)
                     </button>
                     <button
-                        onClick={handleGenerateMissingReport}
+                        onClick={() => setShowMissingFilters(true)}
                         disabled={isGeneratingMissing}
                         className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl border border-amber-200 font-bold text-sm transition-all disabled:opacity-50"
                         title="Reporte de partidas que tienen alguna firma pendiente"
@@ -634,6 +637,61 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             >
                                 Listo
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Modal Filtros Firmas Pendientes ── */}
+            {showMissingFilters && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Reporte de Firmas</h3>
+                                <button onClick={() => setShowMissingFilters(false)} className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-400">
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Selección de firmas pendientes</p>
+                        </div>
+
+                        <div className="p-6">
+                            <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 p-3 space-y-1 mb-6">
+                                {[
+                                    { id: 'admin', label: 'Administrador' },
+                                    { id: 'contractor', label: 'Contratista' },
+                                    { id: 'liquidator', label: 'Liquidador' }
+                                ].map((role) => (
+                                    <label key={role.id} className="flex items-center gap-3 p-2 hover:bg-white dark:hover:bg-slate-900 rounded-xl cursor-pointer transition-colors group/check">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                                            checked={(missingFilters as any)[role.id]}
+                                            onChange={(e) => setMissingFilters({...missingFilters, [role.id]: e.target.checked})}
+                                        />
+                                        <span className={`text-[11px] font-bold uppercase tracking-tight ${(missingFilters as any)[role.id] ? 'text-primary' : 'text-slate-600 dark:text-slate-400'}`}>
+                                            {role.label}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => setShowMissingFilters(false)}
+                                    className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black rounded-2xl hover:bg-slate-200 transition-all uppercase text-[10px] tracking-widest"
+                                >
+                                    Cerrar
+                                </button>
+                                <button 
+                                    onClick={handleGenerateMissingReport}
+                                    disabled={isGeneratingMissing || (!missingFilters.admin && !missingFilters.contractor && !missingFilters.liquidator)}
+                                    className="flex-[2] px-6 py-3 bg-primary text-white font-black rounded-2xl hover:shadow-lg hover:shadow-blue-500/20 transition-all uppercase text-[10px] tracking-widest disabled:opacity-50"
+                                >
+                                    {isGeneratingMissing ? "GENERANDO..." : "GENERAR PDF"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

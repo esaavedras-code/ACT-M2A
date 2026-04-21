@@ -1275,19 +1275,36 @@ function ReportesContent() {
                                 .finally(() => setLoading(false))
                         }}
                     />
-                    <StandardReportItem
+                    <SelectiveReportItem
                         isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
-                            id: 'firmas-pendientes',
+                            id: 'firmas-pendientes-selective',
                             label: 'Partidas con Firmas Pendientes',
                             description: 'Lista de ítems que aún no tienen todas las firmas requeridas (Admin, Contratista, Liquidador).',
                             icon: <BadgeAlert size={18} className="text-rose-500" />,
-                            action: () => generateMissingSignaturesReportLogic(projectId, reportFormat)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch((e: any) => setStatus(`Error: ${e.message}`))
-                                .finally(() => setLoading(false))
+                            selectLabel: "Elegir Firmas",
+                            items: [
+                                { id: 'admin', label: 'Administrador' },
+                                { id: 'contractor', label: 'Contratista' },
+                                { id: 'liquidator', label: 'Liquidador' }
+                            ],
+                            onGenerate: async (ids) => {
+                                try {
+                                    const filters = {
+                                        admin: ids.includes('admin'),
+                                        contractor: ids.includes('contractor'),
+                                        liquidator: ids.includes('liquidator')
+                                    };
+                                    await generateMissingSignaturesReportLogic(projectId, reportFormat, filters);
+                                    setStatus("Reporte generado.");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
                         }}
                     />
                     <StandardReportItem

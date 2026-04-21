@@ -170,11 +170,27 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const perItemMosBalance: Record<string, number> = {};
 
-        certs?.forEach((cert: any) => {
+        // Función auxiliar para obtener el precio de MOS (PU) de certificaciones previas
+        const getMosPU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
+            for (let i = currentCertIdx; i >= 0; i--) {
+                const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
+                const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && (parseFloat(itx.mos_unit_price) > 0));
+                if (match) return parseFloat(match.mos_unit_price);
+            }
+            return 0;
+        };
+
+        certs?.forEach((cert: any, cIdx: number) => {
             const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
             let certAmount = 0;
 
+            const certItemAdditions: Record<string, number> = {};
+            const certItemDeductions: Record<string, number> = {};
+
             certItems.forEach((item: any) => {
+                const itemNum = item.item_num;
+                if (!itemNum) return;
+
                 const qty = parseFloat(item.quantity) || 0;
                 const up = parseFloat(item.unit_price) || 0;
                 const amount = roundedAmt(qty * up, 2);
@@ -192,14 +208,33 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 }
                 certAmount = roundedAmt(certAmount + amount, 2);
 
-                if (!perItemMosBalance[item.item_num]) perItemMosBalance[item.item_num] = 0;
-                
+                // Lógica de MOS (Adiciones)
                 const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
-                if (mosInvoice > 0) perItemMosBalance[item.item_num] = roundedAmt(perItemMosBalance[item.item_num] + mosInvoice, 2);
-                
+                if (item.has_material_on_site && mosInvoice > 0) {
+                    // Evitar duplicar si el ítem está dividido por fuentes de fondos
+                    certItemAdditions[itemNum] = Math.max(certItemAdditions[itemNum] || 0, mosInvoice);
+                }
+
+                // Lógica de MOS (Deducciones)
                 const qtyFromMos = parseFloat(item.qty_from_mos) || 0;
-                const mosPU = parseFloat(item.mos_unit_price) || up;
-                if (qtyFromMos > 0) perItemMosBalance[item.item_num] = roundedAmt(perItemMosBalance[item.item_num] - roundedAmt(qtyFromMos * mosPU, 2), 2);
+                if (qtyFromMos > 0) {
+                    const mosPU = getMosPU(certs, itemNum, cIdx) || up;
+                    const deduction = roundedAmt(qtyFromMos * mosPU, 2);
+                    // Las deducciones se suman porque cada instancia de ítem dividido puede estar deduciendo una cantidad
+                    certItemDeductions[itemNum] = (certItemDeductions[itemNum] || 0) + deduction;
+                }
+            });
+
+            // Actualizar balances de MOS al final de cada certificación para este ítem
+            const allItemsInvolved = new Set([...Object.keys(certItemAdditions), ...Object.keys(certItemDeductions)]);
+            allItemsInvolved.forEach(itemNum => {
+                if (!perItemMosBalance[itemNum]) perItemMosBalance[itemNum] = 0;
+                const add = certItemAdditions[itemNum] || 0;
+                const ded = certItemDeductions[itemNum] || 0;
+                perItemMosBalance[itemNum] = roundedAmt(perItemMosBalance[itemNum] + add - ded, 2);
+                
+                // Mantener balance mínimo de 0 (como en MaterialsForm)
+                if (perItemMosBalance[itemNum] < 0) perItemMosBalance[itemNum] = 0;
             });
 
             if ((cert.cert_num || 0) > lastCertNum) {
@@ -229,8 +264,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const mosEntries = Object.entries(perItemMosBalance)
             .filter(([_, balance]) => balance > 0.01)
             .map(([item_num, balance]) => ({ item_num, balance }));
-        // mosTotal includes ALL items (positives and negatives) to match the MOS report total
-        const mosTotal = roundedAmt(Object.values(perItemMosBalance).reduce((acc, b) => roundedAmt(acc + b, 2), 0), 2);
+        const mosTotal = roundedAmt(mosEntries.reduce((acc, e) => roundedAmt(acc + e.balance, 2), 0), 2);
 
         const certified = roundedAmt(actTotal + fhwaTotal, 2);
         const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : null;
@@ -422,6 +456,69 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="card border-t-4 border-t-blue-600 md:col-span-2 lg:col-span-2">
+                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-3 uppercase text-xs tracking-wider">
+                        <DollarSign size={16} /> COSTOS
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                        <div className="space-y-1">
+                            <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
+                            <MetricRow label="Costo (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-slate-950 dark:text-white font-black" />
+                            <MetricRow label={`Últ. Certificación pagada (#${metrics.cost.lastCertNum})`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
+                            <MetricRow label="Total Certificado" value={formatCurrency(metrics.cost.certTotal)} color="text-blue-700 font-black" />
+                            <div className="pt-2">
+                                <button 
+                                    onClick={() => setShowMOSDetails(!showMOSDetails)}
+                                    className="w-full text-left group"
+                                >
+                                    <MetricRow label="Material en Sitio (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
+                                </button>
+                                {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
+                                    <div className="pl-3 mt-1 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800 animate-in slide-in-from-top-1 duration-200">
+                                        {metrics.cost.mosBalances.map((mb, i) => (
+                                            <div key={i} className="flex justify-between text-[10px] font-bold">
+                                                <span className="text-slate-500">Partida {mb.item_num}</span>
+                                                <span className="text-amber-600 italic">{formatCurrency(mb.balance)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
+                            <hr className="my-1 border-slate-200 dark:border-slate-800" />
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider pt-0.5">Presupuesto Proyectado</p>
+                            <MetricRow label="Prov. ACT" value={formatCurrency(metrics.cost.actProjected)} color="text-emerald-800 font-bold" />
+                            <MetricRow label="Prov. FHWA" value={formatCurrency(metrics.cost.fhwaProjected)} color="text-blue-800 font-bold" />
+                            <hr className="my-1 border-slate-200 dark:border-slate-800" />
+                            <MetricRow label="% de Obra Ejecutada" value={`${metrics.cost.percentObra.toFixed(2)}%`} />
+                            <div className="pt-1">
+                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
+                                    <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(metrics.cost.percentObra, 100)}%` }}></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="card border-t-4 border-t-violet-500">
+                    <div className="flex items-center gap-2 text-violet-700 font-bold mb-2 uppercase text-xs tracking-wider">
+                        <Layers size={16} /> RETENCIONES Y PENALIDADES
+                    </div>
+                    <div className="space-y-1">
+                        <MetricRow label="5% Retenido (Acum.)" value={formatCurrency(metrics.retention.fivePercent)} />
+                        <MetricRow label="Extra Retenido ($)" value={formatCurrency(metrics.retention.extra)} />
+                        <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(-metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment !== 0 ? "text-blue-700" : ""} />
+                        <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
+                        <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
+                        <MetricRow label="Reembolso" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
+                        <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
+                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
+                        <MetricRow label="Retenciones y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
+                    </div>
+                </div>
+
                 <div className="card border-t-4 border-t-blue-500">
                     <div className="flex items-center gap-2 text-blue-700 font-bold mb-2 uppercase text-xs tracking-wider">
                         <Clock size={16} /> TIEMPO
@@ -467,23 +564,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="% de Cambio (Costo)" value={`${metrics.chos.percentChange}%`} color="text-amber-800 font-bold" />
                         <MetricRow label="% de Cambio (Días)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" />
-                    </div>
-                </div>
-
-                <div className="card border-t-4 border-t-violet-500">
-                    <div className="flex items-center gap-2 text-violet-700 font-bold mb-2 uppercase text-xs tracking-wider">
-                        <Layers size={16} /> RETENCIONES Y PENALIDADES
-                    </div>
-                    <div className="space-y-1">
-                        <MetricRow label="5% Retenido (Acum.)" value={formatCurrency(metrics.retention.fivePercent)} />
-                        <MetricRow label="Extra Retenido ($)" value={formatCurrency(metrics.retention.extra)} />
-                        <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(-metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment !== 0 ? "text-blue-700" : ""} />
-                        <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Reembolso" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
-                        <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
-                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Retenciones y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
                     </div>
                 </div>
 
@@ -538,53 +618,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 ) : (
                                     <p className="text-[10px] text-slate-400 italic">No hay documentos marcados.</p>
                                 )}
-                            </div>
-                        </div>
-                        
-                    </div>
-                </div>
-
-                <div className="card border-t-4 border-t-blue-600 md:col-span-2 lg:col-span-2">
-                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-3 uppercase text-xs tracking-wider">
-                        <DollarSign size={16} /> COSTOS
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                        <div className="space-y-1">
-                            <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
-                            <MetricRow label="Costo (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-slate-950 dark:text-white font-black" />
-                            <MetricRow label={`Últ. Certificación pagada (#${metrics.cost.lastCertNum})`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
-                            <MetricRow label="Total Certificado" value={formatCurrency(metrics.cost.certTotal)} color="text-blue-700 font-black" />
-                            <div className="pt-2">
-                                <button 
-                                    onClick={() => setShowMOSDetails(!showMOSDetails)}
-                                    className="w-full flex justify-between items-center group"
-                                >
-                                    <MetricRow label="Material en Sitio&nbsp;&nbsp;&nbsp;(MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
-                                </button>
-                                {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
-                                    <div className="pl-3 mt-1 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800 animate-in slide-in-from-top-1 duration-200">
-                                        {metrics.cost.mosBalances.map((mb, i) => (
-                                            <div key={i} className="flex justify-between text-[10px] font-bold">
-                                                <span className="text-slate-500">Partida {mb.item_num}</span>
-                                                <span className="text-amber-600 italic">{formatCurrency(mb.balance)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
-                            <hr className="my-1 border-slate-200 dark:border-slate-800" />
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider pt-0.5">Presupuesto Proyectado</p>
-                            <MetricRow label="Prov. ACT" value={formatCurrency(metrics.cost.actProjected)} color="text-emerald-800 font-bold" />
-                            <MetricRow label="Prov. FHWA" value={formatCurrency(metrics.cost.fhwaProjected)} color="text-blue-800 font-bold" />
-                            <hr className="my-1 border-slate-200 dark:border-slate-800" />
-                            <MetricRow label="% de Obra Ejecutada" value={`${metrics.cost.percentObra.toFixed(2)}%`} />
-                            <div className="pt-1">
-                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
-                                    <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(metrics.cost.percentObra, 100)}%` }}></div>
-                                </div>
                             </div>
                         </div>
                     </div>

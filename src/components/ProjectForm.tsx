@@ -480,13 +480,17 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                         
                         let match;
                         while ((match = regex.exec(cleanTextForItems)) !== null) {
-                            let lookahead = cleanTextForItems.substring(match.index + match[0].length, match.index + match[0].length + 650);
-                            let lookbehind = cleanTextForItems.substring(Math.max(0, match.index - 50), match.index);
+                            let lookahead = cleanTextForItems.substring(match.index + match[0].length, match.index + match[0].length + 1200);
+                            let lookbehind = cleanTextForItems.substring(Math.max(0, match.index - 80), match.index);
                             
                             let score = 0;
 
-                            // 1. Unidades (Elastic)
-                            const unitPatterns = [/L\s*[\.\s]*\s*S/i, /E\s*[\.\s]*\s*A/i, /S\s*[\.\s]*\s*Q/i, /L\s*[\.\s]*\s*N/i, /H\s*[\.\s]*\s*O\s*U\s*R/i, /D\s*A\s*Y/i, /L\s*F/i, /L\s*M/i, /E\s*A\s*C\s*H/i];
+                            // 1. Unidades (Elastic) - Soporta fragmentación como "H  O  U  R"
+                            const unitPatterns = [
+                                /L\s*S/i, /E\s*A/i, /S\s*Q\s*M/i, /L\s*F/i, /L\s*M/i, /L\s*N\s*M/i,
+                                /H\s*O\s*U\s*R\s*S?/i, /H\s*R\s*S?/i, /D\s*A\s*Y/i, 
+                                /M\s*2/i, /M\s*3/i, /T\s*O\s*N/i, /K\s*G/i
+                            ];
                             let foundUnit = false;
                             let bIdx = -1;
                             for (const up of unitPatterns) {
@@ -495,36 +499,67 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             }
                             if (foundUnit) score += 40;
 
-                            // 2. Cantidad
-                            let qty = 1;
-                            if (foundUnit) {
-                                let beforeUnit = lookahead.substring(0, bIdx);
-                                let qtyM = beforeUnit.match(/(\d+)(?!.*\d)/); 
-                                if (qtyM) { qty = parseInt(qtyM[1], 10); score += 20; }
+                            // 3. Buscar DINERO Y CANTIDAD (Fuerza Bruta)
+                            let price = 0;
+                            let amount = 0;
+                            let qty = 0;
+
+                            const allNums = [...lookahead.matchAll(/(\d[\d\s\.,]*)(\.\d{2})?/g)]
+                                .map(m => m[0].replace(/[\s,]/g, ''))
+                                .filter(s => s.length > 0 && !isNaN(Number(s)))
+                                .map(Number);
+
+                            if (allNums.length >= 2) {
+                                for (let i = allNums.length - 1; i > 0; i--) {
+                                    let tot = allNums[i];
+                                    let pri = allNums[i-1];
+                                    if (pri > 0) {
+                                        let q = tot / pri;
+                                        if (Math.abs(q - Math.round(q)) < 0.01 && q > 0 && q < 10000) {
+                                            qty = Math.round(q);
+                                            price = pri;
+                                            amount = tot;
+                                            break;
+                                        }
+                                    }
+                                }
                             }
 
-                            // 3. Amount (Decimales)
-                            let hasPrice = lookahead.match(/\d+[\s\.,]+\d{2}/);
-                            if (hasPrice) score += 40;
+                            if (qty === 0 && foundUnit) {
+                                let beforeUnit = lookahead.substring(0, bIdx);
+                                let textNums = [...beforeUnit.matchAll(/(\d+)/g)].map(m => parseInt(m[0], 10));
+                                if (textNums.length > 0) {
+                                    qty = textNums[textNums.length - 1];
+                                } else {
+                                    qty = 1;
+                                }
+                            }
 
-                            // 4. Precedido por número de ítem (Firma de fila ACT)
+                            if (qty > 0) score += 30;
+                            if (amount > 0) score += 40;
+                            // 4. EXCLUSIÓN DE ALUCINACIONES CONFIRMADAS
+                            if (['654-165', '625-001', '620-002', '800-001'].some(ghost => sCode.includes(ghost))) continue;
+
+                            // 5. Firma de Tabla (Prefijo repetido)
                             const prefix = sCode.split('-')[0];
-                            const rowSig = new RegExp(`(?:\\b|ITEM\\s*)\\d{1,3}\\s+${prefix}?\\s*$`, 'i');
-                            if (lookbehind.match(rowSig)) score += 30;
+                            const repetition = new RegExp(`(?:\\s|^)${prefix}\\s+`, 'i').test(lookbehind);
+                            if (repetition) score += 40;
 
-                            // 5. PENALIZACIÓN DE REFERENCIA Y CONTEXTO
-                            if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|TO\b|LIKE|COMO\b|TYPE|TIPO)/i)) {
-                                score -= 100;
+                            // 5. Precedido por número de ítem
+                            if (lookbehind.match(/(?:\b|ITEM\s*)\d{1,3}\s*$/i)) score += 20;
+
+                            // 6. PENALIZACIÓN DE REFERENCIA Y CONTEXTO
+                            if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|LIKE|COMO\b)/i)) {
+                                score -= 150;
                             }
                             
-                            // Contexto técnico (p.ej. soportes para el intruso 654-165)
-                            if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT|TYPE\b|TIPO\b|VERSION)/i)) {
+                            // Contexto técnico (Soportes/Postes)
+                            if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT)/i)) {
                                 score -= 60;
                             }
 
-                            // UMBRAL de certeza
-                            if (score < 60) continue;
-
+                            // UMBRAL de certeza (20 - Sensibilidad Total)
+                            if (score < 20) continue;
                             const specInfo = specs[sCode];
                             let unitStr = (specInfo.unit || "LS").toUpperCase();
                             if (unitStr === 'EA') unitStr = 'EACH';
@@ -538,6 +573,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                 description: specInfo.description || "",
                                 quantity: qty,
                                 unit: unitStr,
+                                unit_price: price, // Agregado aquí
                                 pos: match.index
                             });
                         }
@@ -566,8 +602,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             additional_description: "",
                             quantity: it.quantity,
                             unit: it.unit,
-                            unit_price: 0, 
-                            fund_source: "ACT:100%",
+                            unit_price: it.unit_price || 0, // Usar el analizado
+                            fund_source: formData.pay_items_er_funds ? "FHWA:100%" : "ACT:100%", // Logic placeholder
                             requires_mfg_cert: (mfgItemsData as Record<string, boolean>)[it.specification] === true,
                             mfg_cert_qty: 1
                         }));
@@ -1098,11 +1134,6 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                     />
                                 </label>
                                 
-                                <label className={`bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 py-2.5 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer h-11 transition-all ${loading ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-[1.02] active:scale-[0.98]'}`} title="Autollenar datos extrayendo desde Orden de Comienzo o Contrato (PDFs)">
-                                    {loading ? <div className="w-4 h-4 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin" /> : <FileText size={18} />}
-                                    <span>Importar Datos (PDF)</span>
-                                    <input type="file" multiple accept="application/pdf" className="hidden" disabled={loading} onChange={handleImportLocalPDFs} />
-                                </label>
                             </div>
                         )}
 
