@@ -281,7 +281,54 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         }
 
         await supabase.from("payment_certifications").delete().eq("project_id", projectId);
-        const certsToInsert = certs.map(c => {
+
+        // CORRECCIÓN BUG MOS: Antes de guardar, calcular qty_from_mos automático
+        // para los ítems que lo tengan vacío pero tengan balance de MOS disponible.
+        // Esto garantiza que las deducciones se persistan correctamente en la BD.
+        const certsWithMOS = certs.map((c, certIdx) => {
+            const processedItems = (c.items || []).map((item: any) => {
+                // Si qty_from_mos ya tiene un valor explícito > 0, respetarlo
+                const existingQty = parseFloat(item.qty_from_mos);
+                if (!isNaN(existingQty) && existingQty > 0) return item;
+
+                // Calcular balance MOS acumulado hasta esta cert para este ítem
+                let cumulativeMOSInvoiced = 0;
+                let cumulativeMOSUsedBefore = 0;
+                certs.slice(0, certIdx + 1).forEach((cert2, cIndex) => {
+                    const certItems2 = Array.isArray(cert2.items) ? cert2.items : (cert2.items?.list || []);
+                    (certItems2 as any[]).forEach((it2: any) => {
+                        if (it2.item_num === item.item_num) {
+                            cumulativeMOSInvoiced += parseFloat(it2.has_material_on_site ? it2.mos_invoice_total : 0) || 0;
+                            if (cIndex < certIdx) {
+                                const pr = getInvoicePUFromList(certs, it2.item_num, cIndex);
+                                cumulativeMOSUsedBefore += (parseFloat(it2.qty_from_mos) || 0) * (pr > 0 ? pr : (parseFloat(it2.unit_price) || 0));
+                            }
+                        }
+                    });
+                });
+
+                const availableMOSBalance = cumulativeMOSInvoiced - cumulativeMOSUsedBefore;
+                if (availableMOSBalance <= 0) return item; // Sin balance disponible, no deducir
+
+                const mosPU = getInvoicePUFromList(certs, item.item_num, certIdx);
+                const currentPU = mosPU > 0 ? mosPU : (parseFloat(item.unit_price) || 0);
+                if (currentPU <= 0) return item;
+
+                const availableMOSQty = availableMOSBalance / currentPU;
+                const workQty = parseFloat(item.quantity) || 0;
+                if (workQty <= 0) return item;
+
+                // Deducir el mínimo entre la cantidad ejecutada y el balance disponible
+                const autoQty = Math.min(workQty, availableMOSQty);
+                if (autoQty > 0) {
+                    return { ...item, qty_from_mos: parseFloat(autoQty.toFixed(4)) };
+                }
+                return item;
+            });
+            return { ...c, items: processedItems };
+        });
+
+        const certsToInsert = certsWithMOS.map(c => {
             const { id, created_at, ...rest } = c;
             return {
                 ...rest,
@@ -501,6 +548,9 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         if (field === 'mos_invoice_total' || field === 'mos_quantity') {
             const total = parseFloat(newList[certIdx].items[itemIdx].mos_invoice_total) || 0;
             const qty = parseFloat(newList[certIdx].items[itemIdx].mos_quantity) || 0;
+            if (total > 0) {
+                newList[certIdx].items[itemIdx]['has_material_on_site'] = true;
+            }
             if (qty > 0) {
                 const rawPrice = (total / qty).toString();
                 let calcPrice = rawPrice;
@@ -1202,10 +1252,11 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                         autoQtyFromMOS = availableMOSQty;
                                                     }
 
-                                                    const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "") ? parseFloat(item.qty_from_mos) : autoQtyFromMOS;
+                                                    // Do NOT modify item.qty_from_mos during render. Use a fallback for calculation.
+                                                    const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "" && item.qty_from_mos !== 0) 
+                                                        ? parseFloat(item.qty_from_mos) 
+                                                        : (item.qty_from_mos === 0 ? 0 : autoQtyFromMOS);
                                                     
-                                                    item.qty_from_mos = finalQtyFromMOS;
-
                                                     const workAmount = workQty * (parseFloat(item.unit_price) || 0);
                                                     const autoDeductionAmount = finalQtyFromMOS * currentDeductionPU;
                                                     const itemPayout = workAmount - autoDeductionAmount;
@@ -1328,6 +1379,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                 {/* Checkbox MOS */}
                                                                 <td className="py-1 px-1 text-center">
                                                                     <label
+                                                                        htmlFor={`mos-check-${certIdx}-${itIdx}`}
                                                                         title="Material on Site"
                                                                         className={`inline-flex items-center justify-center w-5 h-5 rounded cursor-pointer border-2 transition-all ${item.has_material_on_site
                                                                             ? 'bg-amber-500 border-amber-500 text-white'
@@ -1336,6 +1388,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                         style={{ backgroundColor: item.has_material_on_site ? undefined : '#66FF99' }}
                                                                     >
                                                                         <input
+                                                                            id={`mos-check-${certIdx}-${itIdx}`}
                                                                             type="checkbox"
                                                                             className="sr-only"
                                                                             checked={!!item.has_material_on_site}
@@ -1357,6 +1410,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                 {/* Checkbox No Retención */}
                                                                 <td className="py-1 px-1 text-center">
                                                                     <label
+                                                                        htmlFor={`skip-ret-check-${certIdx}-${itIdx}`}
                                                                         title="No aplicar retenido a este item"
                                                                         className={`inline-flex items-center justify-center w-5 h-5 rounded cursor-pointer border-2 transition-all ${item.skip_retention
                                                                             ? 'bg-red-500 border-red-500 text-white'
@@ -1365,6 +1419,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                         style={{ backgroundColor: item.skip_retention ? undefined : '#66FF99' }}
                                                                     >
                                                                         <input
+                                                                            id={`skip-ret-check-${certIdx}-${itIdx}`}
                                                                             type="checkbox"
                                                                             className="sr-only"
                                                                             checked={!!item.skip_retention}

@@ -1,9 +1,15 @@
-
 "use client";
 
-import { useState, useEffect, Suspense, useRef } from "react";
+/* PACT-Administradores - Reportes */
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
+import { 
+    getLocalStorageItem, 
+    setLocalStorageItem, 
+    formatProjectNumber 
+} from "@/lib/utils";
 import {
     FileText, Download, AlertCircle, CheckCircle2,
     Package, ListChecks, ArrowLeft, Loader2,
@@ -11,8 +17,7 @@ import {
     ChevronDown, Search, FileCheck, BarChart, Calculator, 
     ShieldCheck as ShieldCheckIcon
 } from "lucide-react";
-import Link from "next/link";
-import { getLocalStorageItem, setLocalStorageItem, formatProjectNumber } from "@/lib/utils";
+
 import {
     generateBalanceReportLogic,
     generateDetailReportLogic,
@@ -51,6 +56,7 @@ import {
     generateFaResumenMensualLogic,
     generateFaInformeDiarioLogic,
     generateFaRelacionEquipoLogic,
+    generateMinuteReportLogic,
     formatDate
 } from "@/lib/reportLogic";
 import { generateAct117C } from "@/lib/generateAct117C";
@@ -152,7 +158,6 @@ function StandardReportItem({ option, loading, onAction, children, isLiquidation
                         {loading ? 'Generando...' : (
                             <span className="flex items-center gap-1">
                                 GENERAR REPORTE
-                                {isLiquidation && <span className="text-[11px] font-black uppercase opacity-90 ml-1.5 align-middle">(BORRADOR)</span>}
                             </span>
                         )}
                     </button>
@@ -190,7 +195,7 @@ function SelectiveReportItem({ option, loading, onAction, isLiquidation }: { opt
                     <div className="mt-4">
                         <div className="flex items-center justify-between mb-2">
                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                               {selectedIds.length > 0 ? `${selectedIds.length} seleccionados` : 'Selección requerida'}
+                               {selectedIds.length > 0 ? `${selectedIds.length} seleccionados` : 'Seleccion requerida'}
                            </span>
                            <button
                                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -246,11 +251,6 @@ function SelectiveReportItem({ option, loading, onAction, isLiquidation }: { opt
                         {loading ? 'Generando...' : (
                             <span className="flex items-center gap-1">
                                 {selectedIds.length > 0 ? 'GENERAR REPORTES' : 'GENERAR REPORTE'}
-                                {isLiquidation && (
-                                    <span className="text-[11px] font-black uppercase opacity-90 ml-1.5 align-middle">
-                                        (BORRADOR)
-                                    </span>
-                                )}
                             </span>
                         )}
                     </button>
@@ -260,7 +260,7 @@ function SelectiveReportItem({ option, loading, onAction, isLiquidation }: { opt
     );
 }
 
-// --- Página Principal ---
+// --- Pagina Principal ---
 
 function ReportesContent() {
     const searchParams = useSearchParams();
@@ -294,6 +294,8 @@ function ReportesContent() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [isContratista, setIsContratista] = useState(false);
     const [isElectron, setIsElectron] = useState(false);
+    const [selectedFaMonth, setSelectedFaMonth] = useState<string>(new Date().getMonth().toString());
+    const [selectedFaDate, setSelectedFaDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
     useEffect(() => {
         setIsElectron(!!(window as any).electronAPI);
@@ -383,7 +385,7 @@ function ReportesContent() {
                         <h2 className="text-6xl md:text-7xl font-black text-red-600 uppercase tracking-tighter leading-none mb-4">
                             ¡NO FALTA NINGUNO!
                         </h2>
-                        <p className="text-slate-500 dark:text-slate-400 font-bold text-xl">Todos los materiales certificados están al día.</p>
+                        <p className="text-slate-500 dark:text-slate-400 font-bold text-xl">Todos los materiales certificados estan al dia.</p>
                         <button 
                             onClick={() => setShowNoMissingMsg(false)}
                             className="mt-8 bg-red-600 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest hover:bg-red-700 transition-all active:scale-95"
@@ -476,7 +478,7 @@ function ReportesContent() {
                             HOY
                         </button>
                     </div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center mt-1">Si se deja vacío, se usa la fecha de hoy</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center mt-1">Si se deja vacio, se usa la fecha de hoy</p>
                 </div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Seleccione el formato preferido para sus reportes</p>
 
@@ -512,7 +514,7 @@ function ReportesContent() {
                                 }}
                                 className="text-[9px] font-black text-red-400 hover:text-red-500 uppercase tracking-widest mt-2 transition-colors"
                             >
-                                Desactivar guardado automático
+                                Desactivar guardado automatico
                             </button>
                         )}
                     </div>
@@ -521,8 +523,8 @@ function ReportesContent() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                {/* Información General */}
-                <DropdownGroup title="Información General" icon={<Info size={18} className="text-blue-500" />}>
+                {/* Informacion General */}
+                <DropdownGroup title="Informacion General" icon={<Info size={18} className="text-blue-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
@@ -533,7 +535,7 @@ function ReportesContent() {
                             icon: <Activity size={18} className="text-indigo-500" />,
                             action: () => {
                                 if (reportFormat === 'excel') {
-                                    alert("El reporte de información principal no está disponible en formato Excel por requerimiento.");
+                                    alert("El reporte de informacion principal no esta disponible en formato Excel por requerimiento.");
                                     setLoading(false);
                                     return;
                                 }
@@ -550,13 +552,13 @@ function ReportesContent() {
                 </DropdownGroup>
 
                 {/* Partidas */}
-                <DropdownGroup title="Gestión de Partidas" icon={<ListChecks size={18} className="text-emerald-500" />}>
+                <DropdownGroup title="Gestion de Partidas" icon={<ListChecks size={18} className="text-emerald-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'balance',
-                            label: 'Balances Actuales (BORRADOR)',
+                            label: 'Balances Actuales',
                             description: 'Cantidades originales vs ejecutadas.',
                             icon: <ListChecks size={18} className="text-emerald-500" />,
                             action: () => generateBalanceReportLogic(projectId, reportFormat, endDate)
@@ -573,7 +575,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'detail',
-                            label: 'Detalle de cada partida (BORRADOR)',
+                            label: 'Detalle de cada partida',
                             description: 'Historial completo por cada partida.',
                             icon: <Files size={18} className="text-teal-500" />,
                             action: () => generateDetailReportLogic(projectId, reportFormat, endDate)
@@ -594,8 +596,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'mfg',
-                            label: 'Listado de Certificados (BORRADOR)',
-                            description: 'Resumen de aprobaciones de fábrica.',
+                            label: 'Listado de Certificados',
+                            description: 'Resumen de aprobaciones de fabrica.',
                             icon: <Package size={18} className="text-orange-500" />,
                             action: () => generateMfgReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -638,8 +640,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'icc',
-                            label: 'Resumen de ICC (BORRADOR)',
-                            description: 'Vigencia de 60 días de certificaciones.',
+                            label: 'Resumen de ICC',
+                            description: 'Vigencia de 60 dias de certificaciones.',
                             icon: <ShieldCheckIcon size={18} className="text-blue-500" />,
                             action: () => generateIccReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -684,11 +686,11 @@ function ReportesContent() {
                                     const certId = (window as any).selectedMosCert;
                                     const itemNum = (window as any).selectedMosItem;
                                     if (!certId || !itemNum) {
-                                        alert("Por favor seleccione certificación y partida.");
+                                        alert("Por favor seleccione certificacion y partida.");
                                         throw new Error("Selection required");
                                     }
                                     if (reportFormat === 'excel') {
-                                        alert("El reporte ACT-117B no está disponible en formato Excel por requerimiento.");
+                                        alert("El reporte ACT-117B no esta disponible en formato Excel por requerimiento.");
                                         setLoading(false);
                                         return;
                                     }
@@ -708,7 +710,7 @@ function ReportesContent() {
                                 className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-primary transition-all"
                                 onChange={(e) => (window as any).selectedMosCert = e.target.value}
                             >
-                                <option value="">Certificación...</option>
+                                <option value="">Certificacion...</option>
                                 {certs.map(c => (
                                     <option key={c.id} value={c.id}>Cert #{c.cert_num}</option>
                                 ))}
@@ -735,7 +737,7 @@ function ReportesContent() {
                         option={{
                             id: 'act122-selective',
                             label: 'ACT-122 (Oficial)',
-                            description: 'Seleccione las órdenes de cambio para generar el formulario oficial ACT-122.',
+                            description: 'Seleccione las ordenes de cambio para generar el formulario oficial ACT-122.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
@@ -761,7 +763,7 @@ function ReportesContent() {
                         option={{
                             id: 'act123b-selective',
                             label: 'ACT-123B (Supplementary Form B)',
-                            description: 'Seleccione las órdenes de cambio para generar el formulario suplementario ACT-123B.',
+                            description: 'Seleccione las ordenes de cambio para generar el formulario suplementario ACT-123B.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
@@ -787,7 +789,7 @@ function ReportesContent() {
                         option={{
                             id: 'act124',
                             label: 'ACT-124 (Checklist)',
-                            description: 'Checklist para órdenes de cambio. Los campos son editables en el PDF.',
+                            description: 'Checklist para ordenes de cambio. Los campos son editables en el PDF.',
                             icon: <FileCheck size={18} className="text-purple-800" />,
                             action: async () => {
                                 try {
@@ -797,7 +799,7 @@ function ReportesContent() {
                                         throw new Error("Selection required");
                                     }
                                     if (reportFormat === 'excel') {
-                                        alert("El reporte ACT-124 no está disponible en formato Excel por requerimiento.");
+                                        alert("El reporte ACT-124 no esta disponible en formato Excel por requerimiento.");
                                         setLoading(false);
                                         return;
                                     }
@@ -842,7 +844,7 @@ function ReportesContent() {
                                         throw new Error("Selection required");
                                     }
                                     if (reportFormat === 'excel') {
-                                        alert("El reporte ROA no está disponible en formato Excel por requerimiento.");
+                                        alert("El reporte ROA no esta disponible en formato Excel por requerimiento.");
                                         setLoading(false);
                                         return;
                                     }
@@ -878,7 +880,7 @@ function ReportesContent() {
                         option={{
                             id: 'ccml',
                             label: 'CCML (Contract Mod. Log)',
-                            description: 'Contract Modification Log usando la plantilla oficial con fórmulas integradas. Genera un Excel listo para abrir.',
+                            description: 'Contract Modification Log usando la plantilla oficial con formulas integradas. Genera un Excel listo para abrir.',
                             icon: <Files size={18} className="text-green-600" />,
                             action: async () => {
                                 try {
@@ -895,7 +897,7 @@ function ReportesContent() {
                         }}
                     >
                         <div className="mt-2 text-left space-y-1">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">CHO específico (opcional)</p>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">CHO especifico (opcional)</p>
                             <select
                                 id="ccml-cho-select"
                                 className="w-full bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-green-500 transition-all"
@@ -915,24 +917,24 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'time-ext-chart',
-                            label: 'Gráfica de Extensión de Tiempo',
-                            description: 'Gráfica oficial de la línea de tiempo del proyecto y extensiones otorgadas.',
+                            label: 'Grafica de Extension de Tiempo',
+                            description: 'Grafica oficial de la linea de tiempo del proyecto y extensiones otorgadas.',
                             icon: <BarChart size={18} className="text-orange-500" />,
                             action: async () => {
                                 try {
                                     const choId = (window as any).selectedTimeExtCho;
                                     if (!choId) {
-                                        alert("Por favor seleccione una CHO para la Gráfica.");
+                                        alert("Por favor seleccione una CHO para la Grafica.");
                                         return;
                                     }
                                     if (reportFormat === 'excel') {
-                                        alert("La gráfica de extensión de tiempo no está disponible en formato Excel por requerimiento.");
+                                        alert("La grafica de extension de tiempo no esta disponible en formato Excel por requerimiento.");
                                         setLoading(false);
                                         return;
                                     }
                                     const { generateTimeExtensionChartLogic } = await import("@/lib/reportLogic");
                                     await generateTimeExtensionChartLogic(projectId || "", choId);
-                                    setStatus("Gráfica generada.");
+                                    setStatus("Grafica generada.");
                                 } catch (e: any) {
                                     setStatus(`Error: ${e.message}`);
                                 } finally {
@@ -947,7 +949,7 @@ function ReportesContent() {
                                 className="w-full bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-orange-500 transition-all"
                                 onChange={(e) => (window as any).selectedTimeExtCho = e.target.value}
                             >
-                                <option value="">Elegir CHO para Gráfica...</option>
+                                <option value="">Elegir CHO para Grafica...</option>
                                 {chos.map(c => (
                                     <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
                                 ))}
@@ -982,7 +984,7 @@ function ReportesContent() {
                                                     ['Item No.', 'Spec. Code', 'Description', 'Unit', 'Quantity', 'Unit Price', 'Amount'],
                                                     ...itemsList.map((it: any) => [it.item_num, it.specification, it.description, it.unit, it.quantity, it.unit_price, (it.quantity * it.unit_price)])
                                                 ];
-                                                await generateReport(`ACT-117C - Certificación de Pago #${cert.cert_num}`, excelData, projectInfo, [60, 80, 200, 60, 60, 80, 80], 'portrait', 'excel', `ACT-117C_Cert_${cert.cert_num}.pdf`);
+                                                await generateReport(`ACT-117C - Certificacion de Pago #${cert.cert_num}`, excelData, projectInfo, [60, 80, 200, 60, 60, 80, 80], 'portrait', 'excel', `ACT-117C_Cert_${cert.cert_num}.pdf`);
                                             } else {
                                                 const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
                                                 downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}.pdf`);
@@ -1003,8 +1005,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'cert-desglose-selective',
-                            label: 'Desglose Financiero de Certificación',
-                            description: 'Reporte detallado con todos los valores positivos y negativos de la certificación seleccionada.',
+                            label: 'Desglose Financiero de Certificacion',
+                            description: 'Reporte detallado con todos los valores positivos y negativos de la certificacion seleccionada.',
                             icon: <Calculator size={18} className="text-cyan-700" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
                             onGenerate: async (ids) => {
@@ -1021,17 +1023,17 @@ function ReportesContent() {
                     />
                 </DropdownGroup>
 
-                {/* 7. Liquidación */}
+                {/* 7. Liquidacion */}
                 {!isContratista && (
-                <DropdownGroup title="Liquidación" icon={<FileCheck size={18} className="text-rose-600" />}>
+                <DropdownGroup title="Liquidacion" icon={<FileCheck size={18} className="text-rose-600" />}>
                     <StandardReportItem
                         isLiquidation={true}
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'acceptance-checklist',
-                            label: 'Final Acceptance Checklist (Liquidación)',
-                            description: 'Formulario oficial de cotejo para aceptación final (Federal-Aid projects).',
+                            label: 'Final Acceptance Checklist (Liquidacion)',
+                            description: 'Formulario oficial de cotejo para aceptacion final (Federal-Aid projects).',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             action: () => generateFinalAcceptanceChecklistReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1045,8 +1047,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'liquidacion-items',
-                            label: 'Hojas de Liquidación por Partida',
-                            description: 'Una hoja por partida con CHOs, certificaciones y balance. Estructura basada en la forma oficial de liquidación.',
+                            label: 'Hojas de Liquidacion por Partida',
+                            description: 'Una hoja por partida con CHOs, certificaciones y balance. Estructura basada en la forma oficial de liquidacion.',
                             icon: <FileCheck size={18} className="text-rose-600" />,
                             action: () => generateLiquidacionItemsReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1061,7 +1063,7 @@ function ReportesContent() {
                         option={{
                             id: 'cho-final',
                             label: 'CHO Final',
-                            description: 'Forma ACT-122 marcada como FINAL. Requiere que todas las hojas de liquidación estén firmadas.',
+                            description: 'Forma ACT-122 marcada como FINAL. Requiere que todas las hojas de liquidacion esten firmadas.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             action: async () => {
                                 try {
@@ -1074,13 +1076,13 @@ function ReportesContent() {
                                         return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
                                     });
                                     if (!allSigned) {
-                                        alert("Faltan firmas en las hojas de liquidación. No se puede generar el reporte CHO Final.");
+                                        alert("Faltan firmas en las hojas de liquidacion. No se puede generar el reporte CHO Final.");
                                         setLoading(false);
                                         return;
                                     }
                                     const { data: lastCho } = await supabase.from('chos').select('id').eq('project_id', projectId).order('cho_num', { ascending: false }).limit(1);
                                     if (!lastCho || lastCho.length === 0) {
-                                        alert("No se encontró ningún Change Order.");
+                                        alert("No se encontro ningun Change Order.");
                                         setLoading(false);
                                         return;
                                     }
@@ -1100,8 +1102,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'cert-final',
-                            label: 'Certificación Final',
-                            description: 'Forma ACT-117C marcada como FINAL. Requiere que todas las hojas de liquidación estén firmadas.',
+                            label: 'Certificacion Final',
+                            description: 'Forma ACT-117C marcada como FINAL. Requiere que todas las hojas de liquidacion esten firmadas.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             action: async () => {
                                 try {
@@ -1114,7 +1116,7 @@ function ReportesContent() {
                                         return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
                                     });
                                     if (!allSigned) {
-                                        alert("Faltan firmas en las hojas de liquidación. No se puede generar la Certificación Final.");
+                                        alert("Faltan firmas en las hojas de liquidacion. No se puede generar la Certificacion Final.");
                                         setLoading(false);
                                         return;
                                     }
@@ -1135,7 +1137,7 @@ function ReportesContent() {
                         option={{
                             id: 'acceptance-official',
                             label: 'Final Acceptance Report (Oficial)',
-                            description: 'Formulario oficial de aceptación final (FHWA). Réplica exacta del formato impreso.',
+                            description: 'Formulario oficial de aceptacion final (FHWA). Replica exacta del formato impreso.',
                             icon: <FileCheck size={18} className="text-indigo-600" />,
                             action: () => generateFinalAcceptanceReportOfficialLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1150,7 +1152,7 @@ function ReportesContent() {
                         option={{
                             id: 'payroll-certification',
                             label: 'Payroll Certification',
-                            description: 'Certificación oficial de cumplimiento con leyes laborales federales y estatales.',
+                            description: 'Certificacion oficial de cumplimiento con leyes laborales federales y estatales.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             action: () => generatePayrollCertificationReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1165,10 +1167,10 @@ function ReportesContent() {
                         option={{
                             id: 'material-certification',
                             label: 'Material Certification (sin firmas)',
-                            description: 'Certificación oficial de materiales, muestreo y pruebas de aceptación.',
+                            description: 'Certificacion oficial de materiales, muestreo y pruebas de aceptacion.',
                             icon: <FileCheck size={18} className="text-orange-600" />,
                             action: () => {
-                                setReminderMsg("Este documento de certificación de materiales es para solicitar las firmas correspondientes del administrador y de la Oficina de Materiales");
+                                setReminderMsg("Este documento de certificacion de materiales es para solicitar las firmas correspondientes del administrador y de la Oficina de Materiales");
                                 return generateMaterialCertificationReportLogic(projectId, reportFormat)
                                     .then(() => setStatus("Reporte generado."))
                                     .catch(e => {
@@ -1186,10 +1188,10 @@ function ReportesContent() {
                         option={{
                             id: 'dbe-certification',
                             label: 'Certification of DBE Participation',
-                            description: 'Certificación oficial de participación y esfuerzos de buena fe de empresas DBE.',
+                            description: 'Certificacion oficial de participacion y esfuerzos de buena fe de empresas DBE.',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             action: () => {
-                                setReminderMsg("Junto con este reporte, se debe adjuntar la certificación DBA del contratista.");
+                                setReminderMsg("Junto con este reporte, se debe adjuntar la certificacion DBA del contratista.");
                                 return generateDbeCertificationReportLogic(projectId, reportFormat)
                                     .then(() => setStatus("Reporte generado."))
                                     .catch(e => {
@@ -1207,7 +1209,7 @@ function ReportesContent() {
                         option={{
                             id: 'final-construction-report',
                             label: 'Final Construction Report',
-                            description: 'Informe final de construcción con resumen de partidas ejecutadas y pagos mensuales.',
+                            description: 'Informe final de construccion con resumen de partidas ejecutadas y pagos mensuales.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             action: () => generateFinalConstructionReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1237,7 +1239,7 @@ function ReportesContent() {
                         option={{
                             id: 'contract-final-report',
                             label: 'Contract Final Report',
-                            description: 'Informe final de contrato con resumen de fechas, órdenes de cambio y costos finales.',
+                            description: 'Informe final de contrato con resumen de fechas, ordenes de cambio y costos finales.',
                             icon: <FileCheck size={18} className="text-indigo-600" />,
                             action: () => generateContractFinalReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1252,7 +1254,7 @@ function ReportesContent() {
                         option={{
                             id: 'time-analysis',
                             label: 'Time Analysis (AC-457b)',
-                            description: 'Evaluación de overruns, días autorizados y cálculo de daños líquidos.',
+                            description: 'Evaluacion de overruns, dias autorizados y calculo de danos liquidos.',
                             icon: <FileCheck size={18} className="text-amber-600" />,
                             action: () => generateTimeAnalysisReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1267,7 +1269,7 @@ function ReportesContent() {
                         option={{
                             id: 'firmas-partidas',
                             label: 'Reporte de Firmas por Partidas',
-                            description: 'Informe con el estado de las firmas (Admin, Contratista, Liquidador) para cada partida en liquidación.',
+                            description: 'Informe con el estado de las firmas (Admin, Contratista, Liquidador) para cada partida en liquidacion.',
                             icon: <FileCheck size={18} className="text-pink-600" />,
                             action: () => generateSignedItemsReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1282,7 +1284,7 @@ function ReportesContent() {
                         option={{
                             id: 'firmas-pendientes-selective',
                             label: 'Partidas con Firmas Pendientes',
-                            description: 'Lista de ítems que aún no tienen todas las firmas requeridas (Admin, Contratista, Liquidador).',
+                            description: 'Lista de items que aun no tienen todas las firmas requeridas (Admin, Contratista, Liquidador).',
                             icon: <BadgeAlert size={18} className="text-rose-500" />,
                             selectLabel: "Elegir Firmas",
                             items: [
@@ -1314,7 +1316,7 @@ function ReportesContent() {
                         option={{
                             id: 'environmental-review',
                             label: 'Environmental Review Certification',
-                            description: 'Certificación de cumplimiento con las revisiones ambientales y compromisos de construcción.',
+                            description: 'Certificacion de cumplimiento con las revisiones ambientales y compromisos de construccion.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             action: () => generateEnvironmentalReviewReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1327,75 +1329,105 @@ function ReportesContent() {
 
                 {/* 8. Force Account */}
                 {!isContratista && (
-                <DropdownGroup title="Force Account" icon={<Calculator size={18} className="text-pink-500" />}>
+                 <DropdownGroup title="Force Account" icon={<Calculator size={18} className="text-pink-500" />}>
+                      <StandardReportItem
+                         onAction={handleAction}
+                         loading={loading}
+                         option={{
+                             id: 'fa-anual',
+                             label: 'AC-51 Resumen del Trabajo del FA',
+                             description: 'Basado en el formato oficial Resumen Anual de FA.',
+                             icon: <FileText size={18} className="text-pink-500" />,
+                             action: () => generateFaResumenAnualLogic(projectId, reportFormat)
+                                 .then(() => setStatus("Reporte generado."))
+                                 .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                 .finally(() => setLoading(false))
+                         }}
+                     />
                      <StandardReportItem
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
-                            id: 'fa-anual',
-                            label: 'Resumen Anual de FA',
-                            description: 'Basado en el formato oficial Resumen Anual de FA.',
-                            icon: <FileText size={18} className="text-pink-500" />,
-                            action: () => generateFaResumenAnualLogic(projectId, reportFormat)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false))
-                        }}
-                    />
-                    <StandardReportItem
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
-                            id: 'fa-mensual',
-                            label: 'Resumen Mensual de FA',
-                            description: 'Basado en el formato oficial Resumen Mensual de FA.',
-                            icon: <FileText size={18} className="text-pink-500" />,
-                            action: () => generateFaResumenMensualLogic(projectId, reportFormat)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false))
-                        }}
-                    />
-                    <StandardReportItem
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
-                            id: 'fa-diario',
-                            label: 'Informe Diario de FA',
-                            description: 'Basado en el formato oficial Informe Diario de FA.',
-                            icon: <FileText size={18} className="text-pink-500" />,
-                            action: () => generateFaInformeDiarioLogic(projectId, reportFormat)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false))
-                        }}
-                    />
+                         onAction={handleAction}
+                         loading={loading}
+                         option={{
+                             id: 'fa-equipo',
+                             label: 'AC-50 Relación de equipo del FA',
+                             description: 'Basado en el formato oficial Relacion de equipo de FA.',
+                             icon: <FileText size={18} className="text-pink-500" />,
+                             action: () => generateFaRelacionEquipoLogic(projectId, reportFormat, selectedFaMonth)
+                                 .then(() => setStatus("Reporte generado."))
+                                 .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                 .finally(() => setLoading(false))
+                         }}
+                     >
+                        <div className="mt-2">
+                            <select
+                                value={selectedFaMonth}
+                                onChange={(e) => setSelectedFaMonth(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-primary transition-all"
+                            >
+                                <option value="0">Enero</option>
+                                <option value="1">Febrero</option>
+                                <option value="2">Marzo</option>
+                                <option value="3">Abril</option>
+                                <option value="4">Mayo</option>
+                                <option value="5">Junio</option>
+                                <option value="6">Julio</option>
+                                <option value="7">Agosto</option>
+                                <option value="8">Septiembre</option>
+                                <option value="9">Octubre</option>
+                                <option value="10">Noviembre</option>
+                                <option value="11">Diciembre</option>
+                            </select>
+                        </div>
+                     </StandardReportItem>
                      <StandardReportItem
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
-                            id: 'fa-equipo',
-                            label: 'Relación de Equipo de FA',
-                            description: 'Basado en el formato oficial Relación de equipo de FA.',
-                            icon: <FileText size={18} className="text-pink-500" />,
-                            action: () => generateFaRelacionEquipoLogic(projectId, reportFormat)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false))
-                        }}
-                    />
-                </DropdownGroup>
+                         onAction={handleAction}
+                         loading={loading}
+                         option={{
+                             id: 'fa-diario',
+                             label: 'AC-49 Diario de trabajos por FA',
+                             description: 'Basado en el formato oficial Informe Diario de FA.',
+                             icon: <FileText size={18} className="text-pink-500" />,
+                             action: () => generateFaInformeDiarioLogic(projectId, reportFormat, selectedFaDate)
+                                 .then(() => setStatus("Reporte generado."))
+                                 .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                 .finally(() => setLoading(false))
+                         }}
+                     >
+                        <div className="mt-2">
+                            <input 
+                                type="date"
+                                value={selectedFaDate}
+                                onChange={(e) => setSelectedFaDate(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-primary transition-all"
+                            />
+                        </div>
+                     </StandardReportItem>
+                     <StandardReportItem
+                         onAction={handleAction}
+                         loading={loading}
+                         option={{
+                             id: 'fa-mensual-old',
+                             label: 'Resumen Mensual de FA (Anterior)',
+                             description: 'Versión previa del resumen mensual.',
+                             icon: <FileText size={18} className="text-pink-500" />,
+                             action: () => generateFaResumenMensualLogic(projectId, reportFormat)
+                                 .then(() => setStatus("Reporte generado."))
+                                 .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                 .finally(() => setLoading(false))
+                         }}
+                     />
+                 </DropdownGroup>
                 )}
 
-                {/* 9. Distribución de Fondos */}
-                <DropdownGroup title="Distribución de Fondos" icon={<Activity size={18} className="text-green-600" />}>
+                {/* 9. Distribucion de Fondos */}
+                <DropdownGroup title="Distribucion de Fondos" icon={<Activity size={18} className="text-green-600" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'fund-source-projected',
                             label: 'Presupuesto Proyectado — ACT vs FHWA',
-                            description: 'Distribución de todo el presupuesto del contrato original más las Órdenes de Cambio, aunque no se hayan pagado.',
+                            description: 'Distribucion de todo el presupuesto del contrato original mas las ordenes de Cambio, aunque no se hayan pagado.',
                             icon: <Package size={18} className="text-blue-600" />,
                             action: () => generateProjectedFundDistributionReportLogic(projectId, reportFormat)
                                 .then(() => setStatus("Reporte generado."))
@@ -1411,8 +1443,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fund-source-real',
-                            label: 'Distribución Real — ACT vs FHWA (Pagos)',
-                            description: 'Distribución basada únicamente en las partidas certificadas y pagadas hasta la fecha de corte.',
+                            label: 'Distribucion Real — ACT vs FHWA (Pagos)',
+                            description: 'Distribucion basada unicamente en las partidas certificadas y pagadas hasta la fecha de corte.',
                             icon: <Activity size={18} className="text-green-600" />,
                             action: () => generateFundSourceReportLogic(projectId, reportFormat, endDate)
                                 .then(() => setStatus("Reporte generado."))
@@ -1425,27 +1457,22 @@ function ReportesContent() {
                     />
                 </DropdownGroup>
 
-                {/* 9. Minutas de Reunión */}
-                <DropdownGroup title="Minutas de Reunión" icon={<Files size={18} className="text-amber-600" />}>
+                {/* 9. Minutas de Reunion */}
+                <DropdownGroup title="Minutas de Reunion" icon={<Files size={18} className="text-amber-600" />}>
                     <SelectiveReportItem
                         onAction={handleAction}
                         loading={loading}
                         option={{
                             id: 'minutes-selective',
-                            label: 'Minutas de Reunión',
-                            description: 'Seleccione la fecha de la reunión para generar la minuta oficial.',
+                            label: 'Minutas de Reunion',
+                            description: 'Seleccione la fecha de la reunion para generar la minuta oficial.',
                             icon: <FileText size={18} className="text-amber-700" />,
                             selectLabel: "Elegir Fecha",
-                            items: minutes.map(m => ({ id: m.id, label: `${m.meeting_number || 'Reunión'} (${formatDate(m.meeting_date)})` })),
+                            items: minutes.map(m => ({ id: m.id, label: `${m.meeting_number || 'Reunion'} (${formatDate(m.meeting_date)})` })),
                             onGenerate: async (ids) => {
                                 try {
-                                    const ReportLogic = await import("@/lib/reportLogic");
-                                    if (ReportLogic && ReportLogic.generateMinuteReportLogic) {
-                                        await ReportLogic.generateMinuteReportLogic(projectId, ids[0], reportFormat);
-                                        setStatus("Minuta generada.");
-                                    } else {
-                                        throw new Error("La función generateMinuteReportLogic no se encontró en el módulo.");
-                                    }
+                                    await generateMinuteReportLogic(projectId, ids[0], reportFormat);
+                                    setStatus("Minuta generada.");
                                 } catch (e: any) {
                                     setStatus(`Error: ${e.message}`);
                                 } finally {
@@ -1492,11 +1519,11 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act96-selective',
-                            label: 'ACT-96 Informe de Inspección',
+                            label: 'ACT-96 Informe de Inspeccion',
                             description: 'Seleccione la fecha del reporte para generar el ACT-96 en formato PDF o Excel.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             selectLabel: "Elegir Fecha",
-                            items: dailyLogs.map(m => ({ id: m.id, label: `Inspección del ${formatDate(m.log_date)}` })),
+                            items: dailyLogs.map(m => ({ id: m.id, label: `Inspeccion del ${formatDate(m.log_date)}` })),
                             onGenerate: async (ids) => {
                                 try {
                                     if (reportFormat === 'excel') {

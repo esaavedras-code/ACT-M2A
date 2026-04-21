@@ -216,8 +216,26 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 }
 
                 // Lógica de MOS (Deducciones)
-                const qtyFromMos = parseFloat(item.qty_from_mos) || 0;
-                if (qtyFromMos > 0) {
+                let qtyFromMos = parseFloat(item.qty_from_mos);
+                
+                // Si no hay un valor explícito en qty_from_mos, intentar calcular deducción automática
+                // Esto sincroniza el dashboard con la lógica visual de PaymentCertForm
+                if (isNaN(qtyFromMos) || item.qty_from_mos === null || item.qty_from_mos === "" || item.qty_from_mos === 0) {
+                    const currentBalDollars = perItemMosBalance[itemNum] || 0;
+                    if (currentBalDollars > 0) {
+                        const workQty = parseFloat(item.quantity) || 0;
+                        if (workQty > 0) {
+                            // Convertir balance en dólares a cantidad usando PU del MOS
+                            const mosPUForAuto = getMosPU(certs, itemNum, cIdx) || up;
+                            if (mosPUForAuto > 0) {
+                                const availableQty = currentBalDollars / mosPUForAuto;
+                                qtyFromMos = Math.min(workQty, availableQty);
+                            }
+                        }
+                    }
+                }
+
+                if (qtyFromMos && qtyFromMos !== 0) {
                     const mosPU = getMosPU(certs, itemNum, cIdx) || up;
                     const deduction = roundedAmt(qtyFromMos * mosPU, 2);
                     // Las deducciones se suman porque cada instancia de ítem dividido puede estar deduciendo una cantidad
@@ -483,14 +501,15 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                         ))}
                                     </div>
                                 )}
+                                <div className="pt-2">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider pt-0.5">Presupuesto Proyectado</p>
+                                    <MetricRow label="Prov. ACT" value={formatCurrency(metrics.cost.actProjected)} color="text-emerald-800 font-bold" />
+                                    <MetricRow label="Prov. FHWA" value={formatCurrency(metrics.cost.fhwaProjected)} color="text-blue-800 font-bold" />
+                                </div>
                             </div>
                         </div>
                         <div className="space-y-1">
-                            <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
-                            <hr className="my-1 border-slate-200 dark:border-slate-800" />
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider pt-0.5">Presupuesto Proyectado</p>
-                            <MetricRow label="Prov. ACT" value={formatCurrency(metrics.cost.actProjected)} color="text-emerald-800 font-bold" />
-                            <MetricRow label="Prov. FHWA" value={formatCurrency(metrics.cost.fhwaProjected)} color="text-blue-800 font-bold" />
+                            <MetricRow label="Balance Actual (WP)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
                             <hr className="my-1 border-slate-200 dark:border-slate-800" />
                             <MetricRow label="% de Obra Ejecutada" value={`${metrics.cost.percentObra.toFixed(2)}%`} />
                             <div className="pt-1">
