@@ -23,11 +23,13 @@ import {
     Settings2,
     Image,
     ZoomIn,
-    X
+    X,
+    Info
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import FloatingFormActions from '@/components/FloatingFormActions';
+import AboutModal from './AboutModal';
 
 const FUND_SOURCES = ['Federal', 'Estatal', 'Combinado'];
 
@@ -64,6 +66,7 @@ const PaymentCertForm = React.forwardRef(({
     const [expandedCert, setExpandedCert] = useState<number | null>(null);
     const [generating, setGenerating] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
+    const [isAboutOpen, setIsAboutOpen] = useState(false);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
     useEffect(() => {
@@ -202,6 +205,8 @@ const PaymentCertForm = React.forwardRef(({
     const addCert = () => {
         const nextNum = certs.length > 0 ? Math.max(...certs.map(c => c.cert_num)) + 1 : 1;
         const newCert = {
+            id: crypto.randomUUID(),
+            project_id: projectId,
             cert_num: nextNum,
             cert_date: new Date().toISOString().split('T')[0],
             wp_up_to: new Date().toISOString().split('T')[0],
@@ -354,15 +359,51 @@ const PaymentCertForm = React.forwardRef(({
         if (!projectId) return;
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('projects')
-                .update({ payment_certs: certs })
-                .eq('id', projectId);
+            // 1. Obtener IDs existentes para saber cuáles borrar después
+            const { data: existingRecords, error: fetchError } = await supabase
+                .from('payment_certifications')
+                .select('id')
+                .eq('project_id', projectId);
+            
+            if (fetchError) throw fetchError;
+            const existingIds = existingRecords?.map(r => r.id) || [];
 
-            if (error) throw error;
+            // 2. Preparar los datos para upsert
+            const updates = certs.map(c => {
+                const { created_at, ...rest } = c;
+                return {
+                    ...rest,
+                    project_id: projectId
+                };
+            });
+
+            // 3. Identificar IDs a borrar (los que están en DB pero no en el estado actual)
+            const currentIds = updates.filter(u => u.id).map(u => u.id);
+            const idsToDelete = existingIds.filter(id => !currentIds.includes(id));
+
+            if (idsToDelete.length > 0) {
+                const { error: delError } = await supabase
+                    .from('payment_certifications')
+                    .delete()
+                    .in('id', idsToDelete);
+                if (delError) throw delError;
+            }
+
+            // 4. Realizar el upsert de los registros actuales
+            if (updates.length > 0) {
+                const { error: updateError } = await supabase
+                    .from('payment_certifications')
+                    .upsert(updates, { onConflict: 'id' });
+                if (updateError) throw updateError;
+            }
+
             if (!silent) alert('Certificaciones guardadas correctamente');
             if (onSave) onSave();
             if (onSaved) onSaved();
+            
+            // Recargar datos para asegurar que todo esté sincronizado
+            await loadData();
+            
         } catch (error: any) {
             console.error('Error saving certs:', error);
             if (!silent) alert('Error al guardar: ' + error.message);
@@ -540,6 +581,13 @@ const PaymentCertForm = React.forwardRef(({
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIsAboutOpen(true)}
+                        className="p-2 text-slate-400 hover:text-primary transition-colors"
+                        title="Acerca de este programa"
+                    >
+                        <Info size={20} />
+                    </button>
                     <div className="p-2 bg-primary/10 rounded-xl text-primary">
                         <FileText size={20} />
                     </div>
@@ -1073,6 +1121,8 @@ const PaymentCertForm = React.forwardRef(({
                     </div>
                 </div>
             )}
+
+            <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
         </div>
     );
 });
