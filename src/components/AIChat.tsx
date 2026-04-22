@@ -109,8 +109,8 @@ function AIChatContent() {
                 body: { 
                     prompt: userMsg,
                     context: projectId 
-                        ? `Estás conversando sobre el proyecto "${projectInfo?.name || 'Desconocido'}" (Número ACT: ${projectInfo?.num_act || 'Sin número'}). IMPORTANTE: Siempre usa un formato visualmente atractivo con negrillas (**texto**) para resaltar puntos clave, usa viñetas si es necesario y separa frases con puntuación clara. NUNCA uses IDs técnicos (UUIDs) en tus respuestas, usa el nombre o número ACT del proyecto.` 
-                        : 'General. IMPORTANTE: Usa un formato atractivo con negrillas (**texto**) y puntuación clara.'
+                        ? `Estás conversando sobre el proyecto "${projectInfo?.name || 'Desconocido'}" (Número ACT: ${projectInfo?.num_act || 'Sin número'}). REGLA CRÍTICA: Limítate estrictamente a contestar solo lo que se te pregunta de forma directa. No inventes información, no amplíes la respuesta con detalles no solicitados y no des consejos adicionales a menos que se te pida. Usa un formato limpio con negrillas (**texto**) para datos clave. NUNCA uses IDs técnicos (UUIDs).` 
+                        : 'General. REGLA CRÍTICA: Contesta solo lo solicitado de forma directa y concisa. No inventes datos ni amplíes la respuesta innecesariamente. Usa negrillas (**texto**) para resaltar puntos clave.'
                 }
             });
 
