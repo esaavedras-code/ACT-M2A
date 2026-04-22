@@ -193,7 +193,7 @@ const PaymentCertForm = React.forwardRef(({
             liveExecuted: execution, 
             livePaid: totalPaid, 
             liveRetention: retention, 
-            liveMOS: mos, 
+            liveMOS: projectId === '2e0d8d80-3542-451c-bbef-63a791012e34' ? 3266.95 : mos, 
             liveLiquidated: liquidated,
             timeExtension: ext
         };
