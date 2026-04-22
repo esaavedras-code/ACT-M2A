@@ -809,10 +809,10 @@ const PaymentCertForm = React.forwardRef(({
                                         <table suppressHydrationWarning className="w-full text-left border-collapse table-fixed">
                                             <thead className="text-[8px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                                 <tr>
-                                                    <th className="py-1 px-0.5 w-[45px] text-center"># Item</th>
-                                                    <th className="py-1 px-0.5 w-[65px]">Espec.</th>
+                                                    <th className="py-1 px-0.5 w-[65px] text-center"># Item</th>
+                                                    <th className="py-1 px-0.5 w-[115px] text-center">Espec.</th>
                                                     <th className="py-1 px-0.5">Descripción</th>
-                                                    <th className="py-1 px-0.5 w-[35px] text-center">Unidad</th>
+                                                    <th className="py-1 px-0.5 w-[45px] text-center">Unidad</th>
                                                     <th className="py-1 px-0.5 w-[85px] text-right">Cant. WP</th>
                                                     <th className="py-1 px-0.5 w-[95px] text-right">P. Unitario</th>
                                                     <th className="py-1 px-0.5 w-[105px] text-right">Total WP</th>
@@ -870,7 +870,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
-                                                                        className="input-field text-center text-xs font-black p-0 h-6 border-transparent group-hover/row:border-slate-200"
+                                                                        className="input-field text-center text-xs font-black p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.item_num}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'item_num', e.target.value)}
@@ -880,7 +880,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
-                                                                        className="input-field text-xs font-mono p-0 h-6 border-transparent group-hover/row:border-slate-200"
+                                                                        className="input-field text-center text-xs font-mono p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.specification}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'specification', e.target.value)}
