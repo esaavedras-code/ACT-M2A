@@ -816,6 +816,8 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
         }
 
         const itemChos = filteredChos.filter(c => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === itemNum));
+        itemChos.forEach(c => {
+            const i = (c.items as any[]).find(it => it.item_num === itemNum);
             if (i) {
                 const choQty = parseFloat(i.proposed_change !== undefined ? i.proposed_change : i.quantity) || 0;
                 currentBalance += choQty;

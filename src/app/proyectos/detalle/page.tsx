@@ -421,7 +421,7 @@ function ProjectDetailContent() {
 
                 {/* Área de Contenido Principal */}
                 <div className="flex-1 w-full min-w-0 md:ml-[220px] lg:ml-[240px]">
-                    <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-2 md:p-6 lg:p-8 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
+                    <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-1 md:p-2 lg:p-3 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
                         <div className="relative z-10">
                             {getReportNote(activeTab) && (

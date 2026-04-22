@@ -496,7 +496,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <Layers size={16} /> RETENCIONES Y PENALIDADES
                     </div>
                     <div className="space-y-1">
-                        <MetricRow label="5% Retenido (Acum.)" value={formatCurrency(metrics.retention.fivePercent)} />
+                        <MetricRow label="Balance Retenido" value={formatCurrency(metrics.retention.fivePercent)} color="text-violet-700 font-bold" />
                         <MetricRow label="Extra Retenido ($)" value={formatCurrency(metrics.retention.extra)} />
                         <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(-metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment !== 0 ? "text-blue-700" : ""} />
                         <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />

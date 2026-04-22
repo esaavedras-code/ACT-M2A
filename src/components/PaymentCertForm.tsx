@@ -883,11 +883,12 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     bgColor="bg-violet-50 dark:bg-violet-950/20"
                 />
                 <SummaryItem
-                    label="Material en Sitio (MOS)"
+                    label="Balance Total MOS"
                     value={liveMOS}
                     icon={<Package size={16} />}
                     color="text-amber-600"
                     bgColor="bg-amber-50 dark:bg-amber-950/20"
+                    description="Balance total pendiente de deducir"
                 />
                 <SummaryItem
                     label="Daños Líquidos"
@@ -1275,7 +1276,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                         </h4>
                                         <div className="flex items-center gap-6">
                                             <div className="flex flex-col items-end">
-                                                <span className="text-[9px] uppercase font-bold text-slate-400 leading-none">Balance MOS a esta Certificación</span>
+                                                <span className="text-[9px] uppercase font-bold text-slate-400 leading-none">Balance MOS Acumulado</span>
                                                 <span className="text-xs font-black text-amber-600">
                                                     {formatCurrency(getCertMOSBalance(certIdx))}
                                                 </span>
@@ -1292,22 +1293,22 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                     </div>
                                     <div className="overflow-x-auto scrollbar-none">
                                         <table suppressHydrationWarning className="w-full text-left border-collapse table-fixed">
-                                            <thead className="text-[9px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                                            <thead className="text-[8px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                                 <tr>
-                                                    <th className="py-2 px-0.5 w-[55px] text-center"># Item</th>
-                                                    <th className="py-2 px-0.5 w-[80px]">Espec.</th>
-                                                    <th className="py-2 px-0.5 w-[160px]">Descripción</th>
-                                                    <th className="py-2 px-0.5 w-[45px] text-center">Unit</th>
-                                                    <th className="py-2 px-0.5 w-[75px] text-right">Qty WP</th>
-                                                    <th className="py-2 px-0.5 w-[75px] text-center text-blue-600">Bal. Qty</th>
-                                                    <th className="py-2 px-0.5 w-[75px] text-right text-[#8B4513]">Deduc. MOS</th>
-                                                    <th className="py-2 px-0.5 w-[90px] text-right">Price</th>
-                                                    <th className="py-2 px-0.5 w-[110px] text-right">Amount</th>
-                                                    <th className="py-2 px-0.5 w-[90px]">Fondos</th>
-                                                    <th className="py-2 px-0.5 w-[35px] text-center">MOS</th>
-                                                    <th className="py-2 px-0.5 w-[95px] text-right">MOS Bal.</th>
-                                                    <th className="py-2 px-0.5 w-[35px] text-center">NR</th>
-                                                    <th className="py-2 px-0.5 w-[40px]"></th>
+                                                    <th className="py-1 px-0.5 w-[45px] text-center"># Item</th>
+                                                    <th className="py-1 px-0.5 w-[65px]">Espec.</th>
+                                                    <th className="py-1 px-0.5">Descripción</th>
+                                                    <th className="py-1 px-0.5 w-[35px] text-center">Unit</th>
+                                                    <th className="py-1 px-0.5 w-[65px] text-right">Qty WP</th>
+                                                    <th className="py-1 px-0.5 w-[60px] text-center text-blue-600">Bal. Qty</th>
+                                                    <th className="py-1 px-0.5 w-[65px] text-right text-[#8B4513]">Ded. MOS</th>
+                                                    <th className="py-1 px-0.5 w-[80px] text-right">Price</th>
+                                                    <th className="py-1 px-0.5 w-[90px] text-right">Amount</th>
+                                                    <th className="py-1 px-0.5 w-[70px]">Fondos</th>
+                                                    <th className="py-1 px-0.5 w-[25px] text-center">MOS</th>
+                                                    <th className="py-1 px-0.5 w-[80px] text-right">MOS Bal.</th>
+                                                    <th className="py-1 px-0.5 w-[25px] text-center">NR</th>
+                                                    <th className="py-1 px-0.5 w-[35px]"></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -1358,7 +1359,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                     // AUTO-SUGGESTION: If field is empty or 0, and we have balance, show the auto-calc
                                                     const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "" && parseFloat(item.qty_from_mos) !== 0) 
                                                         ? parseFloat(item.qty_from_mos) 
-                                                        : (workQty > 0 ? Math.min(workQty, availableMOSQty) : 0);
+                                                        : (cumulativeMOSInvoicedAmount > 0 && workQty > 0 ? Math.min(workQty, availableMOSQty) : 0);
                                                     
                                                     const workAmount = workQty * (parseFloat(item.unit_price) || 0);
                                                     const autoDeductionAmount = finalQtyFromMOS * currentDeductionPU;
@@ -1391,12 +1392,11 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
                                                     return (
                                                         <React.Fragment key={itIdx}>
-                                                            <tr key={`item-${itIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30">
-                                                                <td className="py-1 px-1">
+                                                                           <td className="py-1 px-1">
                                                                     <input
                                                                         type="text"
                                                                         maxLength={20}
-                                                                        className="input-field text-xs text-center p-1 h-7"
+                                                                        className="input-field text-xs text-center p-1 h-6"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.item_num || ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'item_num', e.target.value)}
@@ -1409,18 +1409,18 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                     />
                                                                 </td>
                                                                 <td className="py-1 px-1">
-                                                                    <input type="text" className="input-field text-xs p-1 h-7 font-bold" value={item.specification || ""} onChange={(e) => updateCertItem(certIdx, itIdx, 'specification', e.target.value)} />
+                                                                    <input type="text" className="input-field text-xs p-1 h-6 font-bold" value={item.specification || ""} onChange={(e) => updateCertItem(certIdx, itIdx, 'specification', e.target.value)} />
                                                                 </td>
                                                                 <td className="py-1 px-1">
-                                                                    <input type="text" className="input-field text-[10px] p-1 h-7" value={item.description || ""} title={item.description} onChange={(e) => updateCertItem(certIdx, itIdx, 'description', e.target.value)} />
+                                                                    <input type="text" className="input-field text-[9px] p-1 h-6" value={item.description || ""} title={item.description} onChange={(e) => updateCertItem(certIdx, itIdx, 'description', e.target.value)} />
                                                                 </td>
                                                                 <td className="py-1 px-1 w-20">
-                                                                    <input type="text" className="input-field text-xs p-1 h-7 text-center" value={item.unit || ""} onChange={(e) => updateCertItem(certIdx, itIdx, 'unit', e.target.value)} />
+                                                                    <input type="text" className="input-field text-xs p-1 h-6 text-center" value={item.unit || ""} onChange={(e) => updateCertItem(certIdx, itIdx, 'unit', e.target.value)} />
                                                                 </td>
                                                                 <td className="py-1 px-1">
                                                                     <input
                                                                         type="text"
-                                                                        className={`input-field text-xs text-right p-1 h-7 font-bold ${isExceeded || isMfgExceeded ? 'bg-red-50 border-red-500 text-red-600' : 'text-emerald-600'}`}
+                                                                        className={`input-field text-xs text-right p-1 h-6 font-bold ${isExceeded || isMfgExceeded ? 'bg-red-50 border-red-500 text-red-600' : 'text-emerald-600'}`}
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.quantity ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'quantity', e.target.value)}
@@ -1442,9 +1442,10 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                 <td className="py-1 px-1">
                                                                     <input
                                                                         type="text"
-                                                                        className="input-field text-xs text-right p-1 h-7 bg-white border-slate-200 text-[#8B4513] font-bold"
-                                                                        title="Deducción de Material on Site (Sugestión automática aplicada si está vacío)"
-                                                                        value={item.qty_from_mos ?? ""}
+                                                                        className="input-field text-xs text-right p-1 h-6 bg-white border-slate-200 text-[#8B4513] font-bold"
+                                                                        title={cumulativeMOSInvoicedAmount <= 0 ? "Este item no tiene adición en Material on Site" : "Deducción de Material on Site (Sugestión automática aplicada si está vacío)"}
+                                                                        disabled={cumulativeMOSInvoicedAmount <= 0}
+                                                                        value={cumulativeMOSInvoicedAmount <= 0 ? "" : (item.qty_from_mos ?? "")}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'qty_from_mos', e.target.value)}
                                                                     />
                                                                 </td>
@@ -1452,7 +1453,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                     <input
                                                                         type="number"
                                                                         step="0.0001"
-                                                                        className="input-field text-xs text-right p-1 h-7 font-geist"
+                                                                        className="input-field text-xs text-right p-1 h-6 font-geist"
                                                                         value={isNaN(parseFloat(item.unit_price)) ? "" : (item.unit_price ?? "")}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
                                                                     />
@@ -1643,7 +1644,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                                 <Plus size={14} /> Añadir Item Manual
                                                             </button>
                                                             <div className="flex items-center gap-2 pr-24">
-                                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Balance MOS Certificación:</span>
+                                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Balance MOS Acumulado:</span>
                                                                 <span className="text-sm font-black text-amber-600 font-geist">{formatCurrency(getCertMOSBalance(certIdx))}</span>
                                                             </div>
                                                         </div>
