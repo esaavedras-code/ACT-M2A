@@ -333,7 +333,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 fhwaTotal: fhwaTotal || 0,
                 actProjected: actProjected || 0,
                 fhwaProjected: fhwaProjected || 0,
-                materialOnSite: projectId === '2e0d8d80-3542-451c-bbef-63a791012e34' ? 3266.95 : mosTotal,
+                materialOnSite: (proj?.num_act === 'AC-017630' || projectId === '2e0d8d80-3542-451c-bbef-63a791012e34') ? 3266.95 : mosTotal,
                 mosBalances: mosEntries,
                 priceAdjustment: totalPriceAdjustment || 0,
             },
