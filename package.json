@@ -1,6 +1,6 @@
 {
     "name": "pact-administradores",
-    "version": "3.26.0419",
+    "version": "3.26.0422",
     "private": true,
     "main": "electron/main.js",
     "scripts": {
@@ -30,7 +30,6 @@
         "next": "15.2.6",
         "nodemailer": "^8.0.2",
         "pdf-lib": "^1.17.1",
-        "pdf-parse": "^2.4.5",
         "pdf2json": "^4.0.2",
         "pdfjs-dist": "^5.6.205",
         "pptxgenjs": "^4.0.1",

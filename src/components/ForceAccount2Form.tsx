@@ -1594,7 +1594,7 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
                           </div>
                           <div className="space-y-2">
                              <h3 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">M2A System — PACT</h3>
-                             <p className="text-blue-600 font-bold uppercase tracking-[0.3em] text-xs">Versión 3.26.0419</p>
+                             <p className="text-blue-600 font-bold uppercase tracking-[0.3em] text-xs">Versión 3.26.0421</p>
                           </div>
                           
                           <div className="py-10 border-y border-slate-50 dark:border-slate-800 max-w-md mx-auto">

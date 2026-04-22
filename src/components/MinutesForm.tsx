@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { 
@@ -24,7 +24,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
     const timerRef = useRef<any>(null);
 
     // Config
-    const [language, setLanguage] = useState("Español");
+    const [language, setLanguage] = useState("Espanol");
     const [config, setConfig] = useState({
         diarization: true,
         timestamps: true,
@@ -58,7 +58,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
         if (!file) return;
         const validFormats = ["audio/mpeg", "audio/wav", "audio/m4a", "audio/x-m4a", "audio/mp3", "audio/webm"];
         if (!validFormats.includes(file.type) && !file.name.endsWith(".m4a")) {
-            alert("Formato no válido. Use MP3, WAV o M4A.");
+            alert("Formato no valido. Use MP3, WAV o M4A.");
             return;
         }
         setSelectedFile(file);
@@ -85,7 +85,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                 const uploadedUrl = urlData.publicUrl;
                 await supabase.from("project_documents").insert({
                     project_id: projectId,
-                    doc_type: "Minuta (Audio / Grabación)",
+                    doc_type: "Minuta (Audio / Grabacion)",
                     section: "minutes",
                     file_name: file.name,
                     storage_path: fileName
@@ -125,7 +125,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
             timerRef.current = setInterval(() => setRecordTime(t => t + 1), 1000);
         } catch (err) {
             console.error("Error al grabar:", err);
-            alert("No se pudo acceder al micrófono.");
+            alert("No se pudo acceder al microfono.");
         }
     };
 
@@ -191,7 +191,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                 // Also register in project_documents so it shows up in the explorer
                 await supabase.from("project_documents").insert({
                     project_id: projectId,
-                    doc_type: "Minuta (Audio / Grabación)",
+                    doc_type: "Minuta (Audio / Grabacion)",
                     section: "minutes",
                     file_name: selectedFile.name,
                     storage_path: fileName
@@ -204,8 +204,8 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
             setTimeout(async () => {
                 setUploadProgress(100);
                 const mockResult = {
-                    summary: `### RESUMEN EJECUTIVO\n- **Proyecto:** ${projectName || 'Proyecto ACT'}\n- **Estado:** ${numAct || 'ACT-XXXXXX'}\n- **Avance:** 45% aproximado\n- **Hitos:** Revisión de drenajes y pavimentación completada.`,
-                    minutes: `### 1. Actas anteriores: Aprobadas.\n### 2. Construction permit: El permiso está vigente hasta el 2026.\n### 3. Owner Controlled Insurance Program (OCIP) Claims: No hay reclamos pendientes.\n### 4. Construction Progress Tracking: Según el Earned Value, el proyecto está en un 45%.\n### 5. Main Critical Activities: Vaciado de asfalto en el km 5.\n### 11. Administration (AD): Pendiente aprobación de CHO #3.\n### 13. Substantial Completion: Proyectada para julio 2026.`,
+                    summary: `### RESUMEN EJECUTIVO\n- **Proyecto:** ${projectName || 'Proyecto ACT'}\n- **Estado:** ${numAct || 'ACT-XXXXXX'}\n- **Avance:** 45% aproximado\n- **Hitos:** Revision de drenajes y pavimentacion completada.`,
+                    minutes: `### 1. Actas anteriores: Aprobadas.\n### 2. Construction permit: El permiso esta vigente hasta el 2026.\n### 3. Owner Controlled Insurance Program (OCIP) Claims: No hay reclamos pendientes.\n### 4. Construction Progress Tracking: Segun el Earned Value, el proyecto esta en un 45%.\n### 5. Main Critical Activities: Vaciado de asfalto en el km 5.\n### 11. Administration (AD): Pendiente aprobacion de CHO #3.\n### 13. Substantial Completion: Proyectada para julio 2026.`,
                     json: JSON.stringify({ sections: 13, status: "complete" }, null, 2),
                     audio_url: uploadedUrl
                 };
@@ -250,7 +250,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Mic className="text-primary" />
-                    Minutas de Reunión
+                    Minutas de Reunion
                 </h2>
                 {/* Las acciones principales ahora son flotantes */}
             </div>
@@ -308,7 +308,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                                     <div className="w-16 h-16 bg-red-50 dark:bg-red-900/10 rounded-2xl flex items-center justify-center text-red-400 group-hover:text-red-600 transition-all mb-4">
                                         <Mic size={32} />
                                     </div>
-                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Grabar reunión</h3>
+                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Grabar reunion</h3>
                                 </button>
                             </div>
                         ) : (
@@ -360,7 +360,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                         <div className="card p-6 space-y-6">
                             <div className="flex items-center gap-2 text-primary">
                                 <Settings size={20} />
-                                <h3 className="font-bold uppercase text-xs tracking-widest">Configuración</h3>
+                                <h3 className="font-bold uppercase text-xs tracking-widest">Configuracion</h3>
                             </div>
 
                             <div className="space-y-4">
@@ -373,7 +373,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                                             value={language}
                                             onChange={e => setLanguage(e.target.value)}
                                         >
-                                            <option>Español</option>
+                                            <option>Espanol</option>
                                             <option>English</option>
                                         </select>
                                     </div>
@@ -388,10 +388,10 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
 
                         {/* Meeting Metadata */}
                         <div className="card p-6 space-y-4">
-                            <h3 className="font-bold uppercase text-[10px] tracking-widest text-slate-400">Detalles de la Reunión</h3>
+                            <h3 className="font-bold uppercase text-[10px] tracking-widest text-slate-400">Detalles de la Reunion</h3>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[9px] font-black text-slate-400 uppercase">Reunión #</label>
+                                    <label className="text-[9px] font-black text-slate-400 uppercase">Reunion #</label>
                                     <input type="text" className="input-field text-xs py-1.5" placeholder="Ej: 15" value={result?.meeting_num || ""} onChange={e => setResult(r => r ? {...r, meeting_num: e.target.value} : null)} />
                                 </div>
                                 <div>
@@ -405,7 +405,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                             </div>
                             <div>
                                 <label className="text-[9px] font-black text-slate-400 uppercase">Lista de Asistentes</label>
-                                <textarea className="input-field text-xs py-1.5 min-h-[80px]" placeholder="Ej: Ing. Juan Pérez, Arq. María..." value={result?.attendees || ""} onChange={e => setResult(r => r ? {...r, attendees: e.target.value} : null)} />
+                                <textarea className="input-field text-xs py-1.5 min-h-[80px]" placeholder="Ej: Ing. Juan Perez, Arq. Maria..." value={result?.attendees || ""} onChange={e => setResult(r => r ? {...r, attendees: e.target.value} : null)} />
                             </div>
                         </div>
                     </div>
@@ -445,7 +445,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                         <div className="lg:col-span-2 card p-10 border-t-4 border-t-emerald-500">
                             <div className="flex justify-between items-start mb-8">
                                 <div className="space-y-1">
-                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white">Minuta de Reunión</h3>
+                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white">Minuta de Reunion</h3>
                                     <p className="text-sm text-slate-500 font-medium">Documento generado por IA</p>
                                 </div>
                                 <button onClick={() => handleCopy(result.minutes)} className="p-2 hover:bg-emerald-50 text-slate-400 hover:text-emerald-500 rounded-full transition-colors"><Copy size={20} /></button>

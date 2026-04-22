@@ -6,6 +6,7 @@ import { Save, Factory, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
+import { parsePdfClient } from "@/lib/pdfClientParser";
 
 const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
     <button 
@@ -235,45 +236,27 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
 
     const handleFileUpload = async () => {
         const win = window as any;
-        if (!win.electronAPI || !win.electronAPI.selectPdfFiles) {
-            // WEB VERSION
+        let files: any[] = [];
+
+        if (win.electronAPI?.selectPdfFiles) {
+            // Versión Electron (Devuelve rutas o blobs dependiendo de la implementación)
+            const result = await win.electronAPI.selectPdfFiles();
+            if (result) files = result;
+        } else {
+            // Versión Web
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'application/pdf';
             input.multiple = true;
-            input.onchange = async (ev: any) => {
-                const files = Array.from((ev.target as HTMLInputElement).files || []);
-                if (files.length === 0) return;
-                setParsing(true);
-                const newCerts = [...certs];
-                if (newCerts.length === 1 && !newCerts[0].item_id && !newCerts[0].id) newCerts.pop();
-
-                let count = 0;
-                for (const file of files) {
-                    try {
-                        const formData = new FormData();
-                        formData.append("file", file);
-                        const res = await fetch("/api/parse-pdf", { method: "POST", body: formData });
-                        const data = await res.json();
-                        if (data.success && data.text) {
-                            const extracted = extractData(data.text);
-                            newCerts.push({ ...extracted, project_id: projectId });
-                            count++;
-                        }
-                    } catch (err) { console.error("Web parse err:", err); }
-                }
-                setCerts(newCerts);
-                setParsing(false);
-                if (onDirty) onDirty();
-                if (count > 0) alert(`Se procesaron ${count} documentos.`);
-            };
-            input.click();
-            return;
+            
+            files = await new Promise<any[]>((resolve) => {
+                input.onchange = (ev: any) => resolve(Array.from(ev.target.files || []));
+                input.click();
+            });
         }
 
-        // ELECTRON VERSION
-        const files = await win.electronAPI.selectPdfFiles();
-        if (!files || files.length === 0) return;
+        if (files.length === 0) return;
+
         setParsing(true);
         const newCerts = [...certs];
         if (newCerts.length === 1 && !newCerts[0].item_id && !newCerts[0].id) newCerts.pop();
@@ -281,14 +264,35 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         let count = 0;
         for (const file of files) {
             try {
-                const res = await win.electronAPI.parsePdf(file);
-                if (res.success && res.text) {
-                    const extracted = extractData(res.text);
-                    newCerts.push({ ...extracted, project_id: projectId });
-                    count++;
+                let base64 = "";
+                if (typeof file === 'string') {
+                    // Si es una ruta (Electron antiguo), necesitamos leerla. 
+                    // Pero asumamos que Electron ahora también puede pasar el objeto File o el contenido.
+                    // Para mayor seguridad, usamos FileReader si es un Blob/File.
+                    if (win.electronAPI?.readFileAsBase64) {
+                        base64 = await win.electronAPI.readFileAsBase64(file);
+                    }
+                } else {
+                    base64 = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(e.target?.result as string);
+                        reader.readAsDataURL(file);
+                    });
                 }
-            } catch (err) { console.error("Electron parse err:", err); }
+
+                if (base64) {
+                    const data = await parsePdfClient(base64);
+                    if (data.success && data.text) {
+                        const extracted = extractData(data.text);
+                        newCerts.push({ ...extracted, project_id: projectId });
+                        count++;
+                    }
+                }
+            } catch (err) { 
+                console.error("Parse err:", err); 
+            }
         }
+        
         setCerts(newCerts);
         setParsing(false);
         if (onDirty) onDirty();

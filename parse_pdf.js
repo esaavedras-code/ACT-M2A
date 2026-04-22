@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const dotenv = require('dotenv');
-const pdfParse = require('pdf-parse');
+
 
 dotenv.config({ path: '.env.local' });
 
@@ -16,9 +16,19 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.
         fs.writeFileSync('agreement.pdf', buffer);
         console.log('Downloaded. Parsing PDF...');
         
-        const pdfData = await pdfParse(buffer);
+        const PDFParser = require('pdf2json');
+        const pdfParser = new PDFParser(null, 1);
+
+        const text = await new Promise((resolve, reject) => {
+            pdfParser.on('pdfParser_dataError', errData => reject(errData.parserError));
+            pdfParser.on('pdfParser_dataReady', () => {
+                resolve(pdfParser.getRawTextContent());
+            });
+            pdfParser.parseBuffer(buffer);
+        });
+
         console.log('--- PDF CONTENT ---');
-        console.log(pdfData.text);
+        console.log(text);
     } catch (e) {
         console.error('Error:', e);
     }

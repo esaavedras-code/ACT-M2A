@@ -816,12 +816,11 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
         }
 
         const itemChos = filteredChos.filter(c => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === itemNum));
-        itemChos.forEach(c => {
-            const i = (Array.isArray(c.items) ? c.items : []).find((it: any) => it.item_num === itemNum);
             if (i) {
                 const choQty = parseFloat(i.proposed_change !== undefined ? i.proposed_change : i.quantity) || 0;
                 currentBalance += choQty;
-                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''} ${c.doc_status || ''} (${formatDate(c.cho_date)})`, choQty.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2)), currentBalance.toFixed(4), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
+                const statusStr = c.doc_status === "Borrador" ? "" : ` ${c.doc_status}`;
+                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''}${statusStr} (${formatDate(c.cho_date)})`, choQty.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2)), currentBalance.toFixed(4), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
             }
         });
 
@@ -1243,7 +1242,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
         ['2. RESUMEN DE COSTOS ($)', '', '', ''],
         ['Costo Original:', formatCurrency(originalCost), 'Total CHOs (Aprob.):', formatCurrency(approvedCHO)],
         ['Presupuesto Ajustado:', formatCurrency(adjustedCost), 'Total Certificado:', formatCurrency(totalCertified)],
-        ['Balance Actual:', formatCurrency(budgetBalance), '% de Obra Ejecutada:', `${percentObra.toFixed(2)}%`],
+        ['Balance Actual (WP):', formatCurrency(budgetBalance), '% de Obra Ejecutada:', `${percentObra.toFixed(2)}%`],
         ['Material en Sitio (MOS):', formatCurrency(Math.max(0, mosBalance)), 'Fondo ACT:', formatCurrency(actTotal)],
         ['Fondo FHWA:', formatCurrency(fhwaTotal), '', ''],
         ['', '', '', ''],
@@ -1749,26 +1748,27 @@ export const generateTimeExtensionChartLogic = async (projectId: string, choId: 
 };
 
 export const generateFaResumenAnualLogic = async (projectId: string, format: string) => { 
-    alert('Relación Anual (FA) generando...');
+    const { generateFaResumenAnual } = await import("./generateFaReports");
+    const blob = await generateFaResumenAnual(projectId);
+    downloadBlob(blob, `AC51_Resumen_Anual_FA_${projectId}.pdf`);
 }; 
 
 export const generateFaResumenMensualLogic = async (projectId: string, format: string) => { 
-    alert('Resumen Mensual (FA) generando...');
+    const { generateFaResumenMensual } = await import("./generateFaReports");
+    const blob = await generateFaResumenMensual(projectId);
+    downloadBlob(blob, `Resumen_Mensual_FA_${projectId}.pdf`);
 }; 
 
-export const generateFaInformeDiarioLogic = async(projectId: string, format: string) => { 
-    const { data: fa } = await supabase.from('force_accounts').select('id, fa_num').eq('project_id', projectId).order('created_at', { ascending: false }).limit(1).single();
-    if (!fa) { alert("No se encontraron registros de Force Account."); return; }
-    
+export const generateFaInformeDiarioLogic = async(projectId: string, format: string, date: string) => { 
     const { generateFaInformeDiario } = await import("./generateFaReports");
-    const blob = await generateFaInformeDiario(projectId, fa.id);
-    downloadBlob(blob, `Informe_Diario_FA_${fa.fa_num}.pdf`);
+    const blob = await generateFaInformeDiario(projectId, date);
+    downloadBlob(blob, `AC49_Informe_Diario_FA_${date}.pdf`);
 }; 
 
-export const generateFaRelacionEquipoLogic = async(projectId: string, format: string) => { 
+export const generateFaRelacionEquipoLogic = async(projectId: string, format: string, month: string) => { 
     const { generateFaRelacionEquipo } = await import("./generateFaReports");
-    const blob = await generateFaRelacionEquipo(projectId);
-    downloadBlob(blob, `Relacion_Equipo_FA_${projectId}.pdf`);
+    const blob = await generateFaRelacionEquipo(projectId, month);
+    downloadBlob(blob, `AC50_Relacion_Equipo_FA_Mes_${parseInt(month)+1}.pdf`);
 };
 
 export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {

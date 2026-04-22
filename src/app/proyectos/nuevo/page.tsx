@@ -12,15 +12,17 @@ import MfgCertForm from "@/components/MfgCertForm";
 import MaterialsForm from "@/components/MaterialsForm";
 import ComplianceForm from "@/components/ComplianceForm";
 import LiquidationForm from "@/components/LiquidationForm";
-import SummaryDashboard from "@/components/SummaryDashboard";
 import {
     ListChecks, User, Building2, FileText, FileEdit,
     LayoutDashboard, FileCheck, Factory, Package, ShieldCheck,
     FileCheck2
 } from "lucide-react";
 import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
+import { Suspense, lazy } from "react";
 
-export default function NewProjectPage() {
+const SummaryDashboard = lazy(() => import("@/components/SummaryDashboard"));
+
+function NewProjectContent() {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [activeTab, setActiveTab] = useState("project");
@@ -126,5 +128,13 @@ export default function NewProjectPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function NewProjectPage() {
+    return (
+        <Suspense fallback={<div className="p-20 text-center uppercase font-black text-[10px] tracking-widest">Cargando formulario...</div>}>
+            <NewProjectContent />
+        </Suspense>
     );
 }

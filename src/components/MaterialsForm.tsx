@@ -112,7 +112,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
     certs.forEach((c, cIdx) => {
         const items = c.items || [];
         items.forEach((it: any, iIdx: number) => {
-            const hasAddition = it.has_material_on_site;
+            const hasAddition = !!it.has_material_on_site || (it.mos_invoice_total && parseFloat(it.mos_invoice_total) > 0);
             const hasDeduction = parseFloat(it.qty_from_mos) > 0;
 
             if (hasAddition || hasDeduction) {

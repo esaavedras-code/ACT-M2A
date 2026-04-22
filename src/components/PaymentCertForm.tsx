@@ -143,6 +143,21 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         }));
     };
 
+    const getCertMOSBalance = (certIdx: number) => {
+        let cumulativeMOSInvoicedAmount = 0;
+        let cumulativeMOSUsedAmount = 0;
+
+        certs.slice(0, certIdx + 1).forEach((cert, cIndex) => {
+            const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
+            (certItems as any[]).forEach(it => {
+                cumulativeMOSInvoicedAmount += parseFloat(it.has_material_on_site ? it.mos_invoice_total : 0) || 0;
+                const pr = getInvoicePUFromList(certs, it.item_num, cIndex);
+                cumulativeMOSUsedAmount += (parseFloat(it.qty_from_mos) || 0) * (pr > 0 ? pr : (parseFloat(it.unit_price) || 0));
+            });
+        });
+        return cumulativeMOSInvoicedAmount - cumulativeMOSUsedAmount;
+    };
+
     const fetchCerts = async () => {
         const { data } = await supabase.from("payment_certifications").select("*").eq("project_id", projectId).order("cert_num", { ascending: true });
         if (data && data.length > 0) {
@@ -306,18 +321,22 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         // Precio unitario del MOS por ítem (para convertir $ ↔ cantidad)
         const mosPU: Record<string, number> = {};
 
-        const certsWithMOS = certs.map((c) => {
+        const certsWithMOS = certs.map((c, cIdx) => {
             // ── FASE 1: Acumular adiciones de MOS de esta cert ──────────
-            // Hacemos un primer recorrido solo para sumar adiciones
             (c.items || []).forEach((item: any) => {
                 const invoiceTotal = parseFloat(item.mos_invoice_total) || 0;
-                // RELAJACIÓN LÓGICA: Si tiene monto de factura, es una adición (aunque el checkbox esté off)
+                // Si tiene monto de factura, es una adición
                 if (item.has_material_on_site || invoiceTotal > 0) {
                     const itemMosPU = parseFloat(item.mos_unit_price) || 0;
                     const itemNum = item.item_num;
                     if (invoiceTotal > 0) {
                         mosBalance[itemNum] = (mosBalance[itemNum] || 0) + invoiceTotal;
-                        if (itemMosPU > 0) mosPU[itemNum] = itemMosPU;
+                        if (itemMosPU > 0) {
+                            mosPU[itemNum] = itemMosPU;
+                        } else if (!mosPU[itemNum]) {
+                            // Fallback al precio unitario del item si no hay precio MOS específico
+                            mosPU[itemNum] = parseFloat(item.unit_price) || 0;
+                        }
                     }
                 }
             });
@@ -325,29 +344,29 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             // ── FASE 2: Calcular deducciones para cada ítem pagado ──────
             const processedItems = (c.items || []).map((item: any) => {
                 const itemNum = item.item_num;
+                // Buscar precio unitario en certs anteriores si no está en el mapa local
+                if (!mosPU[itemNum]) {
+                    mosPU[itemNum] = getInvoicePUFromList(certs, itemNum, cIdx);
+                }
+
                 const available = mosBalance[itemNum] || 0;
-
-                // Sin balance MOS → no hay nada que deducir
-                if (available <= 0) return item;
-
-                // Sin trabajo en esta cert → no hay deducción
                 const workQty = parseFloat(item.quantity) || 0;
-                if (workQty <= 0) return item;
 
-                // Si el usuario ya estableció qty_from_mos manualmente, respetarlo
-                const existingQty = parseFloat(item.qty_from_mos);
-                if (!isNaN(existingQty) && existingQty > 0) {
-                    // Deducir del balance lo que el usuario ingresó
+                // Si el usuario ya estableció qty_from_mos manualmente y es > 0, respetarlo
+                const manualQty = parseFloat(item.qty_from_mos);
+                if (!isNaN(manualQty) && manualQty > 0) {
                     const pu = mosPU[itemNum] || parseFloat(item.unit_price) || 0;
-                    mosBalance[itemNum] = Math.max(0, available - (existingQty * pu));
+                    mosBalance[itemNum] = Math.max(0, available - (manualQty * pu));
                     return item;
                 }
 
+                // Sin balance MOS o sin trabajo → no hay deducción
+                if (available <= 0 || workQty <= 0) return { ...item, qty_from_mos: 0 };
+
                 // Calcular deducción automática
-                const pu = mosPU[itemNum] || parseFloat(item.mos_unit_price) || parseFloat(item.unit_price) || 0;
+                const pu = mosPU[itemNum] || parseFloat(item.unit_price) || 0;
                 if (pu <= 0) return item;
 
-                // Deducir el mínimo entre: cantidad trabajada y cantidad disponible en MOS
                 const availableQty = available / pu;
                 const autoQty = Math.min(workQty, availableQty);
 
@@ -356,7 +375,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     return { ...item, qty_from_mos: parseFloat(autoQty.toFixed(4)) };
                 }
 
-                return item;
+                return { ...item, qty_from_mos: 0 };
             });
 
             return { ...c, items: processedItems };
@@ -634,6 +653,45 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         if (onDirty) onDirty();
     };
 
+    const liquidateAllMOS = (certIdx: number) => {
+        const newList = [...certs];
+        const currentCert = newList[certIdx];
+        const items = currentCert.items || [];
+
+        const updatedItems = items.map((item: any) => {
+            // Calculate balance BEFORE this certification
+            let cumulativeMOSInvoicedAmount = 0;
+            let cumulativeMOSUsedAmountBefore = 0;
+
+            newList.slice(0, certIdx + 1).forEach((cert, cIndex) => {
+                const certItems = cert.items || [];
+                certItems.forEach((it: any) => {
+                    if (it.item_num === item.item_num) {
+                        cumulativeMOSInvoicedAmount += parseFloat(it.has_material_on_site ? it.mos_invoice_total : 0) || 0;
+                        if (cIndex < certIdx) {
+                            const pr = getInvoicePUFromList(newList, it.item_num, cIndex);
+                            cumulativeMOSUsedAmountBefore += (parseFloat(it.qty_from_mos) || 0) * (pr > 0 ? pr : (parseFloat(it.unit_price) || 0));
+                        }
+                    }
+                });
+            });
+
+            const availableMOSBalance = cumulativeMOSInvoicedAmount - cumulativeMOSUsedAmountBefore;
+            const mosPUForCalc = getInvoicePUFromList(newList, item.item_num, certIdx);
+            const currentDeductionPU = mosPUForCalc > 0 ? mosPUForCalc : (parseFloat(item.unit_price) || 0);
+
+            if (availableMOSBalance > 0 && currentDeductionPU > 0) {
+                const availableMOSQty = availableMOSBalance / currentDeductionPU;
+                return { ...item, qty_from_mos: parseFloat(availableMOSQty.toFixed(4)) };
+            }
+            return item;
+        });
+
+        newList[certIdx].items = updatedItems;
+        setCerts(newList);
+        if (onDirty) onDirty();
+    };
+
     const importContractItems = (certIdx: number) => {
         const newList = [...certs];
         if (!newList[certIdx].items) newList[certIdx].items = [];
@@ -802,13 +860,13 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
 
             {/* Cuadro de Resumen Financiero */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <SummaryItem
                     label="Trabajo Ejecutado (WP)"
                     value={liveExecuted}
                     icon={<DollarSign size={16} />}
                     color="text-emerald-600"
-                    bgColor="bg-emerald-50 dark:bg-emerald-900/20"
+                    bgColor="bg-emerald-50 dark:bg-emerald-950/20"
                 />
                 <SummaryItem
                     label="Neto Pagado"
@@ -818,18 +876,18 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                     bgColor="bg-blue-50 dark:bg-blue-900/20"
                 />
                 <SummaryItem
-                    label="5% Retenido"
+                    label="Balance Retenido"
                     value={liveRetention}
                     icon={<ShieldAlert size={16} />}
-                    color="text-amber-600"
-                    bgColor="bg-amber-50 dark:bg-amber-900/20"
+                    color="text-violet-600"
+                    bgColor="bg-violet-50 dark:bg-violet-950/20"
                 />
                 <SummaryItem
-                    label="Balance MOS"
+                    label="Material en Sitio (MOS)"
                     value={liveMOS}
                     icon={<Package size={16} />}
-                    color="text-slate-600"
-                    bgColor="bg-slate-100 dark:bg-slate-800"
+                    color="text-amber-600"
+                    bgColor="bg-amber-50 dark:bg-amber-950/20"
                 />
                 <SummaryItem
                     label="Daños Líquidos"
@@ -1207,7 +1265,7 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
                             {/* Detalle de Partidas (Acordeón) */}
                             {expandedCert === c.cert_num && (
-                                <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
+                                <div className="p-2 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
 
 
                                     <div className="flex items-center justify-between mb-4">
@@ -1215,30 +1273,41 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                             <Plus size={14} className="text-primary" />
                                             Partidas de esta Certificación
                                         </h4>
-                                        <div className="flex gap-4">
-                                            <button onClick={() => importContractItems(certIdx)} className="text-xs font-bold text-blue-600 hover:underline">
-                                                Importar Partidas Activas
-                                            </button>
+                                        <div className="flex items-center gap-6">
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[9px] uppercase font-bold text-slate-400 leading-none">Balance MOS a esta Certificación</span>
+                                                <span className="text-xs font-black text-amber-600">
+                                                    {formatCurrency(getCertMOSBalance(certIdx))}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <button onClick={() => liquidateAllMOS(certIdx)} className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">
+                                                    <Package size={14} /> Liquidar Saldos MOS
+                                                </button>
+                                                <button onClick={() => importContractItems(certIdx)} className="text-[11px] font-bold text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                                                    Importar Partidas Activas
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
-                                        <table suppressHydrationWarning className="min-w-[1300px] w-full text-left border-collapse">
-                                            <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                                    <div className="overflow-x-auto scrollbar-none">
+                                        <table suppressHydrationWarning className="w-full text-left border-collapse table-fixed">
+                                            <thead className="text-[9px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                                 <tr>
-                                                    <th className="py-2 px-1 min-w-[64px] text-center"># Item</th>
-                                                    <th className="py-2 px-1 min-w-[96px]">Espec.</th>
-                                                    <th className="py-2 px-1 min-w-[200px]">Descripción</th>
-                                                    <th className="py-2 px-1 min-w-[64px] text-center">Unit</th>
-                                                    <th className="py-2 px-1 min-w-[80px] text-right">Qty WP</th>
-                                                    <th className="py-2 px-1 min-w-[80px] text-center text-blue-600" title="Balance disponible para pagar en esta partida">Bal. Qty</th>
-                                                    <th className="py-2 px-1 min-w-[80px] text-right text-[#8B4513]">Deduc. MOS</th>
-                                                    <th className="py-2 px-1 min-w-[100px] text-right">Unit Price</th>
-                                                    <th className="py-2 px-1 min-w-[120px] text-right">Amount</th>
-                                                    <th className="py-2 px-1 min-w-[110px]">Fondos</th>
-                                                    <th className="py-2 px-1 min-w-[48px] text-center" title="Material on Site">MOS</th>
-                                                    <th className="py-2 px-1 min-w-[100px] text-right" title="Balance acumulado de Material on Site">MOS Bal.</th>
-                                                    <th className="py-2 px-1 min-w-[48px] text-center" title="No aplicar retenido a este item">No Ret.</th>
-                                                    <th className="py-2 px-1 min-w-[64px]"></th>
+                                                    <th className="py-2 px-0.5 w-[55px] text-center"># Item</th>
+                                                    <th className="py-2 px-0.5 w-[80px]">Espec.</th>
+                                                    <th className="py-2 px-0.5 w-[160px]">Descripción</th>
+                                                    <th className="py-2 px-0.5 w-[45px] text-center">Unit</th>
+                                                    <th className="py-2 px-0.5 w-[75px] text-right">Qty WP</th>
+                                                    <th className="py-2 px-0.5 w-[75px] text-center text-blue-600">Bal. Qty</th>
+                                                    <th className="py-2 px-0.5 w-[75px] text-right text-[#8B4513]">Deduc. MOS</th>
+                                                    <th className="py-2 px-0.5 w-[90px] text-right">Price</th>
+                                                    <th className="py-2 px-0.5 w-[110px] text-right">Amount</th>
+                                                    <th className="py-2 px-0.5 w-[90px]">Fondos</th>
+                                                    <th className="py-2 px-0.5 w-[35px] text-center">MOS</th>
+                                                    <th className="py-2 px-0.5 w-[95px] text-right">MOS Bal.</th>
+                                                    <th className="py-2 px-0.5 w-[35px] text-center">NR</th>
+                                                    <th className="py-2 px-0.5 w-[40px]"></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -1286,10 +1355,10 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                         autoQtyFromMOS = availableMOSQty;
                                                     }
 
-                                                    // Do NOT modify item.qty_from_mos during render. Use a fallback for calculation.
-                                                    const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "" && item.qty_from_mos !== 0) 
+                                                    // AUTO-SUGGESTION: If field is empty or 0, and we have balance, show the auto-calc
+                                                    const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "" && parseFloat(item.qty_from_mos) !== 0) 
                                                         ? parseFloat(item.qty_from_mos) 
-                                                        : (item.qty_from_mos === 0 ? 0 : autoQtyFromMOS);
+                                                        : (workQty > 0 ? Math.min(workQty, availableMOSQty) : 0);
                                                     
                                                     const workAmount = workQty * (parseFloat(item.unit_price) || 0);
                                                     const autoDeductionAmount = finalQtyFromMOS * currentDeductionPU;
@@ -1569,9 +1638,15 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                 )}
                                                 <tr>
                                                     <td colSpan={11} className="py-2 px-1 border-t border-slate-100 dark:border-slate-800">
-                                                        <button onClick={() => addCertItem(certIdx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                                                            <Plus size={14} /> Añadir Item Manual
-                                                        </button>
+                                                        <div className="flex justify-between items-center">
+                                                            <button onClick={() => addCertItem(certIdx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                                                                <Plus size={14} /> Añadir Item Manual
+                                                            </button>
+                                                            <div className="flex items-center gap-2 pr-24">
+                                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Balance MOS Certificación:</span>
+                                                                <span className="text-sm font-black text-amber-600 font-geist">{formatCurrency(getCertMOSBalance(certIdx))}</span>
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -1624,12 +1699,12 @@ export default PaymentCertForm;
 function SummaryItem({ label, value, icon, color, bgColor }: { label: string, value: number, icon: React.ReactNode, color: string, bgColor: string }) {
     return (
         <div className={`${bgColor} rounded-xl p-3 border border-slate-100 dark:border-slate-800 flex items-start gap-3`}>
-            <div className={`${color} p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm`}>
+            <div className={`${color} p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm flex-shrink-0`}>
                 {icon}
             </div>
-            <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</div>
-                <div className={`text-sm font-black ${value < 0 ? 'text-red-500' : color}`}>
+            <div className="min-w-0">
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 truncate">{label}</div>
+                <div className={`text-[13px] font-black ${value < 0 ? 'text-red-500' : color} truncate`}>
                     {formatCurrency(value)}
                 </div>
             </div>

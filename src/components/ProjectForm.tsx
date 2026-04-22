@@ -9,6 +9,7 @@ import { exportProjectToFile } from "@/lib/projectFileSystem";
 import ProjectAgreementForm from "./ProjectAgreementForm";
 import mfgItemsData from "@/lib/mfgItems.json";
 import specsData from "@/data/specifications.json";
+import { parsePdfClient } from "@/lib/pdfClientParser";
 
 export interface FormRef { save: () => Promise<void>; }
 
@@ -357,18 +358,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
     const parsePdf = async (base64: string): Promise<{ success: boolean; text?: string }> => {
         if (!base64) return { success: false };
         try {
-            // Using existing parsePdf logic if available via API or fetch
-            const win = (window as any);
-            if (win.electronAPI?.parsePdf) {
-                return await win.electronAPI.parsePdf(base64);
-            } else {
-                const res = await fetch('/api/parse-pdf', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ base64 }) // Aseguramos que sea base64 para matchar ItemsForm
-                });
-                return await res.json();
-            }
+            // Usar el procesador cliente-side que es compatible con Electron y Web
+            return await parsePdfClient(base64);
         } catch (e) {
             console.error(e);
             return { success: false };

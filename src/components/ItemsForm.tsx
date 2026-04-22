@@ -10,6 +10,7 @@ import type { FormRef } from "./ProjectForm";
 import mfgItemsData from "@/lib/mfgItems.json";
 
 import specsData from "@/data/specifications.json";
+import { parsePdfClient } from "@/lib/pdfClientParser";
 
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 
@@ -265,13 +266,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 const base64 = ev.target?.result as string;
                 
                 try {
-                    const res = await fetch('/api/parse-pdf', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ base64 })
-                    });
+                    const data = await parsePdfClient(base64);
                     
-                    const data = await res.json();
                     if (data.success && data.text) {
                         const cleanText = data.text.replace(/\|/g, ' ').toUpperCase();
                         const extractedItems: any[] = [];
