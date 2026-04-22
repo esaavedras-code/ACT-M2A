@@ -1,25 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import ProjectForm from "@/components/ProjectForm";
-import ContractorForm from "@/components/ContractorForm";
-import PersonnelForm from "@/components/PersonnelForm";
-import ItemsForm from "@/components/ItemsForm";
-import CHOForm from "@/components/CHOForm";
-import PaymentCertForm from "@/components/PaymentCertForm";
-import MfgCertForm from "@/components/MfgCertForm";
-import MaterialsForm from "@/components/MaterialsForm";
-import ComplianceForm from "@/components/ComplianceForm";
-import LiquidationForm from "@/components/LiquidationForm";
+import dynamic from "next/dynamic";
 import {
     ListChecks, User, Building2, FileText, FileEdit,
     LayoutDashboard, FileCheck, Factory, Package, ShieldCheck,
     FileCheck2
 } from "lucide-react";
 import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
-import dynamic from "next/dynamic";
 
+const ProjectForm = dynamic(() => import("@/components/ProjectForm"), { ssr: false });
+const ContractorForm = dynamic(() => import("@/components/ContractorForm"), { ssr: false });
+const PersonnelForm = dynamic(() => import("@/components/PersonnelForm"), { ssr: false });
+const ItemsForm = dynamic(() => import("@/components/ItemsForm"), { ssr: false });
+const CHOForm = dynamic(() => import("@/components/CHOForm"), { ssr: false });
+const PaymentCertForm = dynamic(() => import("@/components/PaymentCertForm"), { ssr: false });
+const MfgCertForm = dynamic(() => import("@/components/MfgCertForm"), { ssr: false });
+const MaterialsForm = dynamic(() => import("@/components/MaterialsForm"), { ssr: false });
+const ComplianceForm = dynamic(() => import("@/components/ComplianceForm"), { ssr: false });
+const LiquidationForm = dynamic(() => import("@/components/LiquidationForm"), { ssr: false });
 const SummaryDashboard = dynamic(() => import("@/components/SummaryDashboard"), { ssr: false });
 
 function NewProjectContent() {
