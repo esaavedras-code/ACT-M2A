@@ -492,23 +492,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                 </div>
 
-                <div className="card border-t-4 border-t-violet-500">
-                    <div className="flex items-center gap-2 text-violet-700 font-bold mb-2 uppercase text-xs tracking-wider">
-                        <Layers size={16} /> RETENCIONES Y PENALIDADES
-                    </div>
-                    <div className="space-y-1">
-                        <MetricRow label="Balance Retenido" value={formatCurrency(metrics.retention.fivePercent)} color="text-violet-700 font-bold" />
-                        <MetricRow label="Extra Retenido ($)" value={formatCurrency(metrics.retention.extra)} />
-                        <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(-metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment !== 0 ? "text-blue-700" : ""} />
-                        <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Reembolso" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
-                        <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
-                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Retenciones y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
-                    </div>
-                </div>
-
                 <div className="card border-t-4 border-t-blue-500">
                     <div className="flex items-center gap-2 text-blue-700 font-bold mb-2 uppercase text-xs tracking-wider">
                         <Clock size={16} /> TIEMPO
@@ -554,6 +537,23 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="% de Cambio (Costo)" value={`${metrics.chos.percentChange}%`} color="text-amber-800 font-bold" />
                         <MetricRow label="% de Cambio (Días)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" />
+                    </div>
+                </div>
+
+                <div className="card border-t-4 border-t-violet-500">
+                    <div className="flex items-center gap-2 text-violet-700 font-bold mb-2 uppercase text-xs tracking-wider">
+                        <Layers size={16} /> RETENCIONES Y PENALIDADES
+                    </div>
+                    <div className="space-y-1">
+                        <MetricRow label="Balance Retenido" value={formatCurrency(metrics.retention.fivePercent)} color="text-violet-700 font-bold" />
+                        <MetricRow label="Extra Retenido ($)" value={formatCurrency(metrics.retention.extra)} />
+                        <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(-metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment !== 0 ? "text-blue-700" : ""} />
+                        <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
+                        <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
+                        <MetricRow label="Reembolso" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
+                        <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
+                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
+                        <MetricRow label="Retenciones y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
                     </div>
                 </div>
 
