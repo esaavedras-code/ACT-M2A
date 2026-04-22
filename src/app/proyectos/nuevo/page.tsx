@@ -18,9 +18,9 @@ import {
     FileCheck2
 } from "lucide-react";
 import { getLocalStorageItem, setLocalStorageItem } from "@/lib/utils";
-import { Suspense, lazy } from "react";
+import dynamic from "next/dynamic";
 
-const SummaryDashboard = lazy(() => import("@/components/SummaryDashboard"));
+const SummaryDashboard = dynamic(() => import("@/components/SummaryDashboard"), { ssr: false });
 
 function NewProjectContent() {
     const router = useRouter();
@@ -47,16 +47,19 @@ function NewProjectContent() {
     ];
 
     const handleAuthorizeProject = (newId: string) => {
+        if (typeof window === 'undefined') return;
         const registrationStr = getLocalStorageItem("pact_registration");
         if (registrationStr) {
             try {
                 const registration = JSON.parse(registrationStr);
-                const allowedIds = registration?.allowedProjectIds || [];
-                if (!allowedIds.includes(newId)) {
-                    registration.allowedProjectIds = [...allowedIds, newId];
-                    setLocalStorageItem("pact_registration", JSON.stringify(registration));
-                    // Avisar al sistema que la autorización cambió
-                    window.dispatchEvent(new Event("pact_registration_updated"));
+                if (registration) {
+                    const allowedIds = registration.allowedProjectIds || [];
+                    if (!allowedIds.includes(newId)) {
+                        registration.allowedProjectIds = [...allowedIds, newId];
+                        setLocalStorageItem("pact_registration", JSON.stringify(registration));
+                        // Avisar al sistema que la autorización cambió
+                        window.dispatchEvent(new Event("pact_registration_updated"));
+                    }
                 }
             } catch (e) {
                 console.error("Error parsing registration", e);
@@ -65,7 +68,7 @@ function NewProjectContent() {
         setProjectId(newId);
     };
 
-    if (!mounted) return null;
+    if (!mounted || typeof window === 'undefined') return null;
 
     return (
         <div className="py-6 space-y-8">

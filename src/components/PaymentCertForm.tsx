@@ -27,29 +27,102 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-import FloatingFormActions from './FloatingFormActions';
+import FloatingFormActions from '@/components/FloatingFormActions';
 
 const FUND_SOURCES = ['Federal', 'Estatal', 'Combinado'];
 
 interface PaymentCertFormProps {
-    projectId: string;
-    projectData: any;
-    contractItems: any[];
-    certs: any[];
-    setCerts: React.Dispatch<React.SetStateAction<any[]>>;
-    onSave: () => void;
-    mfgCerts: any[];
+    projectId?: string;
+    projectData?: any;
+    contractItems?: any[];
+    certs?: any[];
+    setCerts?: React.Dispatch<React.SetStateAction<any[]>>;
+    onSave?: () => void;
+    onSaved?: () => void;
+    onDirty?: () => void;
+    mfgCerts?: any[];
 }
 
-const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, certs, setCerts, onSave, mfgCerts }: PaymentCertFormProps) => {
+const PaymentCertForm = React.forwardRef(({ 
+    projectId, 
+    projectData: initialProjectData, 
+    contractItems: initialContractItems, 
+    certs: initialCerts, 
+    setCerts: externalSetCerts, 
+    onSave,
+    onSaved,
+    onDirty,
+    mfgCerts: initialMfgCerts 
+}: PaymentCertFormProps, ref) => {
     const [loading, setLoading] = useState(false);
+    const [internalProjectData, setInternalProjectData] = useState<any>(initialProjectData);
+    const [internalContractItems, setInternalContractItems] = useState<any[]>(initialContractItems || []);
+    const [internalCerts, setInternalCerts] = useState<any[]>(initialCerts || []);
+    const [internalMfgCerts, setInternalMfgCerts] = useState<any[]>(initialMfgCerts || []);
+    
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedCert, setExpandedCert] = useState<number | null>(null);
     const [generating, setGenerating] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
-    // Cálculos financieros en tiempo real
+    useEffect(() => {
+        if (projectId && !initialProjectData) {
+            loadData();
+        }
+    }, [projectId]);
+
+    const loadData = async () => {
+        if (!projectId) return;
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('projects')
+                .select('*')
+                .eq('id', projectId)
+                .single();
+
+            if (error) throw error;
+            setInternalProjectData(data);
+            setInternalContractItems(data.contract_items || []);
+            setInternalCerts(data.payment_certs || []);
+            setInternalMfgCerts(data.mfg_certs || []);
+        } catch (error: any) {
+            console.error('Error loading certs data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    React.useImperativeHandle(ref, () => ({
+        save: () => saveData(true)
+    }));
+
+    const certs = externalSetCerts ? initialCerts || [] : internalCerts;
+    const setCerts = (newVal: any) => {
+        if (externalSetCerts) {
+            externalSetCerts(newVal);
+        } else {
+            setInternalCerts(newVal);
+        }
+        if (onDirty) onDirty();
+    };
+
+    const projectData = initialProjectData || internalProjectData;
+    const contractItems = initialContractItems || internalContractItems || [];
+    const mfgCerts = initialMfgCerts || internalMfgCerts || [];
+
+    const getInvoicePUFromList = (allCerts: any[], itemNum: string, currentCertIdx: number) => {
+        if (!allCerts) return 0;
+        for (let i = currentCertIdx; i >= 0; i--) {
+            const cert = allCerts[i];
+            const items = cert?.items || [];
+            const match = items.find((it: any) => it.item_num === itemNum && it.has_material_on_site && (parseFloat(it.mos_unit_price) > 0));
+            if (match) return parseFloat(match.mos_unit_price);
+        }
+        return 0;
+    };
+
     const { liveExecuted, livePaid, liveRetention, liveMOS, liveLiquidated, timeExtension } = useMemo(() => {
         let execution = 0;
         let retention = 0;
@@ -57,6 +130,8 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
         let liquidated = 0;
         let totalPaid = 0;
         let ext = 0;
+
+        if (!certs) return { liveExecuted: 0, livePaid: 0, liveRetention: 0, liveMOS: 0, liveLiquidated: 0, timeExtension: 0 };
 
         certs.forEach((c, idx) => {
             let certWork = 0;
@@ -87,7 +162,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
             totalPaid += certWork - (c.skip_retention ? 0 : cRet) + certMOSNet - (parseFloat(c.liquidated_damages) || 0);
         });
 
-        // Extensiones de tiempo de Change Orders
         const changeOrders = projectData?.change_orders || [];
         ext = changeOrders.reduce((acc: number, co: any) => acc + (parseInt(co.time_extension_days) || 0), 0);
 
@@ -198,7 +272,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
         const newCerts = [...certs];
         const newItems = [...(newCerts[certIdx].items || [])];
         
-        // If updating item_num, try to auto-fill from contract
         if (field === 'item_num' && value) {
             const baseItem = contractItems.find(it => it.item_num === value || it.item_num === value.padStart(3, '0'));
             if (baseItem) {
@@ -216,7 +289,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
         } else {
             newItems[itIdx] = { ...newItems[itIdx], [field]: value };
             
-            // Auto-calculate MOS Unit Price if total and qty are present
             if (field === 'mos_invoice_total' || field === 'mos_quantity') {
                 const tot = parseFloat(newItems[itIdx].mos_invoice_total) || 0;
                 const qty = parseFloat(newItems[itIdx].mos_quantity) || 0;
@@ -255,6 +327,7 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
     };
 
     const saveData = async (silent = false) => {
+        if (!projectId) return;
         setLoading(true);
         try {
             const { error } = await supabase
@@ -264,10 +337,11 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
 
             if (error) throw error;
             if (!silent) alert('Certificaciones guardadas correctamente');
-            onSave();
+            if (onSave) onSave();
+            if (onSaved) onSaved();
         } catch (error: any) {
             console.error('Error saving certs:', error);
-            alert('Error al guardar: ' + error.message);
+            if (!silent) alert('Error al guardar: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -291,18 +365,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
         return (parseFloat(baseItem.quantity) || 0) + extra;
     };
 
-    // Helper para obtener el historial de MOS de un ítem
-    const getInvoicePUFromList = (allCerts: any[], itemNum: string, currentCertIdx: number) => {
-        // Buscamos la última factura de este item en certificaciones anteriores o la actual
-        for (let i = currentCertIdx; i >= 0; i--) {
-            const cert = allCerts[i];
-            const items = cert.items || [];
-            const match = items.find((it: any) => it.item_num === itemNum && it.has_material_on_site && (parseFloat(it.mos_unit_price) > 0));
-            if (match) return parseFloat(match.mos_unit_price);
-        }
-        return 0;
-    };
-
     const getCertMOSBalance = (certIdx: number) => {
         let balance = 0;
         certs.slice(0, certIdx + 1).forEach((c, idx) => {
@@ -323,7 +385,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
         const currentCert = newCerts[certIdx];
         const items = [...(currentCert.items || [])];
 
-        // 1. Mapear balances acumulados por item_num
         const itemBalances: Record<string, number> = {};
         
         newCerts.slice(0, certIdx + 1).forEach((c, cIdx) => {
@@ -336,7 +397,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
             });
         });
 
-        // 2. Para cada item con balance positivo, forzar la deducción en la certificación actual
         let adjusted = false;
         items.forEach((it: any, idx: number) => {
             const bal = itemBalances[it.item_num] || 0;
@@ -391,7 +451,7 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
     const exportSectionToJSON = (sectionName: string, data: any) => {
         const dataStr = JSON.stringify(data, null, 2);
         const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-        const exportFileDefaultName = `${sectionName}_${projectData.project_number}_${new Date().toISOString().split('T')[0]}.json`;
+        const exportFileDefaultName = `${sectionName}_${projectData?.project_number || 'export'}_${new Date().toISOString().split('T')[0]}.json`;
         const linkElement = document.createElement('a');
         linkElement.setAttribute('href', dataUri);
         linkElement.setAttribute('download', exportFileDefaultName);
@@ -419,6 +479,7 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
     };
 
     const uploadNoteImage = async (certIdx: number, file: File) => {
+        if (!projectId) return;
         setUploadingImage(certIdx);
         try {
             const fileExt = file.name.split('.').pop();
@@ -474,19 +535,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                         />
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
-                </div>
-            </div>
-
-            <div className="md:hidden px-4 mb-2">
-                <input 
-                    type="text"
-                    placeholder="Buscar por descripción o nº de ítem..."
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
             </div>
 
             <FloatingFormActions
@@ -527,7 +575,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
             <input id="import-certs-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
 
 
-            {/* Cuadro de Resumen Financiero */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <SummaryItem
                     label="Trabajo Ejecutado (WP)"
@@ -589,10 +636,8 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
 
                     return (
                         <div key={certIdx} className="card border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 p-0">
-                            {/* Header de la Certificación con Resumen Principal */}
                             <div className="p-4 flex flex-col xl:flex-row justify-between bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800 gap-6">
                                 <div className="flex flex-col md:flex-row gap-6 lg:gap-8 flex-1">
-                                    {/* Identificadores básicos */}
                                     <div className="flex flex-col gap-4 border-r-0 md:border-r border-slate-200 dark:border-slate-700/50 pr-0 md:pr-6 shrink-0">
                                         <div className="flex items-center gap-6">
                                             <div className="space-y-1">
@@ -622,7 +667,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                                         </div>
                                     </div>
 
-                                    {/* Resumen de Certificación */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Trabajo ejec. (WP)</span>
@@ -689,7 +733,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                                     </div>
                                 </div>
 
-                                {/* Acciones Globales Certificación */}
                                 <div className="flex items-center gap-2 border-l-0 xl:border-l border-slate-200 dark:border-slate-700/50 pl-0 xl:pl-6 justify-end">
                                     <button 
                                         onClick={() => handlePrint(c)}
@@ -714,7 +757,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                                 </div>
                             </div>
 
-                            {/* Detalles de Partidas (Expandible) */}
                             {expandedCert === c.cert_num && (
                                 <div className="p-4 border-t border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 animate-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center justify-between mb-4">
@@ -761,7 +803,7 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                                                     const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
                                                     let paidInPrevious = 0;
                                                     for (let k = 0; k < certIdx; k++) {
-                                                        const prevCertItems = certs[k].items || [];
+                                                        const prevCertItems = certs[k]?.items || [];
                                                         const match = prevCertItems.find((p: any) => p.item_num === item.item_num);
                                                         if (match) paidInPrevious += parseFloat(match.quantity) || 0;
                                                     }
@@ -769,12 +811,11 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
 
                                                     const workQty = parseFloat(item.quantity) || 0;
                                                     
-                                                    // NEW MOS LOGIC: Check if item HAS historical MOS invoicing
                                                     let cumulativeMOSInvoicedAmount = 0;
                                                     let cumulativeMOSUsedAmountBefore = 0;
 
                                                     certs.slice(0, certIdx + 1).forEach((cert, cIndex) => {
-                                                        const certItems = cert.items || [];
+                                                        const certItems = cert?.items || [];
                                                         certItems.forEach((it: any) => {
                                                             if (it.item_num === item.item_num) {
                                                                 cumulativeMOSInvoicedAmount += parseFloat(it.has_material_on_site ? it.mos_invoice_total : 0) || 0;
@@ -789,10 +830,8 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                                                     const availableMOSBalance = cumulativeMOSInvoicedAmount - cumulativeMOSUsedAmountBefore;
                                                     const mosPUForCalc = getInvoicePUFromList(certs, item.item_num, certIdx);
                                                     const currentDeductionPU = mosPUForCalc > 0 ? mosPUForCalc : (parseFloat(item.unit_price) || 0);
-                                                    
                                                     const availableMOSQty = (currentDeductionPU > 0) ? (availableMOSBalance / currentDeductionPU) : 0;
                                                     
-                                                    // AUTO-SUGGESTION: If field is empty or 0, and we have balance, show the auto-calc
                                                     const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "" && parseFloat(item.qty_from_mos) !== 0) 
                                                         ? parseFloat(item.qty_from_mos) 
                                                         : (cumulativeMOSInvoicedAmount > 0 && workQty > 0 ? Math.min(workQty, availableMOSQty) : 0);
@@ -886,11 +925,7 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                                                                     {formatCurrency(netTotal)}
                                                                 </td>
                                                                 <td className="py-1 px-1 flex items-center justify-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
-                                                                    <button 
-                                                                        onClick={() => insertCertItem(certIdx, itIdx)}
-                                                                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-primary"
-                                                                        title="Insertar debajo"
-                                                                    >
+                                                                    <button onClick={() => insertCertItem(certIdx, itIdx)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-primary" title="Insertar debajo">
                                                                         <Plus size={14} />
                                                                     </button>
                                                                     <label className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-600 cursor-pointer" title="Material on Site Details">
@@ -902,11 +937,7 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                                                                         />
                                                                         <Package size={14} className={item.has_material_on_site ? 'text-amber-600 fill-amber-50' : ''} />
                                                                     </label>
-                                                                    <button 
-                                                                        onClick={() => removeCertItem(certIdx, itIdx)}
-                                                                        className="p-1 hover:bg-red-50 rounded text-slate-300 hover:text-red-500"
-                                                                        title="Eliminar"
-                                                                    >
+                                                                    <button onClick={() => removeCertItem(certIdx, itIdx)} className="p-1 hover:bg-red-50 rounded text-slate-300 hover:text-red-500" title="Eliminar">
                                                                         <Trash2 size={14} />
                                                                     </button>
                                                                 </td>
@@ -999,26 +1030,6 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
                                                         </React.Fragment>
                                                     );
                                                 })}
-                                                {(c.items || []).length === 0 && (
-                                                    <tr>
-                                                        <td colSpan={11} className="py-8 text-center text-xs text-slate-400 font-medium italic">
-                                                            No hay partidas añadidas a esta certificación. Haz clic en "Añadir Item Manual" o importa.
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                                <tr>
-                                                    <td colSpan={11} className="py-2 px-1 border-t border-slate-100 dark:border-slate-800">
-                                                        <div className="flex justify-between items-center">
-                                                            <button onClick={() => addCertItem(certIdx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                                                                <Plus size={14} /> Añadir Item Manual
-                                                            </button>
-                                                            <div className="flex items-center gap-2 pr-24">
-                                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Balance MOS Acumulado:</span>
-                                                                <span className="text-sm font-black text-amber-600 font-geist">{formatCurrency(getCertMOSBalance(certIdx))}</span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -1030,29 +1041,11 @@ const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, cer
             </div>
 
             {lightboxImg && (
-                <div 
-                    className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
-                    onClick={() => setLightboxImg(null)}
-                >
-                    <button className="absolute top-6 right-6 p-2 bg-white/10 rounded-full text-white" onClick={() => setLightboxImg(null)}>
-                        <X size={28} />
-                    </button>
+                <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+                    <button className="absolute top-6 right-6 p-2 bg-white/10 rounded-full text-white" onClick={() => setLightboxImg(null)}><X size={28} /></button>
                     <div className="relative max-w-5xl w-full flex flex-col items-center gap-4">
-                        <img 
-                            src={lightboxImg} 
-                            alt="Vista ampliada" 
-                            className="max-h-[85vh] w-auto object-contain rounded-2xl shadow-2xl"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                        <a 
-                            href={lightboxImg} 
-                            download 
-                            className="btn-primary px-8 py-3 rounded-2xl font-black shadow-2xl flex items-center gap-3"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <Download size={20} />
-                            Descargar Imagen
-                        </a>
+                        <img src={lightboxImg} alt="Vista ampliada" className="max-h-[85vh] w-auto object-contain rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}/>
+                        <a href={lightboxImg} download className="btn-primary px-8 py-3 rounded-2xl font-black shadow-2xl flex items-center gap-3" onClick={(e) => e.stopPropagation()}><Download size={20} />Descargar Imagen</a>
                     </div>
                 </div>
             )}
@@ -1075,9 +1068,7 @@ function SummaryItem({ label, value, icon, color, bgColor, description }: { labe
                 </div>
                 {description && (
                     <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
-                        <div className="bg-slate-900 text-white text-[10px] py-1 px-2 rounded shadow-xl whitespace-nowrap">
-                            {description}
-                        </div>
+                        <div className="bg-slate-900 text-white text-[10px] py-1 px-2 rounded shadow-xl whitespace-nowrap">{description}</div>
                     </div>
                 )}
             </div>
