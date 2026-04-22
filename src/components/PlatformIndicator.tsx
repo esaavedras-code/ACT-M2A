@@ -55,7 +55,7 @@ function PlatformIndicatorContent() {
             {numAct && (
                 <div
                     className="fixed z-[9998] left-1/2 -translate-x-1/2 pointer-events-auto"
-                    style={{ top: '38px' }}  /* Centrado vertical en la zona azul */
+                    style={{ top: '28px' }}  /* Ajustado para el nuevo tamaño */
                 >
                     <button
                         onClick={() => {
@@ -63,7 +63,7 @@ function PlatformIndicatorContent() {
                                 window.location.href = `/proyectos/detalle?id=${projectId}`;
                             }
                         }}
-                        className="text-white/90 hover:text-white font-black tracking-widest uppercase transition-colors text-sm md:text-base drop-shadow-md"
+                        className="text-white hover:text-white font-black tracking-widest uppercase transition-colors text-2xl md:text-3xl drop-shadow-lg"
                         title={`Proyecto ${numAct}`}
                     >
                         {numAct}
