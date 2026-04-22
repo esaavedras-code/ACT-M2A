@@ -76,17 +76,41 @@ const PaymentCertForm = React.forwardRef(({
         if (!projectId) return;
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            // 1. Cargar datos del proyecto
+            const { data: project, error: pError } = await supabase
                 .from('projects')
                 .select('*')
                 .eq('id', projectId)
                 .single();
 
-            if (error) throw error;
-            setInternalProjectData(data);
-            setInternalContractItems(data.contract_items || []);
-            setInternalCerts(data.payment_certs || []);
-            setInternalMfgCerts(data.mfg_certs || []);
+            if (pError) throw pError;
+            setInternalProjectData(project);
+
+            // 2. Cargar partidas del contrato
+            const { data: items, error: iError } = await supabase
+                .from('contract_items')
+                .select('*')
+                .eq('project_id', projectId)
+                .order('item_num', { ascending: true });
+            
+            if (!iError) setInternalContractItems(items || []);
+
+            // 3. Cargar certificaciones de pago
+            const { data: certs, error: cError } = await supabase
+                .from('payment_certifications')
+                .select('*')
+                .eq('project_id', projectId)
+                .order('cert_num', { ascending: true });
+            
+            if (!cError) setInternalCerts(certs || []);
+
+            // 4. Cargar certificados de manufactura
+            const { data: mfg, error: mError } = await supabase
+                .from('manufacturing_certificates')
+                .select('*')
+                .eq('project_id', projectId);
+            
+            if (!mError) setInternalMfgCerts(mfg || []);
         } catch (error: any) {
             console.error('Error loading certs data:', error);
         } finally {
