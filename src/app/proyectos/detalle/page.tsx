@@ -14,30 +14,30 @@ import {
 import { getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import FloatingFormActions from "@/components/FloatingFormActions";
 
-import ProjectForm from "@/components/ProjectForm";
-import ContractorForm from "@/components/ContractorForm";
-import ItemsForm from "@/components/ItemsForm";
-import PersonnelForm from "@/components/PersonnelForm";
-import MaterialsForm from "@/components/MaterialsForm";
-import ComplianceForm from "@/components/ComplianceForm";
-import CHOForm from "@/components/CHOForm";
-import PaymentCertForm from "@/components/PaymentCertForm";
-import MinutesForm from "@/components/MinutesForm";
-import DailyLogForm from "@/components/DailyLogForm";
-import LiquidationForm from "@/components/LiquidationForm";
-import MfgCertForm from "@/components/MfgCertForm";
-import ForceAccountForm from "@/components/ForceAccountForm";
-import ForceAccount2Form from "@/components/ForceAccount2Form";
-import InspectionForm from "@/components/InspectionForm";
-import CCMLModificationsForm from "@/components/CCMLModificationsForm";
-import InitialCertificationForm from "@/components/InitialCertificationForm";
-import PriceComparison from "@/components/PriceComparison";
-import ProjectFilesExplorer from "@/components/ProjectFilesExplorer";
-import MonthlyPresentations from "@/components/MonthlyPresentations";
-import UpdateTablesForm from "@/components/UpdateTablesForm";
-import PriceHistoryLink from "@/components/PriceHistoryLink";
+import dynamic from "next/dynamic";
 
-const SummaryDashboard = lazy(() => import("@/components/SummaryDashboard"));
+const ProjectForm = dynamic(() => import("@/components/ProjectForm"), { ssr: false });
+const ContractorForm = dynamic(() => import("@/components/ContractorForm"), { ssr: false });
+const ItemsForm = dynamic(() => import("@/components/ItemsForm"), { ssr: false });
+const PersonnelForm = dynamic(() => import("@/components/PersonnelForm"), { ssr: false });
+const MaterialsForm = dynamic(() => import("@/components/MaterialsForm"), { ssr: false });
+const ComplianceForm = dynamic(() => import("@/components/ComplianceForm"), { ssr: false });
+const CHOForm = dynamic(() => import("@/components/CHOForm"), { ssr: false });
+const PaymentCertForm = dynamic(() => import("@/components/PaymentCertForm"), { ssr: false });
+const MinutesForm = dynamic(() => import("@/components/MinutesForm"), { ssr: false });
+const DailyLogForm = dynamic(() => import("@/components/DailyLogForm"), { ssr: false });
+const LiquidationForm = dynamic(() => import("@/components/LiquidationForm"), { ssr: false });
+const MfgCertForm = dynamic(() => import("@/components/MfgCertForm"), { ssr: false });
+const ForceAccountForm = dynamic(() => import("@/components/ForceAccountForm"), { ssr: false });
+const ForceAccount2Form = dynamic(() => import("@/components/ForceAccount2Form"), { ssr: false });
+const InspectionForm = dynamic(() => import("@/components/InspectionForm"), { ssr: false });
+const CCMLModificationsForm = dynamic(() => import("@/components/CCMLModificationsForm"), { ssr: false });
+const InitialCertificationForm = dynamic(() => import("@/components/InitialCertificationForm"), { ssr: false });
+const PriceComparison = dynamic(() => import("@/components/PriceComparison"), { ssr: false });
+const ProjectFilesExplorer = dynamic(() => import("@/components/ProjectFilesExplorer"), { ssr: false });
+const MonthlyPresentations = dynamic(() => import("@/components/MonthlyPresentations"), { ssr: false });
+const UpdateTablesForm = dynamic(() => import("@/components/UpdateTablesForm"), { ssr: false });
+const SummaryDashboard = dynamic(() => import("@/components/SummaryDashboard"), { ssr: false });
 
 function ProjectDetailContent() {
     const searchParams = useSearchParams();
