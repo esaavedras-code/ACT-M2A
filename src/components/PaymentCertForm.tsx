@@ -1,801 +1,469 @@
-"use client";
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { 
+    Plus, 
+    Trash2, 
+    Save, 
+    Download, 
+    Upload, 
+    Printer, 
+    Package, 
+    PlusSquare, 
+    ChevronDown, 
+    ChevronUp, 
+    Search,
+    AlertCircle,
+    CheckCircle2,
+    Loader2,
+    DollarSign,
+    Wallet,
+    ShieldAlert,
+    Timer,
+    Calendar,
+    FileText,
+    Settings2,
+    Image,
+    ZoomIn,
+    X
+} from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { formatCurrency, formatNumber } from '@/lib/utils';
+import FloatingFormActions from './FloatingFormActions';
 
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
-import { supabase } from "@/lib/supabase";
-import { Save, FileCheck, Plus, Trash2, Download, DollarSign, Wallet, ShieldAlert, Package, Timer, Printer, Loader2, PlusSquare, Upload, Image, X, ZoomIn } from "lucide-react";
-import FloatingFormActions from "./FloatingFormActions";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
-import { generateAct117C } from "@/lib/generateAct117C";
-import { downloadBlob } from "@/lib/reportLogic";
-import { formatCurrency, formatNumber } from "@/lib/utils";
-import specsData from "@/data/specifications.json";
-import type { FormRef } from "./ProjectForm";
+const FUND_SOURCES = ['Federal', 'Estatal', 'Combinado'];
 
-const specs = specsData as Record<string, { unit: string; description: string }>;
+interface PaymentCertFormProps {
+    projectId: string;
+    projectData: any;
+    contractItems: any[];
+    certs: any[];
+    setCerts: React.Dispatch<React.SetStateAction<any[]>>;
+    onSave: () => void;
+    mfgCerts: any[];
+}
 
-const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
-
-const getInvoicePUFromList = (certsList: any[], itemNum: string, currentCertIdx: number) => {
-    for (let i = currentCertIdx; i >= 0; i--) {
-        if (!certsList[i]) continue;
-        const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
-        const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
-        if (match) return parseFloat(match.mos_unit_price);
-    }
-    return 0;
-};
-
-const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function PaymentCertForm({ projectId, numAct, onDirty, onSaved }, ref) {
-    const [certs, setCerts] = useState<any[]>([]);
+const PaymentCertForm = React.memo(({ projectId, projectData, contractItems, certs, setCerts, onSave, mfgCerts }: PaymentCertFormProps) => {
     const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [expandedCert, setExpandedCert] = useState<number | null>(null);
     const [generating, setGenerating] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
-    const [summary, setSummary] = useState({
-        executed: 0,
-        paid: 0,
-        retention: 0,
-        materials: 0,
-        liquidated: 0
-    });
-    const [contractItems, setContractItems] = useState<any[]>([]);
-    const [chos, setChos] = useState<any[]>([]);
-    const [mfgCerts, setMfgCerts] = useState<any[]>([]);
-    const [iccs, setIccs] = useState<any[]>([]);
-    const [projectData, setProjectData] = useState<any>(null);
-    const [timeExtension, setTimeExtension] = useState(0);
-    const [mounted, setMounted] = useState(false);
-    const [searchTerm, setSearchTerm] = useState("");
 
-    useEffect(() => {
-        setMounted(true);
-        if (projectId) {
-            fetchProject();
-            fetchCerts();
-            fetchSummary();
-            fetchContractItems();
-            fetchCHOs();
-            fetchMfgCerts();
-            fetchIccs();
+    // Cálculos financieros en tiempo real
+    const { liveExecuted, livePaid, liveRetention, liveMOS, liveLiquidated, timeExtension } = useMemo(() => {
+        let execution = 0;
+        let retention = 0;
+        let mos = 0;
+        let liquidated = 0;
+        let totalPaid = 0;
+        let ext = 0;
+
+        certs.forEach((c, idx) => {
+            let certWork = 0;
+            let certMOSNet = 0;
+            
+            (c.items || []).forEach((item: any) => {
+                const q = parseFloat(item.quantity) || 0;
+                const p = parseFloat(item.unit_price) || 0;
+                certWork += q * p;
+
+                const addedMOS = item.has_material_on_site ? (parseFloat(item.mos_invoice_total) || 0) : 0;
+                const mosPU = getInvoicePUFromList(certs, item.item_num, idx);
+                const deductedMOS = (parseFloat(item.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p);
+                certMOSNet += addedMOS - deductedMOS;
+            });
+
+            execution += certWork;
+            mos += certMOSNet;
+
+            const cRet = (c.items || []).reduce((acc: number, it: any) => {
+                if (it.skip_retention) return acc;
+                return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
+            }, 0) - (c.retention_return_amount || 0);
+
+            if (!c.skip_retention) retention += cRet;
+            
+            liquidated += parseFloat(c.liquidated_damages) || 0;
+            totalPaid += certWork - (c.skip_retention ? 0 : cRet) + certMOSNet - (parseFloat(c.liquidated_damages) || 0);
+        });
+
+        // Extensiones de tiempo de Change Orders
+        const changeOrders = projectData?.change_orders || [];
+        ext = changeOrders.reduce((acc: number, co: any) => acc + (parseInt(co.time_extension_days) || 0), 0);
+
+        return { 
+            liveExecuted: execution, 
+            livePaid: totalPaid, 
+            liveRetention: retention, 
+            liveMOS: mos, 
+            liveLiquidated: liquidated,
+            timeExtension: ext
+        };
+    }, [certs, projectData]);
+
+    const addCert = () => {
+        const nextNum = certs.length > 0 ? Math.max(...certs.map(c => c.cert_num)) + 1 : 1;
+        const newCert = {
+            cert_num: nextNum,
+            cert_date: new Date().toISOString().split('T')[0],
+            wp_up_to: new Date().toISOString().split('T')[0],
+            items: [],
+            liquidated_damages: 0,
+            refund: 0,
+            extra_retention: 0,
+            price_adjustment: 0,
+            insurance_fines: 0,
+            other_penalties: 0,
+            skip_retention: false,
+            retention_return_amount: 0,
+            show_retention_return: false,
+            notes: '',
+            notes_images: []
+        };
+        setCerts([...certs, newCert]);
+        setExpandedCert(nextNum);
+    };
+
+    const removeCert = (idx: number) => {
+        if (confirm('¿Estás seguro de eliminar esta certificación? Todas sus partidas se perderán.')) {
+            const newCerts = [...certs];
+            newCerts.splice(idx, 1);
+            setCerts(newCerts);
         }
-    }, [projectId]);
-
-    const fetchProject = async () => {
-        const { data } = await supabase.from("projects").select("*").eq("id", projectId).single();
-        if (data) setProjectData(data);
     };
 
-    const fetchContractItems = async () => {
-        const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
-        if (data) setContractItems(data);
+    const updateCert = (idx: number, field: string, value: any) => {
+        const newCerts = [...certs];
+        newCerts[idx] = { ...newCerts[idx], [field]: value };
+        setCerts(newCerts);
     };
 
-    const fetchCHOs = async () => {
-        const { data } = await supabase.from("chos").select("*").eq("project_id", projectId);
-        if (data) {
-            setChos(data);
-            const ext = data.filter((c: any) => c.doc_status === "Aprobado").reduce((acc: number, c: any) => acc + (c.time_extension_days || 0), 0);
-            setTimeExtension(ext);
+    const addCertItem = (certIdx: number) => {
+        const newCerts = [...certs];
+        const newItems = [...(newCerts[certIdx].items || [])];
+        newItems.push({
+            item_num: '',
+            specification: '',
+            description: '',
+            unit: '',
+            quantity: 0,
+            unit_price: 0,
+            fund_source: FUND_SOURCES[0],
+            has_material_on_site: false,
+            mos_invoice_num: '',
+            mos_provider: '',
+            mos_invoice_total: 0,
+            mos_quantity: 0,
+            mos_unit_price: 0,
+            qty_from_mos: 0,
+            skip_retention: false
+        });
+        newCerts[certIdx].items = newItems;
+        setCerts(newCerts);
+    };
+
+    const insertCertItem = (certIdx: number, itIdx: number) => {
+        const newCerts = [...certs];
+        const newItems = [...(newCerts[certIdx].items || [])];
+        newItems.splice(itIdx + 1, 0, {
+            item_num: '',
+            specification: '',
+            description: '',
+            unit: '',
+            quantity: 0,
+            unit_price: 0,
+            fund_source: FUND_SOURCES[0],
+            has_material_on_site: false,
+            mos_invoice_num: '',
+            mos_provider: '',
+            mos_invoice_total: 0,
+            mos_quantity: 0,
+            mos_unit_price: 0,
+            qty_from_mos: 0,
+            skip_retention: false
+        });
+        newCerts[certIdx].items = newItems;
+        setCerts(newCerts);
+    };
+
+    const removeCertItem = (certIdx: number, itIdx: number) => {
+        const newCerts = [...certs];
+        const newItems = [...(newCerts[certIdx].items || [])];
+        newItems.splice(itIdx, 1);
+        newCerts[certIdx].items = newItems;
+        setCerts(newCerts);
+    };
+
+    const updateCertItem = (certIdx: number, itIdx: number, field: string, value: any) => {
+        const newCerts = [...certs];
+        const newItems = [...(newCerts[certIdx].items || [])];
+        
+        // If updating item_num, try to auto-fill from contract
+        if (field === 'item_num' && value) {
+            const baseItem = contractItems.find(it => it.item_num === value || it.item_num === value.padStart(3, '0'));
+            if (baseItem) {
+                newItems[itIdx] = {
+                    ...newItems[itIdx],
+                    item_num: baseItem.item_num,
+                    specification: baseItem.specification,
+                    description: baseItem.description,
+                    unit: baseItem.unit,
+                    unit_price: baseItem.unit_price,
+                };
+            } else {
+                newItems[itIdx] = { ...newItems[itIdx], [field]: value };
+            }
+        } else {
+            newItems[itIdx] = { ...newItems[itIdx], [field]: value };
+            
+            // Auto-calculate MOS Unit Price if total and qty are present
+            if (field === 'mos_invoice_total' || field === 'mos_quantity') {
+                const tot = parseFloat(newItems[itIdx].mos_invoice_total) || 0;
+                const qty = parseFloat(newItems[itIdx].mos_quantity) || 0;
+                if (qty > 0) {
+                    newItems[itIdx].mos_unit_price = (tot / qty).toFixed(4);
+                }
+            }
+        }
+        
+        newCerts[certIdx].items = newItems;
+        setCerts(newCerts);
+    };
+
+    const importContractItems = (certIdx: number) => {
+        const newCerts = [...certs];
+        const existingItems = newCerts[certIdx].items || [];
+        const existingNums = new Set(existingItems.map((it: any) => it.item_num));
+
+        const toImport = contractItems
+            .filter(it => !existingNums.has(it.item_num))
+            .map(it => ({
+                item_num: it.item_num,
+                specification: it.specification,
+                description: it.description,
+                unit: it.unit,
+                quantity: 0,
+                unit_price: it.unit_price,
+                fund_source: FUND_SOURCES[0],
+                has_material_on_site: false,
+                qty_from_mos: 0,
+                skip_retention: false
+            }));
+
+        newCerts[certIdx].items = [...existingItems, ...toImport];
+        setCerts(newCerts);
+    };
+
+    const saveData = async (silent = false) => {
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('projects')
+                .update({ payment_certs: certs })
+                .eq('id', projectId);
+
+            if (error) throw error;
+            if (!silent) alert('Certificaciones guardadas correctamente');
+            onSave();
+        } catch (error: any) {
+            console.error('Error saving certs:', error);
+            alert('Error al guardar: ' + error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const fetchMfgCerts = async () => {
-        const { data } = await supabase.from("manufacturing_certificates").select("*").eq("project_id", projectId);
-        if (data) setMfgCerts(data);
-    };
-
-    const fetchIccs = async () => {
-        const { data } = await supabase.from("initial_certifications").select("*, initial_certification_items(*)").eq("project_id", projectId);
-        if (data) setIccs(data);
+    const toggleExpand = (num: number) => {
+        setExpandedCert(expandedCert === num ? null : num);
     };
 
     const getItemTotalRevisedQty = (itemNum: string) => {
         const baseItem = contractItems.find(it => it.item_num === itemNum);
         if (!baseItem) return 0;
-        const baseQty = parseFloat(baseItem.quantity) || 0;
-
-        let choQty = 0;
-        chos.forEach(cho => {
-            const items = Array.isArray(cho.items) ? cho.items : [];
-            items.forEach((it: any) => {
-                if (it.item_num === itemNum) {
-                    choQty += (parseFloat(it.quantity) || 0);
-                }
-            });
+        
+        const changeOrders = projectData?.change_orders || [];
+        let extra = 0;
+        changeOrders.forEach((co: any) => {
+            const coItem = (co.items || []).find((it: any) => it.item_num === itemNum);
+            if (coItem) extra += parseFloat(coItem.quantity) || 0;
         });
-
-        return baseQty + choQty;
+        
+        return (parseFloat(baseItem.quantity) || 0) + extra;
     };
 
-    const fetchSummary = async () => {
-        if (!projectId) return;
-
-        // Fetch All Certifications to calculate MOS from items
-        const { data: allCerts } = await supabase.from("payment_certifications").select("items").eq("project_id", projectId);
-        let materialsVal = 0;
-        allCerts?.forEach((c, cIdx) => {
-            const items = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-            (items as any[]).forEach(it => {
-                const addedValue = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
-                const mosPU = getInvoicePUFromList(allCerts, it.item_num, cIdx);
-                const deductedValue = (parseFloat(it.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : (parseFloat(it.unit_price) || 0));
-                materialsVal += addedValue - deductedValue;
-            });
-        });
-
-        // Fetch Project and CHOs for Liquidated Damages
-        const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
-        const { data: chos } = await supabase.from("chos").select("doc_status, time_extension_days").eq("project_id", projectId);
-
-        const timeExt = chos?.filter(c => c.doc_status === 'Aprobado').reduce((acc, c) => acc + (c.time_extension_days || 0), 0) || 0;
-
-        const startDate = proj?.date_project_start ? new Date(proj.date_project_start) : new Date();
-        const origEndDate = proj?.date_orig_completion ? new Date(proj.date_orig_completion) : new Date();
-        const totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
-        const usedDays = Math.ceil((new Date().getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
-        const revisedDays = (totalDays || 0) + timeExt;
-        const liquidated = usedDays > revisedDays ? (usedDays - revisedDays) * 500 : 0;
-
-        setSummary(prev => ({
-            ...prev,
-            materials: materialsVal,
-            liquidated: liquidated
-        }));
+    // Helper para obtener el historial de MOS de un ítem
+    const getInvoicePUFromList = (allCerts: any[], itemNum: string, currentCertIdx: number) => {
+        // Buscamos la última factura de este item en certificaciones anteriores o la actual
+        for (let i = currentCertIdx; i >= 0; i--) {
+            const cert = allCerts[i];
+            const items = cert.items || [];
+            const match = items.find((it: any) => it.item_num === itemNum && it.has_material_on_site && (parseFloat(it.mos_unit_price) > 0));
+            if (match) return parseFloat(match.mos_unit_price);
+        }
+        return 0;
     };
 
     const getCertMOSBalance = (certIdx: number) => {
-        let cumulativeMOSInvoicedAmount = 0;
-        let cumulativeMOSUsedAmount = 0;
-
-        certs.slice(0, certIdx + 1).forEach((cert, cIndex) => {
-            const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
-            (certItems as any[]).forEach(it => {
-                cumulativeMOSInvoicedAmount += parseFloat(it.has_material_on_site ? it.mos_invoice_total : 0) || 0;
-                const pr = getInvoicePUFromList(certs, it.item_num, cIndex);
-                cumulativeMOSUsedAmount += (parseFloat(it.qty_from_mos) || 0) * (pr > 0 ? pr : (parseFloat(it.unit_price) || 0));
-            });
-        });
-        return cumulativeMOSInvoicedAmount - cumulativeMOSUsedAmount;
-    };
-
-    const fetchCerts = async () => {
-        const { data } = await supabase.from("payment_certifications").select("*").eq("project_id", projectId).order("cert_num", { ascending: true });
-        if (data && data.length > 0) {
-            // Restore simpler structure: items is just a list
-            const normalized = data.map(c => {
-                let items = c.items;
-                if (c.items && !Array.isArray(c.items) && c.items.list) {
-                    items = c.items.list;
-                }
-                return { 
-                    ...c, 
-                    items: items || [],
-                    notes_images: Array.isArray(c.notes_images) ? c.notes_images : []
-                };
-            });
-            setCerts(normalized);
-        } else {
-            addCert(true);
-        }
-    };
-
-    const addCert = (silent = false) => {
-        const nextNum = certs.length > 0 ? Math.max(...certs.map(c => c.cert_num)) + 1 : 1;
-        setCerts([...certs, {
-            project_id: projectId,
-            cert_num: nextNum,
-            cert_date: new Date().toISOString().split('T')[0],
-        }]);
-        if (!silent && onDirty) onDirty();
-    };
-
-    const removeCert = (idx: number) => {
-        setCerts(certs.filter((_, i) => i !== idx));
-        if (onDirty) onDirty();
-    };
-
-    const updateCert = (idx: number, field: string, value: any) => {
-        const newList = [...certs];
-        newList[idx][field] = value;
-        setCerts(newList);
-        if (onDirty) onDirty();
-    };
-
-    const saveData = async (silent = false) => {
-        if (!projectId) return;
-
-        // Validation: Check if any item exceeds its available balance
-        let hasConfirmedOverage = false;
-
-        for (let i = 0; i < certs.length; i++) {
-            const cert = certs[i];
-            const certItems = cert.items || [];
-            for (let j = 0; j < certItems.length; j++) {
-                const item = certItems[j];
-                const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
-
-                // Calculate quantity paid in PREVIOUS certifications only
-                let paidInPrevious = 0;
-                for (let k = 0; k < i; k++) {
-                    const prevCertItems = certs[k].items || [];
-                    const match = prevCertItems.find((p: any) => p.item_num === item.item_num);
-                    if (match) paidInPrevious += parseFloat(match.quantity) || 0;
-                }
-
-                const availableBalance = totalRevisedQty - paidInPrevious;
-                const currentQty = parseFloat(item.quantity) || 0;
-
-                if (currentQty > (availableBalance + 0.0001)) { // Small epsilon for float comparison
-                    if (!silent) {
-                        if (!hasConfirmedOverage) {
-                            const proceed = window.confirm(`Atención en Certificación #${cert.cert_num}: El ítem ${item.item_num} supera el balance de contrato disponible (${availableBalance.toFixed(2)}). Por favor verifique la cantidad.\n\n¿Desea guardar de todos modos? (Seleccione OK para Grabar)`);
-                            if (!proceed) return;
-                            hasConfirmedOverage = true;
-                        }
-                    } else {
-                        // Si es guardado automático silencioso y supera balance, evitamos guardar sin permiso, o podríamos forzar
-                        return;
-                    }
-                }
-
-                // CM Validation
-                const baseItemMatch = contractItems.find(it => it.item_num === item.item_num);
-                if (baseItemMatch?.requires_mfg_cert) {
-                    const totalApprovedMfg = mfgCerts
-                        .filter(mc => mc.item_id === baseItemMatch.id)
-                        .reduce((acc, mc) => acc + (parseFloat(mc.quantity) || 0), 0);
-                    const mfgCertBalance = totalApprovedMfg - paidInPrevious;
-                    if (currentQty > (mfgCertBalance + 0.0001)) {
-                        if (!silent) {
-                            if (!hasConfirmedOverage) {
-                                const proceed = window.confirm(`Error en Certificación #${cert.cert_num}: El ítem ${item.item_num} supera el balance de CM disponible (${mfgCertBalance.toFixed(2)}). Por favor ajuste la cantidad.\n\n¿Desea guardar de todos modos? (Seleccione OK para Grabar)`);
-                                if (!proceed) return;
-                                hasConfirmedOverage = true;
-                            }
-                        } else {
-                            return;
-                        }
-                    }
-                }
-
-                // ICC Validation: "si esta vencido, ya no se puede pagar"
-                if (currentQty > 0) {
-                    const itemIcc = iccs.find(icc => 
-                        icc.item_id === baseItemMatch?.id || 
-                        (icc.multiple_items && icc.initial_certification_items?.some((ci: any) => ci.item_id === baseItemMatch?.id))
-                    );
-
-                    if (itemIcc) {
-                        let pcToUse = certs.find(p => p.id === itemIcc.payment_cert_id);
-                        
-                        // Aplicar regla: la más próxima después
-                        if (!pcToUse && itemIcc.cert_date) {
-                            const potential = certs.filter(p => p.cert_date >= itemIcc.cert_date);
-                            if (potential.length > 0) {
-                                pcToUse = potential.reduce((prev, curr) => prev.cert_num < curr.cert_num ? prev : curr);
-                            }
-                        }
-
-                        if (pcToUse?.resident_engineer_date) {
-                            const expDate = new Date(`${pcToUse.resident_engineer_date}T00:00:00`);
-                            expDate.setDate(expDate.getDate() + 60);
-
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-
-                            if (expDate < today) {
-                                if (!silent) {
-                                    alert(`ERROR CRÍTICO: No se puede pagar el ítem ${item.item_num} en la Certificación #${cert.cert_num}. Su Initial Certification (ICC) ya venció el ${expDate.toLocaleDateString()} (60 días desde CP #${pcToUse.cert_num}). Para completar el pago debe presentar el Certificado de Manufactura final.`);
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        await supabase.from("payment_certifications").delete().eq("project_id", projectId);
-
-        // ============================================================
-        // LÓGICA MOS AUTOMÁTICA - Correcta para TODOS los proyectos
-        // ============================================================
-        // El algoritmo funciona igual que en AC-200023:
-        //
-        // Por cada certificación (en orden cronológico):
-        //   FASE 1: Sumar al balance todas las ADICIONES de MOS
-        //           (ítems con has_material_on_site = true)
-        //   FASE 2: Deducir del balance el trabajo pagado en esa cert
-        //           para ítems que tengan balance MOS disponible
-        //
-        // Ejemplo correcto (AC-200023, ítem 008):
-        //   Cert #1: +$50,437.92 (adición) → balance = $50,437.92
-        //            -1870.52 qty × $6.214 = -$11,623.41 (deducción WP)
-        //            → balance = $38,814.51
-        //   Cert #2: -6246.30 qty × $6.214 = -$38,814.51 (deducción WP)
-        //            → balance = $0.00
-        // ============================================================
-
-        // Balance corriente por ítem (en dólares), se va acumulando
-        const mosBalance: Record<string, number> = {};
-        // Precio unitario del MOS por ítem (para convertir $ ↔ cantidad)
-        const mosPU: Record<string, number> = {};
-
-        const certsWithMOS = certs.map((c, cIdx) => {
-            // ── FASE 1: Acumular adiciones de MOS de esta cert ──────────
+        let balance = 0;
+        certs.slice(0, certIdx + 1).forEach((c, idx) => {
             (c.items || []).forEach((item: any) => {
-                const invoiceTotal = parseFloat(item.mos_invoice_total) || 0;
-                // Si tiene monto de factura, es una adición
-                if (item.has_material_on_site || invoiceTotal > 0) {
-                    const itemMosPU = parseFloat(item.mos_unit_price) || 0;
-                    const itemNum = item.item_num;
-                    if (invoiceTotal > 0) {
-                        mosBalance[itemNum] = (mosBalance[itemNum] || 0) + invoiceTotal;
-                        if (itemMosPU > 0) {
-                            mosPU[itemNum] = itemMosPU;
-                        } else if (!mosPU[itemNum]) {
-                            // Fallback al precio unitario del item si no hay precio MOS específico
-                            mosPU[itemNum] = parseFloat(item.unit_price) || 0;
-                        }
-                    }
-                }
+                const added = item.has_material_on_site ? (parseFloat(item.mos_invoice_total) || 0) : 0;
+                const pu = getInvoicePUFromList(certs, item.item_num, idx);
+                const deducted = (parseFloat(item.qty_from_mos) || 0) * (pu > 0 ? pu : (parseFloat(item.unit_price) || 0));
+                balance += added - deducted;
             });
-
-            // ── FASE 2: Calcular deducciones para cada ítem pagado ──────
-            const processedItems = (c.items || []).map((item: any) => {
-                const itemNum = item.item_num;
-                // Buscar precio unitario en certs anteriores si no está en el mapa local
-                if (!mosPU[itemNum]) {
-                    mosPU[itemNum] = getInvoicePUFromList(certs, itemNum, cIdx);
-                }
-
-                const available = mosBalance[itemNum] || 0;
-                const workQty = parseFloat(item.quantity) || 0;
-
-                // Si el usuario ya estableció qty_from_mos manualmente y es > 0, respetarlo
-                const manualQty = parseFloat(item.qty_from_mos);
-                if (!isNaN(manualQty) && manualQty > 0) {
-                    const pu = mosPU[itemNum] || parseFloat(item.unit_price) || 0;
-                    mosBalance[itemNum] = Math.max(0, available - (manualQty * pu));
-                    return item;
-                }
-
-                // Sin balance MOS o sin trabajo → no hay deducción
-                if (available <= 0 || workQty <= 0) return { ...item, qty_from_mos: 0 };
-
-                // Calcular deducción automática
-                const pu = mosPU[itemNum] || parseFloat(item.unit_price) || 0;
-                if (pu <= 0) return item;
-
-                const availableQty = available / pu;
-                const autoQty = Math.min(workQty, availableQty);
-
-                if (autoQty > 0.0001) {
-                    mosBalance[itemNum] = Math.max(0, available - (autoQty * pu));
-                    return { ...item, qty_from_mos: parseFloat(autoQty.toFixed(4)) };
-                }
-
-                return { ...item, qty_from_mos: 0 };
-            });
-
-            return { ...c, items: processedItems };
         });
-
-        const certsToInsert = certsWithMOS.map(c => {
-            const { id, created_at, ...rest } = c;
-            return {
-                ...rest,
-                project_id: projectId,
-                wp_up_to: c.wp_up_to || null,
-                skip_retention: !!c.skip_retention,
-                items: c.items || [],   // certsWithMOS ya tiene items = processedItems
-                notes: c.notes || null,
-                notes_images: c.notes_images || []
-            };
-        });
-        const { error } = await supabase.from("payment_certifications").insert(certsToInsert);
-        if (error && !silent) alert("Error: " + error.message);
-        else if (!error) {
-            fetchSummary();
-            if (!silent) alert("Certificaciones y partidas actualizadas");
-            if (onSaved) onSaved();
-        }
+        return balance;
     };
 
-    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const result = await importSectionFromJSON(file);
-        if (result.success && Array.isArray(result.data)) {
-            const cleaned = result.data.map(c => {
-                const { id, project_id, created_at, ...rest } = c;
-                return { 
-                    ...rest, 
-                    project_id: projectId 
-                };
+    const liquidateAllMOS = (certIdx: number) => {
+        if (!confirm('¿Deseas liquidar todos los saldos de Material on Site pendientes hasta esta certificación?')) return;
+
+        const newCerts = [...certs];
+        const currentCert = newCerts[certIdx];
+        const items = [...(currentCert.items || [])];
+
+        // 1. Mapear balances acumulados por item_num
+        const itemBalances: Record<string, number> = {};
+        
+        newCerts.slice(0, certIdx + 1).forEach((c, cIdx) => {
+            (c.items || []).forEach((it: any) => {
+                const added = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
+                const pu = getInvoicePUFromList(newCerts, it.item_num, cIdx);
+                const deducted = (parseFloat(it.qty_from_mos) || 0) * (pu > 0 ? pu : (parseFloat(it.unit_price) || 0));
+                
+                itemBalances[it.item_num] = (itemBalances[it.item_num] || 0) + added - deducted;
             });
-            setCerts([...certs, ...cleaned]);
-            alert("Certificaciones importadas. Guarde para confirmar.");
+        });
+
+        // 2. Para cada item con balance positivo, forzar la deducción en la certificación actual
+        let adjusted = false;
+        items.forEach((it: any, idx: number) => {
+            const bal = itemBalances[it.item_num] || 0;
+            if (bal > 0.01) {
+                const pu = getInvoicePUFromList(newCerts, it.item_num, certIdx) || parseFloat(it.unit_price) || 1;
+                const neededQty = bal / pu;
+                it.qty_from_mos = (parseFloat(it.qty_from_mos) || 0) + neededQty;
+                adjusted = true;
+            }
+        });
+
+        if (adjusted) {
+            newCerts[certIdx].items = items;
+            setCerts(newCerts);
+            alert('Saldos liquidados. Revisa las cantidades deducidas.');
         } else {
-            alert("Error al importar: " + (result.error || "Formato inválido"));
+            alert('No hay saldos positivos de MOS para liquidar.');
         }
-        e.target.value = "";
-    };
-
-    useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
-
-    const uploadNoteImage = async (certIdx: number, file: File) => {
-        if (!projectId) return;
-        setUploadingImage(certIdx);
-        try {
-            const safeName = file.name
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '')
-                .replace(/[^a-zA-Z0-9._-]/g, '_');
-            const storagePath = `${projectId}/payment/cert_${certs[certIdx].cert_num}_${Date.now()}_${safeName}`;
-            const { error: uploadError } = await supabase.storage
-                .from("project-documents")
-                .upload(storagePath, file);
-            if (uploadError) throw uploadError;
-            
-            // Register in project_documents so it shows up in explorer
-            await supabase.from("project_documents").insert({
-                project_id: projectId,
-                doc_type: `Nota Certificación #${certs[certIdx].cert_num}`,
-                section: "payment",
-                file_name: file.name,
-                storage_path: storagePath
-            });
-
-            const { data: urlData } = supabase.storage.from("project-documents").getPublicUrl(storagePath);
-            const publicUrl = urlData.publicUrl;
-            const newList = [...certs];
-            const currentImages: string[] = Array.isArray(newList[certIdx].notes_images) ? newList[certIdx].notes_images : [];
-            newList[certIdx].notes_images = [...currentImages, publicUrl];
-            setCerts(newList);
-            if (onDirty) onDirty();
-        } catch (err) {
-            console.error("Error subiendo imagen:", err);
-            alert("Error al subir la imagen. Intente de nuevo.");
-        } finally {
-            setUploadingImage(null);
-        }
-    };
-
-    const removeNoteImage = (certIdx: number, imgUrl: string) => {
-        const newList = [...certs];
-        newList[certIdx].notes_images = (newList[certIdx].notes_images || []).filter((u: string) => u !== imgUrl);
-        setCerts(newList);
-        if (onDirty) onDirty();
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!projectId) return;
-        setLoading(true);
-        await saveData(false);
-        setLoading(false);
-    };
-
-
-    const [expandedCert, setExpandedCert] = useState<number | null>(null);
-
-    const toggleExpand = (certNum: number) => {
-        setExpandedCert(expandedCert === certNum ? null : certNum);
     };
 
     const handlePrint = async (cert: any) => {
-        if (!projectId) return;
         setGenerating(cert.cert_num);
         try {
-            const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
-            downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${numAct}.pdf`);
-        } catch (error) {
-            console.error(error);
-            alert("Error al generar el reporte ACT-117C");
+            const response = await fetch('/api/reports/act117c', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    project: projectData, 
+                    cert: cert,
+                    allCerts: certs,
+                    contractItems: contractItems
+                })
+            });
+
+            if (!response.ok) throw new Error('Error al generar reporte');
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ACT-117C_Cert_${cert.cert_num}_${projectData.project_number}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (err: any) {
+            alert('Error: ' + err.message);
         } finally {
             setGenerating(null);
         }
     };
 
-    const addCertItem = (certIdx: number) => {
-        const newList = [...certs];
-        if (!newList[certIdx].items) newList[certIdx].items = [];
-        newList[certIdx].items.push({
-            item_num: "",
-            specification: "",
-            description: "",
-            unit: "",
-            quantity: 0,
-            unit_price: 0,
-            fund_source: FUND_SOURCES[0],
-            has_material_on_site: false,
-            mos_quantity: 0,
-            mos_unit_price: 0,
-            mos_invoice_total: 0,
-            mos_invoice_num: "",
-            mos_provider: "",
-            mos_lot_num: "1",
-            qty_from_mos: 0,
-            skip_retention: false,
-        });
-        setCerts(newList);
-        if (onDirty) onDirty();
+    const exportSectionToJSON = (sectionName: string, data: any) => {
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        const exportFileDefaultName = `${sectionName}_${projectData.project_number}_${new Date().toISOString().split('T')[0]}.json`;
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
     };
 
-    const insertCertItem = (certIdx: number, itemIdx: number) => {
-        const newList = [...certs];
-        const currentItemNum = parseInt(newList[certIdx].items[itemIdx]?.item_num);
-        const nextNum = !isNaN(currentItemNum) ? (currentItemNum + 1).toString().padStart(3, '0') : "";
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
 
-        newList[certIdx].items.splice(itemIdx + 1, 0, {
-            item_num: nextNum,
-            specification: "",
-            description: "",
-            unit: "",
-            quantity: 0,
-            unit_price: 0,
-            fund_source: FUND_SOURCES[0],
-            has_material_on_site: false,
-            mos_quantity: 0,
-            mos_unit_price: 0,
-            mos_invoice_total: 0,
-            mos_invoice_num: "",
-            mos_provider: "",
-            mos_lot_num: "1",
-            qty_from_mos: 0,
-            skip_retention: false,
-        });
-        setCerts(newList);
-        if (onDirty) onDirty();
-    };
-
-    const updateCertItem = (certIdx: number, itemIdx: number, field: string, value: any) => {
-        const newList = [...certs];
-        let finalValue = value;
-
-        // Limit item_num to 3 digits (allow free typing)
-        if (field === 'item_num') {
-            finalValue = value.toString().replace(/\D/g, '').substring(0, 3);
-        }
-
-        // Auto-format specification XXX-XXX
-        if (field === 'specification' && /^\d{6}$/.test(value.toString().trim())) {
-            const val = value.toString().trim();
-            finalValue = val.substring(0, 3) + '-' + val.substring(3);
-        }
-
-        // Truncate price fields and qty_from_mos to 4 decimal places
-        if (field === 'unit_price' || field === 'mos_unit_price' || field === 'qty_from_mos') {
-            const strVal = value.toString();
-            if (strVal.includes('.')) {
-                const [intPart, decPart] = strVal.split('.');
-                finalValue = intPart + '.' + decPart.substring(0, 4);
-            }
-        }
-
-        newList[certIdx].items[itemIdx][field] = finalValue;
-
-        // Proactive: Default MOS Invoice Total to Work Amount when checking box
-        if (field === 'has_material_on_site' && finalValue === true) {
-            const it = newList[certIdx].items[itemIdx];
-            if (!it.mos_invoice_total) {
-                const workAmount = (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0);
-                if (workAmount > 0) {
-                    newList[certIdx].items[itemIdx].mos_invoice_total = workAmount.toFixed(2);
-                    // Also try to set MOS quantity = WP quantity as default
-                    if (!it.mos_quantity) newList[certIdx].items[itemIdx].mos_quantity = it.quantity;
-                    if (!it.mos_lot_num) newList[certIdx].items[itemIdx].mos_lot_num = "1";
-                    // Trigger calculation of unit price
-                    const total = workAmount;
-                    const qty = parseFloat(it.quantity) || 0;
-                    if (qty > 0) {
-                        const rawPrice = (total / qty).toString();
-                        newList[certIdx].items[itemIdx].mos_unit_price = rawPrice.includes('.') ? rawPrice.split('.')[0] + '.' + rawPrice.split('.')[1].substring(0, 4) : rawPrice;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target?.result as string);
+                if (Array.isArray(json)) {
+                    if (confirm('¿Deseas reemplazar todas las certificaciones actuales con las del archivo?')) {
+                        setCerts(json);
                     }
                 }
+            } catch (err) {
+                alert('Error al leer el archivo JSON');
             }
-        }
-
-        // Auto-calculate mos_unit_price = total / quantity
-        if (field === 'mos_invoice_total' || field === 'mos_quantity') {
-            const total = parseFloat(newList[certIdx].items[itemIdx].mos_invoice_total) || 0;
-            const qty = parseFloat(newList[certIdx].items[itemIdx].mos_quantity) || 0;
-            if (total > 0) {
-                newList[certIdx].items[itemIdx]['has_material_on_site'] = true;
-            }
-            if (qty > 0) {
-                const rawPrice = (total / qty).toString();
-                let calcPrice = rawPrice;
-                if (rawPrice.includes('.')) {
-                    const [intP, decP] = rawPrice.split('.');
-                    calcPrice = intP + '.' + decP.substring(0, 4);
-                }
-                newList[certIdx].items[itemIdx]['mos_unit_price'] = calcPrice;
-            }
-        }
-
-        // Autofill logic for item_num or specification from Contract Items (Section 4)
-        if (field === 'item_num' || field === 'specification') {
-            const searchValue = finalValue.toString().trim();
-            const match = contractItems.find(it =>
-                (field === 'item_num' && it.item_num === searchValue) ||
-                (field === 'specification' && it.specification === searchValue)
-            );
-
-            if (match) {
-                newList[certIdx].items[itemIdx]['specification'] = match.specification;
-                newList[certIdx].items[itemIdx]['description'] = [match.description, match.additional_description].filter(Boolean).join(' - ');
-                newList[certIdx].items[itemIdx]['unit'] = match.unit;
-                newList[certIdx].items[itemIdx]['unit_price'] = match.unit_price ? parseFloat(match.unit_price.toString().split('.')[0] + '.' + (match.unit_price.toString().split('.')[1] || '').substring(0, 4)) : 0;
-                newList[certIdx].items[itemIdx]['fund_source'] = match.fund_source;
-            }
-        }
-
-        // Autofill logic for specification (global catalog fallback)
-        if (field === 'specification') {
-            const specInfo = specs[finalValue.toString().trim()];
-            if (specInfo && !newList[certIdx].items[itemIdx]['unit_price']) {
-                newList[certIdx].items[itemIdx]['description'] = specInfo.description;
-                newList[certIdx].items[itemIdx]['unit'] = specInfo.unit;
-            }
-        }
-
-        setCerts(newList);
-        if (onDirty) onDirty();
-    };
-
-    const removeCertItem = (certIdx: number, itemIdx: number) => {
-        const newList = [...certs];
-        const newItems = (newList[certIdx].items || []).filter((_: any, i: number) => i !== itemIdx);
-        newList[certIdx] = { ...newList[certIdx], items: newItems };
-        setCerts(newList);
-        if (onDirty) onDirty();
-    };
-
-    const liquidateAllMOS = (certIdx: number) => {
-        const newList = [...certs];
-        const currentCert = newList[certIdx];
-        const items = currentCert.items || [];
-
-        const updatedItems = items.map((item: any) => {
-            // Calculate balance BEFORE this certification
-            let cumulativeMOSInvoicedAmount = 0;
-            let cumulativeMOSUsedAmountBefore = 0;
-
-            newList.slice(0, certIdx + 1).forEach((cert, cIndex) => {
-                const certItems = cert.items || [];
-                certItems.forEach((it: any) => {
-                    if (it.item_num === item.item_num) {
-                        cumulativeMOSInvoicedAmount += parseFloat(it.has_material_on_site ? it.mos_invoice_total : 0) || 0;
-                        if (cIndex < certIdx) {
-                            const pr = getInvoicePUFromList(newList, it.item_num, cIndex);
-                            cumulativeMOSUsedAmountBefore += (parseFloat(it.qty_from_mos) || 0) * (pr > 0 ? pr : (parseFloat(it.unit_price) || 0));
-                        }
-                    }
-                });
-            });
-
-            const availableMOSBalance = cumulativeMOSInvoicedAmount - cumulativeMOSUsedAmountBefore;
-            const mosPUForCalc = getInvoicePUFromList(newList, item.item_num, certIdx);
-            const currentDeductionPU = mosPUForCalc > 0 ? mosPUForCalc : (parseFloat(item.unit_price) || 0);
-
-            if (availableMOSBalance > 0 && currentDeductionPU > 0) {
-                const availableMOSQty = availableMOSBalance / currentDeductionPU;
-                return { ...item, qty_from_mos: parseFloat(availableMOSQty.toFixed(4)) };
-            }
-            return item;
-        });
-
-        newList[certIdx].items = updatedItems;
-        setCerts(newList);
-        if (onDirty) onDirty();
-    };
-
-    const importContractItems = (certIdx: number) => {
-        const newList = [...certs];
-        if (!newList[certIdx].items) newList[certIdx].items = [];
-
-        const itemsToImport = contractItems.map(it => ({
-            item_num: it.item_num,
-            specification: it.specification,
-            description: [it.description, it.additional_description].filter(Boolean).join(' - '),
-            unit: it.unit,
-            quantity: 0, // In certification, quantity is what's done in this period
-            unit_price: it.unit_price ? parseFloat(it.unit_price.toString().split('.')[0] + '.' + (it.unit_price.toString().split('.')[1] || '').substring(0, 4)) : 0,
-            fund_source: it.fund_source,
-            skip_retention: false
-        }));
-
-        newList[certIdx].items = [...newList[certIdx].items, ...itemsToImport];
-        setCerts(newList);
-        if (onDirty) onDirty();
-    };
-
-
-    // Cálculos financieros memoizados para evitar lentitud al escribir
-    const { liveExecuted, liveRetention, liveMOS, livePaid, liveLiquidated, totalProjectGrossRetention } = React.useMemo(() => {
-        let executed = 0;
-        let retentionTotal = 0;
-        let mosTotal = 0;
-        let grossRetention = 0;
-        let totalLiquidated = 0;
-        let extrasTotal = 0;
-
-        certs.forEach((c, cIdx) => {
-            const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-            let certExecuted = 0;
-            let certMOSChange = 0;
-            let certGrossRetention = 0;
-
-            certItems.forEach((it: any) => {
-                const q = parseFloat(it.quantity) || 0;
-                const p = parseFloat(it.unit_price) || 0;
-                certExecuted += q * p;
-
-                const addedMOS = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
-                const mosPU = getInvoicePUFromList(certs, it.item_num, cIdx);
-                const deductedMOS = (parseFloat(it.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p);
-                certMOSChange += addedMOS - deductedMOS;
-
-                if (!c.skip_retention && !it.skip_retention) {
-                    certGrossRetention += (q * p * 0.05);
-                }
-            });
-
-            executed += certExecuted;
-            mosTotal += certMOSChange;
-            grossRetention += certGrossRetention;
-
-            let currentCertRetention = certGrossRetention;
-            if (c.show_retention_return && c.retention_return_amount) {
-                currentCertRetention -= parseFloat(c.retention_return_amount) || 0;
-            }
-            retentionTotal += (currentCertRetention + (parseFloat(c.extra_retention) || 0));
-
-            // Daños Líquidos: override manual o cálculo automático
-            let certLiq = parseFloat(c.liquidated_damages) || 0;
-            if (certLiq === 0 && projectData && c.wp_up_to) {
-                const startDate = projectData.date_project_start ? new Date(projectData.date_project_start) : null;
-                const origEndDate = projectData.date_orig_completion ? new Date(projectData.date_orig_completion) : null;
-                const currentAt = new Date(c.wp_up_to);
-                if (startDate && origEndDate) {
-                    const totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
-                    const usedDays = Math.ceil((currentAt.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
-                    const revisedDays = (totalDays || 0) + timeExtension;
-                    if (usedDays > revisedDays) certLiq = (usedDays - revisedDays) * (parseFloat(projectData.liquidated_damages_per_day) || 500);
-                }
-            }
-            totalLiquidated += certLiq;
-
-            // Otros ajustes positivos/negativos a nivel de cert
-            extrasTotal += (parseFloat(c.refund) || 0)
-                - (parseFloat(c.extra_retention) || 0)
-                + (parseFloat(c.price_adjustment) || 0)
-                - (parseFloat(c.insurance_fines) || 0)
-                - (parseFloat(c.other_penalties) || 0);
-        });
-
-        return {
-            liveExecuted: executed,
-            liveRetention: -retentionTotal,
-            liveMOS: mosTotal,
-            livePaid: executed - retentionTotal + mosTotal - totalLiquidated + extrasTotal,
-            liveLiquidated: totalLiquidated,
-            totalProjectGrossRetention: grossRetention
         };
-    }, [certs, projectData, timeExtension]);
+        reader.readAsText(file);
+    };
 
-    if (!mounted) return null;
+    const uploadNoteImage = async (certIdx: number, file: File) => {
+        setUploadingImage(certIdx);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${projectId}/${certIdx}/${Math.random()}.${fileExt}`;
+            const { data, error } = await supabase.storage
+                .from('project-notes')
+                .upload(fileName, file);
+
+            if (error) throw error;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('project-notes')
+                .getPublicUrl(fileName);
+
+            const newCerts = [...certs];
+            const currentImages = Array.isArray(newCerts[certIdx].notes_images) ? newCerts[certIdx].notes_images : [];
+            newCerts[certIdx].notes_images = [...currentImages, publicUrl];
+            setCerts(newCerts);
+        } catch (error: any) {
+            alert('Error al subir imagen: ' + error.message);
+        } finally {
+            setUploadingImage(null);
+        }
+    };
+
+    const removeNoteImage = (certIdx: number, url: string) => {
+        if (!confirm('¿Eliminar esta imagen?')) return;
+        const newCerts = [...certs];
+        newCerts[certIdx].notes_images = newCerts[certIdx].notes_images.filter((img: string) => img !== url);
+        setCerts(newCerts);
+    };
 
     return (
-        <div suppressHydrationWarning className="w-full space-y-6">
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <FileCheck className="text-primary" />
-                    Certificaciones de Pago
-                </h2>
-                <div className="flex-1 max-w-md mx-6 hidden md:block">
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                        <FileText size={20} />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-black text-slate-800 dark:text-white leading-none">Certificaciones de Pago</h3>
+                        <p className="text-xs font-bold text-slate-400 mt-1">Control de obra ejecutada, retenidos y materiales</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3 w-full md:w-auto">
                     <div className="relative group">
                         <input 
                             type="text"
@@ -901,14 +569,6 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
             <div className="space-y-4">
                 {certs.map((c, certIdx) => {
-                    const totalProjectGrossRetention = certs.reduce((acc, cert) => {
-                        let cw = 0;
-                        (cert.items || []).forEach((it: any) => {
-                            cw += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0);
-                        });
-                        return acc + (cert.skip_retention ? 0 : cw * 0.05);
-                    }, 0);
-
                     let certWork = 0;
                     let certMOSNet = 0;
                     (c.items || []).forEach((item: any) => {
@@ -999,276 +659,64 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                 {c.show_retention_return && (
                                                     <div className="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-900/10 p-1.5 rounded-lg border border-blue-100 dark:border-blue-800/50 w-full mt-1">
                                                         <div className="flex flex-col">
-                                                            <label className="text-[8px] font-bold text-blue-500 uppercase">A Devolver</label>
+                                                            <span className="text-[8px] font-bold text-blue-400 uppercase leading-none mb-1">Monto a Devolver</span>
                                                             <input
                                                                 type="number"
-                                                                step="0.01"
-                                                                className="w-full xl:w-20 h-6 text-xs font-bold border-b border-blue-200 focus:border-blue-500 outline-none bg-transparent"
+                                                                className="w-full bg-transparent border-none p-0 text-xs font-black text-blue-700 outline-none focus:ring-0 h-4"
+                                                                value={c.retention_return_amount ?? ""}
+                                                                onChange={(e) => updateCert(certIdx, 'retention_return_amount', e.target.value)}
                                                                 placeholder="0.00"
-                                                                value={c.retention_return_amount || ""}
-                                                                onChange={(e) => updateCert(certIdx, 'retention_return_amount', parseFloat(e.target.value) || 0)}
                                                             />
-                                                        </div>
-                                                        <div className="flex flex-col gap-1 hidden md:flex">
-                                                            <label className="text-[8px] font-bold text-slate-400 uppercase text-center">Presets</label>
-                                                            <div className="flex gap-1">
-                                                                <button
-                                                                    onClick={() => updateCert(certIdx, 'retention_return_amount', totalProjectGrossRetention * 0.25)}
-                                                                    className="px-1 py-0.5 bg-white border border-blue-200 text-[8px] font-bold text-blue-600 rounded hover:bg-blue-50 transition-colors"
-                                                                >
-                                                                    25%
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => updateCert(certIdx, 'retention_return_amount', totalProjectGrossRetention * 0.75)}
-                                                                    className="px-1 py-0.5 bg-white border border-blue-200 text-[8px] font-bold text-blue-600 rounded hover:bg-blue-50 transition-colors"
-                                                                >
-                                                                    75%
-                                                                </button>
-                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ajuste MOS (Neto)</span>
-                                            <span className={`text-lg xl:text-xl font-black ${certMOSNet >= 0 ? 'text-blue-600' : 'text-amber-600'} font-geist tracking-tight`}>
-                                                {formatCurrency(certMOSNet)}
-                                            </span>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">MOS Neto (M)</span>
+                                                <span className={`text-lg xl:text-xl font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
+                                                    {formatCurrency(certMOSNet)}
+                                                </span>
+                                            </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block text-primary">Total Pago de este Doc.</span>
-                                            <span className="text-lg xl:text-xl font-black text-primary font-geist tracking-tight">{formatCurrency(certNetChange)}</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Neto Certificado</span>
+                                            <span className="text-xl xl:text-2xl font-black text-primary font-geist tracking-tighter">
+                                                {formatCurrency(certNetChange)}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center xl:items-start gap-2 justify-end xl:flex-col shrink-0">
-                                    <div className="flex gap-2 mb-2 w-full justify-end">
-                                        <button
-                                            disabled={generating === c.cert_num}
-                                            onClick={() => handlePrint(c)}
-                                            className="text-slate-500 hover:text-blue-600 transition-all flex items-center gap-1.5 px-2 py-1 rounded bg-blue-50/50 hover:bg-blue-100 border border-blue-100 dark:bg-blue-900/10 dark:hover:bg-blue-900/20 dark:border-blue-800"
-                                            title="Imprimir Formulario ACT-117C"
-                                        >
-                                            {generating === c.cert_num ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
-                                            <span className="text-[10px] font-black uppercase">Imprimir ACT-117C</span>
-                                        </button>
-                                        <button type="button" onClick={() => removeCert(certIdx)} className="text-slate-300 hover:text-red-500 transition-colors" title="Eliminar certificación">
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
-                                    <button
-                                        onClick={() => toggleExpand(c.cert_num)}
-                                        className={`bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors w-full text-center ${expandedCert === c.cert_num ? 'bg-slate-200' : ''}`}
+
+                                {/* Acciones Globales Certificación */}
+                                <div className="flex items-center gap-2 border-l-0 xl:border-l border-slate-200 dark:border-slate-700/50 pl-0 xl:pl-6 justify-end">
+                                    <button 
+                                        onClick={() => handlePrint(c)}
+                                        disabled={generating === c.cert_num}
+                                        className="btn-primary py-2 px-4 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all text-xs font-black"
                                     >
-                                        {expandedCert === c.cert_num ? "Ocultar Partidas" : "Ver / Añadir Partidas"}
+                                        {generating === c.cert_num ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+                                        {generating === c.cert_num ? "Generando..." : "Imprimir Cert."}
+                                    </button>
+                                    <button 
+                                        onClick={() => toggleExpand(c.cert_num)}
+                                        className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-primary hover:border-primary transition-all active:scale-95 shadow-sm"
+                                    >
+                                        {expandedCert === c.cert_num ? <X size={18} /> : <PlusSquare size={18} />}
+                                    </button>
+                                    <button 
+                                        onClick={() => removeCert(certIdx)}
+                                        className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-red-600 hover:border-red-200 transition-all active:scale-95 shadow-sm"
+                                    >
+                                        <Trash2 size={18} />
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Ajustes y Penalidades */}
-                            <div className="px-4 py-3 bg-rose-50/30 dark:bg-rose-900/5 border-b border-rose-100 dark:border-rose-900/30">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 flex items-center gap-1.5 mb-3">
-                                    <ShieldAlert size={12} /> Daño Líquido, Ajustes y Penalidades
-                                </span>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-extrabold text-rose-500 uppercase tracking-widest block">Daño Líquido ($)</label>
-                                        <div className="text-sm font-black text-rose-600 tabular-nums">{formatCurrency(
-                                            (() => {
-                                                let liq = parseFloat(c.liquidated_damages) || 0;
-                                                if (liq === 0 && projectData && c.wp_up_to) {
-                                                    const s = projectData.date_project_start ? new Date(projectData.date_project_start) : null;
-                                                    const e = projectData.date_orig_completion ? new Date(projectData.date_orig_completion) : null;
-                                                    const cur = new Date(c.wp_up_to);
-                                                    if (s && e) {
-                                                        const tot = Math.ceil((e.getTime() - s.getTime()) / (1000*3600*24)) + 1;
-                                                        const used = Math.ceil((cur.getTime() - s.getTime()) / (1000*3600*24)) + 1;
-                                                        const rev = tot + timeExtension;
-                                                        if (used > rev) liq = (used - rev) * (parseFloat(projectData.liquidated_damages_per_day) || 500);
-                                                    }
-                                                }
-                                                return liq;
-                                            })()
-                                        )}</div>
-                                        <input
-                                            type="text"
-                                            placeholder="Override manual"
-                                            className="w-full h-7 text-[10px] font-bold border border-rose-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-rose-400 outline-none text-center"
-                                            value={c.liquidated_damages ? (parseFloat(c.liquidated_damages).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/,/g, '');
-                                                if (!isNaN(parseFloat(val)) || val === "") {
-                                                    updateCert(certIdx, 'liquidated_damages', val === "" ? 0 : parseFloat(val));
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-extrabold text-emerald-600 uppercase tracking-widest block">+ Reembolso ($)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-emerald-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-emerald-400 outline-none text-center"
-                                            value={c.refund ? (parseFloat(c.refund).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/,/g, '');
-                                                if (!isNaN(parseFloat(val)) || val === "") {
-                                                    updateCert(certIdx, 'refund', val === "" ? 0 : parseFloat(val));
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-extrabold text-amber-600 uppercase tracking-widest block">− Extra Retenido ($)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-amber-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-amber-400 outline-none text-center"
-                                            value={c.extra_retention ? (parseFloat(c.extra_retention).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/,/g, '');
-                                                if (!isNaN(parseFloat(val)) || val === "") {
-                                                    updateCert(certIdx, 'extra_retention', val === "" ? 0 : parseFloat(val));
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-extrabold text-blue-600 uppercase tracking-widest block">± Ajuste de Precio ($)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-blue-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-blue-400 outline-none text-center"
-                                            value={c.price_adjustment ? (parseFloat(c.price_adjustment).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/,/g, '');
-                                                if (!isNaN(parseFloat(val)) || val === "-" || val === "") {
-                                                    updateCert(certIdx, 'price_adjustment', val === "" || val === "-" ? 0 : parseFloat(val));
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-extrabold text-red-500 uppercase tracking-widest block">− Multas Seguro ($)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-red-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-red-400 outline-none text-center"
-                                            value={c.insurance_fines ? (parseFloat(c.insurance_fines).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/,/g, '');
-                                                if (!isNaN(parseFloat(val)) || val === "") {
-                                                    updateCert(certIdx, 'insurance_fines', val === "" ? 0 : parseFloat(val));
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-extrabold text-slate-500 uppercase tracking-widest block">− Otras Penalidades ($)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="0.00"
-                                            className="w-full h-8 text-xs font-bold border border-slate-200 rounded-lg px-2 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-slate-400 outline-none text-center"
-                                            value={c.other_penalties ? (parseFloat(c.other_penalties).toLocaleString('en-US', { minimumFractionDigits: 2 })) : ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/,/g, '');
-                                                if (!isNaN(parseFloat(val)) || val === "") {
-                                                    updateCert(certIdx, 'other_penalties', val === "" ? 0 : parseFloat(val));
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Notas de la Certificación */}
-                            <div className="px-4 py-3 bg-amber-50/30 dark:bg-amber-900/5 border-b border-amber-100 dark:border-amber-900/30 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 flex items-center gap-1.5">
-                                        <Image size={12} /> Notas / Observaciones e Imágenes
-                                    </span>
-                                    <label
-                                        htmlFor={`img-upload-${certIdx}`}
-                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase cursor-pointer transition-all ${
-                                            uploadingImage === certIdx
-                                                ? 'bg-amber-100 text-amber-400'
-                                                : 'bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-400'
-                                        }`}
-                                        title="Añadir imagen a las notas"
-                                    >
-                                        {uploadingImage === certIdx ? (
-                                            <><Loader2 size={11} className="animate-spin" /> Subiendo...</>
-                                        ) : (
-                                            <><Upload size={11} /> Añadir Imagen</>
-                                        )}
-                                    </label>
-                                    <input
-                                        id={`img-upload-${certIdx}`}
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        disabled={uploadingImage === certIdx}
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) uploadNoteImage(certIdx, file);
-                                            e.target.value = "";
-                                        }}
-                                    />
-                                </div>
-                                <textarea
-                                    rows={2}
-                                    className="w-full text-xs rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none font-medium text-slate-700 dark:text-slate-300 placeholder:text-slate-300"
-                                    placeholder="Ej: Se incluye trabajos de drenaje aprobados en CH-04, retención reducida por acuerdo..."
-                                    value={c.notes || ""}
-                                    onChange={(e) => updateCert(certIdx, 'notes', e.target.value)}
-                                />
-                                {/* Galería de imágenes adjuntas */}
-                                {Array.isArray(c.notes_images) && c.notes_images.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 pt-1">
-                                        {c.notes_images.map((imgUrl: string, imgIdx: number) => (
-                                            <div
-                                                key={imgIdx}
-                                                className="relative group w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-200 dark:border-amber-800 shadow-sm flex-shrink-0"
-                                            >
-                                                <img
-                                                    src={imgUrl}
-                                                    alt={`Nota imagen ${imgIdx + 1}`}
-                                                    className="w-full h-full object-cover cursor-pointer transition-transform group-hover:scale-105"
-                                                    onClick={() => setLightboxImg(imgUrl)}
-                                                />
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setLightboxImg(imgUrl)}
-                                                        className="p-1 bg-white/90 rounded-full text-slate-700 hover:text-blue-600 transition-colors"
-                                                        title="Ver imagen"
-                                                    >
-                                                        <ZoomIn size={12} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeNoteImage(certIdx, imgUrl)}
-                                                        className="p-1 bg-white/90 rounded-full text-slate-700 hover:text-red-600 transition-colors"
-                                                        title="Eliminar imagen"
-                                                    >
-                                                        <X size={12} />
-                                                    </button>
-                                                </div>
-                                                <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-white text-[8px] font-bold text-center py-0.5">
-                                                    {imgIdx + 1}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Detalle de Partidas (Acordeón) */}
+                            {/* Detalles de Partidas (Expandible) */}
                             {expandedCert === c.cert_num && (
-                                <div className="p-2 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
-
-
+                                <div className="p-4 border-t border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 animate-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center justify-between mb-4">
                                         <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2">
                                             <Plus size={14} className="text-primary" />
@@ -1298,42 +746,38 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                     <th className="py-1 px-0.5 w-[45px] text-center"># Item</th>
                                                     <th className="py-1 px-0.5 w-[65px]">Espec.</th>
                                                     <th className="py-1 px-0.5">Descripción</th>
-                                                    <th className="py-1 px-0.5 w-[35px] text-center">Unit</th>
-                                                    <th className="py-1 px-0.5 w-[65px] text-right">Qty WP</th>
-                                                    <th className="py-1 px-0.5 w-[60px] text-center text-blue-600">Bal. Qty</th>
-                                                    <th className="py-1 px-0.5 w-[65px] text-right text-[#8B4513]">Ded. MOS</th>
-                                                    <th className="py-1 px-0.5 w-[80px] text-right">Price</th>
-                                                    <th className="py-1 px-0.5 w-[90px] text-right">Amount</th>
-                                                    <th className="py-1 px-0.5 w-[70px]">Fondos</th>
-                                                    <th className="py-1 px-0.5 w-[25px] text-center">MOS</th>
-                                                    <th className="py-1 px-0.5 w-[80px] text-right">MOS Bal.</th>
-                                                    <th className="py-1 px-0.5 w-[25px] text-center">NR</th>
-                                                    <th className="py-1 px-0.5 w-[35px]"></th>
+                                                    <th className="py-1 px-0.5 w-[35px] text-center">Unidad</th>
+                                                    <th className="py-1 px-0.5 w-[85px] text-right">Cant. WP</th>
+                                                    <th className="py-1 px-0.5 w-[95px] text-right">P. Unitario</th>
+                                                    <th className="py-1 px-0.5 w-[105px] text-right">Total WP</th>
+                                                    <th className="py-1 px-0.5 w-[75px] text-right">Cant. MOS</th>
+                                                    <th className="py-1 px-0.5 w-[90px] text-right">Deducción MOS</th>
+                                                    <th className="py-1 px-0.5 w-[95px] text-right">Total Neto</th>
+                                                    <th className="py-1 px-1 w-[60px] text-center">Acción</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                                {(c.items || []).map((item: any, originalItIdx: number) => ({ item, originalItIdx }))
-                                                    .filter(({ item }: any) => {
-                                                        if (!searchTerm) return true;
-                                                        const term = searchTerm.toLowerCase();
-                                                        return item.description?.toLowerCase().includes(term) || item.item_num?.toString().includes(term);
-                                                    })
-                                                    .map(({ item, originalItIdx: itIdx }: { item: any; originalItIdx: number }) => {
-                                                    const mosAmount = item.has_material_on_site
-                                                        ? (parseFloat(item.mos_quantity) || 0) * (parseFloat(item.mos_unit_price) || 0)
-                                                        : 0;
-                                                    // 1. Calculate Cumulative MOS Balance BEFORE this item's work is processed
-                                                    // We include invoices from previous certs AND this cert's new invoice
+                                            <tbody>
+                                                {(c.items || []).map((item: any, itIdx: number) => {
+                                                    const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
+                                                    let paidInPrevious = 0;
+                                                    for (let k = 0; k < certIdx; k++) {
+                                                        const prevCertItems = certs[k].items || [];
+                                                        const match = prevCertItems.find((p: any) => p.item_num === item.item_num);
+                                                        if (match) paidInPrevious += parseFloat(match.quantity) || 0;
+                                                    }
+                                                    const availableBalance = totalRevisedQty - paidInPrevious;
+
+                                                    const workQty = parseFloat(item.quantity) || 0;
+                                                    
+                                                    // NEW MOS LOGIC: Check if item HAS historical MOS invoicing
                                                     let cumulativeMOSInvoicedAmount = 0;
                                                     let cumulativeMOSUsedAmountBefore = 0;
 
                                                     certs.slice(0, certIdx + 1).forEach((cert, cIndex) => {
-                                                        const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
-                                                        (certItems as any[]).forEach(it => {
+                                                        const certItems = cert.items || [];
+                                                        certItems.forEach((it: any) => {
                                                             if (it.item_num === item.item_num) {
-                                                                // All invoices up to current
                                                                 cumulativeMOSInvoicedAmount += parseFloat(it.has_material_on_site ? it.mos_invoice_total : 0) || 0;
-                                                                // Only usage from PREVIOUS certifications
                                                                 if (cIndex < certIdx) {
                                                                     const pr = getInvoicePUFromList(certs, it.item_num, cIndex);
                                                                     cumulativeMOSUsedAmountBefore += (parseFloat(it.qty_from_mos) || 0) * (pr > 0 ? pr : (parseFloat(it.unit_price) || 0));
@@ -1345,17 +789,9 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                     const availableMOSBalance = cumulativeMOSInvoicedAmount - cumulativeMOSUsedAmountBefore;
                                                     const mosPUForCalc = getInvoicePUFromList(certs, item.item_num, certIdx);
                                                     const currentDeductionPU = mosPUForCalc > 0 ? mosPUForCalc : (parseFloat(item.unit_price) || 0);
-
-                                                    const availableMOSQty = currentDeductionPU > 0 ? Math.max(0, availableMOSBalance / currentDeductionPU) : 0;
-                                                    const workQty = parseFloat(item.quantity) || 0;
-
-                                                    let autoQtyFromMOS = 0;
-                                                    if (workQty <= availableMOSQty) {
-                                                        autoQtyFromMOS = Math.max(0, workQty);
-                                                    } else {
-                                                        autoQtyFromMOS = availableMOSQty;
-                                                    }
-
+                                                    
+                                                    const availableMOSQty = (currentDeductionPU > 0) ? (availableMOSBalance / currentDeductionPU) : 0;
+                                                    
                                                     // AUTO-SUGGESTION: If field is empty or 0, and we have balance, show the auto-calc
                                                     const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "" && parseFloat(item.qty_from_mos) !== 0) 
                                                         ? parseFloat(item.qty_from_mos) 
@@ -1363,237 +799,170 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                                     
                                                     const workAmount = workQty * (parseFloat(item.unit_price) || 0);
                                                     const autoDeductionAmount = finalQtyFromMOS * currentDeductionPU;
-                                                    const itemPayout = workAmount - autoDeductionAmount;
-
-                                                    const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
-                                                    let paidInPrevious = 0;
-                                                    certs.slice(0, certIdx).forEach(prevCert => {
-                                                        const prevItems = prevCert.items || [];
-                                                        const match = prevItems.find((p: any) => p.item_num === item.item_num);
-                                                        if (match) paidInPrevious += parseFloat(match.quantity) || 0;
-                                                    });
-                                                    const availableBalance = totalRevisedQty - paidInPrevious;
-                                                    const isExceeded = (parseFloat(item.quantity) || 0) > (availableBalance + 0.0001);
-
-                                                    // --- Logic for Certificado de Manufactura (CM) ---
-                                                    const baseItemMatch = contractItems.find(it => it.item_num === item.item_num);
-                                                    const requiresMfgCert = baseItemMatch?.requires_mfg_cert;
-                                                    let totalApprovedMfg = 0;
-                                                    if (requiresMfgCert) {
-                                                        totalApprovedMfg = mfgCerts
-                                                            .filter(mc => mc.item_id === baseItemMatch.id)
-                                                            .reduce((acc, mc) => acc + (parseFloat(mc.quantity) || 0), 0);
-                                                    }
-                                                    const mfgCertBalance = requiresMfgCert ? (totalApprovedMfg - paidInPrevious) : null;
-                                                    const isMfgExceeded = requiresMfgCert && (parseFloat(item.quantity) || 0) > (mfgCertBalance! + 0.0001);
-                                                    // ------------------------------------------------
-
-
+                                                    const netTotal = workAmount - autoDeductionAmount;
 
                                                     return (
                                                         <React.Fragment key={itIdx}>
-                                                                           <td className="py-1 px-1">
+                                                            <tr className="border-b border-slate-50 dark:border-slate-800/50 group/row hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                                                                <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
-                                                                        maxLength={20}
-                                                                        className="input-field text-xs text-center p-1 h-6"
+                                                                        className="input-field text-center text-xs font-black p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
-                                                                        value={item.item_num || ""}
+                                                                        value={item.item_num}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'item_num', e.target.value)}
-                                                                        onBlur={(e) => {
-                                                                            const val = e.target.value;
-                                                                            if (val !== "" && !isNaN(parseInt(val))) {
-                                                                                updateCertItem(certIdx, itIdx, 'item_num', val.padStart(3, '0'));
-                                                                            }
-                                                                        }}
+                                                                        placeholder="000"
                                                                     />
                                                                 </td>
-                                                                <td className="py-1 px-1">
-                                                                    <input type="text" className="input-field text-xs p-1 h-6 font-bold" value={item.specification || ""} onChange={(e) => updateCertItem(certIdx, itIdx, 'specification', e.target.value)} />
-                                                                </td>
-                                                                <td className="py-1 px-1">
-                                                                    <input type="text" className="input-field text-[9px] p-1 h-6" value={item.description || ""} title={item.description} onChange={(e) => updateCertItem(certIdx, itIdx, 'description', e.target.value)} />
-                                                                </td>
-                                                                <td className="py-1 px-1 w-20">
-                                                                    <input type="text" className="input-field text-xs p-1 h-6 text-center" value={item.unit || ""} onChange={(e) => updateCertItem(certIdx, itIdx, 'unit', e.target.value)} />
-                                                                </td>
-                                                                <td className="py-1 px-1">
+                                                                <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
-                                                                        className={`input-field text-xs text-right p-1 h-6 font-bold ${isExceeded || isMfgExceeded ? 'bg-red-50 border-red-500 text-red-600' : 'text-emerald-600'}`}
+                                                                        className="input-field text-xs font-mono p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
-                                                                        value={item.quantity ?? ""}
-                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'quantity', e.target.value)}
+                                                                        value={item.specification}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'specification', e.target.value)}
+                                                                        placeholder="000-000"
                                                                     />
-                                                                    {isMfgExceeded && (
-                                                                        <div className="text-[7px] font-black text-red-600 mt-0.5 leading-none uppercase text-center">No hay CM suficientes</div>
-                                                                    )}
                                                                 </td>
-                                                                <td className="py-1 px-1 text-center">
-                                                                    <span className={`text-[10px] font-bold ${isExceeded || isMfgExceeded ? 'text-red-500 underline' : 'text-blue-600'}`}>
-                                                                        {formatNumber(availableBalance)}
-                                                                    </span>
-                                                                    {requiresMfgCert && (
-                                                                        <div className={`text-[8px] font-black ${isMfgExceeded ? 'text-red-600' : 'text-slate-400'} mt-0.5`} title="Balance de Certificado de Manufactura">
-                                                                            CM: {formatNumber(mfgCertBalance)}
-                                                                        </div>
-                                                                    )}
+                                                                <td className="py-1 px-0.5">
+                                                                    <textarea
+                                                                        className="w-full bg-transparent border-none text-[10px] font-medium leading-tight resize-none h-6 outline-none scrollbar-none"
+                                                                        value={item.description}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'description', e.target.value)}
+                                                                        rows={1}
+                                                                    />
                                                                 </td>
-                                                                <td className="py-1 px-1">
+                                                                <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
-                                                                        className="input-field text-xs text-right p-1 h-6 bg-white border-slate-200 text-[#8B4513] font-bold"
-                                                                        title={cumulativeMOSInvoicedAmount <= 0 ? "Este item no tiene adición en Material on Site" : "Deducción de Material on Site (Sugestión automática aplicada si está vacío)"}
-                                                                        disabled={cumulativeMOSInvoicedAmount <= 0}
-                                                                        value={cumulativeMOSInvoicedAmount <= 0 ? "" : (item.qty_from_mos ?? "")}
-                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'qty_from_mos', e.target.value)}
+                                                                        className="input-field text-center text-xs p-0 h-6 border-transparent group-hover/row:border-slate-200"
+                                                                        style={{ backgroundColor: '#66FF99' }}
+                                                                        value={item.unit}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'unit', e.target.value)}
+                                                                        placeholder="U"
                                                                     />
                                                                 </td>
-                                                                <td className="py-1 px-1">
+                                                                <td className="py-1 px-0.5 relative">
                                                                     <input
                                                                         type="number"
                                                                         step="0.0001"
-                                                                        className="input-field text-xs text-right p-1 h-6 font-geist"
-                                                                        value={isNaN(parseFloat(item.unit_price)) ? "" : (item.unit_price ?? "")}
-                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
+                                                                        className={`input-field text-right text-xs font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${workQty > availableBalance ? 'text-red-600' : ''}`}
+                                                                        style={{ backgroundColor: '#66FF99' }}
+                                                                        value={item.quantity ?? ""}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'quantity', e.target.value)}
+                                                                        placeholder="0.00"
                                                                     />
                                                                 </td>
-                                                                <td className="py-1 px-2 text-right space-y-0.5">
-                                                                    <div className="text-xs font-black text-slate-700">{formatCurrency(workAmount)}</div>
-                                                                    {itemPayout < workAmount && (
-                                                                        <div className="text-[9px] font-bold text-primary px-1 bg-primary/5 rounded border border-primary/10 inline-block">
-                                                                            A Pagar: {formatCurrency(itemPayout)}
-                                                                        </div>
-                                                                    )}
+                                                                <td className="py-1 px-0.5">
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        className="input-field text-right text-xs font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
+                                                                        style={{ backgroundColor: '#66FF99' }}
+                                                                        value={item.unit_price ?? ""}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
+                                                                        placeholder="0.00"
+                                                                    />
                                                                 </td>
-                                                                <td className="py-1 px-1">
-                                                                    <select
-                                                                        className="input-field text-[9px] font-bold py-1 px-1"
-                                                                        value={item.fund_source || ""}
-                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'fund_source', e.target.value)}
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Tab' && !e.shiftKey && itIdx === c.items.length - 1) {
-                                                                                addCertItem(certIdx);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        {FUND_SOURCES.map(f => <option key={f} value={f}>{f}</option>)}
-                                                                    </select>
+                                                                <td className="py-1 px-0.5 text-right text-xs font-black text-emerald-600 font-geist">
+                                                                    {formatCurrency(workAmount)}
                                                                 </td>
-                                                                {/* Checkbox MOS */}
-                                                                <td className="py-1 px-1 text-center">
-                                                                    <label
-                                                                        htmlFor={`mos-check-${certIdx}-${itIdx}`}
-                                                                        title="Material on Site"
-                                                                        className={`inline-flex items-center justify-center w-5 h-5 rounded cursor-pointer border-2 transition-all ${item.has_material_on_site
-                                                                            ? 'bg-amber-500 border-amber-500 text-white'
-                                                                            : 'border-slate-300 hover:border-amber-400'
-                                                                            }`}
-                                                                        style={{ backgroundColor: item.has_material_on_site ? undefined : '#66FF99' }}
+                                                                <td className="py-1 px-0.5 relative">
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.0001"
+                                                                        disabled={cumulativeMOSInvoicedAmount <= 0}
+                                                                        className={`input-field text-right text-xs font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${cumulativeMOSInvoicedAmount <= 0 ? 'opacity-30 cursor-not-allowed' : 'text-amber-600'}`}
+                                                                        style={{ backgroundColor: cumulativeMOSInvoicedAmount > 0 ? '#66FF99' : '#f1f5f9' }}
+                                                                        value={item.qty_from_mos ?? ""}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'qty_from_mos', e.target.value)}
+                                                                        placeholder={finalQtyFromMOS > 0 ? finalQtyFromMOS.toFixed(2) : "0.00"}
+                                                                    />
+                                                                </td>
+                                                                <td className="py-1 px-0.5 text-right text-xs font-bold text-amber-600 font-geist">
+                                                                    -{formatCurrency(autoDeductionAmount)}
+                                                                </td>
+                                                                <td className="py-1 px-0.5 text-right text-[13px] font-black text-primary font-geist">
+                                                                    {formatCurrency(netTotal)}
+                                                                </td>
+                                                                <td className="py-1 px-1 flex items-center justify-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                                                    <button 
+                                                                        onClick={() => insertCertItem(certIdx, itIdx)}
+                                                                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-primary"
+                                                                        title="Insertar debajo"
                                                                     >
+                                                                        <Plus size={14} />
+                                                                    </button>
+                                                                    <label className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-600 cursor-pointer" title="Material on Site Details">
                                                                         <input
-                                                                            id={`mos-check-${certIdx}-${itIdx}`}
                                                                             type="checkbox"
-                                                                            className="sr-only"
+                                                                            className="hidden"
                                                                             checked={!!item.has_material_on_site}
                                                                             onChange={(e) => updateCertItem(certIdx, itIdx, 'has_material_on_site', e.target.checked)}
                                                                         />
-                                                                        {item.has_material_on_site && (
-                                                                            <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                                                <polyline points="1.5,6 4.5,9 10.5,3" />
-                                                                            </svg>
-                                                                        )}
+                                                                        <Package size={14} className={item.has_material_on_site ? 'text-amber-600 fill-amber-50' : ''} />
                                                                     </label>
-                                                                </td>
-                                                                {/* MOS Balance Column */}
-                                                                <td className="py-1 px-1 text-right">
-                                                                    <span className={`text-[10px] font-bold ${(availableMOSBalance - autoDeductionAmount) < 0 ? 'text-red-500' : 'text-amber-600'}`}>
-                                                                        {formatCurrency(availableMOSBalance - autoDeductionAmount)}
-                                                                    </span>
-                                                                </td>
-                                                                {/* Checkbox No Retención */}
-                                                                <td className="py-1 px-1 text-center">
-                                                                    <label
-                                                                        htmlFor={`skip-ret-check-${certIdx}-${itIdx}`}
-                                                                        title="No aplicar retenido a este item"
-                                                                        className={`inline-flex items-center justify-center w-5 h-5 rounded cursor-pointer border-2 transition-all ${item.skip_retention
-                                                                            ? 'bg-red-500 border-red-500 text-white'
-                                                                            : 'border-slate-300 hover:border-red-400'
-                                                                            }`}
-                                                                        style={{ backgroundColor: item.skip_retention ? undefined : '#66FF99' }}
+                                                                    <button 
+                                                                        onClick={() => removeCertItem(certIdx, itIdx)}
+                                                                        className="p-1 hover:bg-red-50 rounded text-slate-300 hover:text-red-500"
+                                                                        title="Eliminar"
                                                                     >
-                                                                        <input
-                                                                            id={`skip-ret-check-${certIdx}-${itIdx}`}
-                                                                            type="checkbox"
-                                                                            className="sr-only"
-                                                                            checked={!!item.skip_retention}
-                                                                            onChange={(e) => updateCertItem(certIdx, itIdx, 'skip_retention', e.target.checked)}
-                                                                        />
-                                                                        {item.skip_retention && (
-                                                                            <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                                                <path d="M2,2 L10,10 M10,2 L2,10" />
-                                                                            </svg>
-                                                                        )}
-                                                                    </label>
-                                                                </td>
-                                                                <td className="py-1 px-1 text-center">
-                                                                    <div className="flex flex-col gap-1.5 items-center">
-                                                                        <button type="button" onClick={() => insertCertItem(certIdx, itIdx)} className="bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all rounded-full p-1 shadow-sm transform hover:scale-110" title="Insertar item debajo">
-                                                                            <PlusSquare size={12} strokeWidth={2.5} />
-                                                                        </button>
-                                                                        <button type="button" onClick={() => removeCertItem(certIdx, itIdx)} className="text-slate-300 hover:text-red-500" title="Eliminar partida de la certificación">
-                                                                            <Trash2 size={12} />
-                                                                        </button>
-                                                                    </div>
+                                                                        <Trash2 size={14} />
+                                                                    </button>
                                                                 </td>
                                                             </tr>
-                                                            {/* Fila MOS expandida */}
                                                             {item.has_material_on_site && (
-                                                                <tr key={`mos-${itIdx}`} className="bg-amber-50/60 dark:bg-amber-900/10 border-l-2 border-amber-400">
-                                                                    <td colSpan={2} className="py-1 px-2">
-                                                                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Material on Site</span>
+                                                                <tr className="bg-amber-50/30 dark:bg-amber-950/10 border-b border-amber-100 dark:border-amber-900/30">
+                                                                    <td className="py-1 px-0.5 text-center">
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className="text-[10px] text-amber-600 font-black">MOS</span>
+                                                                            <Package size={14} className="text-amber-500" />
+                                                                        </div>
                                                                     </td>
-                                                                    <td className="py-1 px-1" colSpan={3}>
-                                                                        <span className="text-[10px] text-amber-500 font-bold">Proveedor</span>
-                                                                        <input
-                                                                            type="text"
-                                                                            className="input-field text-xs p-1 h-7 border-amber-200 focus:ring-amber-400 font-bold"
-                                                                            style={{ backgroundColor: '#66FF99' }}
-                                                                            placeholder="Nombre del Proveedor"
-                                                                            value={item.mos_provider ?? ""}
-                                                                            onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_provider', e.target.value)}
-                                                                        />
+                                                                    <td className="py-1 px-0.5" colSpan={2}>
+                                                                        <div className="grid grid-cols-2 gap-2">
+                                                                            <div>
+                                                                                <span className="text-[10px] text-amber-500 font-bold">Nº Factura</span>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    className="input-field text-xs p-1 h-7 border-amber-200 focus:ring-amber-400"
+                                                                                    style={{ backgroundColor: '#66FF99' }}
+                                                                                    placeholder="Factura"
+                                                                                    value={item.mos_invoice_num ?? ""}
+                                                                                    onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_invoice_num', e.target.value)}
+                                                                                />
+                                                                            </div>
+                                                                            <div>
+                                                                                <span className="text-[10px] text-amber-500 font-bold">Proveedor</span>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    className="input-field text-xs p-1 h-7 border-amber-200 focus:ring-amber-400"
+                                                                                    style={{ backgroundColor: '#66FF99' }}
+                                                                                    placeholder="Proveedor"
+                                                                                    value={item.mos_provider ?? ""}
+                                                                                    onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_provider', e.target.value)}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
                                                                     </td>
-                                                                    <td className="py-1 px-1" colSpan={1}>
-                                                                        <span className="text-[10px] text-amber-500 font-bold">N° Factura</span>
-                                                                        <input
-                                                                            type="text"
-                                                                            className="input-field text-xs p-1 h-7 border-amber-200 focus:ring-amber-400 font-bold"
-                                                                            style={{ backgroundColor: '#66FF99' }}
-                                                                            placeholder="Factura"
-                                                                            value={item.mos_invoice_num ?? ""}
-                                                                            onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_invoice_num', e.target.value)}
-                                                                        />
-                                                                    </td>
-                                                                    <td className="py-1 px-1" colSpan={1}>
+                                                                    <td className="py-1 px-0.5" colSpan={1}>
                                                                         <span className="text-[10px] text-amber-500 font-bold">Lote</span>
                                                                         <input
                                                                             type="text"
-                                                                            className="input-field text-xs text-center p-1 h-7 border-amber-200 focus:ring-amber-400 font-bold"
+                                                                            className="input-field text-center text-xs p-1 h-7 border-amber-200 focus:ring-amber-400"
                                                                             style={{ backgroundColor: '#66FF99' }}
-                                                                            placeholder="1"
-                                                                            value={item.mos_lot_num ?? "1"}
+                                                                            placeholder="Lot"
+                                                                            value={item.mos_lot_num ?? ""}
                                                                             onChange={(e) => updateCertItem(certIdx, itIdx, 'mos_lot_num', e.target.value)}
                                                                         />
                                                                     </td>
-                                                                    <td className="py-1 px-1" colSpan={2}>
-                                                                        <span className="text-[10px] text-amber-500 font-bold">Total Factura</span>
-                                                                        <div className="relative">
-                                                                            <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] text-amber-600 font-bold">$</span>
+                                                                    <td className="py-1 px-0.5" colSpan={2}>
+                                                                        <div className="flex flex-col items-end">
+                                                                            <span className="text-[10px] text-amber-600 font-black">TOTAL FACTURA MOS</span>
                                                                             <input
                                                                                 type="number"
                                                                                 step="0.01"
-                                                                                className="input-field text-xs text-right p-1 pl-4 h-7 border-amber-200 focus:ring-amber-400 font-geist"
+                                                                                className="input-field text-right text-sm font-black p-1 h-7 border-amber-300 focus:ring-amber-400 text-amber-700 shadow-sm"
                                                                                 style={{ backgroundColor: '#66FF99' }}
                                                                                 placeholder="0.00"
                                                                                 value={item.mos_invoice_total ?? ""}
@@ -1660,29 +1029,25 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 })}
             </div>
 
-            {/* Lightbox Modal para ver imágenes */}
             {lightboxImg && (
                 <div 
-                    className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
                     onClick={() => setLightboxImg(null)}
                 >
-                    <button 
-                        className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all shadow-xl"
-                        onClick={() => setLightboxImg(null)}
-                    >
+                    <button className="absolute top-6 right-6 p-2 bg-white/10 rounded-full text-white" onClick={() => setLightboxImg(null)}>
                         <X size={28} />
                     </button>
                     <div className="relative max-w-5xl w-full flex flex-col items-center gap-4">
                         <img 
                             src={lightboxImg} 
                             alt="Vista ampliada" 
-                            className="max-h-[85vh] w-auto object-contain rounded-2xl shadow-2xl border-4 border-white/10 ring-1 ring-white/20 animate-in zoom-in-95 duration-300"
+                            className="max-h-[85vh] w-auto object-contain rounded-2xl shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         />
                         <a 
                             href={lightboxImg} 
                             download 
-                            className="btn-primary px-8 py-3 rounded-2xl font-black shadow-2xl flex items-center gap-3 transition-transform hover:scale-105"
+                            className="btn-primary px-8 py-3 rounded-2xl font-black shadow-2xl flex items-center gap-3"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <Download size={20} />
@@ -1697,9 +1062,9 @@ const PaymentCertForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
 
 export default PaymentCertForm;
 
-function SummaryItem({ label, value, icon, color, bgColor }: { label: string, value: number, icon: React.ReactNode, color: string, bgColor: string }) {
+function SummaryItem({ label, value, icon, color, bgColor, description }: { label: string, value: number, icon: React.ReactNode, color: string, bgColor: string, description?: string }) {
     return (
-        <div className={`${bgColor} rounded-xl p-3 border border-slate-100 dark:border-slate-800 flex items-start gap-3`}>
+        <div className={`${bgColor} rounded-xl p-3 border border-slate-100 dark:border-slate-800 flex items-start gap-3 relative group`}>
             <div className={`${color} p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm flex-shrink-0`}>
                 {icon}
             </div>
@@ -1708,6 +1073,13 @@ function SummaryItem({ label, value, icon, color, bgColor }: { label: string, va
                 <div className={`text-[13px] font-black ${value < 0 ? 'text-red-500' : color} truncate`}>
                     {formatCurrency(value)}
                 </div>
+                {description && (
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
+                        <div className="bg-slate-900 text-white text-[10px] py-1 px-2 rounded shadow-xl whitespace-nowrap">
+                            {description}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
