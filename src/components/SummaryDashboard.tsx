@@ -189,48 +189,50 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 }
             });
 
-            // ── FASE 2: Calcular montos, deducciones y actualizar balance ─
-            certItems.forEach((item: any) => {
-                const itemNum = item.item_num;
-                if (!itemNum) return;
+                // ── FASE 2: Calcular montos, deducciones y actualizar balance ─
+                certItems.forEach((item: any) => {
+                    const itemNum = item.item_num;
+                    if (!itemNum) return;
 
-                const qty = parseFloat(item.quantity) || 0;
-                const up = parseFloat(item.unit_price) || 0;
-                const amount = roundedAmt(qty * up, 2);
-                const source = (item.fund_source || "").trim();
+                    const qty = parseFloat(item.quantity) || 0;
+                    const up = parseFloat(item.unit_price) || 0;
+                    const amount = roundedAmt(qty * up, 2);
+                    const source = (item.fund_source || "").trim();
 
-                if (source === "FHWA:100%") {
-                    fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
-                } else if (source === "FHWA:80.25") {
-                    const fhwaShare = roundedAmt(amount * 0.8025, 2);
-                    const actShare = roundedAmt(amount - fhwaShare, 2);
-                    fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
-                    actTotal = roundedAmt(actTotal + actShare, 2);
-                } else {
-                    actTotal = roundedAmt(actTotal + amount, 2);
-                }
-                certAmount = roundedAmt(certAmount + amount, 2);
+                    if (source === "FHWA:100%") {
+                        fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
+                    } else if (source === "FHWA:80.25") {
+                        const fhwaShare = roundedAmt(amount * 0.8025, 2);
+                        const actShare = roundedAmt(amount - fhwaShare, 2);
+                        fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
+                        actTotal = roundedAmt(actTotal + actShare, 2);
+                    } else {
+                        actTotal = roundedAmt(actTotal + amount, 2);
+                    }
+                    certAmount = roundedAmt(certAmount + amount, 2);
 
-                // Lógica de MOS (Deducciones) - misma lógica que PaymentCertForm
-                const available = perItemMosBalance[itemNum] || 0;
-                if (available > 0 && (parseFloat(item.quantity) > 0 || parseFloat(item.qty_from_mos) > 0)) {
-                    let qtyFromMos = parseFloat(item.qty_from_mos);
+                    // Lógica de MOS (Deducciones)
+                    const available = perItemMosBalance[itemNum] || 0;
+                    const qtyFromMosManual = parseFloat(item.qty_from_mos) || 0;
                     
-                    // Si no hay valor explícito en BD, calcular automático (igual que PaymentCertForm)
-                    const pu = perItemMosPU[itemNum] || up;
-                    if (isNaN(qtyFromMos) || qtyFromMos === 0) {
-                        if (pu > 0) {
-                            const availableQty = available / pu;
-                            qtyFromMos = Math.min(parseFloat(item.quantity) || 0, availableQty);
+                    if (available > 0.01) {
+                        const pu = perItemMosPU[itemNum] || up;
+                        let deduceQty = 0;
+
+                        if (qtyFromMosManual > 0) {
+                            deduceQty = qtyFromMosManual;
+                        } else if (qty > 0) {
+                            // Deducción automática si no hay manual
+                            const availableQty = available / (pu || 1);
+                            deduceQty = Math.min(qty, availableQty);
+                        }
+
+                        if (deduceQty > 0) {
+                            const deduction = roundedAmt(deduceQty * pu, 2);
+                            perItemMosBalance[itemNum] = Math.max(0, roundedAmt(available - deduction, 2));
                         }
                     }
-
-                    if (qtyFromMos > 0) {
-                        const deduction = roundedAmt(qtyFromMos * pu, 2);
-                        perItemMosBalance[itemNum] = Math.max(0, roundedAmt(available - deduction, 2));
-                    }
-                }
-            }); // fin certItems.forEach FASE 2
+                }); // fin certItems.forEach FASE 2
 
             if ((cert.cert_num || 0) > lastCertNum) {
                 lastCertNum = cert.cert_num;
