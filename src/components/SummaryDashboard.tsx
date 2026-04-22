@@ -213,20 +213,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                 // Lógica de MOS (Deducciones) - misma lógica que PaymentCertForm
                 const available = perItemMosBalance[itemNum] || 0;
-                if (available > 0 && qty > 0) {
+                if (available > 0 && (parseFloat(item.quantity) > 0 || parseFloat(item.qty_from_mos) > 0)) {
                     let qtyFromMos = parseFloat(item.qty_from_mos);
                     
                     // Si no hay valor explícito en BD, calcular automático (igual que PaymentCertForm)
+                    const pu = perItemMosPU[itemNum] || up;
                     if (isNaN(qtyFromMos) || qtyFromMos === 0) {
-                        const pu = perItemMosPU[itemNum] || up;
                         if (pu > 0) {
                             const availableQty = available / pu;
-                            qtyFromMos = Math.min(qty, availableQty);
+                            qtyFromMos = Math.min(parseFloat(item.quantity) || 0, availableQty);
                         }
                     }
 
-                    if (qtyFromMos > 0.0001) {
-                        const pu = perItemMosPU[itemNum] || up;
+                    if (qtyFromMos > 0) {
                         const deduction = roundedAmt(qtyFromMos * pu, 2);
                         perItemMosBalance[itemNum] = Math.max(0, roundedAmt(available - deduction, 2));
                     }
