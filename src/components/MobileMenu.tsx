@@ -7,7 +7,7 @@ import Link from "next/link";
 import { 
     Menu, X, Home, Briefcase, History, FileText, LayoutDashboard, 
     ListChecks, Package, ShieldCheck, FileEdit, FileCheck, Mic, 
-    Cloud, Calculator, TrendingUp, FolderOpen, ChevronRight, LayoutList, User
+    Cloud, Calculator, TrendingUp, FolderOpen, ChevronRight, LayoutList, User, Info
 } from "lucide-react";
 import BrandName from "@/components/BrandName";
 import { useUserRole } from "@/hooks/useUserRole";
