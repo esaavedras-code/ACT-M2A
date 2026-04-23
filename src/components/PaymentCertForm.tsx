@@ -886,6 +886,8 @@ const PaymentCertForm = React.forwardRef(({
                                                     let cumulativeMOSInvoicedAmount = 0;
                                                     let cumulativeMOSUsedAmountBefore = 0;
 
+                                                    // Calcular acumulado de facturas MOS hasta la cert actual (inclusive)
+                                                    // y deducciones usadas hasta la cert ANTERIOR
                                                     certs.slice(0, certIdx + 1).forEach((cert, cIndex) => {
                                                         const certItems = cert?.items || [];
                                                         certItems.forEach((it: any) => {
@@ -899,11 +901,15 @@ const PaymentCertForm = React.forwardRef(({
                                                         });
                                                     });
 
+                                                    // availableMOSBalance = total facturado MOS - ya deducido en certs anteriores
                                                     const availableMOSBalance = cumulativeMOSInvoicedAmount - cumulativeMOSUsedAmountBefore;
                                                     const mosPUForCalc = getInvoicePUFromList(certs, item.item_num, certIdx);
                                                     const currentDeductionPU = mosPUForCalc > 0 ? mosPUForCalc : (parseFloat(item.unit_price) || 0);
                                                     const availableMOSQty = (currentDeductionPU > 0) ? (availableMOSBalance / currentDeductionPU) : 0;
                                                     
+                                                    // El campo se habilita si hay balance disponible (>0) O si ya tiene un valor guardado
+                                                    const hasMOSActivity = availableMOSBalance > 0.001 || (parseFloat(item.qty_from_mos) || 0) > 0;
+
                                                     const finalQtyFromMOS = (item.qty_from_mos !== undefined && item.qty_from_mos !== null && item.qty_from_mos !== "" && parseFloat(item.qty_from_mos) !== 0) 
                                                         ? parseFloat(item.qty_from_mos) 
                                                         : (cumulativeMOSInvoicedAmount > 0 && workQty > 0 ? Math.min(workQty, availableMOSQty) : 0);
@@ -982,9 +988,9 @@ const PaymentCertForm = React.forwardRef(({
                                                                     <input
                                                                         type="number"
                                                                         step="0.0001"
-                                                                        disabled={cumulativeMOSInvoicedAmount <= 0}
-                                                                        className={`input-field text-right text-xs font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${cumulativeMOSInvoicedAmount <= 0 ? 'opacity-30 cursor-not-allowed' : 'text-amber-600'}`}
-                                                                        style={{ backgroundColor: cumulativeMOSInvoicedAmount > 0 ? '#66FF99' : '#f1f5f9' }}
+                                                                        disabled={!hasMOSActivity}
+                                                                        className={`input-field text-right text-xs font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${!hasMOSActivity ? 'opacity-30 cursor-not-allowed' : 'text-amber-600'}`}
+                                                                        style={{ backgroundColor: hasMOSActivity ? '#66FF99' : '#f1f5f9' }}
                                                                         value={item.qty_from_mos ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'qty_from_mos', e.target.value)}
                                                                         placeholder={finalQtyFromMOS > 0 ? finalQtyFromMOS.toFixed(2) : "0.00"}
