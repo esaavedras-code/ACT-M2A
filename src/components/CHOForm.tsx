@@ -513,12 +513,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                         <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                             <tr>
                                                 <th className="py-1 px-0.5 w-10 text-center text-blue-600">Nuevo</th>
-                                                <th className="py-1 px-0.5 w-10 text-center text-amber-600 leading-[0.8] align-middle" title="Enmienda Administrativa">
-                                                    <div className="flex flex-col items-center">
-                                                        <span className="text-[8px] font-black">Enm.</span>
-                                                        <span className="text-[8px] font-black">Adm.</span>
-                                                    </div>
-                                                </th>
+
                                                 <th className="py-1 px-0.5 w-24 text-center"># Item</th>
                                                 <th className="py-1 px-0.5 w-32 text-center">Espec.</th>
                                                 <th className="py-1 px-0.5 min-w-[350px]">Descripción</th>
@@ -545,9 +540,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     <td className="py-0.5 px-0.5 text-center">
                                                         <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-primary" checked={item.is_new || false} onChange={(e) => updateCHOItem(idx, itIdx, 'is_new', e.target.checked)} disabled={item.is_admin_amendment} />
                                                     </td>
-                                                    <td className="py-0.5 px-0.5 text-center">
-                                                        <input type="checkbox" className="w-4 h-4 rounded border-amber-300 text-amber-600" checked={item.is_admin_amendment || false} onChange={(e) => updateCHOItem(idx, itIdx, 'is_admin_amendment', e.target.checked)} />
-                                                    </td>
+
                                                     <td className="py-0.5 px-0.5">
                                                         <input type="text" maxLength={20} className="input-field text-xs text-center !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>

@@ -746,7 +746,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                 <div className="flex flex-col gap-3">
                                                     <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm">
                                                         <div className="space-y-1">
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Resumen de Pagos</span>
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Resumen de Monthly payments</span>
                                                             <h6 className="text-sm font-black text-slate-700 dark:text-slate-200">Partida {item.item_num}</h6>
                                                         </div>
                                                         <div className="flex gap-6 items-center">
@@ -818,7 +818,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                         {/* Certifications Horizontal Breakdown */}
                                                         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
                                                             <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 p-2 px-3">
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Pagos Registrados (Certificaciones)</span>
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Monthly payments Registrados (Certificaciones)</span>
                                                             </div>
                                                             <div className="p-4 overflow-x-auto flex flex-nowrap gap-8 min-w-max items-center">
                                                                 {paidBreakdown.length > 0 ? (

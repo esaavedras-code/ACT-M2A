@@ -333,7 +333,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 fhwaTotal: fhwaTotal || 0,
                 actProjected: actProjected || 0,
                 fhwaProjected: fhwaProjected || 0,
-                materialOnSite: (proj?.num_act === 'AC-017630' || projectId === '2e0d8d80-3542-451c-bbef-63a791012e34') ? 3266.95 : mosTotal,
+                materialOnSite: mosTotal,
                 mosBalances: mosEntries,
                 priceAdjustment: totalPriceAdjustment || 0,
             },
@@ -489,6 +489,15 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                     <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(metrics.cost.percentObra, 100)}%` }}></div>
                                 </div>
                             </div>
+                            <div className="pt-4">
+                                <div className="flex justify-between text-[11px] mb-1 font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">
+                                    <span>Progreso de Tiempo</span>
+                                    <span className={metrics.time.percent > 100 ? "text-red-600" : ""}>{metrics.time.percent.toFixed(2)}%</span>
+                                </div>
+                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
+                                    <div className={`${metrics.time.percent > 100 ? 'bg-red-500' : 'bg-blue-600'} h-1.5 rounded-full transition-all duration-500`} style={{ width: `${Math.min(metrics.time.percent, 100)}%` }}></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -509,14 +518,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <MetricRow label="Días Revisados (Original + CHO)" value={`${formatNumber(metrics.time.revised, 0)} días`} />
                         <MetricRow label="Tiempo transcurrido a la fecha" value={`${formatNumber(metrics.time.used, 0)} días`} />
                         <MetricRow label="Balance de días" value={`${formatNumber(metrics.time.balance, 0)} días`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} />
-                        <div className="pt-2">
-                            <div className="flex justify-between text-xs mb-1 font-bold text-slate-800 dark:text-slate-200">
-                                <span>Progreso de Tiempo</span>
-                                <span>{metrics.time.percent.toFixed(2)}%</span>
-                            </div>
-                            <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
-                                <div className={`${metrics.time.percent > 100 ? 'bg-red-500' : 'bg-blue-600'} h-1.5 rounded-full transition-all duration-500`} style={{ width: `${Math.min(metrics.time.percent, 100)}%` }}></div>
-                            </div>
                         </div>
                     </div>
                 </div>

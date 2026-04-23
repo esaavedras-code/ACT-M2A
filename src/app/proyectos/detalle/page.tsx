@@ -122,7 +122,7 @@ function ProjectDetailContent() {
         { id: "materials",   label: "Mat. on Site",   icon: <Package size={12} /> },
         { id: "compliance",  label: "Cumplimiento laboral",   icon: <ShieldCheck size={12} /> },
         { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
-        { id: "payment",     label: "Pagos",          icon: <FileCheck size={12} /> },
+        { id: "payment",     label: "Monthly payments", icon: <FileCheck size={12} /> },
         { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
         { id: "icc",         label: "Initial Certification",             icon: <ShieldCheck size={12} /> },
         { id: "minutes",     label: "Minutas",        icon: <Mic size={12} />, wip: true },

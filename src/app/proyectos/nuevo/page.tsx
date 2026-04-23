@@ -38,7 +38,7 @@ function NewProjectContent() {
         { id: "personnel", label: "3. Personal", icon: <User size={18} />, disabled: !projectId },
         { id: "items", label: "4. Partidas", icon: <ListChecks size={18} />, disabled: !projectId },
         { id: "cho", label: "5. CHO", icon: <FileEdit size={18} />, disabled: !projectId },
-        { id: "certs", label: "6. Pagos", icon: <FileCheck size={18} />, disabled: !projectId },
+        { id: "certs", label: "6. Monthly payments", icon: <FileCheck size={18} />, disabled: !projectId },
         { id: "mfg", label: "7. Manufactura", icon: <Factory size={18} />, disabled: !projectId },
         { id: "materials", label: "8. Materiales", icon: <Package size={18} />, disabled: !projectId },
         { id: "compliance", label: "9. Cumplimiento", icon: <ShieldCheck size={18} />, disabled: !projectId },

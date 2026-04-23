@@ -307,8 +307,8 @@ export default function Dashboard() {
                                         {proj.date_rev_completion ? new Date(proj.date_rev_completion).toLocaleDateString() : 'N/A'}
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-slate-700">{formatCurrency(proj.adjustedCost)}</td>
-                                    <td className={`px-8 py-6 text-right font-bold ${proj.remainingDays && proj.remainingDays < 0 ? 'text-red-500' : 'text-slate-500'}`}>
-                                        {proj.remainingDays !== null ? `${proj.remainingDays} días` : 'N/A'}
+                                    <td className={`px-8 py-6 text-right font-bold ${(proj.adjustedCost - proj.certified) < 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                                        {formatCurrency(proj.adjustedCost - proj.certified)}
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-blue-600 underline decoration-blue-200 hover:decoration-blue-600 transition-all">
                                         <Link href={`/proyectos/detalle?id=${proj.id}&tab=Certificaciones`} onClick={(e) => e.stopPropagation()}>

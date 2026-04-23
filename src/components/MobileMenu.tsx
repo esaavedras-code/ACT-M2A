@@ -66,7 +66,7 @@ import { useUserRole } from "@/hooks/useUserRole";
         { id: "materials",   label: "Mat. on Site",   icon: Package },
         { id: "compliance",  label: "Cumplimiento laboral",   icon: ShieldCheck },
         { id: "cho",         label: "Change Orders",  icon: FileEdit },
-        { id: "payment",     label: "Pagos",          icon: FileCheck },
+        { id: "payment",     label: "Monthly payments", icon: FileCheck },
         { id: "mfg",         label: "Cert. CM",       icon: FileText },
         { id: "minutes",     label: "Minutas",        icon: Mic, wip: true },
         { id: "logs",        label: "Actividades",   icon: Cloud, wip: true },
