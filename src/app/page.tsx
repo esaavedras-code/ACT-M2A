@@ -311,7 +311,7 @@ export default function Dashboard() {
                                         {formatCurrency(proj.adjustedCost - proj.certified)}
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-blue-600 underline decoration-blue-200 hover:decoration-blue-600 transition-all">
-                                        <Link href={`/proyectos/detalle?id=${proj.id}&tab=Certificaciones`} onClick={(e) => e.stopPropagation()}>
+                                        <Link href={`/proyectos/detalle?id=${proj.id}&tab=payment`} onClick={(e) => e.stopPropagation()}>
                                             {formatCurrency(proj.certified)}
                                         </Link>
                                     </td>
