@@ -15,15 +15,7 @@ export interface FormRef { save: () => Promise<void>; }
 
 const DOC_TYPES = ["Orden de comienzo", "Project Agreement", "Proposal", "Contrato"];
 
-const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
-    <button 
-        type="button" 
-        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
-        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/50 hover:bg-white text-[10px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
-    >
-        HOY
-    </button>
-);
+
 
 const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string, onDirty?: () => void, onSaved?: (newId?: string) => void }>(function ProjectForm({ projectId, userRole, onDirty, onSaved }, ref) {
     const [formData, setFormData] = useState({
@@ -1525,29 +1517,27 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="input-field pr-12"
+                                    className="input-field"
                                     style={getFieldStyle('date_contract_sign')}
                                     value={formData.date_contract_sign || ""}
                                     onChange={(e) => {
                                         handleChange('date_contract_sign', e.target.value);
                                     }}
                                 />
-                                <TodayButton onSelect={(d) => handleChange('date_contract_sign', d)} />
                             </div>
                         </div>
                         <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comienzo Proyecto</label>
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Orden de comienzo</label>
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="input-field pr-12"
+                                    className="input-field"
                                     style={getFieldStyle('date_project_start')}
                                     value={formData.date_project_start || ""}
                                     onChange={(e) => {
                                         handleChange('date_project_start', e.target.value);
                                     }}
                                 />
-                                <TodayButton onSelect={(d) => handleChange('date_project_start', d)} />
                             </div>
                         </div>
                         <div className="space-y-1">
@@ -1555,14 +1545,13 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="input-field pr-12"
+                                    className="input-field"
                                     style={getFieldStyle('date_orig_completion')}
                                     value={formData.date_orig_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_orig_completion', e.target.value);
                                     }}
                                 />
-                                <TodayButton onSelect={(d) => handleChange('date_orig_completion', d)} />
                             </div>
                         </div>
                         <div className="space-y-1">
@@ -1570,14 +1559,13 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="input-field pr-12"
+                                    className="input-field"
                                     style={getFieldStyle('date_rev_completion')}
                                     value={formData.date_rev_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_rev_completion', e.target.value);
                                     }}
                                 />
-                                <TodayButton onSelect={(d) => handleChange('date_rev_completion', d)} />
                             </div>
                         </div>
                         <div className="space-y-1">
@@ -1596,44 +1584,28 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="input-field pr-12"
+                                    className="input-field"
                                     style={getFieldStyle('date_est_completion')}
                                     value={formData.date_est_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_est_completion', e.target.value);
                                     }}
                                 />
-                                <TodayButton onSelect={(d) => handleChange('date_est_completion', d)} />
                             </div>
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terminación Real</label>
-                            <div className="relative">
-                                <input
-                                    type="date"
-                                    className="input-field pr-12"
-                                    style={getFieldStyle('date_real_completion')}
-                                    value={formData.date_real_completion || ""}
-                                    onChange={(e) => {
-                                        handleChange('date_real_completion', e.target.value);
-                                    }}
-                                />
-                                <TodayButton onSelect={(d) => handleChange('date_real_completion', d)} />
-                            </div>
-                        </div>
+
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terminación Sustancial</label>
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="input-field pr-12"
+                                    className="input-field"
                                     style={getFieldStyle('date_substantial_completion')}
                                     value={formData.date_substantial_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_substantial_completion', e.target.value);
                                     }}
                                 />
-                                <TodayButton onSelect={(d) => handleChange('date_substantial_completion', d)} />
                             </div>
                         </div>
                         <div className="space-y-1">
@@ -1641,14 +1613,13 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="input-field pr-12"
+                                    className="input-field"
                                     style={getFieldStyle('date_final_inspection')}
                                     value={formData.date_final_inspection || ""}
                                     onChange={(e) => {
                                         handleChange('date_final_inspection', e.target.value);
                                     }}
                                 />
-                                <TodayButton onSelect={(d) => handleChange('date_final_inspection', d)} />
                             </div>
                         </div>
                         <div className="space-y-1">

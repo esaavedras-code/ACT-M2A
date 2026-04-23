@@ -86,7 +86,7 @@ export default function Dashboard() {
 
             let projectsQuery = supabase
                 .from("projects")
-                .select("id, name, num_act, region, cost_original, project_origin")
+                .select("id, name, num_act, region, cost_original, project_origin, date_rev_completion")
                 .order("created_at", { ascending: false });
             
             if (!allowedIds.includes("ALL")) {
@@ -122,10 +122,21 @@ export default function Dashboard() {
                 });
 
                 const adjustedCost = originalCost + approvedCHO;
+                
+                // Calculate remaining days
+                let remainingDays = null;
+                if (proj.date_rev_completion) {
+                    const rev = new Date(proj.date_rev_completion);
+                    const today = new Date();
+                    const diff = rev.getTime() - today.getTime();
+                    remainingDays = Math.ceil(diff / (1000 * 3600 * 24));
+                }
+
                 return {
                     ...proj,
                     adjustedCost,
                     certified,
+                    remainingDays,
                     progress: adjustedCost > 0 ? Math.round((certified / adjustedCost) * 100) : 0,
                     project_origin: proj.project_origin || 'ACT'
                 };
@@ -259,8 +270,10 @@ export default function Dashboard() {
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-100">
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Proyecto / ACT</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ajustado</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Certificado</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Terminación revisada</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Costo ajustado</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Remaining</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Certified to date (WP)</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Progreso</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Acciones</th>
                             </tr>
@@ -274,19 +287,37 @@ export default function Dashboard() {
                                 .map((proj: any) => (
                                 <tr key={proj.id} className="group hover:bg-blue-50/30 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
                                     <td className="px-8 py-6">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-bold text-slate-900 group-hover:text-blue-600 leading-tight">{proj.name}</span>
-                                            <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${proj.project_origin === 'Contratista' ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
-                                                {proj.project_origin}
-                                            </span>
+                                        <div className="flex flex-col gap-1.5">
+                                            <div className="flex items-center gap-2 max-w-[240px]">
+                                                <span className="text-[10px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-md uppercase tracking-tight shrink-0 shadow-sm">
+                                                    {proj.num_act}
+                                                </span>
+                                                <span className="font-bold text-slate-900 group-hover:text-blue-600 leading-tight truncate overflow-hidden whitespace-nowrap" title={proj.name}>
+                                                    {proj.name}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shrink-0 ${proj.project_origin === 'Contratista' ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
+                                                    {proj.project_origin}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100 whitespace-nowrap mt-1 flex-shrink-0">AC: {proj.num_act}</span>
+                                    </td>
+                                    <td className="px-8 py-6 text-right font-bold text-slate-500 whitespace-nowrap">
+                                        {proj.date_rev_completion ? new Date(proj.date_rev_completion).toLocaleDateString() : 'N/A'}
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-slate-700">{formatCurrency(proj.adjustedCost)}</td>
-                                    <td className="px-8 py-6 text-right font-bold text-blue-600">{formatCurrency(proj.certified)}</td>
+                                    <td className={`px-8 py-6 text-right font-bold ${proj.remainingDays && proj.remainingDays < 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                                        {proj.remainingDays !== null ? `${proj.remainingDays} días` : 'N/A'}
+                                    </td>
+                                    <td className="px-8 py-6 text-right font-bold text-blue-600 underline decoration-blue-200 hover:decoration-blue-600 transition-all">
+                                        <Link href={`/proyectos/detalle?id=${proj.id}&tab=Certificaciones`} onClick={(e) => e.stopPropagation()}>
+                                            {formatCurrency(proj.certified)}
+                                        </Link>
+                                    </td>
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex-1 bg-slate-100 rounded-full h-2 min-w-[100px]"><div className="bg-blue-600 h-2 rounded-full" style={{ width: `${proj.progress}%` }}></div></div>
+                                            <div className="flex-1 bg-slate-100 rounded-full h-2 min-w-[80px]"><div className="bg-blue-600 h-2 rounded-full" style={{ width: `${proj.progress}%` }}></div></div>
                                             <span className="text-[10px] font-black">{proj.progress}%</span>
                                         </div>
                                     </td>

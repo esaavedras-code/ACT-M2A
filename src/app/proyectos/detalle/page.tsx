@@ -116,7 +116,6 @@ function ProjectDetailContent() {
     //        → Inspección → Force Account → Liquidación
     const tabs = [
         { id: "dashboard",   label: "Resumen",        icon: <LayoutDashboard size={12} /> },
-        { id: "files",       label: role === 'E' ? "📸 Fotos" : "📁 Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
         { id: "project",     label: "Datos Proyecto",       icon: <FileText size={12} /> },
         { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
         { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
@@ -136,6 +135,7 @@ function ProjectDetailContent() {
         { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} />, wip: true },
         { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} />, wip: true },
         { id: "negotiation", label: "Negociación", icon: <Handshake size={12} />, wip: true },
+        { id: "files",       label: role === 'E' ? "📸 Fotos" : "📁 Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
     ];
 
     // Filtrar pestañas basadas en roles

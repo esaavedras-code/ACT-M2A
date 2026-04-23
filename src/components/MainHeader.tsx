@@ -25,23 +25,25 @@ export default function MainHeader() {
                     <Suspense fallback={<div className="w-6 h-6" />}>
                         <MobileMenu />
                     </Suspense>
-                    <Link href="/" className="flex items-center font-black text-xl md:text-2xl tracking-tighter hover:opacity-80 transition-opacity">
-                        <div className="h-6 w-6 md:h-8 md:w-8 relative overflow-hidden bg-white rounded-lg p-1 mr-2 shrink-0">
+                    <Link href="/" className="flex items-center font-black text-xs md:text-sm tracking-tighter hover:opacity-80 transition-opacity">
+                        <div className="h-4 w-4 md:h-5 md:w-5 relative overflow-hidden bg-white rounded-lg p-0.5 mr-2 shrink-0">
                             <Image src="/icon.png" alt="Logo" fill className="object-contain" />
                         </div>
                         <BrandName />
                     </Link>
                     <nav className="hidden lg:flex gap-2 xl:gap-6 items-center border-l border-white/20 pl-4 xl:pl-6 ml-1 xl:ml-2">
-                        <Link href="/" className="text-[9px] xl:text-[10px] font-black uppercase tracking-[0.05em] xl:tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0 leading-tight">
+                        <Link href="/" className="text-[7px] xl:text-[8px] font-black uppercase tracking-[0.05em] xl:tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0 leading-tight">
                             DASHBOARD <br />
-                            <span className="text-[7px] xl:text-[8px] opacity-70 normal-case">(Proyectos)</span>
+                            <span className="text-[6px] xl:text-[7px] opacity-70 normal-case">(Proyectos)</span>
                         </Link>
 
                         <Suspense fallback={null}>
                             <ReportesMenu />
                         </Suspense>
 
-
+                        <Link href="/acerca-de" className="text-[7px] xl:text-[8px] font-black uppercase tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0">
+                            ABOUT
+                        </Link>
                     </nav>
                 </div>
                 <div className="flex items-center gap-2 md:gap-4 shrink-0">

@@ -261,28 +261,48 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         const liquidatedItems = [...(formData.liquidated_items || [])];
         const itemIdx = liquidatedItems.findIndex((it: any) => it.item_num === itemNum);
         
+        let newItems = [];
         if (itemIdx > -1) {
             const item = { ...liquidatedItems[itemIdx] };
             item[role] = !item[role];
             liquidatedItems[itemIdx] = item;
+            newItems = liquidatedItems;
         } else {
             const newItem: any = { item_num: itemNum };
             newItem[role] = true;
             liquidatedItems.push(newItem);
+            newItems = liquidatedItems;
         }
         
+        // Recalcular automáticamente
+        const adminCount = newItems.filter((it: any) => it.signed_by_admin).length;
+        const contractorCount = newItems.filter((it: any) => it.signed_by_contractor).length;
+        const liquidatorCount = newItems.filter((it: any) => it.signed_by_liquidator).length;
+
+        setFormData((prev: any) => ({ 
+            ...prev, 
+            liquidated_items: newItems,
+            admin_signed_count: adminCount,
+            contractor_signed_count: contractorCount,
+            liquidator_signed_count: liquidatorCount
+        }));
+        if (onDirty) onDirty();
+    };
+
+    const recalculateCounts = () => {
+        const liquidatedItems = formData.liquidated_items || [];
         const adminCount = liquidatedItems.filter((it: any) => it.signed_by_admin).length;
         const contractorCount = liquidatedItems.filter((it: any) => it.signed_by_contractor).length;
         const liquidatorCount = liquidatedItems.filter((it: any) => it.signed_by_liquidator).length;
 
-        setFormData({ 
-            ...formData, 
-            liquidated_items: liquidatedItems,
+        setFormData((prev: any) => ({
+            ...prev,
             admin_signed_count: adminCount,
             contractor_signed_count: contractorCount,
             liquidator_signed_count: liquidatorCount
-        });
+        }));
         if (onDirty) onDirty();
+        alert("Conteos sincronizados con las firmas de partidas.");
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -381,7 +401,16 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                             />
                         </div>
                     </div>
-                    <p className="text-[9px] text-slate-400 mt-2 italic">* Estos números alimentan el resumen de Liquidación en el Dashboard.</p>
+                    <div className="flex justify-end pt-2">
+                        <button 
+                            onClick={recalculateCounts}
+                            className="text-[10px] font-black text-blue-600 hover:text-blue-700 flex items-center gap-1 uppercase tracking-widest bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 transition-all"
+                        >
+                            <Activity size={12} />
+                            Sincronizar con Partidas
+                        </button>
+                    </div>
+                    <p className="text-[9px] text-slate-400 mt-2 italic">* Estos números alimentan el resumen de Liquidación en el Dashboard. El botón permite forzar el recuento desde el listado de partidas.</p>
                 </div>
 
                 {/* ── Documentos Cierre Federal ── */}
@@ -426,11 +455,12 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                                             {attachments.length > 0 && (
                                                 <button
                                                     onClick={() => toggleDocExpanded(doc)}
-                                                    className="flex items-center gap-1 text-[10px] font-bold bg-blue-100 hover:bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded-md transition-colors"
+                                                    className="flex items-center gap-1 text-[10px] font-bold bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded-md transition-colors shadow-sm"
                                                     title={isExpanded ? "Ocultar archivos" : "Ver archivos subidos"}
                                                 >
                                                     <FileText size={10} />
-                                                    {attachments.length} {isExpanded ? "▲" : "▼"}
+                                                    <span className="tabular-nums">{attachments.length}</span>
+                                                    <span>{isExpanded ? "▲" : "▼"}</span>
                                                 </button>
                                             )}
 

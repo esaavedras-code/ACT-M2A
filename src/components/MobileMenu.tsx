@@ -47,6 +47,7 @@ import { useUserRole } from "@/hooks/useUserRole";
         { name: "Historial de precios", href: "/precios", icon: History },
         { name: "Centro de Reportes", href: projectId ? `/reportes?id=${projectId}` : "/reportes", icon: TrendingUp },
         { name: "Mi Perfil", href: "/perfil", icon: FileText },
+        { name: "About", href: "/acerca-de", icon: Info },
     ];
 
     if (isGlobalAdmin) {

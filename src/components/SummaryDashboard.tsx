@@ -454,7 +454,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
                             <MetricRow label="Costo (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-slate-950 dark:text-white font-black" />
                             <MetricRow label={`Últ. Certificación pagada (#${metrics.cost.lastCertNum})`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
-                            <MetricRow label="Total Certificado" value={formatCurrency(metrics.cost.certTotal)} color="text-blue-700 font-black" />
+                            <MetricRow label="Total certificado (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-blue-700 font-black" />
+                            <MetricRow label="Balance actual (remaining)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
                             <div className="pt-2">
                                 <button 
                                     onClick={() => setShowMOSDetails(!showMOSDetails)}
@@ -480,7 +481,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             </div>
                         </div>
                         <div className="space-y-1">
-                            <MetricRow label="Balance Actual (WP)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
+
                             <hr className="my-1 border-slate-200 dark:border-slate-800" />
                             <MetricRow label="% de Obra Ejecutada" value={`${metrics.cost.percentObra.toFixed(2)}%`} />
                             <div className="pt-1">
@@ -522,7 +523,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                 <div className="card border-t-4 border-t-amber-500">
                     <div className="flex items-center gap-2 text-amber-700 font-bold mb-2 uppercase text-xs tracking-wider">
-                        <PieChart size={16} /> CHANGE ORDERS
+                        <PieChart size={16} /> MODIFICACIONES (CCML)
                     </div>
                     <div className="space-y-0.5">
                         <div className="grid grid-cols-4 gap-1 text-[10px] font-black text-slate-500 uppercase pb-1 border-b border-slate-200 dark:border-slate-800">
