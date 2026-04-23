@@ -117,14 +117,14 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const { data: certs } = await supabase
             .from("payment_certifications")
-            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount")
+            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund")
             .eq("project_id", projectId)
             .order("cert_num", { ascending: true });
 
         const originalCost = proj?.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
 
         const approvedCHOs = chos?.filter(c => c.doc_status === 'Aprobado') || [];
-        const pendingCHOs = chos?.filter(c => c.doc_status === 'En trámite') || [];
+        const pendingCHOs = chos?.filter(c => c.doc_status === 'En tramite') || [];
 
         const approvedCHO = approvedCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
         const pendingCHO = pendingCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
@@ -168,71 +168,62 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         let totalOtherPenalties = 0;
         let totalRefund = 0;
 
-        // Balance MOS corriente por ítem (en dólares) - mismo algoritmo que PaymentCertForm
         const perItemMosBalance: Record<string, number> = {};
-        const perItemMosPU: Record<string, number> = {};   // PU del MOS por ítem
+        const perItemMosPU: Record<string, number> = {};
 
-        certs?.forEach((cert: any, cIdx: number) => {
+        certs?.forEach((cert: any) => {
             const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
             let certAmount = 0;
 
-            // ── FASE 1: Acumular adiciones MOS de esta cert ──────────────
             certItems.forEach((item: any) => {
                 const itemNum = item.item_num;
                 if (!itemNum) return;
                 const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
                 const itemMosPU = parseFloat(item.mos_unit_price) || 0;
-                // Detectar adición si el checkbox está on O si hay monto de factura
                 if (item.has_material_on_site || mosInvoice > 0) {
                     perItemMosBalance[itemNum] = (perItemMosBalance[itemNum] || 0) + mosInvoice;
                     if (itemMosPU > 0) perItemMosPU[itemNum] = itemMosPU;
                 }
             });
 
-                // ── FASE 2: Calcular montos, deducciones y actualizar balance ─
-                certItems.forEach((item: any) => {
-                    const itemNum = item.item_num;
-                    if (!itemNum) return;
+            certItems.forEach((item: any) => {
+                const itemNum = item.item_num;
+                if (!itemNum) return;
 
-                    const qty = parseFloat(item.quantity) || 0;
-                    const up = parseFloat(item.unit_price) || 0;
-                    const amount = roundedAmt(qty * up, 2);
-                    const source = (item.fund_source || "").trim();
+                const qty = parseFloat(item.quantity) || 0;
+                const up = parseFloat(item.unit_price) || 0;
+                const amount = roundedAmt(qty * up, 2);
+                const source = (item.fund_source || "").trim();
 
-                    if (source === "FHWA:100%") {
-                        fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
-                    } else if (source === "FHWA:80.25") {
-                        const fhwaShare = roundedAmt(amount * 0.8025, 2);
-                        const actShare = roundedAmt(amount - fhwaShare, 2);
-                        fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
-                        actTotal = roundedAmt(actTotal + actShare, 2);
-                    } else {
-                        actTotal = roundedAmt(actTotal + amount, 2);
+                if (source === "FHWA:100%") {
+                    fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
+                } else if (source === "FHWA:80.25") {
+                    const fhwaShare = roundedAmt(amount * 0.8025, 2);
+                    const actShare = roundedAmt(amount - fhwaShare, 2);
+                    fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
+                    actTotal = roundedAmt(actTotal + actShare, 2);
+                } else {
+                    actTotal = roundedAmt(actTotal + amount, 2);
+                }
+                certAmount = roundedAmt(certAmount + amount, 2);
+
+                const available = perItemMosBalance[itemNum] || 0;
+                const qtyFromMosManual = parseFloat(item.qty_from_mos) || 0;
+                
+                if (available > 0.01) {
+                    const pu = perItemMosPU[itemNum] || up;
+                    let deduceQty = 0;
+                    if (qtyFromMosManual > 0) deduceQty = qtyFromMosManual;
+                    else if (qty > 0) {
+                        const availableQty = available / (pu || 1);
+                        deduceQty = Math.min(qty, availableQty);
                     }
-                    certAmount = roundedAmt(certAmount + amount, 2);
-
-                    // Lógica de MOS (Deducciones)
-                    const available = perItemMosBalance[itemNum] || 0;
-                    const qtyFromMosManual = parseFloat(item.qty_from_mos) || 0;
-                    
-                    if (available > 0.01) {
-                        const pu = perItemMosPU[itemNum] || up;
-                        let deduceQty = 0;
-
-                        if (qtyFromMosManual > 0) {
-                            deduceQty = qtyFromMosManual;
-                        } else if (qty > 0) {
-                            // Deducción automática si no hay manual
-                            const availableQty = available / (pu || 1);
-                            deduceQty = Math.min(qty, availableQty);
-                        }
-
-                        if (deduceQty > 0) {
-                            const deduction = roundedAmt(deduceQty * pu, 2);
-                            perItemMosBalance[itemNum] = Math.max(0, roundedAmt(available - deduction, 2));
-                        }
+                    if (deduceQty > 0) {
+                        const deduction = roundedAmt(deduceQty * pu, 2);
+                        perItemMosBalance[itemNum] = Math.max(0, roundedAmt(available - deduction, 2));
                     }
-                }); // fin certItems.forEach FASE 2
+                }
+            });
 
             if ((cert.cert_num || 0) > lastCertNum) {
                 lastCertNum = cert.cert_num;
@@ -297,6 +288,12 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const damAmt = parseFloat(proj?.liquidated_damages_amount || "500");
         const liqDamages = Math.max(0, ((usedDays || 0) - (revisedDays || 0)) * damAmt);
 
+        const adminCount = proj?.liquidation_data?.admin_signed_count || 0;
+        const contractorCount = proj?.liquidation_data?.contractor_signed_count || 0;
+        const liquidatorCount = proj?.liquidation_data?.liquidator_signed_count || 0;
+        const totalSigned = adminCount + contractorCount + liquidatorCount;
+        const liqPercent = totalItemsCount > 0 ? Math.round((totalSigned / (totalItemsCount * 3)) * 100) : 0;
+
         setMetrics({
             time: {
                 total: totalDays || 0,
@@ -358,14 +355,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             },
             liquidation: {
                 totalItems: totalItemsCount || 0,
-                adminSigned: proj?.liquidation_data?.admin_signed_count || 0,
-                contractorSigned: proj?.liquidation_data?.contractor_signed_count || 0,
-                liquidatorSigned: proj?.liquidation_data?.liquidator_signed_count || 0,
-                percent: totalItemsCount > 0 ? Math.round(((
-                    (proj?.liquidation_data?.admin_signed_count || 0) +
-                    (proj?.liquidation_data?.contractor_signed_count || 0) +
-                    (proj?.liquidation_data?.liquidator_signed_count || 0)
-                ) / (totalItemsCount * 3)) * 100) : 0,
+                adminSigned: adminCount,
+                contractorSigned: contractorCount,
+                liquidatorSigned: liquidatorCount,
+                percent: liqPercent,
                 federalDocs: proj?.liquidation_data?.federal_docs || []
             }
         });
@@ -374,7 +367,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     if (!mounted) return null;
 
     return (
-        <div suppressHydrationWarning className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold flex items-center gap-3">
@@ -385,7 +378,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             <div className="flex items-center gap-3">
                                 <span className="text-slate-950 dark:text-white">Resumen</span>
                                 <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 shadow-sm uppercase tracking-wider">
-                                    AQUÍ SE ENCUENTRA LA PRINCIPAL INFORMACIÓN DEL PROYECTO
+                                    AQUI SE ENCUENTRA LA PRINCIPAL INFORMACION DEL PROYECTO
                                 </span>
                             </div>
                         </div>
@@ -393,167 +386,146 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 </div>
             </div>
 
-
-            {/* ALERTA: FMIS Date Expiry */}
             {fmisAlert && (
-                <div className={`rounded-xl border px-5 py-4 animate-pulse ${fmisAlert.status === 'expired'
-                    ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/40 text-orange-800 dark:text-orange-300'
-                    : 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-                    }`}>
-                    <div className="flex items-center gap-3">
-                        <AlertCircle size={24} className={fmisAlert.status === 'expired' ? 'text-orange-600' : 'text-amber-600'} />
-                        <div className="flex-1">
-                            <h4 className="text-sm font-black uppercase tracking-wider">
-                                {fmisAlert.status === 'expired' ? 'FMIS END DATE VENCIDA' : 'ADVERTENCIA: VENCIMIENTO FMIS PRÓXIMO'}
-                            </h4>
-                            <p className="text-xs font-semibold opacity-90 mt-0.5">
-                                {fmisAlert.status === 'expired'
-                                    ? `La fecha de FMIS para este proyecto venció hace ${Math.abs(fmisAlert.daysLeft)} días.`
-                                    : `Faltan ${fmisAlert.daysLeft} días para que expire la fecha de FMIS de este proyecto (${metrics.dates.fmis}).`
-                                }
-                            </p>
-                        </div>
+                <div className={`flex items-center gap-3 p-4 rounded-xl border animate-pulse ${
+                    fmisAlert.status === 'expired' 
+                        ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300' 
+                        : 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300'
+                }`}>
+                    <AlertCircle size={20} />
+                    <div className="flex-1">
+                        <p className="text-sm font-bold">
+                            {fmisAlert.status === 'expired' 
+                                ? `¡ALERTA FMIS! La fecha limite del FMIS ha expirado hace ${Math.abs(fmisAlert.daysLeft)} dias.` 
+                                : `¡AVISO FMIS! Quedan solo ${fmisAlert.daysLeft} dias para la fecha limite del FMIS.`}
+                        </p>
                     </div>
                 </div>
             )}
 
-            {/* ALERTA: Documentos de cumplimiento vencidos */}
-            {expiredDocs.length > 0 && (
-                <div className="rounded-xl border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/40 px-5 py-4">
-                    <div className="flex items-center gap-2 mb-3">
-                        <ShieldAlert size={18} className="text-red-600 dark:text-red-400 shrink-0" />
-                        <span className="text-sm font-extrabold text-red-800 dark:text-red-200 uppercase tracking-wide">
-                            Cumplimiento Laboral — Documentos Vencidos
-                        </span>
-                        <span className="ml-auto bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                            {expiredDocs.length}
-                        </span>
-                    </div>
-                    <ul className="space-y-1.5">
-                        {expiredDocs.map((doc, i) => {
-                            const expiryFormatted = formatDate(doc.date_expiry);
-                            return (
-                                <li key={i} className="flex items-center gap-2 text-sm">
-                                    <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#ef4444", boxShadow: "0 0 5px 1px rgba(239,68,68,0.5)", flexShrink: 0 }} />
-                                    <span className="font-semibold text-red-900 dark:text-red-300">{doc.doc_type}</span>
-                                    <span className="text-red-600 dark:text-red-400 text-xs ml-auto font-mono">Venció: {expiryFormatted}</span>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="card border-t-4 border-t-blue-600 md:col-span-2 lg:col-span-2">
-                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-3 uppercase text-xs tracking-wider">
-                        <DollarSign size={16} /> COSTOS
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                        <div className="space-y-1">
-                            <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
-                            <MetricRow label="Costo (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-slate-950 dark:text-white font-black" />
-                            <MetricRow label={`Últ. Certificación pagada (#${metrics.cost.lastCertNum})`} value={formatCurrency(metrics.cost.lastCertAmount)} color="text-blue-700" />
-                            <MetricRow label="Total certificado (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-blue-700 font-black" />
-                            <MetricRow label="Balance actual (remaining)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
-                            <div className="pt-2">
-                                <button 
-                                    onClick={() => setShowMOSDetails(!showMOSDetails)}
-                                    className="w-full text-left group"
-                                >
-                                    <MetricRow label="Material en Sitio (MOS)" value={formatCurrency(metrics.cost.materialOnSite)} color="text-amber-700 font-black" />
-                                </button>
-                                {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
-                                    <div className="pl-3 mt-1 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800 animate-in slide-in-from-top-1 duration-200">
-                                        {metrics.cost.mosBalances.map((mb, i) => (
-                                            <div key={i} className="flex justify-between text-[10px] font-bold">
-                                                <span className="text-slate-500">Partida {mb.item_num}</span>
-                                                <span className="text-amber-600 italic">{formatCurrency(mb.balance)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div className="pt-2">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider pt-0.5">Presupuesto Proyectado</p>
-                                    <MetricRow label="Prov. ACT" value={formatCurrency(metrics.cost.actProjected)} color="text-emerald-800 font-bold" />
-                                    <MetricRow label="Prov. FHWA" value={formatCurrency(metrics.cost.fhwaProjected)} color="text-blue-800 font-bold" />
-                                </div>
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-
-                            <hr className="my-1 border-slate-200 dark:border-slate-800" />
-                            <MetricRow label="% de Obra Ejecutada" value={`${metrics.cost.percentObra.toFixed(2)}%`} />
-                            <div className="pt-1">
-                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
-                                    <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(metrics.cost.percentObra, 100)}%` }}></div>
-                                </div>
-                            </div>
-                            <div className="pt-4">
-                                <div className="flex justify-between text-[11px] mb-1 font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">
-                                    <span>Progreso de Tiempo</span>
-                                    <span className={metrics.time.percent > 100 ? "text-red-600" : ""}>{metrics.time.percent.toFixed(2)}%</span>
-                                </div>
-                                <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5">
-                                    <div className={`${metrics.time.percent > 100 ? 'bg-red-500' : 'bg-blue-600'} h-1.5 rounded-full transition-all duration-500`} style={{ width: `${Math.min(metrics.time.percent, 100)}%` }}></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="card border-t-4 border-t-blue-500">
-                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-2 uppercase text-xs tracking-wider">
-                        <Clock size={16} /> TIEMPO
+                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-4 uppercase text-xs tracking-wider">
+                        <Clock size={16} /> FECHAS CLAVE
                     </div>
                     <div className="space-y-1">
-                        <MetricRow label="Comienzo Proyecto" value={formatDate(metrics.dates.start)} color="text-slate-800" />
-                        <MetricRow label="Terminación Original" value={formatDate(metrics.dates.original)} color="text-slate-800" />
-                        <MetricRow label="Terminación Revisada" value={formatDate(metrics.dates.revised)} color="text-slate-800" />
-                        <MetricRow label="Terminación Sustancial" value={formatDate(metrics.dates.substantial)} color="text-blue-800 font-bold" />
-                        <MetricRow label="Terminación Administrativa" value={formatDate(metrics.dates.administrative)} color="text-amber-800 font-bold" />
+                        <MetricRow label="Comienzo" value={formatDate(metrics.dates.start)} />
+                        <MetricRow label="Original" value={formatDate(metrics.dates.original)} />
+                        <MetricRow label="Revisada" value={formatDate(metrics.dates.revised)} color="text-blue-700 font-bold" />
+                        <MetricRow label="Sustancial" value={formatDate(metrics.dates.substantial)} />
+                        <MetricRow label="Terminacion Administrativa" value={formatDate(metrics.dates.administrative)} color="text-amber-800 font-bold" />
                         <MetricRow label="FMIS End Date" value={formatDate(metrics.dates.fmis)} color="text-emerald-700" />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Días Contrato" value={`${formatNumber(metrics.time.total, 0)} días`} />
-                        <MetricRow label="Días Revisados (Original + CHO)" value={`${formatNumber(metrics.time.revised, 0)} días`} />
-                        <MetricRow label="Tiempo transcurrido a la fecha" value={`${formatNumber(metrics.time.used, 0)} días`} />
-                        <MetricRow label="Balance de días" value={`${formatNumber(metrics.time.balance, 0)} días`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} />
+                        <MetricRow label="Dias Contrato" value={`${formatNumber(metrics.time.total, 0)} dias`} />
+                        <MetricRow label="Dias Revisados (Original + CHO)" value={`${formatNumber(metrics.time.revised, 0)} dias`} />
+                        <MetricRow label="Tiempo transcurrido a la fecha" value={`${formatNumber(metrics.time.used, 0)} dias`} />
+                        <MetricRow label="Balance de dias" value={`${formatNumber(metrics.time.balance, 0)} dias`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} />
+                    </div>
+                </div>
+
+                <div className="card border-t-4 border-t-emerald-500">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2 text-emerald-700 font-bold uppercase text-xs tracking-wider">
+                            <DollarSign size={16} /> COSTOS Y PAGOS
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
+                        <MetricRow label="Costo Ajustado" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" />
+                        <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" />
+                        <MetricRow label="Balance actual (remaining)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
+                        
+                        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">% DE OBRA EJECUTADA:</span>
+                                <span className="text-sm font-black text-emerald-600">{metrics.cost.percentObra}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-emerald-500 transition-all duration-1000" 
+                                    style={{ width: `${Math.min(100, metrics.cost.percentObra)}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Progreso de Tiempo:</span>
+                                <span className="text-sm font-black text-blue-600">{metrics.time.percent}%</span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-blue-500 transition-all duration-1000" 
+                                    style={{ width: `${Math.min(100, metrics.time.percent)}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-2 text-[10px] font-bold flex flex-col gap-1 text-slate-500 bg-slate-50 dark:bg-slate-900/50 p-2 rounded">
+                            <div className="flex justify-between">
+                                <span>TOTAL FHWA:</span>
+                                <span>{formatCurrency(metrics.cost.fhwaTotal)} / {formatCurrency(metrics.cost.fhwaProjected)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>TOTAL ACT:</span>
+                                <span>{formatCurrency(metrics.cost.actTotal)} / {formatCurrency(metrics.cost.actProjected)}</span>
+                            </div>
+                        </div>
+
+                        <div className="mt-2">
+                            <button 
+                                onClick={() => setShowMOSDetails(!showMOSDetails)}
+                                className="w-full flex justify-between items-center p-2 rounded bg-amber-50 dark:bg-amber-950/20 text-amber-700 hover:bg-amber-100 transition-colors"
+                            >
+                                <span className="text-[10px] font-black uppercase">Material on Site (MOS):</span>
+                                <span className="text-sm font-black">{formatCurrency(metrics.cost.materialOnSite)}</span>
+                            </button>
+                            
+                            {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
+                                <div className="mt-2 p-2 bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/30 rounded shadow-inner space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+                                    {metrics.cost.mosBalances.map((e, i) => (
+                                        <div key={i} className="flex justify-between items-center text-[10px] font-bold text-amber-800">
+                                            <span>Item {e.item_num}</span>
+                                            <span>{formatCurrency(e.balance)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 <div className="card border-t-4 border-t-amber-500">
-                    <div className="flex items-center gap-2 text-amber-700 font-bold mb-2 uppercase text-xs tracking-wider">
+                    <div className="flex items-center gap-2 text-amber-700 font-bold mb-4 uppercase text-xs tracking-wider">
                         <PieChart size={16} /> CHANGE ORDERS
                     </div>
-                    <div className="space-y-0.5">
+                    <div className="space-y-3">
                         <div className="grid grid-cols-4 gap-1 text-[10px] font-black text-slate-500 uppercase pb-1 border-b border-slate-200 dark:border-slate-800">
                             <span></span>
                             <span className="text-center">#</span>
-                            <span className="text-center">Días otorgados</span>
+                            <span className="text-center">Dias otorgados</span>
                             <span className="text-right">$</span>
                         </div>
                         <CHORow label="Aprobados" count={metrics.chos.approvedCount} days={metrics.chos.approvedDays} amount={formatCurrency(metrics.chos.approvedTotal)} color="text-emerald-800 dark:text-emerald-400" />
-                        <CHORow label="En Trámite" count={metrics.chos.pendingCount} days={metrics.chos.pendingDays} amount={formatCurrency(metrics.chos.pendingTotal)} color="text-amber-800 dark:text-amber-400" />
+                        <CHORow label="En Tramite" count={metrics.chos.pendingCount} days={metrics.chos.pendingDays} amount={formatCurrency(metrics.chos.pendingTotal)} color="text-amber-800 dark:text-amber-400" />
                         <CHORow label="Resumen" count={metrics.chos.approvedCount + metrics.chos.pendingCount} days={metrics.chos.totalDays} amount={formatCurrency(metrics.chos.total)} color="font-black text-slate-950 dark:text-white" />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="% de Cambio (Costo)" value={`${metrics.chos.percentChange}%`} color="text-amber-800 font-bold" />
-                        <MetricRow label="% de Cambio (Días)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" />
+                        <MetricRow label="% de Cambio (Dias)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" />
                     </div>
                 </div>
 
                 <div className="card border-t-4 border-t-violet-500">
-                    <div className="flex items-center gap-2 text-violet-700 font-bold mb-2 uppercase text-xs tracking-wider">
-                        <Layers size={16} /> RETENCIONES Y PENALIDADES
+                    <div className="flex items-center gap-2 text-violet-700 font-bold mb-4 uppercase text-xs tracking-wider">
+                        <Layers size={16} /> RETENCIONES Y OTROS
                     </div>
                     <div className="space-y-1">
-                        <MetricRow label="Balance Retenido" value={formatCurrency(metrics.retention.fivePercent)} color="text-violet-700 font-bold" />
-                        <MetricRow label="Extra Retenido ($)" value={formatCurrency(metrics.retention.extra)} />
-                        <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(-metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment !== 0 ? "text-blue-700" : ""} />
+                        <MetricRow label="Retencion 5% ($)" value={formatCurrency(metrics.retention.fivePercent)} />
+                        <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment > 0 ? "text-emerald-700 font-bold" : ""} />
                         <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
                         <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
                         <MetricRow label="Reembolso" value={metrics.retention.returned > 0 ? `-${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
-                        <MetricRow label="Daños Líquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
+                        <MetricRow label="Daños Liquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="Retenciones y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
                     </div>
@@ -561,42 +533,27 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                 <div className="card border-t-4 border-t-emerald-500 bg-amber-50/10 dark:bg-amber-900/5">
                     <div className="flex items-center gap-2 text-emerald-700 font-bold mb-2 uppercase text-xs tracking-wider">
-                        <Activity size={16} /> LIQUIDACIÓN
+                        <Activity size={16} /> LIQUIDACION
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase">Total Partidas</span>
-                            <div className="bg-white dark:bg-slate-800 border border-slate-400 dark:border-slate-600 px-3 py-1 rounded shadow-inner font-mono font-black text-slate-900 dark:text-slate-100 italic text-center min-w-[60px]">
-                                {formatNumber(metrics.liquidation.totalItems, 0)}
-                            </div>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Items con Cierre:</span>
+                            <span className="text-sm font-black">{metrics.liquidation.adminSigned} / {metrics.liquidation.totalItems}</span>
                         </div>
-                        <div className="mt-2 space-y-1">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Firmadas por:</span>
-                            <div className="pl-2 space-y-1">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs text-slate-700 dark:text-slate-300">Administrador</span>
-                                    <span className="font-mono text-sm font-bold flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 min-w-[80px]">
-                                        {formatNumber(metrics.liquidation.adminSigned, 0)} 
-                                        <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.adminSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs text-slate-700 dark:text-slate-300">Contratista</span>
-                                    <span className="font-mono text-sm font-bold flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 min-w-[80px]">
-                                        {formatNumber(metrics.liquidation.contractorSigned, 0)} 
-                                        <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.contractorSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs text-slate-700 dark:text-slate-300">Liquidador</span>
-                                    <span className="font-mono text-sm font-bold flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 min-w-[80px]">
-                                        {formatNumber(metrics.liquidation.liquidatorSigned, 0)} 
-                                        <span className="text-[10px] text-blue-600 dark:text-blue-400">({metrics.liquidation.totalItems > 0 ? Math.round((metrics.liquidation.liquidatorSigned / metrics.liquidation.totalItems) * 100) : 0}%)</span>
-                                    </span>
-                                </div>
+                        <div className="mt-2 mb-4">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">% FIRMAS RECOLECTADAS:</span>
+                                <span className="text-sm font-black text-emerald-600">{metrics.liquidation.percent}%</span>
                             </div>
+                            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-emerald-500 transition-all duration-1000 shadow-[0_0_8px_rgba(16,185,129,0.3)]" 
+                                    style={{ width: `${Math.min(100, metrics.liquidation.percent)}%` }}
+                                />
+                            </div>
+                            <span className="text-[8px] text-slate-400 mt-1 block">Firma de Administrador, Contratista y Liquidador requeridas por item.</span>
                         </div>
-                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
+
                         <div className="space-y-2">
                             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Documentos de Cierre Recibidos:</span>
                             <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar pr-1">
