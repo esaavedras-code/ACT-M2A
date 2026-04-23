@@ -103,7 +103,7 @@ const PaymentCertForm = React.forwardRef(({
                 .from('payment_certifications')
                 .select('*')
                 .eq('project_id', projectId)
-                .order('cert_num', { ascending: true });
+                .order('cert_num', { ascending: false });
             
             if (!cError) setInternalCerts(certs || []);
 
@@ -223,7 +223,7 @@ const PaymentCertForm = React.forwardRef(({
             notes: '',
             notes_images: []
         };
-        setCerts([...certs, newCert]);
+        setCerts([newCert, ...certs]);
         setExpandedCert(nextNum);
     };
 

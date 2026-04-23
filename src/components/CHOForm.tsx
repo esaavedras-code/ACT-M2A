@@ -68,7 +68,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
     };
 
     const fetchCHOs = async () => {
-        const { data } = await supabase.from("chos").select("*").eq("project_id", projectId).order("cho_num", { ascending: true });
+        const { data } = await supabase.from("chos").select("*").eq("project_id", projectId).order("cho_num", { ascending: false });
         if (data && data.length > 0) {
             setChos(data.map(c => ({
                 ...c,
@@ -85,7 +85,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
         const nextLetter = lastLetter ? String.fromCharCode(lastLetter.charCodeAt(0) + 1) : "A";
 
         const newId = crypto.randomUUID();
-        setChos([...chos, {
+        setChos([{
             id: newId,
             project_id: projectId,
             cho_num: lastNum + 1,
@@ -105,7 +105,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             is_new_item: false,
             is_time_extension: false,
             items: []
-        }]);
+        }, ...chos]);
         setExpandedCHO(newId);
         if (!silent && onDirty) onDirty();
     };

@@ -32,9 +32,9 @@ export default function MainHeader() {
                         <BrandName />
                     </Link>
                     <nav className="hidden lg:flex gap-2 xl:gap-6 items-center border-l border-white/20 pl-4 xl:pl-6 ml-1 xl:ml-2">
-                        <Link href="/" className="text-[7px] xl:text-[8px] font-black uppercase tracking-[0.05em] xl:tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0 leading-tight">
+                        <Link href="/" className="text-[21px] xl:text-[24px] font-black uppercase tracking-[0.05em] xl:tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0 leading-tight">
                             DASHBOARD <br />
-                            <span className="text-[6px] xl:text-[7px] opacity-70 normal-case">(Proyectos)</span>
+                            <span className="text-[18px] xl:text-[21px] opacity-70 normal-case">(Proyectos)</span>
                         </Link>
 
                         <Suspense fallback={null}>
