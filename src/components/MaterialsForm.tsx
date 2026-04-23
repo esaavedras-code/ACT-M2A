@@ -108,23 +108,44 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
     };
 
     const groupedItems = new Map<string, any>();
+    const balances = new Map<string, number>(); // Track money balance per item_num
 
     certs.forEach((c, cIdx) => {
         const items = c.items || [];
         items.forEach((it: any, iIdx: number) => {
+            const itemNum = it.item_num;
+            if (!itemNum) return;
+
+            const workQty = parseFloat(it.quantity) || 0;
+            const manualDeductionQty = parseFloat(it.qty_from_mos) || 0;
             const hasAddition = !!it.has_material_on_site || (it.mos_invoice_total && parseFloat(it.mos_invoice_total) > 0);
-            const hasDeduction = parseFloat(it.qty_from_mos) > 0;
+            
+            // Calculate current available balance for this item
+            const currentBalance = balances.get(itemNum) || 0;
+            const mosPU = getInvoicePU(certs, itemNum, cIdx);
+            const price = mosPU > 0 ? mosPU : (parseFloat(it.unit_price) || 0);
+            
+            // Determine the deduction quantity: use manual if provided, otherwise auto-calculate if there's work and balance
+            let deductionQty = 0;
+            if (manualDeductionQty > 0) {
+                deductionQty = manualDeductionQty;
+            } else if (workQty > 0 && currentBalance > 0.01) {
+                const availableQty = currentBalance / (price || 1);
+                deductionQty = Math.min(workQty, availableQty);
+            }
+
+            const hasDeduction = deductionQty > 0;
 
             if (hasAddition || hasDeduction) {
-                if (!groupedItems.has(it.item_num)) {
-                    groupedItems.set(it.item_num, {
-                        item_num: it.item_num,
+                if (!groupedItems.has(itemNum)) {
+                    groupedItems.set(itemNum, {
+                        item_num: itemNum,
                         specification: it.specification,
                         description: it.description,
                         activities: []
                     });
                 }
-                const group = groupedItems.get(it.item_num);
+                const group = groupedItems.get(itemNum);
 
                 if (hasAddition) {
                     const cost = parseFloat(it.mos_invoice_total) || 0;
@@ -140,20 +161,21 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         mos_invoice_total: it.mos_invoice_total,
                         rawItem: it
                     });
+                    balances.set(itemNum, currentBalance + cost);
                 }
 
                 if (hasDeduction) {
-                    const mosPU = getInvoicePU(certs, it.item_num, cIdx);
-                    const p = mosPU > 0 ? mosPU : (parseFloat(it.unit_price) || 0);
-                    const qty = parseFloat(it.qty_from_mos) || 0;
-                    const cost = qty * p;
+                    const cost = deductionQty * price;
                     group.activities.push({
                         certNum: c.cert_num,
                         certIdx: cIdx,
                         type: 'deduction',
-                        qty: qty,
-                        cost: cost
+                        qty: deductionQty,
+                        cost: cost,
+                        isAuto: manualDeductionQty === 0
                     });
+                    const newBal = (balances.get(itemNum) || 0) - cost;
+                    balances.set(itemNum, Math.max(0, newBal));
                 }
             }
         });
