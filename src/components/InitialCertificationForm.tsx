@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, Trash2, AlertCircle, Info, CheckCircle2, Calendar, ShieldCheck, X, FileCheck, Paperclip, Loader2 } from "lucide-react";
+import { Save, ShieldCheck, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Info, Download, FileText, Printer, Calendar, X, FileCheck, Paperclip } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { formatDate } from "@/lib/utils";
@@ -331,6 +331,14 @@ if (!mounted) return null;
             </div>
 
             <FloatingFormActions actions={[
+                {
+                    label: "Imprimir",
+                    icon: <Printer />,
+                    onClick: () => window.print(),
+                    description: "Imprimir esta sección de Initial Certification",
+                    variant: 'secondary' as const,
+                    size: 'small' as const
+                },
                 { label: "Añadir ICC", description: "Nuevo Initial Certification", icon: <Plus />, onClick: addCert, variant: 'secondary' },
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />

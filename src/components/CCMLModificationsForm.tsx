@@ -2,10 +2,9 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Info, Download, Upload } from "lucide-react";
+import { Save, Info, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 
 interface CCMLMod {
     modification_num: number;
@@ -230,20 +229,12 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Download />,
-                        onClick: () => exportSectionToJSON("ccml_modificaciones", mods),
-                        description: "Exportar tabla de modificaciones CCML a un archivo JSON",
-                        variant: 'info' as const,
-                        disabled: loading
-                    },
-                    {
-                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Upload />,
-                        onClick: () => document.getElementById('import-ccml-json')?.click(),
-                        description: "Cargar tabla de modificaciones CCML desde un archivo JSON",
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir esta sección de Cambios al CCML",
                         variant: 'secondary' as const,
-                        disabled: loading
+                        size: 'small' as const
                     },
                     {
                         label: loading ? "Guardando..." : "Guardar cambios",

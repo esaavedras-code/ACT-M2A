@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Package, Info, Save } from "lucide-react";
+import { Package, Info, Save, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, roundedAmt } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
@@ -161,11 +161,11 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         mos_invoice_total: it.mos_invoice_total,
                         rawItem: it
                     });
-                    balances.set(itemNum, currentBalance + cost);
+                    balances.set(itemNum, roundedAmt(currentBalance + cost, 2));
                 }
 
                 if (hasDeduction) {
-                    const cost = deductionQty * price;
+                    const cost = roundedAmt(deductionQty * price, 2);
                     group.activities.push({
                         certNum: c.cert_num,
                         certIdx: cIdx,
@@ -174,7 +174,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         cost: cost,
                         isAuto: manualDeductionQty === 0
                     });
-                    const newBal = (balances.get(itemNum) || 0) - cost;
+                    const newBal = roundedAmt((balances.get(itemNum) || 0) - cost, 2);
                     balances.set(itemNum, Math.max(0, newBal));
                 }
             }
@@ -187,9 +187,9 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
         let runBal = 0;
         group.activities.forEach((act: any) => {
             if (act.type === 'addition') {
-                runBal += act.cost;
+                runBal = roundedAmt(runBal + act.cost, 2);
             } else {
-                runBal -= act.cost;
+                runBal = roundedAmt(runBal - act.cost, 2);
             }
             act.runningBalance = Math.max(0, runBal);
         });
@@ -340,6 +340,26 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                     </table>
                 </div>
             </div>
+            <FloatingFormActions 
+                actions={[
+                    {
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir el inventario de Material on Site",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
+                    },
+                    {
+                        label: loading ? "Guardando..." : "Guardar cambios",
+                        icon: <Save />,
+                        onClick: () => saveData(false),
+                        description: "Guardar los ajustes manuales de MOS",
+                        variant: 'primary' as const,
+                        disabled: loading
+                    }
+                ]}
+            />
         </div>
     );
 });

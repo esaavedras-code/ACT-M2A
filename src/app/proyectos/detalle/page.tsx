@@ -102,7 +102,7 @@ function ProjectDetailContent() {
             ]);
             
             setIsDirty(false);
-            alert("Se ha actualizado correctamente toda la información de 'Datos Proyecto' (Documentación, Fechas, CCML, Fondos y Contratista).");
+            alert("Se ha actualizado correctamente toda la información de 'Entrada de datos' (Documentación, Fechas, CCML, Fondos y Contratista).");
         } catch (error) {
             console.error("Error al guardar sección:", error);
             alert("Error al intentar guardar la información de la sección.");
@@ -116,13 +116,13 @@ function ProjectDetailContent() {
     //        → Inspección → Force Account → Liquidación
     const tabs = [
         { id: "dashboard",   label: "Resumen",        icon: <LayoutDashboard size={12} /> },
-        { id: "project",     label: "Datos Proyecto",       icon: <FileText size={12} /> },
+        { id: "project",     label: "Entrada de datos",       icon: <FileText size={12} /> },
         { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
         { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
         { id: "materials",   label: "Mat. on Site",   icon: <Package size={12} /> },
         { id: "compliance",  label: "Cumplimiento laboral",   icon: <ShieldCheck size={12} /> },
         { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
-        { id: "payment",     label: "Monthly payments", icon: <FileCheck size={12} /> },
+        { id: "payment",     label: "Monthly payment", icon: <FileCheck size={12} /> },
         { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
         { id: "icc",         label: "Initial Certification",             icon: <ShieldCheck size={12} /> },
         { id: "minutes",     label: "Minutas",        icon: <Mic size={12} />, wip: true },
@@ -177,7 +177,7 @@ function ProjectDetailContent() {
     const getReportNote = (tab: string) => {
         switch (tab) {
             case "dashboard": return "El Dashboard Ejecutivo del proyecto pueden verlo en la pestaña de REPORTES, opción '1. Información General'.";
-            case "project": return "La información del proyecto y del contratista se gestiona en esta sección.";
+            case "project": return "La información básica (Entrada de datos) y del contratista se gestiona en esta sección.";
             case "personnel": return "El personal de ACT asignado al proyecto se gestiona en esta sección.";
             case "presentations": return "Cree reportes ejecutivos mensuales con actividades y fotos para exportar a PowerPoint.";
             case "items": return "Los balances y modificaciones de partidas los pueden ver en la pestaña de REPORTES, opción '2. Gestión de Partidas'.";
@@ -460,7 +460,7 @@ function ProjectDetailContent() {
                                                     label: isSaving ? "Guardando..." : "Guardar cambios",
                                                     icon: <Save />,
                                                     onClick: saveProjectSection,
-                                                    description: "Actualizando la información de Datos proyecto",
+                                                    description: "Actualizando la información de Entrada de datos",
                                                     variant: 'primary' as const,
                                                     disabled: isSaving
                                                 }

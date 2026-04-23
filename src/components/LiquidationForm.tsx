@@ -2,10 +2,9 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileCheck2, UserCheck, Upload, FileText, Activity, CheckSquare, X, Printer, Loader2, Download, Eye, Trash2, AlertCircle } from "lucide-react";
+import { Save, Gavel, CheckCircle, FileText, Plus, Trash2, Download, Upload, AlertCircle, Loader2, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency } from "@/lib/utils";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 import { generateSignedItemsReportLogic, generateMissingSignaturesReportLogic } from "@/lib/reportLogic";
 
@@ -743,20 +742,12 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Download />,
-                        onClick: () => exportSectionToJSON("liquidacion", formData),
-                        description: "Exportar datos de liquidación a un archivo JSON",
-                        variant: 'export' as const,
-                        disabled: loading
-                    },
-                    {
-                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Upload />,
-                        onClick: () => document.getElementById('import-liq-json')?.click(),
-                        description: "Cargar datos de liquidación desde un archivo JSON",
-                        variant: 'import' as const,
-                        disabled: loading
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir esta sección de Liquidación",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
                     },
                     {
                         label: loading ? "Guardando..." : "Guardar cambios",

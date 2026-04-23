@@ -2,21 +2,12 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, Trash2, Calculator, Users, Truck, Package, FileText, ChevronRight, ChevronLeft, LayoutDashboard, Download, Upload } from "lucide-react";
+import { Save, Plus, Trash2, Calculator, Users, Truck, Package, FileText, ChevronRight, ChevronLeft, LayoutDashboard, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 import { formatCurrency } from "@/lib/utils";
 
-const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
-    <button 
-        type="button" 
-        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
-        className="absolute right-1 top-1/2 -translate-y-1/2 px-1.5 py-0.5 bg-white/80 hover:bg-white text-[9px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
-    >
-        HOY
-    </button>
-);
+import { TodayButton } from "./TodayButton";
 
 const defaultFaDetails = {
     // Calculables manuales de MO
@@ -370,20 +361,12 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
 
             <FloatingFormActions actions={[
                 {
-                    label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                    icon: <Download />,
-                    onClick: () => exportSectionToJSON(`fa_${currentFA?.fa_num || 'draft'}`, currentFA),
-                    description: "Exportar todos los datos de este Force Account (MO, Materiales, Equipo)",
-                    variant: 'export' as const,
-                    disabled: loading
-                },
-                {
-                    label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                    icon: <Upload />,
-                    onClick: () => document.getElementById('import-fa-json')?.click(),
-                    description: "Cargar datos de Force Account desde un archivo JSON",
-                    variant: 'import' as const,
-                    disabled: loading
+                    label: "Imprimir",
+                    icon: <Printer />,
+                    onClick: () => window.print(),
+                    description: "Imprimir esta sección de Force Account",
+                    variant: 'secondary' as const,
+                    size: 'small' as const
                 },
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar datos al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />

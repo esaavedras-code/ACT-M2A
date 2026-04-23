@@ -40,7 +40,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         penalties: { liquidated: 0, dlqReimbursement: 0, security: 0, others: 0, total: 0 },
         liquidation: { 
             totalItems: 0, adminSigned: 0, contractorSigned: 0, liquidatorSigned: 0, percent: 0,
-            federalDocs: [] as string[]
+            federalDocs: [] as string[],
+            adminSignedCount: 0, contractorSignedCount: 0, liquidatorSignedCount: 0
         }
     });
 
@@ -354,12 +355,15 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 total: roundedAmt(liqDamages + totalInsuranceFines + totalOtherPenalties, 2)
             },
             liquidation: {
-                totalItems: totalItemsCount || 0,
+                totalItems: totalItemsCount,
                 adminSigned: adminCount,
                 contractorSigned: contractorCount,
                 liquidatorSigned: liquidatorCount,
                 percent: liqPercent,
-                federalDocs: proj?.liquidation_data?.federal_docs || []
+                federalDocs: proj?.liquidation_data?.federal_docs || [],
+                adminSignedCount: adminCount,
+                contractorSignedCount: contractorCount,
+                liquidatorSignedCount: liquidatorCount
             }
         });
     };
@@ -448,9 +452,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div className="mt-4">
                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Progreso de Tiempo:</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Progreso del tiempo transcurrido:</span>
                                 <span className="text-sm font-black text-blue-600">{metrics.time.percent}%</span>
                             </div>
                             <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -552,6 +556,21 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 />
                             </div>
                             <span className="text-[8px] text-slate-400 mt-1 block">Firma de Administrador, Contratista y Liquidador requeridas por item.</span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-100 dark:border-slate-800">
+                            <div className="text-center">
+                                <div className="text-[10px] font-black text-emerald-600">{metrics.liquidation.adminSignedCount}</div>
+                                <div className="text-[7px] font-bold text-slate-400 uppercase">Admin</div>
+                            </div>
+                            <div className="text-center border-x border-slate-100 dark:border-slate-800">
+                                <div className="text-[10px] font-black text-emerald-600">{metrics.liquidation.contractorSignedCount}</div>
+                                <div className="text-[7px] font-bold text-slate-400 uppercase">Contr</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-[10px] font-black text-emerald-600">{metrics.liquidation.liquidatorSignedCount}</div>
+                                <div className="text-[7px] font-bold text-slate-400 uppercase">Liq</div>
+                            </div>
                         </div>
 
                         <div className="space-y-2">

@@ -18,15 +18,7 @@ import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 const DELAY_TYPES = ["Condiciones existentes", "Material", "Falla en la especificación", "Decisión de ACT", "Calidad", "Evento de seguridad", "Clima"];
 const EQUIPMENT_TYPES = ["Bob Cat", "Pickup F-150", "Pickup Ram 2500", "Pickup F-450", "Truck Tumba 320", "Grúa de canasto", "Miniexcavadora"];
 
-const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
-    <button 
-        type="button" 
-        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
-        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/50 hover:bg-white text-[10px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
-    >
-        HOY
-    </button>
-);
+import { TodayButton } from "./TodayButton";
 
 const TAB_LIST = [
     { id: "partidas",      num: 1,  label: "Partidas",      icon: <ListChecks size={18} /> },
@@ -457,20 +449,12 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Download />,
-                        onClick: () => exportSectionToJSON(`informe_diario_${currentLog.log_date}`, currentLog),
-                        description: "Exportar el informe diario completo a un archivo JSON (para copiar a otro proyecto o fecha)",
-                        variant: 'export' as const,
-                        disabled: loading
-                    },
-                    {
-                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <FileText />,
-                        onClick: () => document.getElementById('import-dailylog-json')?.click(),
-                        description: "Cargar datos de un informe diario desde un archivo JSON",
-                        variant: 'import' as const,
-                        disabled: loading
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir vista de pantalla de esta sección",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
                     },
                     ...(currentLog.id ? [{
                         label: "Imprimir (ACT-45)",

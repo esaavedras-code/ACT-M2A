@@ -3,9 +3,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
-    ClipboardCheck, Save, FileCheck2, Trash2, 
-    Plus, Loader2, Download, Upload, AlertCircle,
-    FileDigit, Camera, Files, ClipboardList, Package
+    FileDigit, Camera, Files, ClipboardList, Package, Printer
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
@@ -243,6 +241,14 @@ function InspectionForm({ projectId, onDirty, onSaved }, ref) {
 
             <FloatingFormActions 
                 actions={[
+                    {
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: `Imprimir informes de inspección del día ${selectedDate}`,
+                        variant: 'secondary' as const,
+                        size: 'small' as const
+                    },
                     {
                         label: isSaving ? "Guardando..." : "Guardar Día",
                         icon: <Save />,

@@ -3,8 +3,6 @@ import {
     Plus, 
     Trash2, 
     Save, 
-    Download, 
-    Upload, 
     Printer, 
     Package, 
     PlusSquare, 
@@ -612,20 +610,12 @@ const PaymentCertForm = React.forwardRef(({
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Download />,
-                        onClick: () => exportSectionToJSON("payment_certs", certs),
-                        description: "Exportar todas las certificaciones de este proyecto a JSON",
-                        variant: 'export' as const,
-                        disabled: loading,
-                    },
-                    {
-                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Upload />,
-                        onClick: () => document.getElementById('import-certs-json')?.click(),
-                        description: "Cargar certificaciones desde un archivo JSON",
-                        variant: 'import' as const,
-                        disabled: loading,
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir esta sección de Certificaciones de Pago",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
                     },
                     {
                         label: "Nueva Certificación",
@@ -963,7 +953,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                     <input
                                                                         type="number"
                                                                         step="0.0001"
-                                                                        className={`input-field text-right text-xs font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${workQty > availableBalance ? 'text-red-600' : ''}`}
+                                                                        className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${workQty > availableBalance ? 'text-red-600' : ''}`}
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.quantity ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'quantity', e.target.value)}
@@ -974,14 +964,14 @@ const PaymentCertForm = React.forwardRef(({
                                                                     <input
                                                                         type="number"
                                                                         step="0.01"
-                                                                        className="input-field text-right text-xs font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
+                                                                        className="input-field text-right text-[11px] font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.unit_price ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
                                                                         placeholder="0.00"
                                                                     />
                                                                 </td>
-                                                                <td className="py-1 px-0.5 text-right text-xs font-black text-emerald-600 font-geist">
+                                                                <td className="py-1 px-0.5 text-right text-[11px] font-black text-emerald-600 font-geist">
                                                                     {formatCurrency(workAmount)}
                                                                 </td>
                                                                 <td className="py-1 px-0.5 relative">
@@ -989,17 +979,17 @@ const PaymentCertForm = React.forwardRef(({
                                                                         type="number"
                                                                         step="0.0001"
                                                                         disabled={!hasMOSActivity}
-                                                                        className={`input-field text-right text-xs font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${!hasMOSActivity ? 'opacity-30 cursor-not-allowed' : 'text-amber-600'}`}
+                                                                        className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${!hasMOSActivity ? 'opacity-30 cursor-not-allowed' : 'text-amber-600'}`}
                                                                         style={{ backgroundColor: hasMOSActivity ? '#66FF99' : '#f1f5f9' }}
                                                                         value={item.qty_from_mos ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'qty_from_mos', e.target.value)}
                                                                         placeholder={finalQtyFromMOS > 0 ? finalQtyFromMOS.toFixed(2) : "0.00"}
                                                                     />
                                                                 </td>
-                                                                <td className="py-1 px-0.5 text-right text-xs font-bold text-amber-600 font-geist">
+                                                                <td className="py-1 px-0.5 text-right text-[11px] font-bold text-amber-600 font-geist">
                                                                     -{formatCurrency(autoDeductionAmount)}
                                                                 </td>
-                                                                <td className="py-1 px-0.5 text-right text-[13px] font-black text-primary font-geist">
+                                                                <td className="py-1 px-0.5 text-right text-xs font-black text-primary font-geist">
                                                                     {formatCurrency(netTotal)}
                                                                 </td>
                                                                 <td className="py-1 px-1 flex items-center justify-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">

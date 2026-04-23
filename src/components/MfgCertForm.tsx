@@ -2,21 +2,13 @@
 
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Factory, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Info, ShieldCheck, Download, FileText } from "lucide-react";
+import { Save, Factory, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Info, ShieldCheck, Download, FileText, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 import { parsePdfClient } from "@/lib/pdfClientParser";
 
-const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
-    <button 
-        type="button" 
-        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
-        className="absolute right-1 top-1/2 -translate-y-1/2 px-1.5 py-0.5 bg-white/80 hover:bg-white text-[9px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
-    >
-        HOY
-    </button>
-);
+import { TodayButton } from "./TodayButton";
 
 interface ValidationResult {
     isSteel: boolean;
@@ -363,12 +355,17 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                         />
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={() => exportSectionToJSON("mfg_certs", certs)} className="p-2 border rounded-lg hover:bg-slate-50"><Download size={18}/></button>
-                </div>
             </div>
 
             <FloatingFormActions actions={[
+                {
+                    label: "Imprimir",
+                    icon: <Printer />,
+                    onClick: () => window.print(),
+                    description: "Imprimir esta sección de Certificados de Manufactura",
+                    variant: 'secondary' as const,
+                    size: 'small' as const
+                },
                 { label: "Añadir CM", description: "Añadir nuevo certificado de manufactura", icon: <Plus />, onClick: addCert, variant: 'secondary' },
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar certificados al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />

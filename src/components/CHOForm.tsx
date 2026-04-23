@@ -2,7 +2,7 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare, TrendingUp, Download, Upload } from "lucide-react";
+import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare, TrendingUp, Download, Upload, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatCurrency, roundedAmt } from "@/lib/utils";
@@ -17,15 +17,7 @@ const DOC_STATUSES = ["Borrador", "En trámite", "Aprobado"];
 const TIME_EXT_STATUSES = ["Aprobada", "Pendiente"];
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 
-const TodayButton = ({ onSelect }: { onSelect: (date: string) => void }) => (
-    <button 
-        type="button" 
-        onClick={() => onSelect(new Date().toISOString().split('T')[0])}
-        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-white/50 hover:bg-white text-[10px] font-bold text-primary rounded border border-primary/20 transition-all z-10"
-    >
-        HOY
-    </button>
-);
+import { TodayButton } from "./TodayButton";
 
 const calculateChoBreakdown = (items: any[]) => {
     let fed = 0, act = 0;
@@ -369,20 +361,12 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Download />,
-                        onClick: () => exportSectionToJSON("change_orders", chos),
-                        description: "Exportar todas las enmiendas actuales a un archivo JSON",
-                        variant: 'export' as const,
-                        disabled: loading
-                    },
-                    {
-                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Upload />,
-                        onClick: () => document.getElementById('import-chos-json')?.click(),
-                        description: "Cargar enmiendas desde un archivo JSON",
-                        variant: 'import' as const,
-                        disabled: loading
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir esta sección de Change Orders",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
                     },
                     {
                         label: "Nueva Enmienda",

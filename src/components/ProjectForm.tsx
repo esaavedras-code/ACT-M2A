@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, ShieldCheck, Building2, Loader2, BrainCircuit } from "lucide-react";
+import { Save, FolderOpen, Trash2, Upload, CheckCircle, FileText, Plus, ShieldCheck, Building2, Loader2, BrainCircuit, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency, getLocalStorageItem, formatProjectNumber } from "@/lib/utils";
 import { exportProjectToFile } from "@/lib/projectFileSystem";
@@ -15,6 +15,9 @@ export interface FormRef { save: () => Promise<void>; }
 
 const DOC_TYPES = ["Orden de comienzo", "Project Agreement", "Proposal", "Contrato"];
 
+
+
+import { TodayButton } from "./TodayButton";
 
 
 const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string, onDirty?: () => void, onSaved?: (newId?: string) => void }>(function ProjectForm({ projectId, userRole, onDirty, onSaved }, ref) {
@@ -1706,9 +1709,15 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                         label: loading ? "Guardando..." : "Guardar Proyecto",
                         icon: loading ? <Loader2 className="animate-spin" /> : <Save />,
                         onClick: () => saveData(false),
-                        description: "Guardar los cambios en la información básica del proyecto",
-                        variant: 'primary',
                         disabled: loading
+                    },
+                    {
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir esta sección de Entrada de datos",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
                     }
                 ]}
             />

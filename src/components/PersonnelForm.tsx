@@ -2,7 +2,7 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Users, Plus, Trash2, Download, Upload, History } from "lucide-react";
+import { Save, Users, Plus, Trash2, Download, Upload, History, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatPhoneNumber } from "@/lib/utils";
@@ -242,22 +242,12 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Download />,
-                        onClick: () => exportSectionToJSON("personnel", personnel),
-                        description: "Exportar lista de firmas actuales a un archivo JSON",
-                        variant: 'export' as const,
-                        disabled: loading,
-
-                    },
-                    {
-                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Upload />,
-                        onClick: () => document.getElementById('import-personnel-json')?.click(),
-                        description: "Cargar lista de firmas desde un archivo JSON",
-                        variant: 'import' as const,
-                        disabled: loading,
-
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir esta sección de Firmas ACT",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
                     },
                     {
                         label: "Añadir Persona",

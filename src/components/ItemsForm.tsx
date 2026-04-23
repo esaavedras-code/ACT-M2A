@@ -2,9 +2,8 @@
 
 import React, { useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileText, Download, Upload, Search } from "lucide-react";
+import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileText, Printer, Search } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatCurrency, formatNumber, roundedAmt } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 import mfgItemsData from "@/lib/mfgItems.json";
@@ -490,24 +489,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
             <FloatingFormActions
                 actions={[
-                    ...(projectId ? [
-                        {
-                            label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                            icon: <Download />,
-                            onClick: () => exportSectionToJSON("items", items),
-                            description: "Exportar todas las partidas actuales a un archivo JSON",
-                            variant: 'export' as const,
-                            disabled: loading
-                        },
-                        {
-                            label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                            icon: <Upload />,
-                            onClick: () => document.getElementById('import-items-json')?.click(),
-                            description: "Cargar partidas desde un archivo JSON",
-                            variant: 'import' as const,
-                            disabled: loading
-                        },
-                    ] : []),
+                    {
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir esta sección de Partidas de Contrato",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
+                    },
                     {
                         label: "Añadir Item",
                         icon: <Plus />,

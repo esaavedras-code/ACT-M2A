@@ -2,7 +2,7 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Plus, Trash2, Download, Upload } from "lucide-react";
+import { Save, Plus, Trash2, Download, Upload, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 
@@ -286,22 +286,12 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                 <FloatingFormActions
                     actions={[
                         {
-                            label: "Exportar Datos", position: "middle-right" as const, size: "small" as const,
-                            icon: <Download />,
-                            onClick: () => exportSectionToJSON("project_agreement", funds),
-                            description: "Descargar los datos de esta tabla en formato JSON",
-                            variant: 'export' as const,
-                            disabled: loading,
-
-                        },
-                        {
-                            label: "Importar Datos", position: "middle-right" as const, size: "small" as const,
-                            icon: <Upload />,
-                            onClick: () => document.getElementById('import-funds-json')?.click(),
-                            description: "Cargar datos desde un archivo JSON previamente exportado",
-                            variant: 'import' as const,
-                            disabled: loading,
-
+                            label: "Imprimir",
+                            icon: <Printer />,
+                            onClick: () => window.print(),
+                            description: "Imprimir esta tabla de fondos originales",
+                            variant: 'secondary' as const,
+                            size: 'small' as const
                         },
                         {
                             label: loading ? "Guardando..." : "Guardar cambios",

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ShieldCheck, Plus, Trash2, Download, Upload } from "lucide-react";
+import { Save, ShieldCheck, Plus, Trash2, Download, Upload, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatDate, getLocalStorageItem } from "@/lib/utils";
@@ -674,20 +674,12 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             <FloatingFormActions
                 actions={[
                     {
-                        label: "Exportar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Download />,
-                        onClick: () => exportSectionToJSON("compliance", records),
-                        description: "Exportar todos los registros de cumplimiento a JSON",
-                        variant: 'export' as const,
-                        disabled: loading
-                    },
-                    {
-                        label: "Importar JSON", position: "middle-right" as const, size: "small" as const,
-                        icon: <Upload />,
-                        onClick: () => document.getElementById('import-compliance-json')?.click(),
-                        description: "Cargar registros de cumplimiento desde un archivo JSON",
-                        variant: 'import' as const,
-                        disabled: loading
+                        label: "Imprimir",
+                        icon: <Printer />,
+                        onClick: () => window.print(),
+                        description: "Imprimir esta sección de Cumplimiento",
+                        variant: 'secondary' as const,
+                        size: 'small' as const
                     },
                     {
                         label: loading ? "Guardando..." : "Guardar cambios",

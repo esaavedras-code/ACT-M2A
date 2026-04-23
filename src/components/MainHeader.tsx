@@ -9,6 +9,7 @@ import Link from "next/link";
 import MobileMenu from "@/components/MobileMenu";
 import BrandName from "@/components/BrandName";
 import ExitButton from "@/components/ExitButton";
+import RestoreButton from "@/components/RestoreButton";
 import { useUserRole } from "@/hooks/useUserRole";
 
 export default function MainHeader() {
@@ -52,6 +53,7 @@ export default function MainHeader() {
                             <ProjectHeaderActions />
                         </div>
                     </Suspense>
+                    <RestoreButton />
                     <ExitButton />
                     <UserAccessButton />
                 </div>

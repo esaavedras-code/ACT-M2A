@@ -1,11 +1,8 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { 
-    Mic, Upload, FileAudio, Settings, FileJson, 
-    FileText, CheckCircle2, AlertCircle, Loader2,
-    Languages, Speaker, Clock, Activity, ShieldCheck,
-    Save, Trash2, Download, Copy
+    Save, Trash2, Download, Copy, Printer
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import FloatingFormActions from "./FloatingFormActions";
@@ -458,6 +455,14 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
             {result && (
                 <FloatingFormActions
                     actions={[
+                        {
+                            label: "Imprimir",
+                            icon: <Printer />,
+                            onClick: () => window.print(),
+                            description: "Imprimir esta minuta de reunión",
+                            variant: 'secondary' as const,
+                            size: 'small' as const
+                        },
                         {
                             label: loading ? "Guardando..." : "Guardar cambios",
                             icon: <Save />,
