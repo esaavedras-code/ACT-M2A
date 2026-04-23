@@ -524,13 +524,13 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                 <div className="card border-t-4 border-t-amber-500">
                     <div className="flex items-center gap-2 text-amber-700 font-bold mb-2 uppercase text-xs tracking-wider">
-                        <PieChart size={16} /> MODIFICACIONES (CCML)
+                        <PieChart size={16} /> CHANGE ORDERS
                     </div>
                     <div className="space-y-0.5">
                         <div className="grid grid-cols-4 gap-1 text-[10px] font-black text-slate-500 uppercase pb-1 border-b border-slate-200 dark:border-slate-800">
                             <span></span>
                             <span className="text-center">#</span>
-                            <span className="text-center">Días</span>
+                            <span className="text-center">Días otorgados</span>
                             <span className="text-right">$</span>
                         </div>
                         <CHORow label="Aprobados" count={metrics.chos.approvedCount} days={metrics.chos.approvedDays} amount={formatCurrency(metrics.chos.approvedTotal)} color="text-emerald-800 dark:text-emerald-400" />
