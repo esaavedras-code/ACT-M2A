@@ -9,13 +9,6 @@
   --primary-dark: #004494;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617;
-    --foreground: #f8fafc;
-  }
-}
-
 html {
   scroll-behavior: smooth;
   height: 100%;
