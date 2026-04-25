@@ -664,7 +664,7 @@ function ReportesContent() {
                             label: 'Inventario de MOS',
                             description: 'Reporte de facturas y deducciones.',
                             icon: <Package size={18} className="text-amber-500" />,
-                            action: () => generateMosReportLogic(projectId, reportFormat)
+                            action: () => generateMosReportLogic(projectId, reportFormat, endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
                                     console.error(e);

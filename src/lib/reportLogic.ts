@@ -916,9 +916,13 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
     await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM) QUE FALTAN', data, project, [40, 70, 180, 80, 50, 80, 80, 100], 'landscape', format, 'Certificados_CM_Faltantes.pdf');
 };
 
-export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
     const { project, items: itemsRepo, certs } = await fetchAllReportData(projectId);
     if (!certs) return;
+
+    const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
+    const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff) || [];
+
 
     const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
         for (let i = currentCertIdx; i >= 0; i--) {
@@ -931,7 +935,8 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
     };
 
     const groupedItems = new Map<string, any>();
-    certs.forEach((c: any, cIdx: number) => {
+    filteredCerts.forEach((c: any, cIdx: number) => {
+
         const items = Array.isArray(c.items) ? c.items : (c.items?.list || []);
         items.forEach((it: any) => {
             const hasAddition = it.has_material_on_site;
@@ -943,16 +948,44 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
                     groupedItems.set(it.item_num, { item_num: it.item_num, spec: it.specification || '', desc: fullDesc || '', activities: [] });
                 }
                 const group = groupedItems.get(it.item_num);
-                if (hasAddition) group.activities.push({ certNum: c.cert_num, type: 'Adición (Factura)', qty: parseFloat(it.mos_quantity) || 0, cost: parseFloat(it.mos_invoice_total) || 0 });
+                if (hasAddition) {
+                    group.activities.push({ 
+                        certNum: c.cert_num, 
+                        type: 'Adición (Factura)', 
+                        qty: parseFloat(it.mos_quantity) || 0, 
+                        cost: parseFloat(it.mos_invoice_total) || 0 
+                    });
+                }
                 if (hasDeduction) {
                     const up = parseFloat(it.unit_price) || 0;
-                    const p = parseFloat(it.mos_unit_price) || up;
+                    // REGLA DE ORO: La deducción debe ser al precio que se pagó originalmente.
+                    // Si no viene en el item actual, lo buscamos en el historial de este mismo reporte (groupedItems)
+                    let p = parseFloat(it.mos_unit_price);
+                    if (!p || p <= 0) {
+                        // Buscamos el último precio de adición registrado para este ítem
+                        const additions = group.activities.filter((a: any) => a.type.includes('Adición'));
+                        if (additions.length > 0) {
+                            const lastAdd = additions[additions.length - 1];
+                            p = lastAdd.cost / lastAdd.qty;
+                        } else {
+                            // Si no hay adiciones previas (raro), usamos el precio de factura que pueda estar en certs anteriores
+                            p = getInvoicePU(certs, it.item_num, cIdx);
+                        }
+                    }
+                    if (!p || p <= 0) p = up; // Fallback final
+
                     const qty = parseFloat(it.qty_from_mos) || 0;
-                    group.activities.push({ certNum: c.cert_num, type: 'Deducción (WP)', qty: -qty, cost: -(qty * p) });
+                    group.activities.push({ 
+                        certNum: c.cert_num, 
+                        type: 'Deducción (WP)', 
+                        qty: -qty, 
+                        cost: -roundedAmt(qty * p, 2) 
+                    });
                 }
             }
         });
     });
+
 
     const reportData: any[][] = [['# Item', 'Especificación', 'Descripción', 'Cert #', 'Tipo', 'Cantidad', 'Unidad', 'Monto ($)', 'Balance ($)']];
     let totalFinalBalance = 0;
@@ -963,7 +996,7 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
         const unit = it?.unit || '';
         let itemBalance = 0;
         group.activities.forEach((act: any, idx: number) => {
-            itemBalance += act.cost;
+            itemBalance = roundedAmt(itemBalance + act.cost, 2);
             reportData.push([
                 idx === 0 ? group.item_num : '', 
                 idx === 0 ? group.spec : '', 
@@ -976,13 +1009,13 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
                 formatCurrency(itemBalance)
             ]);
         });
-        totalFinalBalance += itemBalance;
+        totalFinalBalance = roundedAmt(totalFinalBalance + itemBalance, 2);
         reportData.push(['', '', '', '', '', '', '', '', '']);
     });
     // Last row: spread title across columns so it's not compressed in one cell
     reportData.push(['BALANCE', 'TOTAL EN', 'INVENTARIO (MOS):', '', '', '', '', formatCurrency(totalFinalBalance), '']);
 
-    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [60, 80, 180, 50, 90, 60, 40, 85, 55], 'landscape', format, 'Reporte_Material_On_Site.pdf');
+    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [60, 80, 180, 50, 90, 60, 40, 85, 55], 'landscape', format, 'Reporte_Material_On_Site.pdf', endDate);
 };
 
 export const generateCCMLReportLogic = async (projectId: string, choId?: string) => {
@@ -1160,7 +1193,8 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
 
     let totalRetentionDeducted = 0;
     let totalRetentionReturned = 0;
-    let mosBalance = 0;
+    // Para el cálculo de MOS en el dashboard, necesitamos trackear los precios de factura por item
+    const mosPricesByItem = new Map<string, number>();
 
     filteredCerts.forEach((cert) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
@@ -1179,11 +1213,29 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
             } else actTotal = roundedAmt(actTotal + amount, 2);
 
             totalCertified = roundedAmt(totalCertified + amount, 2);
+            
+            // Lógica MOS Dashboard corregida
             const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
-            if (mosInvoice > 0) mosBalance = roundedAmt(mosBalance + mosInvoice, 2);
+            const mosQtyAdd = parseFloat(item.mos_quantity) || 0;
+            
+            if (item.has_material_on_site && mosInvoice > 0) {
+                mosBalance = roundedAmt(mosBalance + mosInvoice, 2);
+                // Guardamos el precio de esta factura para futuras deducciones
+                if (mosQtyAdd > 0) {
+                    mosPricesByItem.set(item.item_num, mosInvoice / mosQtyAdd);
+                }
+            }
+
             const qtyFromMos = parseFloat(item.qty_from_mos) || 0;
-            const mosPU = parseFloat(item.mos_unit_price) || up;
-            if (qtyFromMos > 0) mosBalance = roundedAmt(mosBalance - roundedAmt(qtyFromMos * mosPU, 2), 2);
+            if (qtyFromMos > 0) {
+                let mosPU = parseFloat(item.mos_unit_price);
+                if (!mosPU || mosPU <= 0) {
+                    // REGLA DE ORO: Buscamos en TODAS las certificaciones (certs), no solo en las filtradas
+                    mosPU = getInvoicePU(certs, item.item_num, certs.findIndex(c => c.id === cert.id)) || up;
+                }
+                mosBalance = roundedAmt(mosBalance - roundedAmt(qtyFromMos * mosPU, 2), 2);
+            }
+
             if (!cert.skip_retention && !item.skip_retention) totalRetentionDeducted = roundedAmt(totalRetentionDeducted + roundedAmt(amount * 0.05, 2), 2);
         });
         if (cert.show_retention_return && cert.retention_return_amount) totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
