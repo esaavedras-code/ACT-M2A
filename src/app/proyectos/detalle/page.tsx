@@ -51,6 +51,7 @@ function ProjectDetailContent() {
     const [dirtyDialog, setDirtyDialog] = useState<{ show: boolean; targetTab: string }>({ show: false, targetTab: "" });
     const [isSaving, setIsSaving] = useState(false);
     const [selectedSection, setSelectedSection] = useState("info");
+    const [selectedMfgSection, setSelectedMfgSection] = useState("mfg");
 
     // Refs para guardado unificado
     const projectFormRef = useRef<any>(null);
@@ -117,23 +118,19 @@ function ProjectDetailContent() {
     //        → Inspección → Force Account → Liquidación
     const tabs = [
         { id: "dashboard",   label: "Resumen",        icon: <LayoutDashboard size={12} /> },
-        { id: "project",     label: "Entrada de datos",       icon: <FileText size={12} /> },
         { id: "project2",    label: "Entrada de datos 2",     icon: <FileText size={12} /> },
-        { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
         { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
         { id: "materials",   label: "Mat. on Site",   icon: <Package size={12} /> },
-        { id: "compliance",  label: "Cumplimiento laboral",   icon: <ShieldCheck size={12} /> },
         { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
         { id: "payment",     label: "Monthly payment", icon: <FileCheck size={12} /> },
         { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
-        { id: "icc",         label: "Initial Certification",             icon: <ShieldCheck size={12} /> },
+        { id: "compliance",  label: "Cumplimiento laboral",   icon: <ShieldCheck size={12} /> },
         { id: "minutes",     label: "Minutas",        icon: <Mic size={12} />, wip: true },
         { id: "logs",        label: "Actividades",   icon: <Cloud size={12} />, wip: true },
         { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} />, wip: true },
         { id: "force",       label: "Force Account", icon: <Calculator size={12} />, wip: true },
         { id: "force2",      label: "Force Account 2", icon: <Briefcase size={12} /> },
         { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
-        { id: "ccml",        label: "Cambios al CCML", icon: <FileEdit size={12} /> },
         { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} />, wip: true },
         { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} />, wip: true },
         { id: "negotiation", label: "Negociación", icon: <Handshake size={12} />, wip: true },
@@ -499,49 +496,38 @@ function ProjectDetailContent() {
                                         </div>
                                     </div>
                                 )}
-                                {activeTab === "project"     && (
-                                    <div className="space-y-12">
-                                        <ProjectForm 
-                                            ref={projectFormRef}
-                                            projectId={id} 
-                                            userRole={role}
-                    onSaved={(newId) => {
-                      setIsDirty(false);
-                      if (newId && !id) {
-                        // Si es un proyecto nuevo, redirigimos a la misma página pero con el ID real
-                        window.location.search = `?id=${newId}`;
-                      } else {
-                        // Si era edición, solo quitamos el estado sucio (o podrías recargar si es necesario)
-                      }
-                    }} 
-                    onDirty={() => setIsDirty(true)} 
-                  />
-                                        <ContractorForm 
-                                            ref={contractorFormRef}
-                                            projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
-                                        
-                                        <FloatingFormActions
-                                            actions={[
-                                                {
-                                                    label: isSaving ? "Guardando..." : "Guardar cambios",
-                                                    icon: <Save />,
-                                                    onClick: saveProjectSection,
-                                                    description: "Actualizando la información de Entrada de datos",
-                                                    variant: 'primary' as const,
-                                                    disabled: isSaving
-                                                }
-                                            ]}
-                                        />
-                                    </div>
-                                )}
-                                {activeTab === "personnel"   && <PersonnelForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "items"       && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} readOnly={true} />}
                                 {activeTab === "materials"   && <MaterialsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "compliance"  && <ComplianceForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "cho"         && <CHOForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "payment"     && <PaymentCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "mfg"         && <MfgCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "icc"         && <InitialCertificationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "mfg"         && (
+                                    <div className="space-y-6">
+                                        <div className="bg-gradient-to-r from-amber-600/10 to-transparent p-6 rounded-2xl shadow-sm border border-amber-100 dark:border-amber-900/50">
+                                            <label className="block text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-pulse"></div>
+                                                Seleccione la sección de certificados
+                                            </label>
+                                            <div className="relative">
+                                                <select
+                                                    value={selectedMfgSection}
+                                                    onChange={(e) => setSelectedMfgSection(e.target.value)}
+                                                    className="w-full appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all shadow-sm"
+                                                >
+                                                    <option value="mfg">Certificados de manufactura</option>
+                                                    <option value="icc">Initial Certification</option>
+                                                </select>
+                                                <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-500">
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-8">
+                                            {selectedMfgSection === "mfg" && <MfgCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                            {selectedMfgSection === "icc" && <InitialCertificationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                        </div>
+                                    </div>
+                                )}
                                 { activeTab === "minutes"     && <MinutesForm ref={activeRef} projectId={id} projectName={projectName} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 { activeTab === "logs"        && <DailyLogForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 { activeTab === "presentations" && <MonthlyPresentations ref={activeRef} projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}

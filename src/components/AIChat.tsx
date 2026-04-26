@@ -42,8 +42,14 @@ function AIChatContent() {
                 console.error("Error loading AI position", e);
             }
         } else if (typeof window !== 'undefined') {
-            setPosition({ x: window.innerWidth - 80, y: 160 });
+            setPosition({ x: window.innerWidth - 100, y: window.innerHeight - 150 });
         }
+    }, []);
+
+    const [isAppearing, setIsAppearing] = useState(false);
+    useEffect(() => {
+        const timer = setTimeout(() => setIsAppearing(true), 1500);
+        return () => clearTimeout(timer);
     }, []);
 
     useEffect(() => {
@@ -150,11 +156,11 @@ function AIChatContent() {
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleMouseDown}
                 onClick={() => !hasMoved && setIsOpen(true)}
-                className={`fixed w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all z-[9999] group overflow-hidden cursor-move ${loading ? 'animate-pulse' : ''}`}
+                className={`fixed w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all z-[9999] group overflow-hidden cursor-move ${loading ? 'animate-pulse' : ''} ${isAppearing ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`}
                 style={{
                     left: `${position.x}px`,
                     top: `${position.y}px`,
-                    transition: isDragging ? 'none' : 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    transition: isDragging ? 'none' : 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                     visibility: position.x === -100 ? 'hidden' : 'visible'
                 }}
             >
