@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, forwardRef, useImperativeHandle, useEffect } from "react";
-import { Search, X, Camera, Save, Split, Calendar, Printer } from 'lucide-react';
+import { Search, X, Camera, Save, Split, Calendar, Printer, LayoutDashboard, Clock, Truck, FileText, Info, Plus, Trash2, CheckCircle2, ChevronLeft, DollarSign, Users, Briefcase, Calculator, Download } from 'lucide-react';
 import { Project, AC49Report, LaborEntry, EquipmentEntry, MaterialEntry } from '../types/fa2';
 import { EditableTable } from './EditableTable';
 import { calculateLaborTotal, applyAC51Rules, calculateEquipmentRental } from '../lib/fa2Calculations';
