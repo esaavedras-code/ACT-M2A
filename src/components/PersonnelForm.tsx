@@ -4,7 +4,6 @@ import { useState, useEffect, forwardRef, useImperativeHandle, Fragment } from "
 import { supabase } from "@/lib/supabase";
 import { Save, Users, Plus, Trash2, Download, Upload, History, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatPhoneNumber } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
@@ -134,25 +133,6 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
         }
     };
 
-    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const result = await importSectionFromJSON(file);
-        if (result.success && Array.isArray(result.data)) {
-            const cleaned = result.data.map(p => {
-                const { id, project_id, created_at, ...rest } = p;
-                return {
-                    ...rest,
-                    project_id: projectId
-                };
-            });
-            setPersonnel([...personnel, ...cleaned]);
-            alert("Firmas importadas. Guarde para confirmar.");
-        } else {
-            alert("Error al importar: " + (result.error || "Formato inválido"));
-        }
-        e.target.value = "";
-    };
 
     const saveData = async (silent = false) => {
         if (!projectId) return;
@@ -266,7 +246,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                     }
                 ]}
             />
-            <input id="import-personnel-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
 
 
             {numAct && (

@@ -726,19 +726,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 </div>
             )}
 
-            <input id="import-liq-json" type="file" accept=".json" className="hidden" onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const result = await importSectionFromJSON(file);
-                if (result.success && result.data && typeof result.data === 'object') {
-                    setFormData({ ...formData, ...result.data });
-                    if (onDirty) onDirty();
-                    alert("Datos de liquidación importados. Guarde para confirmar.");
-                } else {
-                    alert("Error al importar: " + (result.error || "Formato inválido"));
-                }
-                e.target.value = "";
-            }} />
+
             <FloatingFormActions
                 actions={[
                     {

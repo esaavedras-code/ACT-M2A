@@ -29,7 +29,7 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
   
   // Active Report State
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -618,99 +618,6 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
     save: () => saveData(true)
   }));
 
-  const exportData = () => {
-    const dataStr = JSON.stringify({ project, ac49Report, isFa2: true }, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `FA2_${project.number}_${ac49Report.reportNo}.json`;
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-  };
-
-  const importData = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const fileReader = new FileReader();
-    const files = event.target.files;
-    if (files && files[0]) {
-      fileReader.readAsText(files[0], "UTF-8");
-      fileReader.onload = async e => {
-        try {
-          const content = JSON.parse(e.target?.result as string);
-          let reportToImport = null;
-          if (content.ac49Report) {
-            reportToImport = content.ac49Report;
-          } else if (content.fa_num || content.labor || content.equipment) {
-            reportToImport = {
-              reportNo: content.fa_num || "IM-01",
-              workDescription: content.descripcion || "Migrado de Force Account original",
-              date: content.fecha_inicio || new Date().toISOString().split('T')[0],
-              labor: (content.labor || []).map((l: any) => ({
-                id: Date.now().toString() + Math.random(),
-                employeeName: l.nombre || l.empleado || "",
-                ssLast4: l.seguro_social || l.ss_last4 || "",
-                classification: l.clasificacion || "",
-                hoursReg: parseFloat(l.horas_normales || 0),
-                hours15: parseFloat(l.horas_extra || l.horas_extras_15 || 0),
-                hours20: parseFloat(l.horas_extras_20 || 0),
-                hourlyRate: parseFloat(l.tasa_normal || 0),
-                date: l.fecha || l.date || l.fecha_trabajo || content.fecha_inicio || ""
-              })),
-              equipment: (content.equipment || []).map((e: any) => ({
-                id: Date.now().toString() + Math.random(),
-                description: e.descripcion || "",
-                model: e.modelo || "",
-                hours: parseFloat(e.horas || 0),
-                dailyRate: parseFloat(e.tarifa_diaria || 0)
-              })),
-              materials: (content.materials || []).map((m: any) => ({
-                id: Date.now().toString() + Math.random(),
-                description: m.descripcion || "",
-                supplier: m.suplidor || "",
-                invoiceNo: m.factura_num || "",
-                quantity: parseFloat(m.cantidad || 0),
-                amount: parseFloat(m.costo_total || 0)
-              }))
-            };
-          }
-
-          if (reportToImport) {
-            setLoading(true);
-            const { data, error } = await supabase
-              .from("fa2_reports")
-              .insert([{
-                project_id: projectId,
-                report_no: reportToImport.reportNo + " (Cargado)",
-                date: reportToImport.date || new Date().toISOString().split('T')[0],
-                description: reportToImport.workDescription || 'Carga externa',
-                data: {
-                  labor: reportToImport.labor || [],
-                  equipment: reportToImport.equipment || [],
-                  materials: reportToImport.materials || [],
-                  relatedItemNo: reportToImport.relatedItemNo || '',
-                  relatedItemDescription: reportToImport.relatedItemDescription || '',
-                  relatedItemUnitCost: reportToImport.relatedItemUnitCost || 0,
-                  relatedItemAmount: reportToImport.relatedItemAmount || 0,
-                  signatures: reportToImport.signatures || { contractor: false, projectChief: false }
-                }
-              }])
-              .select()
-              .single();
-
-            if (data) {
-              setReports([data, ...reports]);
-              handleSelectReport(data);
-              alert("✅ Datos migrados y guardados exitosamente.");
-            }
-          }
-        } catch (error) {
-          alert("❌ Error: Archivo no válido para FA-2.");
-        } finally {
-          setLoading(false);
-          if (event.target) event.target.value = '';
-        }
-      };
-    }
-  };
 
   const updateLaborDetail = (key: keyof NonNullable<AC49Report['laborDetails']>, val: number) => {
     setAc49Report(prev => ({
@@ -790,7 +697,7 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
         <div className="w-full lg:w-44 lg:sticky lg:top-4 overflow-y-auto custom-scrollbar shrink-0">
           <div className="bg-white dark:bg-slate-900 p-4 rounded-[2.5rem] shadow-md border border-slate-100 dark:border-slate-800 space-y-2">
             <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-800/50 mb-2 text-center md:text-left">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Force Account 2</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-600">Force account</h4>
               <p className="text-[9px] text-slate-400 font-bold">M2A System v2.0</p>
             </div>
             {sidebarItems.map((item) => (
@@ -876,7 +783,7 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
                 ) : (
                   <div className="bg-blue-600 p-8 rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
                      <div className="space-y-2">
-                        <h3 className="text-2xl font-black uppercase tracking-tighter">Bienvenido a Force Account 2</h3>
+                        <h3 className="text-2xl font-black uppercase tracking-tighter">Bienvenido a Force account</h3>
                         <p className="text-blue-100 font-bold text-xs uppercase tracking-widest">Selecciona un registro de la lista o crea uno nuevo para empezar.</p>
                      </div>
                      <button onClick={handleCreateNew} className="px-10 py-5 bg-white text-blue-600 font-black uppercase text-xs tracking-widest rounded-3xl shadow-2xl">
@@ -1545,14 +1452,7 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
                        </div>
                     </div>
 
-                    <div className="flex justify-end gap-6 pt-10">
-                       <button 
-                         onClick={exportData}
-                         className="px-12 py-5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-3xl transition-all shadow-2xl shadow-emerald-500/20 active:scale-95 flex items-center gap-4 uppercase tracking-widest text-xs"
-                       >
-                         <Download size={20} /> Exportar Reporte Mensual (AC-51)
-                       </button>
-                    </div>
+
                   </div>
                 )}
 

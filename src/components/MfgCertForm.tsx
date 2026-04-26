@@ -4,7 +4,6 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from "rea
 import { supabase } from "@/lib/supabase";
 import { Save, Factory, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Info, ShieldCheck, Download, FileText, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 import { parsePdfClient } from "@/lib/pdfClientParser";
 
@@ -136,20 +135,6 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         if (onDirty) onDirty();
     };
 
-    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const result = await importSectionFromJSON(file);
-        if (result.success && Array.isArray(result.data)) {
-            const cleaned = result.data.map(c => {
-                const { id, project_id, created_at, ...rest } = c;
-                return { ...rest, project_id: projectId };
-            });
-            setCerts([...certs, ...cleaned]);
-            alert("Certificados importados.");
-        }
-        e.target.value = "";
-    };
 
     const extractData = (text: string) => {
         const itemRegex = /(?:Partida|Item|Renglón|Material|Code)\s*(?:#|No\.?|:)?\s*([A-Za-z0-9-]+)/gi;

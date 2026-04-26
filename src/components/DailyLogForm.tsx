@@ -431,21 +431,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                 </div>
             </div>
 
-            <input id="import-dailylog-json" type="file" accept=".json" className="hidden" onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const result = await importSectionFromJSON(file);
-                if (result.success && result.data && typeof result.data === 'object') {
-                    const { id: _id, created_at, updated_at, project_id, ...rest } = result.data;
-                    setCurrentLog((prev: any) => ({ ...prev, ...rest }));
-                    setIsDirty(true);
-                    if (onDirty) onDirty();
-                    alert("Datos del informe importados. Guarde para confirmar.");
-                } else {
-                    alert("Error al importar: " + (result.error || "Formato inválido"));
-                }
-                e.target.value = "";
-            }} />
+
             <FloatingFormActions
                 actions={[
                     {

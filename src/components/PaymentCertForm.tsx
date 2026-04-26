@@ -567,35 +567,6 @@ const PaymentCertForm = React.forwardRef(({
         }
     };
 
-    const exportSectionToJSON = (sectionName: string, data: any) => {
-        const dataStr = JSON.stringify(data, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-        const exportFileDefaultName = `${sectionName}_${projectData?.project_number || 'export'}_${new Date().toISOString().split('T')[0]}.json`;
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportFileDefaultName);
-        linkElement.click();
-    };
-
-    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const json = JSON.parse(event.target?.result as string);
-                if (Array.isArray(json)) {
-                    if (confirm('¿Deseas reemplazar todas las certificaciones actuales con las del archivo?')) {
-                        setCerts(json);
-                    }
-                }
-            } catch (err) {
-                alert('Error al leer el archivo JSON');
-            }
-        };
-        reader.readAsText(file);
-    };
 
     const uploadNoteImage = async (certIdx: number, file: File) => {
         if (!projectId) return;
@@ -690,7 +661,6 @@ const PaymentCertForm = React.forwardRef(({
                     }
                 ]}
             />
-            <input id="import-certs-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
 
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">

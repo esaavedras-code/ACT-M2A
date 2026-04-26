@@ -3,10 +3,10 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
-    FileDigit, Camera, Files, ClipboardList, Package, Printer
+    FileDigit, Camera, Files, ClipboardList, Package, Printer,
+    ClipboardCheck, Save, Plus, Trash2, AlertCircle, Loader2
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import type { FormRef } from "./ProjectForm";
 
 const INSPECTION_ENTITIES = ["EPA", "ACT", "DNER", "OSHA", "Federal Hwy", "Otros"];

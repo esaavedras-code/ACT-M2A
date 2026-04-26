@@ -182,24 +182,6 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
         }
     };
 
-    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const result = await importSectionFromJSON(file);
-        if (result.success && Array.isArray(result.data)) {
-            // Limpiar IDs anteriores para que se generen nuevos al hacer upsert o se vinculen a este proyecto
-            const cleanedData = result.data.map((f: any) => {
-                const { id, project_id, created_at, ...rest } = f;
-                return { ...rest, project_id: projectId };
-            });
-            setFunds(cleanedData);
-            fundsRef.current = cleanedData;
-            alert("Datos importados correctamente. No olvide Guardar para confirmar los cambios.");
-        } else {
-            alert("Error al importar: " + (result.error || "Formato no válido"));
-        }
-        e.target.value = "";
-    };
 
 
     return (
@@ -304,13 +286,7 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                     ]}
                 />
             )}
-            <input 
-                id="import-funds-json"
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleImport}
-            />
+
         </div>
     );
 });

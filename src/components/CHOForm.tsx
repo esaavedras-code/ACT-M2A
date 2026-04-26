@@ -4,7 +4,6 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare, TrendingUp, Download, Upload, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 import { formatCurrency, roundedAmt } from "@/lib/utils";
 import { generateCCMLReportLogic } from "@/lib/reportLogic";
 import specsData from "@/data/specifications.json";
@@ -295,26 +294,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
         }
     };
 
-    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const result = await importSectionFromJSON(file);
-        if (result.success && Array.isArray(result.data)) {
-            const cleaned = result.data.map((c: any) => {
-                const { id, project_id, created_at, ...rest } = c;
-                return { 
-                    ...rest, 
-                    id: crypto.randomUUID(),
-                    project_id: projectId 
-                };
-            });
-            setChos([...chos, ...cleaned]);
-            alert("Órdenes de Cambio importadas. Guarde para confirmar.");
-        } else {
-            alert("Error al importar: " + (result.error || "Formato inválido"));
-        }
-        e.target.value = "";
-    };
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
@@ -385,7 +364,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                     }
                 ]}
             />
-            <input id="import-chos-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
 
             {numAct && (
                 <div className="flex items-center gap-2 -mt-4 mb-6">

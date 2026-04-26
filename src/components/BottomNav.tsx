@@ -51,7 +51,7 @@ export default function BottomNav() {
         { id: "logs",        label: "Actividades",   icon: Cloud, wip: true },
         { id: "inspection",  label: "Inspección",    icon: FileCheck, wip: true },
         { id: "force",       label: "Force Account", icon: Calculator, wip: true },
-        { id: "force2",      label: "Force Account 2", icon: Briefcase },
+        { id: "force2",      label: "Force account", icon: Briefcase },
         { id: "liquidation", label: "Liquidación",   icon: TrendingUp },
         { id: "ccml",        label: "Cambios al CCML", icon: FileEdit },
     ].filter(t => {

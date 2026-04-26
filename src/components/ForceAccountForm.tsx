@@ -184,43 +184,6 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
         }
     };
 
-    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const result = await importSectionFromJSON(file);
-        if (result.success) {
-            const data = result.data;
-            if (activeSubTab === "edit") {
-                // Si estamos editando un FA, importamos los componentes (labor, equipment, etc) a este FA
-                const { labor, equipment, materials, fa_details } = data;
-                setCurrentFA((prev: any) => ({
-                    ...prev,
-                    labor: labor || prev.labor || [],
-                    equipment: equipment || prev.equipment || [],
-                    materials: materials || prev.materials || [],
-                    fa_details: { ...prev.fa_details, ...(fa_details || {}) }
-                }));
-                alert("Datos importados al Force Account actual. Guarde para confirmar.");
-            } else {
-                // Si estamos en la lista, importamos como un nuevo FA completo
-                const { labor, equipment, materials, ...faHeader } = data;
-                const newFA = {
-                    ...faHeader,
-                    id: `new-temp-${Date.now()}`, // Temporary ID
-                    project_id: projectId,
-                    labor: labor || [],
-                    equipment: equipment || [],
-                    materials: materials || []
-                };
-                setCurrentFA(newFA);
-                setActiveSubTab("edit");
-                alert("Nuevos datos de Force Account cargados. Guarde para finalizar la importación.");
-            }
-        } else {
-            alert("Error al importar: " + (result.error || "Formato inválido"));
-        }
-        e.target.value = "";
-    };
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
@@ -370,7 +333,7 @@ const ForceAccountForm = forwardRef<FormRef, { projectId?: string, numAct?: stri
                 },
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar datos al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />
-            <input id="import-fa-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
 
 
             <div className="card p-0 overflow-hidden bg-white dark:bg-slate-900 shadow-xl rounded-[2rem]">

@@ -231,22 +231,6 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
         }
     };
 
-    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const result = await importSectionFromJSON(file);
-        if (result.success && Array.isArray(result.data)) {
-            const cleaned = result.data.map((it: any) => {
-                const { id, project_id, created_at, ...rest } = it;
-                return { ...rest, project_id: projectId };
-            });
-            setItems(cleaned);
-            alert("Partidas importadas correctamente. Guarde para confirmar.");
-        } else {
-            alert("Error al importar: " + (result.error || "Formato inválido"));
-        }
-        e.target.value = "";
-    };
 
     const handleImportPDF = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -514,7 +498,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                     } : null
                 ].filter(Boolean) as any}
             />
-            <input id="import-items-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
+
             <input id="import-items-pdf" type="file" accept="application/pdf" className="hidden" onChange={handleImportPDF} />
 
 
