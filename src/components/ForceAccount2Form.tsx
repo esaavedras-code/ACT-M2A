@@ -40,6 +40,26 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
   const [endDateFilter, setEndDateFilter] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const initialLoadRef = useRef(true);
+  
+  // Contract Items for lookup
+  const [contractItems, setContractItems] = useState<any[]>([]);
+
+  const [ac49Report, setAc49Report] = useState<AC49Report>({
+    id: 'draft',
+    projectId: projectId || '1',
+    date: new Date().toISOString().split('T')[0],
+    reportNo: '',
+    totalPages: 1,
+    labor: [],
+    equipment: [],
+    materials: [],
+    workDescription: '',
+    relatedItemNo: '',
+    relatedItemDescription: '',
+    relatedItemUnitCost: 0,
+    relatedItemAmount: 0,
+    signatures: { contractor: false, projectChief: false }
+  });
 
   // Warn on browser close
   useEffect(() => {
@@ -218,25 +238,7 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
     });
   }, [reports, ac51Month]);
 
-  // Contract Items for lookup
-  const [contractItems, setContractItems] = useState<any[]>([]);
 
-  const [ac49Report, setAc49Report] = useState<AC49Report>({
-    id: 'draft',
-    projectId: projectId || '1',
-    date: new Date().toISOString().split('T')[0],
-    reportNo: '',
-    totalPages: 1,
-    labor: [],
-    equipment: [],
-    materials: [],
-    workDescription: '',
-    relatedItemNo: '',
-    relatedItemDescription: '',
-    relatedItemUnitCost: 0,
-    relatedItemAmount: 0,
-    signatures: { contractor: false, projectChief: false }
-  });
 
   // Monitor report changes to set dirty state — MUST be after ac49Report declaration
   useEffect(() => {
