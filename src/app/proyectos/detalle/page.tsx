@@ -50,6 +50,7 @@ function ProjectDetailContent() {
     const [role, setRole] = useState("C");
     const [dirtyDialog, setDirtyDialog] = useState<{ show: boolean; targetTab: string }>({ show: false, targetTab: "" });
     const [isSaving, setIsSaving] = useState(false);
+    const [selectedSection, setSelectedSection] = useState("info");
 
     // Refs para guardado unificado
     const projectFormRef = useRef<any>(null);
@@ -117,6 +118,7 @@ function ProjectDetailContent() {
     const tabs = [
         { id: "dashboard",   label: "Resumen",        icon: <LayoutDashboard size={12} /> },
         { id: "project",     label: "Entrada de datos",       icon: <FileText size={12} /> },
+        { id: "project2",    label: "Entrada de datos 2",     icon: <FileText size={12} /> },
         { id: "personnel",   label: "Firmas ACT",     icon: <Users size={12} /> },
         { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
         { id: "materials",   label: "Mat. on Site",   icon: <Package size={12} /> },
@@ -178,6 +180,7 @@ function ProjectDetailContent() {
         switch (tab) {
             case "dashboard": return "El Dashboard Ejecutivo del proyecto pueden verlo en la pestaña de REPORTES, opción '1. Información General'.";
             case "project": return "La información básica (Entrada de datos) y del contratista se gestiona en esta sección.";
+            case "project2": return "Consolidado de Entrada de Datos para revisión rápida.";
             case "personnel": return "El personal de ACT asignado al proyecto se gestiona en esta sección.";
             case "presentations": return "Cree reportes ejecutivos mensuales con actividades y fotos para exportar a PowerPoint.";
             case "items": return "Los balances y modificaciones de partidas los pueden ver en la pestaña de REPORTES, opción '2. Gestión de Partidas'.";
@@ -433,6 +436,68 @@ function ProjectDetailContent() {
 
                             <Suspense fallback={<div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-blue-500" size={32} /><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preparando sección...</span></div>}>
                                 {activeTab === "dashboard"   && <SummaryDashboard projectId={id} />}
+                                {activeTab === "project2" && (
+                                    <div className="space-y-6">
+                                        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                                            <label className="block text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-3">
+                                                Seleccione la sección a editar
+                                            </label>
+                                            <div className="relative">
+                                                <select
+                                                    value={selectedSection}
+                                                    onChange={(e) => setSelectedSection(e.target.value)}
+                                                    className="w-full appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+                                                >
+                                                    <option value="info">Información general del proyecto:</option>
+                                                    <option value="firmas">Firmas autorizadas:</option>
+                                                    <option value="partidas">Partidas:</option>
+                                                    <option value="ccml">Otros datos para el CCML:</option>
+                                                </select>
+                                                <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-500">
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-8">
+                                            {selectedSection === "info" && (
+                                                <div className="space-y-12">
+                                                    <ProjectForm 
+                                                        ref={projectFormRef}
+                                                        projectId={id} 
+                                                        userRole={role}
+                                                        onSaved={(newId) => {
+                                                            setIsDirty(false);
+                                                            if (newId && !id) {
+                                                                window.location.search = `?id=${newId}`;
+                                                            }
+                                                        }} 
+                                                        onDirty={() => setIsDirty(true)} 
+                                                    />
+                                                    <ContractorForm 
+                                                        ref={contractorFormRef}
+                                                        projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                                                    
+                                                    <FloatingFormActions
+                                                        actions={[
+                                                            {
+                                                                label: isSaving ? "Guardando..." : "Guardar cambios",
+                                                                icon: <Save />,
+                                                                onClick: saveProjectSection,
+                                                                description: "Actualizando la información de Entrada de datos",
+                                                                variant: 'primary' as const,
+                                                                disabled: isSaving
+                                                            }
+                                                        ]}
+                                                    />
+                                                </div>
+                                            )}
+                                            {selectedSection === "firmas" && <PersonnelForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                            {selectedSection === "partidas" && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                            {selectedSection === "ccml" && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                        </div>
+                                    </div>
+                                )}
                                 {activeTab === "project"     && (
                                     <div className="space-y-12">
                                         <ProjectForm 

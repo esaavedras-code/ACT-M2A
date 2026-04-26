@@ -126,12 +126,17 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             const price = mosPU > 0 ? mosPU : (parseFloat(it.unit_price) || 0);
             
             // Determine the deduction quantity: use manual if provided, otherwise auto-calculate if there's work and balance
+            // In both cases, NEVER exceed the available balance
             let deductionQty = 0;
-            if (manualDeductionQty > 0) {
-                deductionQty = manualDeductionQty;
-            } else if (workQty > 0 && currentBalance > 0.01) {
+            if (currentBalance > 0.01) {
                 const availableQty = currentBalance / (price || 1);
-                deductionQty = Math.min(workQty, availableQty);
+                if (manualDeductionQty > 0) {
+                    // Manual entry: limit to what's actually available in the balance
+                    deductionQty = Math.min(manualDeductionQty, availableQty);
+                } else if (workQty > 0) {
+                    // Auto: deduct up to what was worked, capped by available balance
+                    deductionQty = Math.min(workQty, availableQty);
+                }
             }
 
             const hasDeduction = deductionQty > 0;

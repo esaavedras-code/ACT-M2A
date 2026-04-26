@@ -61,9 +61,24 @@ body {
 
 /* Corregir contraste en campos verdes obligatorios en móvil y desktop */
 .input-field[style*="background-color: #66FF99"],
-.input-field[style*="background-color:#66FF99"] {
+.input-field[style*="background-color:#66FF99"],
+.input-field[style*="background-color: rgb(102, 255, 153)"] {
   color: #020617 !important;
   font-weight: 800 !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  border-radius: 8px !important; /* Menos redondeado para evitar que se corten los números */
+}
+
+.input-field::placeholder {
+  color: rgba(0, 70, 0, 0.25) !important;
+  font-weight: 500 !important;
+  font-style: italic !important;
+  transition: opacity 0.2s;
+}
+
+.input-field:focus::placeholder {
+  opacity: 0.5;
 }
 
 /* Ocultar barra de desplazamiento manteniendo funcionalidad */

@@ -139,7 +139,9 @@ const PaymentCertForm = React.forwardRef(({
 
     const getInvoicePUFromList = (allCerts: any[], itemNum: string, currentCertIdx: number) => {
         if (!allCerts) return 0;
-        for (let i = currentCertIdx; i >= 0; i--) {
+        // Las certificaciones están en orden descendente (Cert #15, #14, ..., #1)
+        // Por lo tanto, para buscar certificaciones anteriores debemos ir hacia índices mayores
+        for (let i = currentCertIdx; i < allCerts.length; i++) {
             const cert = allCerts[i];
             const items = cert?.items || [];
             const match = items.find((it: any) => it.item_num === itemNum && it.has_material_on_site && (parseFloat(it.mos_unit_price) > 0));
@@ -430,10 +432,22 @@ const PaymentCertForm = React.forwardRef(({
 
     const getCertMOSBalance = (certIdx: number) => {
         let balance = 0;
-        certs.slice(0, certIdx + 1).forEach((c, idx) => {
+        // Las certificaciones están en orden descendente, para el balance necesitamos desde la #1 hasta la actual
+        const chronologicalCerts = [...certs].reverse();
+        const targetCertNum = certs[certIdx].cert_num;
+        
+        const certsToProcess = [];
+        for (const c of chronologicalCerts) {
+            certsToProcess.push(c);
+            if (c.cert_num === targetCertNum) break;
+        }
+
+        certsToProcess.forEach((c, idxInChron) => {
             (c.items || []).forEach((item: any) => {
                 const added = item.has_material_on_site ? (parseFloat(item.mos_invoice_total) || 0) : 0;
-                const pu = getInvoicePUFromList(certs, item.item_num, idx);
+                // Para el PU, buscamos en el array original (descendente) desde la posición cronológica equivalente
+                const originalIdx = certs.findIndex(cx => cx.cert_num === c.cert_num);
+                const pu = getInvoicePUFromList(certs, item.item_num, originalIdx);
                 const deducted = (parseFloat(item.qty_from_mos) || 0) * (pu > 0 ? pu : (parseFloat(item.unit_price) || 0));
                 balance += added - deducted;
             });
@@ -449,11 +463,20 @@ const PaymentCertForm = React.forwardRef(({
         const items = [...(currentCert.items || [])];
 
         const itemBalances: Record<string, number> = {};
+        const chronologicalCerts = [...newCerts].reverse();
+        const targetCertNum = newCerts[certIdx].cert_num;
         
-        newCerts.slice(0, certIdx + 1).forEach((c, cIdx) => {
+        const certsToProcess = [];
+        for (const c of chronologicalCerts) {
+            certsToProcess.push(c);
+            if (c.cert_num === targetCertNum) break;
+        }
+        
+        certsToProcess.forEach((c) => {
+            const originalIdx = newCerts.findIndex(cx => cx.cert_num === c.cert_num);
             (c.items || []).forEach((it: any) => {
                 const added = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
-                const pu = getInvoicePUFromList(newCerts, it.item_num, cIdx);
+                const pu = getInvoicePUFromList(newCerts, it.item_num, originalIdx);
                 const deducted = (parseFloat(it.qty_from_mos) || 0) * (pu > 0 ? pu : (parseFloat(it.unit_price) || 0));
                 
                 itemBalances[it.item_num] = (itemBalances[it.item_num] || 0) + added - deducted;
@@ -477,6 +500,39 @@ const PaymentCertForm = React.forwardRef(({
             alert('Saldos liquidados. Revisa las cantidades deducidas.');
         } else {
             alert('No hay saldos positivos de MOS para liquidar.');
+        }
+    };
+
+    const openAllMOSItems = (certIdx: number) => {
+        const newCerts = [...certs];
+        const items = [...(newCerts[certIdx].items || [])];
+        
+        const itemBalances: Record<string, number> = {};
+        newCerts.slice(0, certIdx + 1).forEach((c, cIdx) => {
+            (c.items || []).forEach((it: any) => {
+                const added = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
+                const pu = getInvoicePUFromList(newCerts, it.item_num, cIdx);
+                const deducted = (parseFloat(it.qty_from_mos) || 0) * (pu > 0 ? pu : (parseFloat(it.unit_price) || 0));
+                itemBalances[it.item_num] = (itemBalances[it.item_num] || 0) + added - deducted;
+            });
+        });
+
+        let changed = false;
+        items.forEach((it: any) => {
+            const hasBalance = (itemBalances[it.item_num] || 0) > 0.01;
+            const hasLocalMOS = (parseFloat(it.mos_invoice_total) > 0) || (parseFloat(it.mos_quantity) > 0);
+            
+            if ((hasBalance || hasLocalMOS) && !it.has_material_on_site) {
+                it.has_material_on_site = true;
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            newCerts[certIdx].items = items;
+            setCerts(newCerts);
+        } else {
+            alert('No se encontraron partidas adicionales con actividad de MOS para expandir.');
         }
     };
 
@@ -834,10 +890,13 @@ const PaymentCertForm = React.forwardRef(({
                                                 </span>
                                             </div>
                                             <div className="flex gap-3">
-                                                <button onClick={() => liquidateAllMOS(certIdx)} className="text-[11px] font-bold text-amber-600 hover:underline flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">
+                                                <button onClick={() => openAllMOSItems(certIdx)} className="text-[11px] font-bold text-emerald-600 hover:bg-emerald-100/50 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 transition-colors">
+                                                    <ZoomIn size={14} /> Abrir partidas con MOS
+                                                </button>
+                                                <button onClick={() => liquidateAllMOS(certIdx)} className="text-[11px] font-bold text-amber-600 hover:bg-amber-100/50 flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100 transition-colors">
                                                     <Package size={14} /> Liquidar Saldos MOS
                                                 </button>
-                                                <button onClick={() => importContractItems(certIdx)} className="text-[11px] font-bold text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                                                <button onClick={() => importContractItems(certIdx)} className="text-[11px] font-bold text-blue-600 hover:bg-blue-100/50 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 transition-colors">
                                                     Importar Partidas Activas
                                                 </button>
                                             </div>
@@ -1057,7 +1116,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                     </td>
                                                                     <td className="py-1 px-0.5" colSpan={2}>
                                                                         <div className="flex flex-col items-end">
-                                                                            <span className="text-[10px] text-amber-600 font-black">TOTAL FACTURA MOS</span>
+                                                                            <span className="text-[10px] text-amber-600 font-black">TOTAL FACTURA MOS <span className="font-black">($)</span></span>
                                                                             <input
                                                                                 type="number"
                                                                                 step="0.01"

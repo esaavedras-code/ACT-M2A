@@ -176,17 +176,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
             let certAmount = 0;
 
+            // First Pass: Record additions (invoices)
             certItems.forEach((item: any) => {
                 const itemNum = item.item_num;
                 if (!itemNum) return;
                 const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
                 const itemMosPU = parseFloat(item.mos_unit_price) || 0;
                 if (item.has_material_on_site || mosInvoice > 0) {
-                    perItemMosBalance[itemNum] = (perItemMosBalance[itemNum] || 0) + mosInvoice;
+                    perItemMosBalance[itemNum] = roundedAmt((perItemMosBalance[itemNum] || 0) + mosInvoice, 2);
                     if (itemMosPU > 0) perItemMosPU[itemNum] = itemMosPU;
                 }
             });
 
+            // Second Pass: Process work and deductions
             certItems.forEach((item: any) => {
                 const itemNum = item.item_num;
                 if (!itemNum) return;
@@ -211,11 +213,11 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 const available = perItemMosBalance[itemNum] || 0;
                 const qtyFromMosManual = parseFloat(item.qty_from_mos) || 0;
                 
-                if (available > 0.01) {
+                if (available > 0.01 || qtyFromMosManual > 0) {
                     const pu = perItemMosPU[itemNum] || up;
                     let deduceQty = 0;
                     if (qtyFromMosManual > 0) deduceQty = qtyFromMosManual;
-                    else if (qty > 0) {
+                    else if (qty > 0 && available > 0.01) {
                         const availableQty = available / (pu || 1);
                         deduceQty = Math.min(qty, availableQty);
                     }
