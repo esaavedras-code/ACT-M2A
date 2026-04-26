@@ -20,7 +20,7 @@ interface SpecInfo {
 
 const specs = specsData as Record<string, SpecInfo>;
 
-const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function ItemsForm({ projectId, numAct, onDirty, onSaved }, ref) {
+const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void, readOnly?: boolean }>(function ItemsForm({ projectId, numAct, onDirty, onSaved, readOnly = false }, ref) {
     const [items, setItems] = useState<any[]>([]);
     const [chos, setChos] = useState<any[]>([]);
     const [certs, setCerts] = useState<any[]>([]);
@@ -497,22 +497,22 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         variant: 'secondary' as const,
                         size: 'small' as const
                     },
-                    {
+                    !readOnly ? {
                         label: "Añadir Item",
                         icon: <Plus />,
                         onClick: addItem,
                         description: "Crear una nueva fila de partida al final del contrato",
                         variant: 'secondary' as const
-                    },
-                    {
+                    } : null,
+                    !readOnly ? {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
                         description: "Guardar todos los cambios realizados en las partidas y refrescar balances",
                         variant: 'primary' as const,
                         disabled: loading
-                    }
-                ]}
+                    } : null
+                ].filter(Boolean) as any}
             />
             <input id="import-items-json" type="file" accept=".json" className="hidden" onChange={handleImport} />
             <input id="import-items-pdf" type="file" accept="application/pdf" className="hidden" onChange={handleImportPDF} />
@@ -601,8 +601,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                 <input
                                                 type="text"
                                                 maxLength={3}
-                                                className={`input-field text-xs text-center font-bold h-8 !py-1 transition-all ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
-                                                style={{ backgroundColor: 'white' }}
+                                                disabled={readOnly}
+                                                className={`input-field text-xs text-center font-bold h-8 !py-1 transition-all ${readOnly ? 'bg-transparent border-none' : 'bg-white shadow-sm'} ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
                                                 value={item.item_num || ""}
                                                 onChange={(e) => updateItem(idx, 'item_num', e.target.value)}
                                                 onBlur={(e) => {
@@ -620,16 +620,16 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="text" className="input-field text-xs text-center h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
+                                            <input type="text" disabled={readOnly} className="input-field text-xs text-center h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <div className="space-y-1">
-                                                <input type="text" className="input-field text-xs h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'description') }} value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
-                                                <input type="text" className="input-field text-[10px] h-6 !py-0.5 opacity-70" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'additional_description') }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                <input type="text" disabled={readOnly} className="input-field text-xs h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'description') }} value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
+                                                <input type="text" disabled={readOnly} className="input-field text-[10px] h-6 !py-0.5 opacity-70" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'additional_description') }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="number" className="input-field text-xs text-right h-8 !py-1" style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'quantity') }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
+                                            <input type="number" disabled={readOnly} className="input-field text-xs text-right h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'quantity') }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
                                         </td>
                                         <td className="px-1 py-1.5 text-right text-xs font-bold text-blue-600 pr-4">
                                             {choQty !== 0 ? formatNumber(choQty) : "-"}
@@ -638,14 +638,15 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             {formatNumber(totalQty)}
                                         </td>
                                         <td className="px-1 py-1.5 text-center">
-                                            <input type="text" className="input-field uppercase h-8 !py-1 text-center px-1" style={{ fontSize: '9px', backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'unit') }} value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
+                                            <input type="text" disabled={readOnly} className="input-field uppercase h-8 !py-1 text-center px-1" style={{ fontSize: '9px', backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'unit') }} value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <input 
                                                 type="number" 
                                                 step="0.0001" 
+                                                disabled={readOnly}
                                                 className="input-field text-xs text-right font-medium h-8 !py-1" 
-                                                style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99', ...getFieldStyle(item, 'unit_price') }} 
+                                                style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'unit_price') }} 
                                                 list={`prices-${idx}`}
                                                 value={isNaN(item.unit_price) ? "" : item.unit_price} 
                                                 onChange={(e) => updateItem(idx, 'unit_price', e.target.value === "" ? 0 : parseFloat(e.target.value))} 
@@ -662,7 +663,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                         <td className="px-1 py-1.5">
                                             <select
                                                 className="input-field text-[10px] font-bold h-8 !py-1"
-                                                style={{ backgroundColor: (parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99' }}
+                                                disabled={readOnly}
+                                                style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99') }}
                                                 value={item.fund_source || ""}
                                                 onChange={(e) => updateItem(idx, 'fund_source', e.target.value)}
                                                 onKeyDown={(e) => {
@@ -715,17 +717,21 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                     >
                                                         <Info size={14} strokeWidth={2.5} />
                                                     </button>
-                                                    <button
-                                                        onClick={() => insertItem(idx)}
-                                                        className="bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all rounded-full p-1 shadow-sm transform hover:scale-110"
-                                                        title="Insertar item debajo"
-                                                    >
-                                                        <PlusSquare size={14} strokeWidth={2.5} />
-                                                    </button>
+                                                    {!readOnly && (
+                                                        <button
+                                                            onClick={() => insertItem(idx)}
+                                                            className="bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all rounded-full p-1 shadow-sm transform hover:scale-110"
+                                                            title="Insertar item debajo"
+                                                        >
+                                                            <PlusSquare size={14} strokeWidth={2.5} />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <button type="button" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors" title="Eliminar partida">
-                                                    <Trash2 size={14} />
-                                                </button>
+                                                {!readOnly && (
+                                                    <button type="button" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors" title="Eliminar partida">
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

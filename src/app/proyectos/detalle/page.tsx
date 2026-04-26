@@ -438,8 +438,9 @@ function ProjectDetailContent() {
                                 {activeTab === "dashboard"   && <SummaryDashboard projectId={id} />}
                                 {activeTab === "project2" && (
                                     <div className="space-y-6">
-                                        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-                                            <label className="block text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-3">
+                                        <div className="bg-gradient-to-r from-blue-600/10 to-transparent p-6 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-900/50">
+                                            <label className="block text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
                                                 Seleccione la sección a editar
                                             </label>
                                             <div className="relative">
@@ -534,7 +535,7 @@ function ProjectDetailContent() {
                                     </div>
                                 )}
                                 {activeTab === "personnel"   && <PersonnelForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                {activeTab === "items"       && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                {activeTab === "items"       && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} readOnly={true} />}
                                 {activeTab === "materials"   && <MaterialsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "compliance"  && <ComplianceForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "cho"         && <CHOForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
