@@ -60,6 +60,8 @@ import {
     formatDate
 } from "@/lib/reportLogic";
 import { generateAct117C } from "@/lib/generateAct117C";
+import ACT45Form from "@/components/ACT45Form";
+import { X } from "lucide-react";
 
 
 
@@ -296,6 +298,7 @@ function ReportesContent() {
     const [isElectron, setIsElectron] = useState(false);
     const [selectedFaMonth, setSelectedFaMonth] = useState<string>(new Date().getMonth().toString());
     const [selectedFaDate, setSelectedFaDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [showACT45Form, setShowACT45Form] = useState(false);
 
     useEffect(() => {
         setIsElectron(!!(window as any).electronAPI);
@@ -1486,6 +1489,15 @@ function ReportesContent() {
                 {/* 10. Informes de Campo */}
                 {!isContratista && (
                 <DropdownGroup title="Informes de Campo" icon={<FileText size={18} className="text-emerald-500" />}>
+                    <div className="px-6 py-4">
+                        <button
+                            onClick={() => setShowACT45Form(true)}
+                            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white hover:bg-emerald-700 rounded-[24px] font-black text-xs transition-all shadow-lg shadow-emerald-200 uppercase tracking-widest mb-4"
+                        >
+                            <Plus size={18} />
+                            Crear Nuevo Informe Diario ACT-45
+                        </button>
+                    </div>
                     <SelectiveReportItem
                         onAction={handleAction}
                         loading={loading}
@@ -1553,6 +1565,29 @@ function ReportesContent() {
                         'bg-white dark:bg-slate-900 text-primary border-slate-100 dark:border-slate-800'}`}>
                     {status.includes('generado') ? <CheckCircle2 size={24} /> : status.includes('Error') ? <AlertCircle size={24} /> : <Loader2 size={24} className="animate-spin" />}
                     <p className="font-black text-xl uppercase tracking-widest">{status}</p>
+                </div>
+            )}
+
+            {/* --- Modal ACT-45 --- */}
+            {showACT45Form && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-[#F8FAFC] dark:bg-[#020617] rounded-[48px] shadow-2xl w-full max-w-6xl my-8 relative animate-in zoom-in-95 duration-300 border border-white/20">
+                        <button 
+                            onClick={() => setShowACT45Form(false)}
+                            className="absolute top-8 right-8 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 z-[110]"
+                        >
+                            <X size={24} />
+                        </button>
+                        <div className="p-8 md:p-12">
+                            <ACT45Form 
+                                projectId={projectId} 
+                                numAct={projectNum} 
+                                onSaved={() => {
+                                    fetchProjectInfo();
+                                }}
+                            />
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
