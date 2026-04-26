@@ -13,7 +13,6 @@ import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { generateDailyLogReport } from "@/lib/generateDailyLogReport";
 import { downloadBlob } from "@/lib/reportLogic";
-import { exportSectionToJSON, importSectionFromJSON } from "@/lib/sectionIO";
 
 const DELAY_TYPES = ["Condiciones existentes", "Material", "Falla en la especificación", "Decisión de ACT", "Calidad", "Evento de seguridad", "Clima"];
 const EQUIPMENT_TYPES = ["Bob Cat", "Pickup F-150", "Pickup Ram 2500", "Pickup F-450", "Truck Tumba 320", "Grúa de canasto", "Miniexcavadora"];

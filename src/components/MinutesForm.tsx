@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { 
-    Save, Trash2, Download, Copy, Printer
+    Save, Trash2, Download, Copy, Printer, Mic, Clock, FileAudio, Upload, Activity, Settings, Languages, Speaker, CheckCircle2, Loader2
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import FloatingFormActions from "./FloatingFormActions";
