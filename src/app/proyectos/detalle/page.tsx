@@ -117,24 +117,23 @@ function ProjectDetailContent() {
     //        → Cumplimiento → Change Orders → Pagos → Cert CM → Minutas → Actividades
     //        → Inspección → Force Account → Liquidación
     const tabs = [
-        { id: "dashboard",   label: "Resumen",        icon: <LayoutDashboard size={12} /> },
-        { id: "project2",    label: "Entrada de datos 2",     icon: <FileText size={12} /> },
-        { id: "items",       label: "Todas las partidas",  icon: <ListChecks size={12} /> },
-        { id: "materials",   label: "Mat. on Site",   icon: <Package size={12} /> },
-        { id: "cho",         label: "Change Orders",  icon: <FileEdit size={12} /> },
-        { id: "payment",     label: "Monthly payment", icon: <FileCheck size={12} /> },
-        { id: "mfg",         label: "Certificados de manufactura",       icon: <Factory size={12} /> },
-        { id: "compliance",  label: "Cumplimiento laboral",   icon: <ShieldCheck size={12} /> },
-        { id: "minutes",     label: "Minutas",        icon: <Mic size={12} />, wip: true },
-        { id: "logs",        label: "Actividades",   icon: <Cloud size={12} />, wip: true },
-        { id: "inspection",  label: "Inspección",    icon: <FileCheck size={12} />, wip: true },
-        { id: "force",       label: "Force Account", icon: <Calculator size={12} />, wip: true },
-        { id: "force2",      label: "Force Account 2", icon: <Briefcase size={12} /> },
-        { id: "liquidation", label: "Liquidación",   icon: <TrendingUp size={12} /> },
-        { id: "presentations", label: "Presentaciones", icon: <Presentation size={12} />, wip: true },
-        { id: "update-tables", label: "Actualizar tablas", icon: <RefreshCcw size={12} />, wip: true },
-        { id: "negotiation", label: "Negociación", icon: <Handshake size={12} />, wip: true },
-        { id: "files",       label: role === 'E' ? "📸 Fotos" : "📁 Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
+        { id: "dashboard",   label: "Resumen",                    icon: <LayoutDashboard size={12} /> },
+        { id: "project2",    label: "Entrada de datos",           icon: <FileText size={12} /> },
+        { id: "compliance",  label: "Cumplimiento Laboral",       icon: <ShieldCheck size={12} /> },
+        { id: "mfg",         label: "Certificados de manufactura", icon: <Factory size={12} /> },
+        { id: "payment",     label: "Monthly payment",            icon: <FileCheck size={12} /> },
+        { id: "cho",         label: "Change order",               icon: <FileEdit size={12} /> },
+        { id: "logs",        label: "Actividades",               icon: <Cloud size={12} /> },
+        { id: "inspection",  label: "Inspección",                icon: <FileCheck size={12} /> },
+        { id: "force2",      label: "Force account 2",           icon: <Briefcase size={12} /> },
+        { id: "items",       label: "Todas las partidas",         icon: <ListChecks size={12} /> },
+        { id: "materials",   label: "Material on site",           icon: <Package size={12} /> },
+        { id: "negotiation", label: "Negociacion",               icon: <Handshake size={12} /> },
+        { id: "minutes",     label: "Minutas",                   icon: <Mic size={12} /> },
+        { id: "liquidation", label: "Liquidacion",               icon: <TrendingUp size={12} /> },
+        { id: "presentations", label: "Presentaciones",          icon: <Presentation size={12} /> },
+        { id: "update-tables", label: "Actualizar tablas",       icon: <RefreshCcw size={12} /> },
+        { id: "files",       label: role === 'E' ? "📸 Fotos" : "Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
     ];
 
     // Filtrar pestañas basadas en roles
@@ -399,14 +398,19 @@ function ProjectDetailContent() {
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
                 <div className="md:fixed md:top-[128px] md:left-4 z-[90] w-full md:w-[200px] lg:w-[220px] shrink-0 transition-all duration-300">
                     <div className="flex flex-row md:flex-col flex-wrap md:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
-                        {filteredTabs.map(tab => (
+                        {filteredTabs.map(tab => {
+                            const isGreen = ['project2', 'compliance', 'mfg', 'payment', 'cho', 'logs', 'inspection', 'force2'].includes(tab.id);
+                            
+                            return (
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id)}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-[1.4rem] font-black text-[9px] uppercase tracking-[0.1em] transition-all whitespace-nowrap lg:whitespace-normal text-left active:scale-95 group relative overflow-hidden ${
                                     activeTab === tab.id 
                                     ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 ring-1 ring-blue-600 ring-offset-2 ring-offset-white' 
-                                    : 'bg-white/60 dark:bg-slate-800/60 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 hover:bg-white shadow-sm hover:shadow-md'
+                                    : isGreen 
+                                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:border-emerald-500 hover:text-emerald-800 hover:bg-emerald-100 shadow-sm hover:shadow-md'
+                                        : 'bg-white/60 dark:bg-slate-800/60 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 hover:bg-white shadow-sm hover:shadow-md'
                                 }`}
                             >
                                 <span className={`shrink-0 transition-all duration-500 ${activeTab === tab.id ? 'text-white scale-110 rotate-3' : 'text-blue-500 group-hover:scale-125 group-hover:-rotate-3'}`}>{tab.icon}</span>
@@ -415,7 +419,8 @@ function ProjectDetailContent() {
                                     {tab.wip && <span className="ml-2 bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[7px] font-black uppercase">WIP</span>}
                                 </span>
                             </button>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 

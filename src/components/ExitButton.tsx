@@ -43,15 +43,15 @@ export default function ExitButton() {
         <button
             onClick={handleClick}
             id="pact-exit-button"
-            title="Salir del sistema"
-            aria-label="Salir del sistema"
+            title="BACKUP del sistema"
+            aria-label="BACKUP del sistema"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-red-500/80 active:scale-95 border border-white/20 hover:border-red-400 text-white text-[11px] font-bold uppercase tracking-wide transition-all duration-200 group shrink-0"
         >
             <LogOut
                 size={14}
                 className="transition-transform duration-200 group-hover:translate-x-0.5"
             />
-            <span className="hidden sm:inline">Salir</span>
+            <span className="hidden sm:inline">BACKUP</span>
         </button>
     );
 }
