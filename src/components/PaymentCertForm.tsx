@@ -68,8 +68,21 @@ const PaymentCertForm = React.forwardRef(({
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
     useEffect(() => {
-        if (projectId && !initialProjectData) {
-            loadData();
+        if (projectId) {
+            if (!initialProjectData) loadData();
+
+            // Sincronización en tiempo real
+            const channel = supabase
+                .channel(`certs-form-${projectId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `id=eq.${projectId}` }, () => loadData())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_items', filter: `project_id=eq.${projectId}` }, () => loadData())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_certifications', filter: `project_id=eq.${projectId}` }, () => loadData())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'manufacturing_certificates', filter: `project_id=eq.${projectId}` }, () => loadData())
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
     }, [projectId]);
 

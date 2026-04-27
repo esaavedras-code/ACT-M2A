@@ -180,7 +180,10 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
             drawField("2", "Project Number", 40, ly + fieldH, midX, projData.num_act);
             drawField("3", "Provider", 40, ly + fieldH * 2, midXReduced, provider);
             drawField("4", "Item Num.", 40, ly + fieldH * 3, 145, itemNum);
-            drawField("5", "Description", 40, ly + fieldH * 4, midXReduced, itemData?.description);
+            const desc = itemData?.description || "";
+            const addDesc = itemData?.additional_description || "";
+            const fullDesc = [desc, addDesc].filter(Boolean).join(' - ');
+            drawField("5", "Description", 40, ly + fieldH * 4, midXReduced, fullDesc);
             drawField("6", "Contract Quantity", 40, ly + fieldH * 5, 220, fmt(parseFloat(itemData?.quantity || 0)));
             drawField("7", "Contract Unit Price", 40, ly + fieldH * 6, 220, fmt(itemData?.unit_price), true);
             drawField("8", "75% Cont. Unit Price", 40, ly + fieldH * 7, 220, fmt(field8_75PercentUP), true);

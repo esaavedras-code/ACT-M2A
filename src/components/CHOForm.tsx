@@ -50,6 +50,17 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
         if (projectId && mounted) {
             fetchContractItems();
             fetchCHOs();
+
+            // Sincronización en tiempo real
+            const channel = supabase
+                .channel(`chos-form-${projectId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'chos', filter: `project_id=eq.${projectId}` }, () => fetchCHOs())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_items', filter: `project_id=eq.${projectId}` }, () => fetchContractItems())
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
     }, [projectId, mounted]);
 

@@ -506,10 +506,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <PieChart size={16} /> CHANGE ORDERS
                     </div>
                     <div className="space-y-3">
-                        <div className="grid grid-cols-4 gap-1 text-[10px] font-black text-slate-500 uppercase pb-1 border-b border-slate-200 dark:border-slate-800">
+                        <div className="grid grid-cols-[24%_12%_16%_48%] gap-1 items-end text-[9px] font-black text-slate-500 uppercase pb-1 border-b border-slate-200 dark:border-slate-800">
                             <span></span>
                             <span className="text-center">#</span>
-                            <span className="text-center">Dias otorgados</span>
+                            <span className="text-center leading-tight">Dias<br/>Otorg.</span>
                             <span className="text-right">$</span>
                         </div>
                         <CHORow label="Aprobados" count={metrics.chos.approvedCount} days={metrics.chos.approvedDays} amount={formatCurrency(metrics.chos.approvedTotal)} color="text-emerald-800 dark:text-emerald-400" />
@@ -608,11 +608,11 @@ function MetricRow({ label, value, color }: { label: string, value: string | num
 
 function CHORow({ label, count, days, amount, color }: { label: string, count: number, days: number, amount: string, color?: string }) {
     return (
-        <div className={`grid grid-cols-4 gap-1 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0 ${color || 'text-slate-950 dark:text-white'}`}>
-            <span className="text-[10px] font-black text-slate-800 dark:text-slate-300 uppercase tracking-tighter">{label}</span>
+        <div className={`grid grid-cols-[24%_12%_16%_48%] gap-1 items-center py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0 ${color || 'text-slate-950 dark:text-white'}`}>
+            <span className="text-[10px] font-black text-slate-800 dark:text-slate-300 uppercase tracking-tighter leading-none break-words">{label}</span>
             <span className="text-sm font-black text-center">{count}</span>
             <span className="text-sm font-black text-center">{days}</span>
-            <span className="text-sm font-black text-right">{amount}</span>
+            <span className="text-[13px] font-black text-right tracking-tight truncate">{amount}</span>
         </div>
     );
 }

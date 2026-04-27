@@ -120,6 +120,17 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
         if (projectId) {
             fetchProject();
             fetchDocuments();
+
+            // Sincronización en tiempo real
+            const channel = supabase
+                .channel(`project-form-${projectId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `id=eq.${projectId}` }, () => fetchProject())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'project_documents', filter: `project_id=eq.${projectId}` }, () => fetchDocuments())
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
     }, [projectId, fetchProject, fetchDocuments]);
 

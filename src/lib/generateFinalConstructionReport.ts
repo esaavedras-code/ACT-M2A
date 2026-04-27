@@ -158,7 +158,8 @@ export async function generateFinalConstructionReport(projectId: string) {
             const price = item.unit_price || 0;
 
             TXT(page, item.item_num, colX[0] + colW[0] / 2, curY + 8, 7, false, 'center');
-            TXT(page, item.description?.substring(0, 45), colX[1] + 3, curY + 8, 6.5);
+            const fullDesc = [item.description, item.additional_description].filter(Boolean).join(' - ');
+            TXT(page, fullDesc?.substring(0, 60), colX[1] + 3, curY + 8, 6.5);
             TXT(page, origQty.toFixed(2), colX[2] + colW[2] - 3, curY + 8, 7, false, 'right');
             TXT(page, item.unit, colX[3] + colW[3] / 2, curY + 8, 7, false, 'center');
             TXT(page, formatCurrency(price).replace('$', ''), colX[4] + colW[4] - 3, curY + 8, 7, false, 'right');

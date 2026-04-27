@@ -802,7 +802,9 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
                 const match = (firstCho.items as any[]).find(i => i.item_num === itemNum);
                 uPrice = parseFloat(match.unit_price) || 0;
                 unit = match.unit || "UN";
-                fullDescription = match.description || "Ítem nuevo por CHO";
+                const desc = match.description || "Ítem nuevo por CHO";
+                const addDesc = match.additional_description || "";
+                fullDescription = [desc, addDesc].filter(Boolean).join(' - ');
                 spec = match.specification || "";
             }
         }
@@ -1065,7 +1067,9 @@ export const generateChoReportLogic = async (projectId: string, choIds: string[]
         let choTotal = 0;
         items.forEach((it: any) => {
             const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
-            const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
+            const desc = it.description || matchCi?.description || "";
+            const addDesc = it.additional_description || matchCi?.additional_description || "";
+            const fullDesc = [desc, addDesc].filter(Boolean).join(' - ');
             const qty = parseFloat(it.proposed_change) || 0;
             const pu = parseFloat(it.unit_price) || 0;
             const total = qty * pu;
@@ -1094,7 +1098,9 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
         let mosDelta = 0;
         items.forEach((it: any) => {
             const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
-            const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
+            const desc = it.description || matchCi?.description || "";
+            const addDesc = it.additional_description || matchCi?.additional_description || "";
+            const fullDesc = [desc, addDesc].filter(Boolean).join(' - ');
             const qty = parseFloat(it.quantity) || 0;
             const pu = parseFloat(it.unit_price) || 0;
             const total = qty * pu;

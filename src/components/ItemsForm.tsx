@@ -35,6 +35,18 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
             fetchCHOs();
             fetchCerts();
             fetchPriceHistory();
+
+            // Sincronización en tiempo real
+            const channel = supabase
+                .channel(`items-form-${projectId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_items', filter: `project_id=eq.${projectId}` }, () => fetchItems())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'chos', filter: `project_id=eq.${projectId}` }, () => fetchCHOs())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_certifications', filter: `project_id=eq.${projectId}` }, () => fetchCerts())
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         } else {
             setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1 }]);
         }

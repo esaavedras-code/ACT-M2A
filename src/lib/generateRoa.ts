@@ -121,14 +121,20 @@ export async function generateRoa(projectId: string, choId: string) {
         }
 
         // Traducir descripciones de items
-        const translatedContractItems = await Promise.all((contractChoItems || []).map(async (it: any) => ({
-            ...it,
-            description: await translateText(it.description)
-        })));
-        const translatedNewItems = await Promise.all((newChoItems || []).map(async (it: any) => ({
-            ...it,
-            description: await translateText(it.description)
-        })));
+        const translatedContractItems = await Promise.all((contractChoItems || []).map(async (it: any) => {
+            const fullDesc = [it.description, it.additional_description].filter(Boolean).join(' - ');
+            return {
+                ...it,
+                description: await translateText(fullDesc)
+            };
+        }));
+        const translatedNewItems = await Promise.all((newChoItems || []).map(async (it: any) => {
+            const fullDesc = [it.description, it.additional_description].filter(Boolean).join(' - ');
+            return {
+                ...it,
+                description: await translateText(fullDesc)
+            };
+        }));
 
         const justWords = justificationText.split(/\s+/).filter((w: string) => w.length > 0);
         const maxLineWidth = PW - 70;
@@ -426,8 +432,8 @@ export async function generateRoa(projectId: string, choId: string) {
             const drawSection = (title: string, itemsList: any[], startY: number) => {
                 const titleRowH = 20; // Extra height so lines don't overlap title text
                 const headerRowH = 27;
-                const cols = [20, 50, 90, 240, 330, 370, 410, 470, 545, PW - 20];
-                const hdrs = ["Item", "Spec Code", "Description", "Additional Description", "Unit", "QTY", "Unit\nPrice", "Amount", "% Federal\nPartic."];
+                const cols = [20, 50, 90, 330, 370, 410, 470, 545, PW - 20];
+                const hdrs = ["Item", "Spec Code", "Description", "Unit", "QTY", "Unit\nPrice", "Amount", "% Federal\nPartic."];
 
                 // --- Title row (gray background) ---
                 // Top border of the title
@@ -467,8 +473,7 @@ export async function generateRoa(projectId: string, choId: string) {
                         const up = parseFloat(it.unit_price) || 0;
                         drawText(pageTable, it.item_num || "", (cols[0]+cols[1])/2, curRowY + 11, font, 7, true);
                         drawText(pageTable, it.specification || "", (cols[1]+cols[2])/2, curRowY + 11, font, 7, true);
-                        drawText(pageTable, (it.description || "").substring(0, 28), cols[2] + 4, curRowY + 11, font, 6.5);
-                        drawText(pageTable, (it.additional_description || "").substring(0, 18), cols[3] + 4, curRowY + 11, font, 6.5);
+                        drawText(pageTable, (it.description || "").substring(0, 55), cols[2] + 4, curRowY + 11, font, 6.5);
                         drawText(pageTable, it.unit || "", (cols[4]+cols[5])/2, curRowY + 11, font, 7, true);
                         drawText(pageTable, q.toString(), (cols[5]+cols[6])/2, curRowY + 11, font, 7, true);
                         drawText(pageTable, formatCurrency(up).replace('$', ''), cols[7] - 4, curRowY + 11, font, 7, false, true);

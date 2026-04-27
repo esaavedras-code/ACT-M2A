@@ -155,7 +155,19 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     };
 
     useEffect(() => {
-        if (projectId) fetchCompliance();
+        if (projectId) {
+            fetchCompliance();
+
+            // Sincronización en tiempo real
+            const channel = supabase
+                .channel(`compliance-form-${projectId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'labor_compliance', filter: `project_id=eq.${projectId}` }, () => fetchCompliance())
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        }
     }, [projectId]);
 
     const buildNewRecord = (docType?: string, subName?: string, isSub?: boolean): ComplianceRecord => ({

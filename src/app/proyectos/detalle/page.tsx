@@ -202,7 +202,8 @@ function ProjectDetailContent() {
     useEffect(() => {
         if (!id) return;
 
-        async function loadProject() {
+        const loadProject = async () => {
+            if (!id) return;
             setLoading(true);
             try {
                 const { data: { session } } = await supabase.auth.getSession();
@@ -308,20 +309,37 @@ function ProjectDetailContent() {
                     document.title = "PACT-Contratista - Sistema de Control de Proyectos";
                 }
 
-                return () => {
-                    document.getElementById('theme-contratista')?.remove();
-                };
-
             } catch (err) {
                 console.error("Error loading project:", err);
                 window.location.href = "/proyectos";
             } finally {
                 setLoading(false);
             }
-        }
+        };
 
         loadProject();
+
+        // Suscripción Realtime para cambios en el proyecto (Nombre, Núm AC, etc)
+        const projectSubscription = supabase
+            .channel(`project-changes-${id}`)
+            .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'projects',
+                filter: `id=eq.${id}`
+            }, (payload) => {
+                console.log('Realtime update received for project:', payload.new);
+                setProjectName(payload.new.name);
+                setNumAct(payload.new.num_act);
+            })
+            .subscribe();
+
+        return () => {
+            document.getElementById('theme-contratista')?.remove();
+            supabase.removeChannel(projectSubscription);
+        };
     }, [id]);
+
 
     if (!id) return <div className="p-20 text-center font-bold text-red-500 uppercase tracking-widest">Error: Proyecto no encontrado</div>;
 
@@ -474,12 +492,22 @@ function ProjectDetailContent() {
                                                             if (newId && !id) {
                                                                 window.location.search = `?id=${newId}`;
                                                             }
+                                                            // Forzamos actualización de estados locales si es un guardado normal
+                                                            supabase.from('projects').select('name, num_act').eq('id', id).single().then(({ data }) => {
+                                                                if (data) {
+                                                                    setProjectName(data.name);
+                                                                    setNumAct(data.num_act);
+                                                                }
+                                                            });
                                                         }} 
                                                         onDirty={() => setIsDirty(true)} 
                                                     />
                                                     <ContractorForm 
                                                         ref={contractorFormRef}
-                                                        projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />
+                                                        projectId={id} numAct={numAct} onSaved={() => {
+                                                            setIsDirty(false);
+                                                            // Forzamos re-carga si es necesario
+                                                        }} onDirty={() => setIsDirty(true)} />
                                                     
                                                     <FloatingFormActions
                                                         actions={[

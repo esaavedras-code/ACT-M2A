@@ -25,7 +25,19 @@ const CCMLModificationsForm = forwardRef<FormRef, { projectId: string, onSaved?:
     const [editingField, setEditingField] = useState<{ idx: number, field: string } | null>(null);
 
     useEffect(() => {
-        if (projectId) fetchMods();
+        if (projectId) {
+            fetchMods();
+
+            // Sincronización en tiempo real
+            const channel = supabase
+                .channel(`ccml-mods-${projectId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'project_ccml_modifications', filter: `project_id=eq.${projectId}` }, () => fetchMods())
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        }
     }, [projectId]);
 
     const fetchMods = async () => {

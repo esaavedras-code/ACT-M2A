@@ -408,7 +408,9 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 drawText(fedP, 157.5, rowY, 7, false, true);
                 
                 const matchCi = items?.find((i: any) => i.item_num === it.item_num);
-                const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
+                const desc = it.description || matchCi?.description || "";
+                const addDesc = it.additional_description || matchCi?.additional_description || "";
+                const fullDesc = [desc, addDesc].filter(Boolean).join(' - ');
                 drawText(fullDesc.substring(0, 48), 185, rowY, 6.5);
                 
                 drawText(it.unit, 365, rowY, 7, false, true);

@@ -217,7 +217,8 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         TXT(pg, 'Descripción', dscLblX, Y, 7);
         const dscValX = dscLblX + 52;
         const dscValW = 240;
-        TXT(pg, item.description || '', dscValX, Y, 7.5, false, 'left', dscValW);
+        const fullDesc = [item.description, item.additional_description].filter(Boolean).join(' - ');
+        TXT(pg, fullDesc || '', dscValX, Y, 7.5, false, 'left', dscValW);
         H_LINE(pg, dscValX, Y - 2, dscValX + dscValW, 0.5);
 
         const proyLblX = dscValX + dscValW + 8;

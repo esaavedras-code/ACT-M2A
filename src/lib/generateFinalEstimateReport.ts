@@ -166,7 +166,8 @@ export async function generateFinalEstimateReportLogic(projectId: string) {
             TXT(item.item_num, cx + cols[1].w / 2, Y + 10, 8, fR, 'center'); cx += cols[1].w;
             TXT(item.specification || '', cx + cols[2].w / 2, Y + 10, 8, fR, 'center'); cx += cols[2].w;
 
-            const desc = (item.description || '').substring(0, 40);
+            const fullDesc = [item.description, item.additional_description].filter(Boolean).join(' - ');
+            const desc = (fullDesc || '').substring(0, 60);
             TXT(desc, cx + 5, Y + 10, 7, fR); cx += cols[3].w;
 
             TXT(item.unit, cx + cols[4].w / 2, Y + 10, 8, fR, 'center'); cx += cols[4].w;

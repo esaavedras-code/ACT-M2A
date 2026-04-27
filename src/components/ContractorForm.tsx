@@ -22,7 +22,19 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
     useEffect(() => {
         setMounted(true);
-        if (projectId) fetchContractor();
+        if (projectId) {
+            fetchContractor();
+
+            // Sincronización en tiempo real
+            const channel = supabase
+                .channel(`contractor-form-${projectId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'contractors', filter: `project_id=eq.${projectId}` }, () => fetchContractor())
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        }
     }, [projectId]);
 
     const fetchContractor = async () => {

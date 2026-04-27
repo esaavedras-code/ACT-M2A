@@ -69,7 +69,20 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
     const [missingFilters, setMissingFilters] = useState({ admin: true, contractor: true, liquidator: true });
 
     useEffect(() => {
-        if (projectId) fetchLiquidation();
+        if (projectId) {
+            fetchLiquidation();
+
+            // Sincronización en tiempo real
+            const channel = supabase
+                .channel(`liquidation-form-${projectId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `id=eq.${projectId}` }, () => fetchLiquidation())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_items', filter: `project_id=eq.${projectId}` }, () => fetchLiquidation())
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        }
     }, [projectId]);
 
     const fetchLiquidation = async () => {

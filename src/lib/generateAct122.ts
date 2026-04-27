@@ -256,9 +256,10 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                     const amt = q * up;
                     const fedP = (it.fund_source || "").includes('80.25') ? "80.25%" : ((it.fund_source || "").includes('FHWA:100%') ? "100%" : "0%");
 
+                    const fullDesc = [it.description, it.additional_description].filter(Boolean).join(' - ');
                     drawText(p, it.item_num || "", vc[0]+(vc[1]-vc[0])/2, cy+10, font, 7, true);
                     drawText(p, it.specification || "", vc[1]+(vc[2]-vc[1])/2, cy+10, font, 7, true);
-                    drawText(p, (it.description || "").substring(0, 50), vc[2]+5, cy+10, font, 6.5);
+                    drawText(p, (fullDesc || "").substring(0, 80), vc[2]+5, cy+10, font, 6.5);
                     drawText(p, "-", vc[3]+(vc[4]-vc[3])/2, cy+10, font, 7, true);
                     drawText(p, "-", vc[4]+(vc[5]-vc[4])/2, cy+10, font, 7, true);
                     drawText(p, it.unit || "", vc[5]+(vc[6]-vc[5])/2, cy+10, font, 7, true);
@@ -295,9 +296,10 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                     const amt = q * up;
                     const fedP = (it.fund_source || "").includes('80.25') ? "80.25%" : ((it.fund_source || "").includes('FHWA:100%') ? "100%" : "0%");
 
+                    const fullDesc = [it.description, it.additional_description].filter(Boolean).join(' - ');
                     drawText(p, it.item_num || "", vc[0]+(vc[1]-vc[0])/2, cy+10, font, 7, true);
                     drawText(p, it.specification || "", vc[1]+(vc[2]-vc[1])/2, cy+10, font, 7, true);
-                    drawText(p, (it.description || "").substring(0, 50), vc[2]+5, cy+10, font, 6.5);
+                    drawText(p, (fullDesc || "").substring(0, 80), vc[2]+5, cy+10, font, 6.5);
                     drawText(p, "-", vc[3]+(vc[4]-vc[3])/2, cy+10, font, 7, true);
                     drawText(p, "-", vc[4]+(vc[5]-vc[4])/2, cy+10, font, 7, true);
                     drawText(p, it.unit || "", vc[5]+(vc[6]-vc[5])/2, cy+10, font, 7, true);
