@@ -9,7 +9,7 @@ import {
     MapPin, User, Users, CheckCircle2,
     XCircle, MinusCircle, Info, ShieldAlert,
     ChevronRight, ChevronLeft, Calendar,
-    UserCheck, FileSearch
+    UserCheck, FileSearch, MessageSquare
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
