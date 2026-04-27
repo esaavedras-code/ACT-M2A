@@ -19,19 +19,19 @@ const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 import { TodayButton } from "./TodayButton";
 
 const calculateChoBreakdown = (items: any[]) => {
-    let fed = 0, act = 0;
+    let fed80 = 0, fed100 = 0, act = 0;
     (items || []).forEach((it: any) => {
         const total = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
         if (it.fund_source === "ACT:100%") act = roundedAmt(act + total, 2);
         else if (it.fund_source === "FHWA:80.25") {
             const fShare = roundedAmt(total * 0.8025, 2);
-            fed = roundedAmt(fed + fShare, 2);
+            fed80 = roundedAmt(fed80 + fShare, 2);
             act = roundedAmt(act + roundedAmt(total - fShare, 2), 2);
         }
-        else if (it.fund_source === "FHWA:100%") fed = roundedAmt(fed + total, 2);
+        else if (it.fund_source === "FHWA:100%") fed100 = roundedAmt(fed100 + total, 2);
         else act = roundedAmt(act + total, 2);
     });
-    return { fed, act };
+    return { fed80, fed100, act, fed: roundedAmt(fed80 + fed100, 2) };
 };
 
 const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function CHOForm({ projectId, numAct, onDirty, onSaved }, ref) {
@@ -438,14 +438,20 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Importe Total</label>
-                                        <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex items-center px-3 h-[30px] border-emerald-500/30 text-emerald-600 min-w-[100px]">
+                                        <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex flex-col justify-center px-3 h-auto min-h-[30px] border-emerald-500/30 text-emerald-600 min-w-[150px] py-1">
                                             {(() => {
-                                                const total = (cho.items || []).reduce((acc: number, item: any) => {
-                                                    const q = parseFloat(item.quantity) || 0;
-                                                    const p = parseFloat(item.unit_price) || 0;
-                                                    return roundedAmt(acc + roundedAmt(q * p, 2), 2);
-                                                }, 0);
-                                                return formatCurrency(total);
+                                                const { act, fed80, fed100, fed } = calculateChoBreakdown(cho.items);
+                                                const total = roundedAmt(act + fed, 2);
+                                                return (
+                                                    <>
+                                                        <div className="text-sm">{formatCurrency(total)}</div>
+                                                        <div className="text-[9px] text-slate-500 font-bold flex flex-col mt-0.5 space-y-0.5 uppercase tracking-wide">
+                                                            {act !== 0 && <span className="text-blue-600">ACT: {formatCurrency(act)}</span>}
+                                                            {fed80 !== 0 && <span className="text-amber-600">FHWA 80.25: {formatCurrency(fed80)}</span>}
+                                                            {fed100 !== 0 && <span className="text-emerald-600">FHWA 100%: {formatCurrency(fed100)}</span>}
+                                                        </div>
+                                                    </>
+                                                );
                                             })()}
                                         </div>
                                     </div>
@@ -453,9 +459,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                 <div className="flex items-center gap-3">
                                     <button onClick={() => toggleExpand(cho.id)} className="bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
                                         {expandedCHO === cho.id ? "Cerrar Partidas" : "Ver / Añadir Partidas"}
-                                    </button>
-                                    <button type="button" onClick={() => generateCCMLReportLogic(projectId!, cho.id)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5">
-                                        <Files size={14} /> CCML
                                     </button>
                                     <button type="button" onClick={() => removeCHO(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
                                         <Trash2 size={18} />
