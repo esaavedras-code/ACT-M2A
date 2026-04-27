@@ -315,7 +315,7 @@ const PaymentCertForm = React.forwardRef(({
         const newItems = [...(newCerts[certIdx].items || [])];
         
         if (field === 'item_num' && value) {
-            const baseItem = contractItems.find(it => it.item_num === value || it.item_num === value.padStart(3, '0'));
+            const baseItem = contractItems.find(it => it.item_num === value);
             if (baseItem) {
                 newItems[itIdx] = {
                     ...newItems[itIdx],
