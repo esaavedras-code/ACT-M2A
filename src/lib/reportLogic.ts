@@ -937,52 +937,63 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
     };
 
     const groupedItems = new Map<string, any>();
-    filteredCerts.forEach((c: any, cIdx: number) => {
+    const balances = new Map<string, number>();
 
+    filteredCerts.forEach((c: any, cIdx: number) => {
         const items = Array.isArray(c.items) ? c.items : (c.items?.list || []);
         items.forEach((it: any) => {
-            const hasAddition = it.has_material_on_site;
-            const hasDeduction = parseFloat(it.qty_from_mos) > 0;
-            if (hasAddition || hasDeduction) {
-                if (!groupedItems.has(it.item_num)) {
-                    const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
-                    const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
-                    groupedItems.set(it.item_num, { item_num: it.item_num, spec: it.specification || '', desc: fullDesc || '', activities: [] });
+            const itemNum = it.item_num;
+            if (!itemNum) return;
+
+            const workQty = parseFloat(it.quantity) || 0;
+            const manualDeductionQty = parseFloat(it.qty_from_mos) || 0;
+            const hasAddition = !!it.has_material_on_site || (it.mos_invoice_total && parseFloat(it.mos_invoice_total) > 0);
+
+            const currentBalance = balances.get(itemNum) || 0;
+            const mosPU = getInvoicePU(filteredCerts, itemNum, cIdx);
+            const price = mosPU > 0 ? mosPU : (parseFloat(it.unit_price) || 0);
+
+            let deductionQty = 0;
+            if (currentBalance > 0.01) {
+                const availableQty = currentBalance / (price || 1);
+                if (manualDeductionQty > 0) {
+                    deductionQty = Math.min(manualDeductionQty, availableQty);
+                } else if (workQty > 0) {
+                    deductionQty = Math.min(workQty, availableQty);
                 }
-                const group = groupedItems.get(it.item_num);
+            }
+
+            const hasDeduction = deductionQty > 0;
+
+            if (hasAddition || hasDeduction) {
+                if (!groupedItems.has(itemNum)) {
+                    const matchCi = itemsRepo?.find((i: any) => i.item_num === itemNum);
+                    const fullDesc = [it.description || matchCi?.description, matchCi?.additional_description].filter(Boolean).join(' - ');
+                    groupedItems.set(itemNum, { item_num: itemNum, spec: it.specification || '', desc: fullDesc || '', activities: [] });
+                }
+                const group = groupedItems.get(itemNum);
+
                 if (hasAddition) {
+                    const cost = parseFloat(it.mos_invoice_total) || 0;
                     group.activities.push({ 
                         certNum: c.cert_num, 
                         type: 'Adición (Factura)', 
                         qty: parseFloat(it.mos_quantity) || 0, 
-                        cost: parseFloat(it.mos_invoice_total) || 0 
+                        cost: cost 
                     });
+                    balances.set(itemNum, roundedAmt(currentBalance + cost, 2));
                 }
-                if (hasDeduction) {
-                    const up = parseFloat(it.unit_price) || 0;
-                    // REGLA DE ORO: La deducción debe ser al precio que se pagó originalmente.
-                    // Si no viene en el item actual, lo buscamos en el historial de este mismo reporte (groupedItems)
-                    let p = parseFloat(it.mos_unit_price);
-                    if (!p || p <= 0) {
-                        // Buscamos el último precio de adición registrado para este ítem
-                        const additions = group.activities.filter((a: any) => a.type.includes('Adición'));
-                        if (additions.length > 0) {
-                            const lastAdd = additions[additions.length - 1];
-                            p = lastAdd.cost / lastAdd.qty;
-                        } else {
-                            // Si no hay adiciones previas (raro), usamos el precio de factura que pueda estar en certs anteriores
-                            p = getInvoicePU(certs, it.item_num, cIdx);
-                        }
-                    }
-                    if (!p || p <= 0) p = up; // Fallback final
 
-                    const qty = parseFloat(it.qty_from_mos) || 0;
+                if (hasDeduction) {
+                    const cost = roundedAmt(deductionQty * price, 2);
                     group.activities.push({ 
                         certNum: c.cert_num, 
                         type: 'Deducción (WP)', 
-                        qty: -qty, 
-                        cost: -roundedAmt(qty * p, 2) 
+                        qty: -deductionQty, 
+                        cost: -cost 
                     });
+                    const newBal = roundedAmt((balances.get(itemNum) || 0) - cost, 2);
+                    balances.set(itemNum, Math.max(0, newBal));
                 }
             }
         });
