@@ -474,12 +474,12 @@ export async function generateRoa(projectId: string, choId: string) {
                         drawText(pageTable, it.item_num || "", (cols[0]+cols[1])/2, curRowY + 11, font, 7, true);
                         drawText(pageTable, it.specification || "", (cols[1]+cols[2])/2, curRowY + 11, font, 7, true);
                         drawText(pageTable, (it.description || "").substring(0, 55), cols[2] + 4, curRowY + 11, font, 6.5);
-                        drawText(pageTable, it.unit || "", (cols[4]+cols[5])/2, curRowY + 11, font, 7, true);
-                        drawText(pageTable, q.toString(), (cols[5]+cols[6])/2, curRowY + 11, font, 7, true);
-                        drawText(pageTable, formatCurrency(up).replace('$', ''), cols[7] - 4, curRowY + 11, font, 7, false, true);
-                        drawText(pageTable, formatCurrency(q*up).replace('$', ''), cols[8] - 4, curRowY + 11, font, 7, false, true);
+                        drawText(pageTable, it.unit || "", (cols[3]+cols[4])/2, curRowY + 11, font, 7, true);
+                        drawText(pageTable, q.toString(), (cols[4]+cols[5])/2, curRowY + 11, font, 7, true);
+                        drawText(pageTable, formatCurrency(up).replace('$', ''), cols[6] - 4, curRowY + 11, font, 7, false, true);
+                        drawText(pageTable, formatCurrency(q*up).replace('$', ''), cols[7] - 4, curRowY + 11, font, 7, false, true);
                         const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('FHWA') ? '100.00%' : '0%');
-                        drawText(pageTable, fedP, (cols[8] + cols[9]) / 2, curRowY + 11, font, 7, true);
+                        drawText(pageTable, fedP, (cols[7] + cols[8]) / 2, curRowY + 11, font, 7, true);
                     }
                     // Bottom border of each row
                     drawLine(pageTable, 20, curRowY + 16, PW - 20, curRowY + 16, 0.5);
