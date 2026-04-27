@@ -879,6 +879,9 @@ const PaymentCertForm = React.forwardRef(({
                                                 <button onClick={() => liquidateAllMOS(certIdx)} className="text-[11px] font-bold text-amber-600 hover:bg-amber-100/50 flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100 transition-colors">
                                                     <Package size={14} /> Liquidar Saldos MOS
                                                 </button>
+                                                <button onClick={() => addCertItem(certIdx)} className="text-[11px] font-bold text-slate-600 hover:bg-slate-100/50 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 transition-colors">
+                                                    <Plus size={14} /> Añadir Partida
+                                                </button>
                                                 <button onClick={() => importContractItems(certIdx)} className="text-[11px] font-bold text-blue-600 hover:bg-blue-100/50 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 transition-colors">
                                                     Importar Partidas Activas
                                                 </button>
