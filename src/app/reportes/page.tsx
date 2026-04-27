@@ -10,12 +10,12 @@ import {
     setLocalStorageItem, 
     formatProjectNumber 
 } from "@/lib/utils";
-import {
+import { 
     FileText, Download, AlertCircle, CheckCircle2,
     Package, ListChecks, ArrowLeft, Loader2,
     Activity, Info, Files, BadgeAlert, FileDigit,
     ChevronDown, Search, FileCheck, BarChart, Calculator, 
-    ShieldCheck as ShieldCheckIcon
+    ShieldCheck as ShieldCheckIcon, Plus, MessageSquare
 } from "lucide-react";
 
 import {
