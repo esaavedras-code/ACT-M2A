@@ -1015,9 +1015,9 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
         reportData.push(['', '', '', '', '', '', '', '', '']);
     });
     // Last row: spread title across columns so it's not compressed in one cell
-    reportData.push(['BALANCE', 'TOTAL EN', 'INVENTARIO (MOS):', '', '', '', '', formatCurrency(totalFinalBalance), '']);
+    reportData.push(['BALANCE', 'TOTAL EN', 'INVENTARIO (MOS):', '', '', '', '', '', formatCurrency(totalFinalBalance)]);
 
-    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [60, 80, 180, 50, 90, 60, 40, 85, 55], 'landscape', format, 'Reporte_Material_On_Site.pdf', endDate);
+    await generateReport('REPORTE DE MATERIAL ON SITE (MOS)', reportData, project, [50, 70, 160, 45, 85, 60, 35, 75, 120], 'landscape', format, 'Reporte_Material_On_Site.pdf', endDate);
 };
 
 export const generateCCMLReportLogic = async (projectId: string, choId?: string) => {
