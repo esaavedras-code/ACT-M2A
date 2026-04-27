@@ -61,6 +61,7 @@ import {
 } from "@/lib/reportLogic";
 import { generateAct117C } from "@/lib/generateAct117C";
 import ACT45Form from "@/components/ACT45Form";
+import ACT96Form from "@/components/ACT96Form";
 import { X } from "lucide-react";
 
 
@@ -299,6 +300,7 @@ function ReportesContent() {
     const [selectedFaMonth, setSelectedFaMonth] = useState<string>(new Date().getMonth().toString());
     const [selectedFaDate, setSelectedFaDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [showACT45Form, setShowACT45Form] = useState(false);
+    const [showACT96Form, setShowACT96Form] = useState(false);
 
     useEffect(() => {
         setIsElectron(!!(window as any).electronAPI);
@@ -1489,6 +1491,22 @@ function ReportesContent() {
                 {/* 10. Informes de Campo */}
                 {!isContratista && (
                     <DropdownGroup title="Informes de Campo" icon={<FileText size={18} className="text-emerald-500" />}>
+                    <div className="px-6 py-4 flex flex-col gap-3">
+                        <button
+                            onClick={() => setShowACT45Form(true)}
+                            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white hover:bg-emerald-700 rounded-[24px] font-black text-xs transition-all shadow-lg shadow-emerald-200 uppercase tracking-widest"
+                        >
+                            <Plus size={18} />
+                            Crear Nuevo Informe Diario ACT-45
+                        </button>
+                        <button
+                            onClick={() => setShowACT96Form(true)}
+                            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white hover:bg-blue-700 rounded-[24px] font-black text-xs transition-all shadow-lg shadow-blue-200 uppercase tracking-widest"
+                        >
+                            <Plus size={18} />
+                            Crear Nuevo Informe de Inspeccion ACT-96
+                        </button>
+                    </div>
                     <div className="px-6 py-4">
                         <button
                             onClick={() => setShowACT45Form(true)}
@@ -1580,6 +1598,29 @@ function ReportesContent() {
                         </button>
                         <div className="p-8 md:p-12">
                             <ACT45Form 
+                                projectId={projectId} 
+                                numAct={projectNum} 
+                                onSaved={() => {
+                                    fetchProjectInfo();
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- Modal ACT-96 --- */}
+            {showACT96Form && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-[#F8FAFC] dark:bg-[#020617] rounded-[48px] shadow-2xl w-full max-w-6xl my-8 relative animate-in zoom-in-95 duration-300 border border-white/20">
+                        <button 
+                            onClick={() => setShowACT96Form(false)}
+                            className="absolute top-8 right-8 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 z-[110]"
+                        >
+                            <X size={24} />
+                        </button>
+                        <div className="p-8 md:p-12">
+                            <ACT96Form 
                                 projectId={projectId} 
                                 numAct={projectNum} 
                                 onSaved={() => {
