@@ -1,350 +1,242 @@
 "use client";
-
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { 
-    Save, FileText, Plus, Trash2, Download, 
-    Upload, AlertCircle, Loader2, Printer,
-    Search, ClipboardCheck, AlertTriangle,
-    MapPin, User, Users, CheckCircle2,
-    XCircle, MinusCircle, Info, ShieldAlert,
-    ChevronRight, ChevronLeft, Calendar,
-    UserCheck, FileSearch, MessageSquare
-} from "lucide-react";
+import { Save, Plus, Trash2, Loader2, FileSearch, Cloud, Users, ClipboardList, ChevronLeft, ChevronRight, UserCheck, MessageSquare } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 
-interface InspeccionItem {
-    partida: string;
-    descripcion: string;
-    ubicacion: string;
-    estatus: "Cumple" | "No Cumple" | "N/A" | "";
-    comentarios: string;
-}
-
+interface VisitaRow { idaNo: string; contratistaSub: string; }
 interface ACT96Data {
-    fecha: string;
-    proyectoNum: string;
-    contratoNum: string;
-    municipio: string;
-    inspectorNombre: string;
-    contratistaNombre: string;
-    items: InspeccionItem[];
-    observaciones: string;
-    accionesCorrectivas: string;
-    fechaLimite: string;
-    firmaInspector: string;
-    firmaContratista: string;
+  fecha: string; diaSemana: string; numProyecto: string; nombreProyecto: string; municipio: string;
+  contratista: string; paginaNo: string; numerControl: string;
+  horarioTrabajo: string; climaAM: string; climaPM: string;
+  tiempoPerdidoHoras: string; razonesTP: string;
+  visitas: VisitaRow[];
+  reuniones: string;
+  laborRealizada: string;
+  trabajoEjecutado: string;
+  asuntosDiscutidos: string;
+  otrasActividades: string;
+  aspectosSeguridad: string;
+  observaciones: string;
+  nombreAdministrador: string; puesto: string; firma: string; fechaFirma: string;
 }
 
-const ACT96Form = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function ACT96Form({ projectId, numAct, onDirty, onSaved }, ref) {
-    const [activeTab, setActiveTab] = useState(0);
+const DIAS = ["L","M","W","J","V","S","D"];
+const CLIMAS = ["Soleado","Nublado","Lluvia Ligera","Lluvia Fuerte","Ventoso"];
+
+const ACT96Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onDirty?: () => void; onSaved?: () => void; }>(
+  function ACT96Form({ projectId, numAct, onDirty, onSaved }, ref) {
+    const [tab, setTab] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false);
-    
-    const [formData, setFormData] = useState<ACT96Data>({
-        fecha: new Date().toISOString().split('T')[0],
-        proyectoNum: numAct || "",
-        contratoNum: "",
-        municipio: "",
-        inspectorNombre: "",
-        contratistaNombre: "",
-        items: [],
-        observaciones: "",
-        accionesCorrectivas: "",
-        fechaLimite: "",
-        firmaInspector: "",
-        firmaContratista: ""
+    const [d, setD] = useState<ACT96Data>({
+      fecha: new Date().toISOString().split("T")[0],
+      diaSemana: DIAS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1],
+      numProyecto: numAct || "", nombreProyecto: "", municipio: "", contratista: "",
+      paginaNo: "1", numerControl: "",
+      horarioTrabajo: "", climaAM: "Soleado", climaPM: "Soleado",
+      tiempoPerdidoHoras: "", razonesTP: "",
+      visitas: [],
+      reuniones: "", laborRealizada: "", trabajoEjecutado: "",
+      asuntosDiscutidos: "", otrasActividades: "",
+      aspectosSeguridad: "", observaciones: "",
+      nombreAdministrador: "", puesto: "", firma: "", fechaFirma: "",
     });
 
-    useEffect(() => {
-        if (projectId) fetchProjectDetails();
-    }, [projectId]);
+    useEffect(() => { if (projectId) load(); }, [projectId]);
 
-    const fetchProjectDetails = async () => {
-        if (!projectId) return;
-        const { data: proj } = await supabase.from("projects").select("name, contract_number, municipality, act96_last_report").eq("id", projectId).single();
-        if (proj) {
-            setFormData(prev => ({
-                ...prev,
-                ...(proj.act96_last_report || {}),
-                contratoNum: proj.contract_number || prev.contratoNum,
-                municipio: proj.municipality || prev.municipio,
-                proyectoNum: numAct || prev.proyectoNum,
-                fecha: new Date().toISOString().split('T')[0]
-            }));
-        }
+    const load = async () => {
+      const { data } = await supabase.from("projects").select("name, contract_number, municipality, act96_last_report").eq("id", projectId!).single();
+      if (data) setD(p => ({ ...p, ...(data.act96_last_report || {}), numProyecto: numAct || p.numProyecto, nombreProyecto: data.name || p.nombreProyecto, municipio: data.municipality || p.municipio, fecha: new Date().toISOString().split("T")[0] }));
     };
 
-    const saveData = async (silent = false) => {
-        if (!projectId) return;
-        setLoading(true);
-        const { error } = await supabase.from("projects").update({
-            act96_last_report: formData
-        }).eq('id', projectId);
-        setLoading(false);
-        if (error && !silent) alert("Error al guardar: " + error.message);
-        else if (!error) {
-            if (!silent) alert("Informe de Inspección ACT-96 guardado correctamente.");
-            if (onSaved) onSaved();
-        }
+    const save = async (silent = false) => {
+      if (!projectId) return;
+      setLoading(true);
+      const { error } = await supabase.from("projects").update({ act96_last_report: d }).eq("id", projectId);
+      setLoading(false);
+      if (!error) { if (!silent) alert("ACT-96 guardado."); onSaved?.(); } else if (!silent) alert("Error: " + error.message);
     };
+    useImperativeHandle(ref, () => ({ save: () => save(true) }));
 
-    useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
+    const upD = (k: keyof ACT96Data, v: any) => { setD(p => ({ ...p, [k]: v })); onDirty?.(); };
 
-    const addItem = () => {
-        setFormData({
-            ...formData,
-            items: [...formData.items, { partida: "", descripcion: "", ubicacion: "", estatus: "", comentarios: "" }]
-        });
-        onDirty?.();
-    };
-
-    const removeItem = (index: number) => {
-        const newItems = [...formData.items];
-        newItems.splice(index, 1);
-        setFormData({ ...formData, items: newItems });
-        onDirty?.();
-    };
+    const addVisita = () => { setD(p => ({ ...p, visitas: [...p.visitas, { idaNo:"", contratistaSub:"" }] })); };
+    const rmVisita = (i: number) => { const a = [...d.visitas]; a.splice(i,1); upD("visitas", a); };
+    const upVisita = (i: number, k: keyof VisitaRow, v: string) => { const a = [...d.visitas]; a[i][k] = v; upD("visitas", a); };
 
     const tabs = [
-        { id: 'encabezado', label: 'Info General', icon: <Info size={18} /> },
-        { id: 'inspeccion', label: 'Ítems Inspeccionados', icon: <ClipboardCheck size={18} /> },
-        { id: 'conclusiones', label: 'Conclusiones & Firmas', icon: <ShieldAlert size={18} /> }
+      { label: "Encabezado & Clima", icon: <Cloud size={16}/> },
+      { label: "Labor & Visitas", icon: <ClipboardList size={16}/> },
+      { label: "Notas & Discusiones", icon: <MessageSquare size={16}/> },
+      { label: "Administrador", icon: <UserCheck size={16}/> },
     ];
 
+    const inp = "w-full bg-slate-50 dark:bg-slate-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 border-none";
+    const lbl = "text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-1 block";
+    const card = "bg-white dark:bg-slate-900 rounded-[28px] p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4";
+
     return (
-        <div className="w-full space-y-6">
-            {/* Header */}
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-blue-500/10 rounded-2xl border border-blue-500/20">
-                        <FileSearch className="text-blue-600" size={24} />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black tracking-tight flex items-center gap-2 uppercase">
-                            ACT-96 Informe de Inspección
-                        </h2>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Registro de Cumplimiento y Calidad</p>
-                    </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => saveData(false)}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 rounded-2xl font-black text-xs transition-all shadow-lg"
-                    >
-                        {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                        GUARDAR INFORME
-                    </button>
-                </div>
+      <div className="w-full space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-500/10 rounded-2xl"><FileSearch className="text-blue-600" size={22}/></div>
+            <div>
+              <h2 className="text-xl font-black uppercase tracking-tight">ACT-96 — Informe Diario de Inspección</h2>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gobierno de Puerto Rico · ACT · Área de Construcción · Rev. 6/09</p>
             </div>
-
-            {/* Navigation */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-                {tabs.map((tab, idx) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(idx)}
-                        className={`flex items-center gap-2 px-6 py-3.5 rounded-2xl font-black text-[10px] transition-all border shrink-0 uppercase tracking-widest ${activeTab === idx 
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-200' 
-                            : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200 dark:bg-slate-900 dark:border-slate-800'}`}
-                    >
-                        {tab.icon}
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
-
-            <div className="min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-                
-                {/* --- TAB 0: ENCABEZADO --- */}
-                {activeTab === 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="card-premium space-y-6">
-                            <h3 className="section-title"><Info size={18} className="text-blue-500" />Datos del Proyecto</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="input-label">Fecha de Inspección</label>
-                                    <input type="date" className="input-field font-bold" value={formData.fecha} onChange={e => setFormData({...formData, fecha: e.target.value})} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="input-label">Proyecto No.</label>
-                                    <input type="text" className="input-field font-bold bg-slate-50" value={formData.proyectoNum} readOnly />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="input-label">Contrato No.</label>
-                                    <input type="text" className="input-field font-bold bg-slate-50" value={formData.contratoNum} readOnly />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="input-label">Municipio</label>
-                                    <input type="text" className="input-field font-bold bg-slate-50" value={formData.municipio} readOnly />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="card-premium space-y-6">
-                            <h3 className="section-title"><Users size={18} className="text-emerald-500" />Responsables</h3>
-                            <div className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label className="input-label">Inspector de Obra</label>
-                                    <input type="text" className="input-field font-bold" value={formData.inspectorNombre} onChange={e => setFormData({...formData, inspectorNombre: e.target.value})} placeholder="Nombre completo del inspector" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="input-label">Representante Contratista</label>
-                                    <input type="text" className="input-field font-bold" value={formData.contratistaNombre} onChange={e => setFormData({...formData, contratistaNombre: e.target.value})} placeholder="Nombre del representante" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- TAB 1: INSPECCION --- */}
-                {activeTab === 1 && (
-                    <div className="card-premium">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="section-title mb-0"><ClipboardCheck size={18} className="text-blue-600" />Evaluación de Partidas</h3>
-                            <button onClick={addItem} className="btn-add-blue">AÑADIR PARTIDA</button>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-separate border-spacing-y-2">
-                                <thead>
-                                    <tr className="text-[9px] font-black uppercase text-slate-400 tracking-widest">
-                                        <th className="px-4 w-24">Partida #</th>
-                                        <th className="px-4">Descripción de Actividad</th>
-                                        <th className="px-4 w-32">Ubicación (Est.)</th>
-                                        <th className="px-4 w-48 text-center">Status</th>
-                                        <th className="px-4">Comentarios</th>
-                                        <th className="px-4 w-10"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {formData.items.map((item, idx) => (
-                                        <tr key={idx} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl overflow-hidden animate-in slide-in-from-left duration-300">
-                                            <td className="p-2"><input type="text" className="bg-transparent w-full border-none focus:ring-0 font-bold text-xs" value={item.partida} onChange={e => { const n = [...formData.items]; n[idx].partida = e.target.value; setFormData({...formData, items: n})}} placeholder="Ej. 601" /></td>
-                                            <td className="p-2"><input type="text" className="bg-transparent w-full border-none focus:ring-0 font-bold text-xs" value={item.descripcion} onChange={e => { const n = [...formData.items]; n[idx].descripcion = e.target.value; setFormData({...formData, items: n})}} placeholder="Ej. Aceras de Hormigón" /></td>
-                                            <td className="p-2"><input type="text" className="bg-transparent w-full border-none focus:ring-0 font-bold text-xs" value={item.ubicacion} onChange={e => { const n = [...formData.items]; n[idx].ubicacion = e.target.value; setFormData({...formData, items: n})}} placeholder="Ej. 10+50" /></td>
-                                            <td className="p-2">
-                                                <div className="flex gap-1 justify-center">
-                                                    {[
-                                                        { val: "Cumple", icon: <CheckCircle2 size={12} />, color: "emerald" },
-                                                        { val: "No Cumple", icon: <XCircle size={12} />, color: "red" },
-                                                        { val: "N/A", icon: <MinusCircle size={12} />, color: "slate" }
-                                                    ].map((opt) => (
-                                                        <button
-                                                            key={opt.val}
-                                                            onClick={() => {
-                                                                const n = [...formData.items];
-                                                                n[idx].estatus = opt.val as any;
-                                                                setFormData({ ...formData, items: n });
-                                                                onDirty?.();
-                                                            }}
-                                                            className={`p-1.5 rounded-lg border transition-all flex items-center gap-1 text-[8px] font-black uppercase ${item.estatus === opt.val 
-                                                                ? `bg-${opt.color}-600 text-white border-${opt.color}-600 shadow-md` 
-                                                                : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-100'}`}
-                                                            title={opt.val}
-                                                        >
-                                                            {opt.icon}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                            <td className="p-2"><input type="text" className="bg-transparent w-full border-none focus:ring-0 font-bold text-xs" value={item.comentarios} onChange={e => { const n = [...formData.items]; n[idx].comentarios = e.target.value; setFormData({...formData, items: n})}} placeholder="Nota de campo" /></td>
-                                            <td className="p-2 pr-4 text-right"><button onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button></td>
-                                        </tr>
-                                    ))}
-                                    {formData.items.length === 0 && (
-                                        <tr>
-                                            <td colSpan={6} className="py-20 text-center opacity-20">
-                                                <ClipboardCheck size={48} className="mx-auto mb-4" />
-                                                <p className="font-black uppercase tracking-widest text-[10px]">No hay ítems registrados</p>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- TAB 2: CONCLUSIONES --- */}
-                {activeTab === 2 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-6">
-                            <div className="card-premium space-y-6">
-                                <h3 className="section-title"><AlertTriangle size={18} className="text-red-500" />Acciones Correctivas</h3>
-                                <div className="space-y-4">
-                                    <div className="space-y-1.5">
-                                        <label className="input-label">Descripción del Defecto</label>
-                                        <textarea className="input-field min-h-[120px] text-xs font-medium py-3 border-red-50 dark:border-red-900/20" value={formData.accionesCorrectivas} onChange={e => setFormData({...formData, accionesCorrectivas: e.target.value})} placeholder="Detalle los hallazgos que no cumplen con las especificaciones..." />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="input-label">Fecha Límite para Corrección</label>
-                                        <input type="date" className="input-field font-bold border-red-50" value={formData.fechaLimite} onChange={e => setFormData({...formData, fechaLimite: e.target.value})} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="card-premium space-y-6">
-                                <h3 className="section-title"><MessageSquare size={18} className="text-blue-500" />Observaciones Generales</h3>
-                                <textarea className="input-field min-h-[120px] text-xs font-medium py-3" value={formData.observaciones} onChange={e => setFormData({...formData, observaciones: e.target.value})} placeholder="Resumen general de la inspección de hoy..." />
-                            </div>
-                        </div>
-
-                        <div className="card-premium space-y-6">
-                            <h3 className="section-title"><UserCheck size={18} className="text-primary" />Firmas de Validación</h3>
-                            <div className="space-y-8">
-                                <div className="space-y-2 text-center p-8 border-2 border-dashed border-slate-100 rounded-[32px] bg-slate-50/50">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Inspector de Obra (ACT)</p>
-                                    <input type="text" className="input-field text-center font-black italic border-none bg-white shadow-sm" value={formData.firmaInspector} onChange={e => setFormData({...formData, firmaInspector: e.target.value})} placeholder="ESCRIBA SU NOMBRE" />
-                                    <p className="text-[8px] font-bold text-slate-300 mt-2 italic uppercase tracking-widest">Firma Digital Registrada</p>
-                                </div>
-
-                                <div className="space-y-2 text-center p-8 border-2 border-dashed border-slate-100 rounded-[32px] bg-slate-50/50">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Representante del Contratista</p>
-                                    <input type="text" className="input-field text-center font-black italic border-none bg-white shadow-sm" value={formData.firmaContratista} onChange={e => setFormData({...formData, firmaContratista: e.target.value})} placeholder="ESCRIBA SU NOMBRE" />
-                                    <p className="text-[8px] font-bold text-slate-300 mt-2 italic uppercase tracking-widest">Firma Digital Registrada</p>
-                                </div>
-
-                                <div className="p-6 bg-blue-50 dark:bg-blue-900/10 rounded-3xl border border-blue-100">
-                                    <p className="text-[9px] font-bold text-blue-600 leading-relaxed italic">
-                                        Nota: Este documento constituye un registro oficial de inspección. El cumplimiento de las acciones correctivas será verificado en la próxima visita de campo.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <style jsx>{`
-                .card-premium {
-                    @apply bg-white dark:bg-slate-900/50 p-8 rounded-[40px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100 dark:border-slate-800 transition-all;
-                }
-                .section-title {
-                    @apply font-black text-slate-900 dark:text-white text-xs uppercase tracking-[0.2em] flex items-center gap-3 mb-6;
-                }
-                .input-label {
-                    @apply text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1;
-                }
-                .input-field {
-                    @apply w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 transition-all;
-                }
-                .btn-add-blue {
-                    @apply px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 text-[9px] font-black rounded-xl transition-all uppercase tracking-widest shadow-lg shadow-blue-200;
-                }
-            `}</style>
-
-            {/* About */}
-            <div className="pt-12 pb-8 border-t border-slate-100 dark:border-slate-800 text-center">
-                <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.4em] mb-1">Software Design</p>
-                <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Ing. Enrique Saavedra Sada, PE</p>
-            </div>
+          </div>
+          <button onClick={() => save(false)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-2xl font-black text-xs hover:bg-blue-700 transition-all">
+            {loading ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} GUARDAR
+          </button>
         </div>
-    );
-});
 
+        {/* Tabs */}
+        <div className="flex gap-2 flex-wrap">
+          {tabs.map((t, i) => (
+            <button key={i} onClick={() => setTab(i)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border ${tab===i ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200" : "bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800"}`}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-[400px] pb-20 animate-in fade-in duration-300">
+
+          {/* TAB 0: ENCABEZADO */}
+          {tab === 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">Datos del Informe</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className={lbl}>5. Fecha</label><input type="date" className={inp} value={d.fecha} onChange={e => upD("fecha", e.target.value)}/></div>
+                  <div><label className={lbl}>6. Día de Semana</label>
+                    <div className="flex gap-1 flex-wrap">{DIAS.map(d2 => <button key={d2} onClick={() => upD("diaSemana", d2)} className={`px-2 py-1 rounded-lg text-[10px] font-black border transition-all ${d.diaSemana===d2?"bg-blue-600 text-white border-blue-600":"bg-slate-50 text-slate-500 border-slate-100"}`}>{d2}</button>)}</div>
+                  </div>
+                </div>
+                <div><label className={lbl}>1. Núm. de Proyecto</label><input className={`${inp} bg-slate-100`} value={d.numProyecto} readOnly/></div>
+                <div><label className={lbl}>2. Nombre de Proyecto</label><input className={inp} value={d.nombreProyecto} onChange={e => upD("nombreProyecto", e.target.value)}/></div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className={lbl}>3. Municipio</label><input className={`${inp} bg-slate-100`} value={d.municipio} readOnly/></div>
+                  <div><label className={lbl}>8. Número de Control</label><input className={inp} value={d.numerControl} onChange={e => upD("numerControl", e.target.value)} placeholder="001"/></div>
+                </div>
+                <div><label className={lbl}>4. Contratista y/o Subcontratista</label><input className={inp} value={d.contratista} onChange={e => upD("contratista", e.target.value)}/></div>
+                <div><label className={lbl}>12. Horario de Trabajo</label><input className={inp} value={d.horarioTrabajo} onChange={e => upD("horarioTrabajo", e.target.value)} placeholder="7:00 AM - 3:30 PM"/></div>
+              </div>
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">9. Clima</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className={lbl}>AM</label>
+                    <select className={inp} value={d.climaAM} onChange={e => upD("climaAM", e.target.value)}>
+                      {CLIMAS.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div><label className={lbl}>PM</label>
+                    <select className={inp} value={d.climaPM} onChange={e => upD("climaPM", e.target.value)}>
+                      {CLIMAS.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className={lbl}>10. Tiempo Perdido (Horas)</label><input type="number" className={inp} value={d.tiempoPerdidoHoras} onChange={e => upD("tiempoPerdidoHoras", e.target.value)}/></div>
+                </div>
+                <div><label className={lbl}>11. Razones del Tiempo Perdido</label><textarea className={`${inp} min-h-[80px] resize-none py-2`} value={d.razonesTP} onChange={e => upD("razonesTP", e.target.value)} placeholder="Ej. Lluvia, cambio de cheques..."/></div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 1: LABOR & VISITAS */}
+          {tab === 1 && (
+            <div className="space-y-6">
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">16. Trabajo Ejecutado — Actividad</h3>
+                <textarea className={`${inp} min-h-[100px] resize-none py-2`} value={d.trabajoEjecutado} onChange={e => upD("trabajoEjecutado", e.target.value)} placeholder="Descripción del trabajo inspeccionado del día..."/>
+              </div>
+              <div className={card}>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">17. Visitas</h3>
+                  <button onClick={addVisita} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-blue-700"><Plus size={12}/> Añadir Visita</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-separate border-spacing-y-1.5">
+                    <thead><tr className="text-[8px] font-black uppercase text-slate-400 tracking-widest">
+                      <th className="px-3 w-28">15. Número IDA</th><th className="px-3">Contratista, Subcontratista y Otras Agencias</th><th className="w-8"></th>
+                    </tr></thead>
+                    <tbody>
+                      {d.visitas.map((r, i) => (
+                        <tr key={i} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                          <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.idaNo} onChange={e => upVisita(i,"idaNo",e.target.value)} placeholder="IDA-001"/></td>
+                          <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.contratistaSub} onChange={e => upVisita(i,"contratistaSub",e.target.value)}/></td>
+                          <td className="p-1.5"><button onClick={() => rmVisita(i)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14}/></button></td>
+                        </tr>
+                      ))}
+                      {d.visitas.length === 0 && <tr><td colSpan={3} className="py-8 text-center text-xs text-slate-300 font-black uppercase tracking-widest">No hay visitas registradas</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">18. Reuniones</h3>
+                <textarea className={`${inp} min-h-[100px] resize-none py-2`} value={d.reuniones} onChange={e => upD("reuniones", e.target.value)} placeholder="Reuniones realizadas durante el día. Anotar asuntos discutidos..."/>
+              </div>
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">19. Labor Realizada (Llamadas, Correos, Escritos, Visitas)</h3>
+                <textarea className={`${inp} min-h-[120px] resize-none py-2`} value={d.laborRealizada} onChange={e => upD("laborRealizada", e.target.value)} placeholder="Anotar todas las visitas a otras oficinas, escritos, llamadas telefónicas, correos electrónicos..."/>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: NOTAS & DISCUSIONES */}
+          {tab === 2 && (
+            <div className="space-y-6">
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">20. Asuntos Discutidos con el Contratista, Diseñador, ACT, Colindantes, Otras Agencias</h3>
+                <textarea className={`${inp} min-h-[120px] resize-none py-2`} value={d.asuntosDiscutidos} onChange={e => upD("asuntosDiscutidos", e.target.value)} placeholder="Instrucciones o discusiones con el Contratista, dentro o fuera de la oficina..."/>
+              </div>
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">21. Otras Posibles Actividades</h3>
+                <textarea className={`${inp} min-h-[100px] resize-none py-2`} value={d.otrasActividades} onChange={e => upD("otrasActividades", e.target.value)} placeholder="Actividades que el Contratista puede llevar a cabo simultáneamente..."/>
+              </div>
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">22. Aspectos de Seguridad</h3>
+                <textarea className={`${inp} min-h-[100px] resize-none py-2`} value={d.aspectosSeguridad} onChange={e => upD("aspectosSeguridad", e.target.value)} placeholder="Comentarios y observaciones en torno a seguridad..."/>
+              </div>
+              <div className={card}>
+                <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-2">23. Observaciones</h3>
+                <textarea className={`${inp} min-h-[120px] resize-none py-2`} value={d.observaciones} onChange={e => upD("observaciones", e.target.value)} placeholder="Cualquier comentario u observación en torno al proyecto..."/>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: ADMINISTRADOR */}
+          {tab === 3 && (
+            <div className={card}>
+              <h3 className="font-black text-xs uppercase tracking-widest text-slate-500 mb-4">Administrador de Proyecto</h3>
+              <div><label className={lbl}>24. Nombre del Administrador</label><input className={inp} value={d.nombreAdministrador} onChange={e => upD("nombreAdministrador", e.target.value)} placeholder="Nombre completo"/></div>
+              <div><label className={lbl}>25. Puesto</label><input className={inp} value={d.puesto} onChange={e => upD("puesto", e.target.value)} placeholder="Ej. Ingeniero Residente"/></div>
+              <div><label className={lbl}>26. Firma</label><input className={`${inp} italic`} value={d.firma} onChange={e => upD("firma", e.target.value)} placeholder="Nombre como firma digital"/></div>
+              <div><label className={lbl}>Fecha</label><input type="date" className={inp} value={d.fechaFirma} onChange={e => upD("fechaFirma", e.target.value)}/></div>
+
+              <div className="mt-6 p-5 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100">
+                <p className="text-[9px] font-bold text-blue-600 leading-relaxed italic">
+                  Este documento es el Informe Diario de Inspección según el formulario oficial ACT-96 (Rev. 6/09) de la Autoridad de Carreteras y Transportación de Puerto Rico.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <FloatingFormActions actions={[
+          { label:"Anterior", icon:<ChevronLeft/>, onClick:() => tab>0 && setTab(tab-1), variant:'secondary' as const, size:'small' as const, disabled:tab===0 },
+          { label: tab<3?"Siguiente":"Guardar", icon:tab<3?<ChevronRight/>:<Save/>, onClick:() => tab<3?setTab(tab+1):save(false), variant:tab<3?'secondary':'primary' }
+        ]}/>
+
+        <div className="pt-8 pb-4 border-t border-slate-100 dark:border-slate-800 text-center">
+          <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">Diseñador del Sistema</p>
+          <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-widest">Ing. Enrique Saavedra Sada, PE</p>
+        </div>
+      </div>
+    );
+  }
+);
 export default ACT96Form;

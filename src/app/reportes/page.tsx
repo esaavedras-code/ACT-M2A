@@ -1507,15 +1507,6 @@ function ReportesContent() {
                             Crear Nuevo Informe de Inspeccion ACT-96
                         </button>
                     </div>
-                    <div className="px-6 py-4">
-                        <button
-                            onClick={() => setShowACT45Form(true)}
-                            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white hover:bg-emerald-700 rounded-[24px] font-black text-xs transition-all shadow-lg shadow-emerald-200 uppercase tracking-widest mb-4"
-                        >
-                            <Plus size={18} />
-                            Crear Nuevo Informe Diario ACT-45
-                        </button>
-                    </div>
                     <SelectiveReportItem
                         onAction={handleAction}
                         loading={loading}
