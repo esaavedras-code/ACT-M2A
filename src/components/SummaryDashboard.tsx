@@ -169,26 +169,22 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         let totalOtherPenalties = 0;
         let totalRefund = 0;
 
-        const perItemMosBalance: Record<string, number> = {};
-        const perItemMosPU: Record<string, number> = {};
+        const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
+            for (let i = currentCertIdx; i >= 0; i--) {
+                if (!certsList[i]) continue;
+                const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
+                const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
+                if (match) return parseFloat(match.mos_unit_price);
+            }
+            return 0;
+        };
 
-        certs?.forEach((cert: any) => {
+        const perItemMosBalance: Record<string, number> = {};
+
+        certs?.forEach((cert: any, cIdx: number) => {
             const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
             let certAmount = 0;
 
-            // First Pass: Record additions (invoices)
-            certItems.forEach((item: any) => {
-                const itemNum = item.item_num;
-                if (!itemNum) return;
-                const mosInvoice = parseFloat(item.mos_invoice_total) || 0;
-                const itemMosPU = parseFloat(item.mos_unit_price) || 0;
-                if (item.has_material_on_site || mosInvoice > 0) {
-                    perItemMosBalance[itemNum] = roundedAmt((perItemMosBalance[itemNum] || 0) + mosInvoice, 2);
-                    if (itemMosPU > 0) perItemMosPU[itemNum] = itemMosPU;
-                }
-            });
-
-            // Second Pass: Process work and deductions
             certItems.forEach((item: any) => {
                 const itemNum = item.item_num;
                 if (!itemNum) return;
@@ -210,21 +206,32 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 }
                 certAmount = roundedAmt(certAmount + amount, 2);
 
-                const available = perItemMosBalance[itemNum] || 0;
-                const qtyFromMosManual = parseFloat(item.qty_from_mos) || 0;
+                const manualDeductionQty = parseFloat(item.qty_from_mos) || 0;
+                const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseFloat(item.mos_invoice_total) > 0);
                 
-                if (available > 0.01 || qtyFromMosManual > 0) {
-                    const pu = perItemMosPU[itemNum] || up;
-                    let deduceQty = 0;
-                    if (qtyFromMosManual > 0) deduceQty = qtyFromMosManual;
-                    else if (qty > 0 && available > 0.01) {
-                        const availableQty = available / (pu || 1);
-                        deduceQty = Math.min(qty, availableQty);
+                const currentBalance = perItemMosBalance[itemNum] || 0;
+                const mosPU = getInvoicePU(certs, itemNum, cIdx);
+                const price = mosPU > 0 ? mosPU : up;
+                
+                let deductionQty = 0;
+                if (currentBalance > 0.01) {
+                    const availableQty = currentBalance / (price || 1);
+                    if (manualDeductionQty > 0) {
+                        deductionQty = Math.min(manualDeductionQty, availableQty);
+                    } else if (qty > 0) {
+                        deductionQty = Math.min(qty, availableQty);
                     }
-                    if (deduceQty > 0) {
-                        const deduction = roundedAmt(deduceQty * pu, 2);
-                        perItemMosBalance[itemNum] = Math.max(0, roundedAmt(available - deduction, 2));
-                    }
+                }
+
+                if (hasAddition) {
+                    const cost = parseFloat(item.mos_invoice_total) || 0;
+                    perItemMosBalance[itemNum] = roundedAmt(currentBalance + cost, 2);
+                }
+
+                if (deductionQty > 0) {
+                    const cost = roundedAmt(deductionQty * price, 2);
+                    const newBal = roundedAmt((perItemMosBalance[itemNum] || 0) - cost, 2);
+                    perItemMosBalance[itemNum] = Math.max(0, newBal);
                 }
             });
 
