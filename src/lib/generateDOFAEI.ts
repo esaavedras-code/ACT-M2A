@@ -23,15 +23,28 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         // Asumimos que el archivo se copió a la carpeta public o se puede acceder vía API.
         
         // Intentar cargar el template desde public
+        let arrayBuffer: ArrayBuffer;
         const templateUrl = '/templates/DOFAEI.xlsx';
         console.log("Intentando cargar template desde:", templateUrl);
         
-        let response = await fetch(templateUrl);
-        if (!response.ok) {
-             console.error("Error al cargar el template:", response.status, response.statusText);
-             throw new Error(`No se pudo cargar la plantilla del servidor (${response.status})`);
+        try {
+            const response = await fetch(templateUrl);
+            if (!response.ok) throw new Error(`Status ${response.status}`);
+            arrayBuffer = await response.arrayBuffer();
+        } catch (fetchErr) {
+            console.warn("Fetch falló, intentando carga local (Electron)...", fetchErr);
+            // Si falla el fetch (común en Electron local), intentamos usar la API de Electron si existe
+            // @ts-ignore
+            const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
+            if (api?.readFile) {
+                // En Electron, los archivos de public suelen estar en la carpeta out tras el build
+                const data = await api.readFile('out/templates/DOFAEI.xlsx');
+                arrayBuffer = data.buffer;
+            } else {
+                throw new Error("No se pudo cargar la plantilla ni por red ni de forma local.");
+            }
         }
-        const arrayBuffer = await response.arrayBuffer();
+
         await workbook.xlsx.load(arrayBuffer);
         
         const sheet = workbook.getWorksheet(1);
