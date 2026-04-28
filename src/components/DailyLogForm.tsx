@@ -637,7 +637,16 @@ function PartidasTab({ items, setItems, contractItems }: { items: any[], setItem
             )}
 
             <div className="space-y-4">
-                {items.map((item: any, idx: number) => (
+                {items
+                    .sort((a: any, b: any) => {
+                        const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+                        const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+                        const parsedA = parseInt(numA || '0');
+                        const parsedB = parseInt(numB || '0');
+                        if (parsedA !== parsedB) return parsedA - parsedB;
+                        return (a.item_num || "").localeCompare(b.item_num || "");
+                    })
+                    .map((item: any, idx: number) => (
                     <div key={idx} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3 relative">
                         <button onClick={() => removeItem(idx)} className="absolute top-3 right-3 text-slate-300 hover:text-red-500 transition-colors">
                             <Trash2 size={15} />
@@ -830,7 +839,7 @@ function TabContent({ id, data, update, projectId, contractItems = [], projectDe
                            </p>
                        </div>
                     </div>
-                    <SectionEditor items={data.personnel_v2_data} setItems={(items: any) => update("personnel_v2_data", items)} emptyItem={{ compañia: "", horas: 0, nombres: "", clasificacion: "", repetir: false }} renderItem={(item: any, idx: number, updateItem: any) => (
+                    <SectionEditor items={(data.personnel_v2_data || []).sort((a: any, b: any) => (a.nombres || "").localeCompare(b.nombres || ""))} setItems={(items: any) => update("personnel_v2_data", items)} emptyItem={{ compañia: "", horas: 0, nombres: "", clasificacion: "", repetir: false }} renderItem={(item: any, idx: number, updateItem: any) => (
                         <div>
                             <div className="grid grid-cols-4 gap-2">
                                 <div className="space-y-1">
@@ -996,7 +1005,13 @@ function TabContent({ id, data, update, projectId, contractItems = [], projectDe
                                 <h4 className="text-[10px] font-black uppercase text-slate-400">Resumen y Opciones Adicionales</h4>
                             </div>
                             <div className="grid grid-cols-1 gap-2">
-                                {selectedEquipList.map((eq: any, idx: number) => {
+                                {selectedEquipList
+                                    .sort((a: any, b: any) => {
+                                        const nameA = typeof a === 'string' ? a : (a.tipo || a.descripcion || "");
+                                        const nameB = typeof b === 'string' ? b : (b.tipo || b.descripcion || "");
+                                        return nameA.localeCompare(nameB);
+                                    })
+                                    .map((eq: any, idx: number) => {
                                     const name = typeof eq === 'string' ? eq : (eq.tipo || eq.descripcion || "Equipo sin nombre");
                                     return (
                                         <div key={idx} className="flex items-center gap-4 p-3 bg-white border border-slate-100 rounded-2xl hover:border-primary/20 transition-all shadow-sm">

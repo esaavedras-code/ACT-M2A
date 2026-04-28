@@ -204,7 +204,13 @@ export const generateDailyLogReport = async (projectId: string, logId: string) =
     y -= tableHeaderH;
 
     const rowH = 12;
-    const partidas = log.partidas_data || [];
+    const rawPartidas = log.partidas_data || [];
+    const partidas = [...rawPartidas].sort((a: any, b: any) => {
+        const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+        const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+        return parseInt(numA || '0') - parseInt(numB || '0');
+    });
+
     for (let i = 0; i < 8; i++) { 
         const p = partidas[i] || {};
         const spec = contractItems?.find(ci => ci.item_num === p.item_num)?.specification || '';
@@ -258,7 +264,9 @@ export const generateDailyLogReport = async (projectId: string, logId: string) =
     });
     y -= tableHeaderH;
 
-    const personnel = log.personnel_v2_data || [];
+    const rawPersonnel = log.personnel_v2_data || [];
+    const personnel = [...rawPersonnel].sort((a: any, b: any) => (a.nombres || "").localeCompare(b.nombres || ""));
+    
     for (let i = 0; i < 10; i++) {
         const p = personnel[i] || {};
         curX = margin;
@@ -317,7 +325,12 @@ export const generateDailyLogReport = async (projectId: string, logId: string) =
     const otherEquipStr = log.other_equipment_text || "";
     const manualEquip = otherEquipStr.split('\n').filter((l: string) => l.trim()).map((l: string) => ({ tipo: l.trim(), horas_op: 1 }));
     
-    const equipment = [...selectedEquip, ...manualEquip];
+    const equipment = [...selectedEquip, ...manualEquip].sort((a: any, b: any) => {
+        const nameA = (a.tipo || a.descripcion || "").toString();
+        const nameB = (b.tipo || b.descripcion || "").toString();
+        return nameA.localeCompare(nameB);
+    });
+    
     for (let i = 0; i < 15; i++) {
         const e = equipment[i] || {};
         curX = margin;

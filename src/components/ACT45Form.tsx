@@ -283,10 +283,6 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
           { label: tab<4?"Siguiente":"Guardar", icon:tab<4?<ChevronRight/>:<Save/>, onClick:() => tab<4?setTab(tab+1):save(false), variant:tab<4?'secondary':'primary' }
         ]}/>
 
-        <div className="pt-8 pb-4 border-t border-slate-100 dark:border-slate-800 text-center">
-          <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">Diseñador del Sistema</p>
-          <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-widest">Ing. Enrique Saavedra Sada, PE</p>
-        </div>
       </div>
     );
   }

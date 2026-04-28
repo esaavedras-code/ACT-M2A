@@ -45,6 +45,14 @@ export async function generateRoa(projectId: string, choId: string) {
 
         const contractItemNums = new Set(contractItems?.map(ci => ci.item_num) || []);
         const allChoItems = Array.isArray(choData.items) ? choData.items : [];
+        
+        // Ordenar todos los items por item_num antes de filtrar
+        allChoItems.sort((a: any, b: any) => {
+            const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+            const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+            return parseInt(numA || '0') - parseInt(numB || '0');
+        });
+
         const contractChoItems = allChoItems.filter((it: any) => it.is_new === false || (it.is_new === undefined && contractItemNums.has(it.item_num)));
         const newChoItems = allChoItems.filter((it: any) => it.is_new === true || (it.is_new === undefined && !contractItemNums.has(it.item_num)));
 

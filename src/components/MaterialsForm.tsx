@@ -187,7 +187,14 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
     });
 
     const groupsList = Array.from(groupedItems.values())
-        .sort((a, b) => a.item_num.localeCompare(b.item_num, undefined, { numeric: true }))
+        .sort((a, b) => {
+            const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+            const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+            const parsedA = parseInt(numA || '0');
+            const parsedB = parseInt(numB || '0');
+            if (parsedA !== parsedB) return parsedA - parsedB;
+            return (a.item_num || "").localeCompare(b.item_num || "");
+        })
         .map(group => {
         let runBal = 0;
         group.activities.forEach((act: any) => {

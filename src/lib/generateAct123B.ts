@@ -62,6 +62,14 @@ export async function generateAct123B(projectId: string, choId: string) {
 
         // Identificar Items de Contrato vs Items Nuevos
         const allChoItems = Array.isArray(choData.items) ? choData.items : [];
+        
+        // Ordenar items de menor a mayor por item_num
+        allChoItems.sort((a: any, b: any) => {
+            const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+            const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+            return parseInt(numA || '0') - parseInt(numB || '0');
+        });
+
         const contractChoItems = allChoItems.filter((it: any) => !it.is_new && !choData.is_new_item);
         const newChoItems = allChoItems.filter((it: any) => it.is_new || choData.is_new_item);
 
@@ -183,7 +191,7 @@ export async function generateAct123B(projectId: string, choId: string) {
 
         // Logic for Delegate (#10)
         let mainRole = "Director Área de Construcción";
-        let mainName = personnelMap["Director Construcción"] || personnelMap["Director de Construcción"] || personnelMap["Director Area Construcción"] || "Enrique Saavedra (Director Const.)";
+        let mainName = personnelMap["Director Construcción"] || personnelMap["Director de Construcción"] || personnelMap["Director Area Construcción"] || "Director Área de Construcción";
 
         const isDeductive = totalChangeNum <= 0;
 

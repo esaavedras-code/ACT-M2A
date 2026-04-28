@@ -428,7 +428,8 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
     
     // 2. Permisos de Construcción
     drawSectionHeader("2. Permisos de construcción");
-    const permitRecords = compliance?.filter(c => c.doc_type.toLowerCase().includes('permiso') || c.doc_type === 'PUI') || [];
+    const rawPermits = compliance?.filter(c => c.doc_type.toLowerCase().includes('permiso') || c.doc_type === 'PUI') || [];
+    const permitRecords = [...rawPermits].sort((a, b) => new Date(a.date_received || 0).getTime() - new Date(b.date_received || 0).getTime());
     
     if (permitRecords.length > 0) {
         const pCol1 = contentWidth * 0.6;
@@ -454,7 +455,8 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
 
     // 3. Seguros
     drawSectionHeader("3. Seguros");
-    const insuranceRecords = compliance?.filter(c => c.doc_type.toLowerCase().includes('póliza')) || [];
+    const rawInsurance = compliance?.filter(c => c.doc_type.toLowerCase().includes('póliza')) || [];
+    const insuranceRecords = [...rawInsurance].sort((a, b) => new Date(a.date_received || 0).getTime() - new Date(b.date_received || 0).getTime());
     
     if (insuranceRecords.length > 0) {
         const iCol1 = contentWidth * 0.5;

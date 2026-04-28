@@ -52,7 +52,7 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             .from("act_personnel")
             .select("*")
             .eq("project_id", projectId)
-            .order("active_from", { ascending: false });
+            .order("active_from", { ascending: true });
 
         const effectiveStartDate = startDate ?? projectStartDate ?? new Date().toISOString().split('T')[0];
 

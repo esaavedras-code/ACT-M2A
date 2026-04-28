@@ -17,6 +17,9 @@ const TIME_EXT_STATUSES = ["Aprobada", "Pendiente"];
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 
 import { TodayButton } from "./TodayButton";
+import dynamic from "next/dynamic";
+
+const DOFAEIForm = dynamic(() => import("./DOFAEIForm"), { ssr: false });
 
 const calculateChoBreakdown = (items: any[]) => {
     let fed80 = 0, fed100 = 0, act = 0;
@@ -41,6 +44,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
     const [expandedCHO, setExpandedCHO] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [showDofaei, setShowDofaei] = useState<{ show: boolean, choId: string }>({ show: false, choId: "" });
 
     useEffect(() => {
         setMounted(true);
@@ -457,6 +461,13 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={() => setShowDofaei({ show: true, choId: cho.id })}
+                                        className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 border border-blue-100 dark:border-blue-800 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                        title="Evaluación Federal Aid Eligibility Form"
+                                    >
+                                        DOFAEI
+                                    </button>
                                     <button onClick={() => toggleExpand(cho.id)} className="bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
                                         {expandedCHO === cho.id ? "Cerrar Partidas" : "Ver / Añadir Partidas"}
                                     </button>
@@ -510,6 +521,14 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     if (!searchTerm) return true;
                                                     const term = searchTerm.toLowerCase();
                                                     return item.description?.toLowerCase().includes(term) || item.item_num?.toString().includes(term);
+                                                })
+                                                .sort((a, b) => {
+                                                    const numA = (a.item.item_num || "").toString().replace(/[^0-9]/g, '');
+                                                    const numB = (b.item.item_num || "").toString().replace(/[^0-9]/g, '');
+                                                    const parsedA = parseInt(numA || '0');
+                                                    const parsedB = parseInt(numB || '0');
+                                                    if (parsedA !== parsedB) return parsedA - parsedB;
+                                                    return (a.item.item_num || "").localeCompare(b.item.item_num || "");
                                                 })
                                                 .map(({ item, originalItIdx: itIdx }: any) => (
                                                 <tr key={itIdx}>
@@ -608,6 +627,14 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                     </div>
                 ))}
             </div>
+
+            {showDofaei.show && (
+                <DOFAEIForm 
+                    projectId={projectId || ""} 
+                    choId={showDofaei.choId} 
+                    onClose={() => setShowDofaei({ show: false, choId: "" })} 
+                />
+            )}
         </div>
     );
 });

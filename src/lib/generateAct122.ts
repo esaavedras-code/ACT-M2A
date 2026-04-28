@@ -79,6 +79,14 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
 
         // Identificar Items de Contrato vs Items Nuevos basándose en el checkbox is_new de cada item
         const allChoItems = Array.isArray(choData.items) ? choData.items : [];
+        
+        // Ordenar items de menor a mayor por item_num
+        allChoItems.sort((a: any, b: any) => {
+            const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+            const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+            return parseInt(numA || '0') - parseInt(numB || '0');
+        });
+
         const contractChoItems = allChoItems.filter((it: any) => !it.is_new);
         const newChoItems = allChoItems.filter((it: any) => it.is_new);
 

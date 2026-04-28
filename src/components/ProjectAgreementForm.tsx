@@ -364,14 +364,6 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                 </table>
             </div>
 
-            <div className="mt-12 py-8 border-t border-slate-200 dark:border-slate-800 text-center">
-                <p className="text-[10px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-[0.3em] mb-1">
-                    Diseñado por
-                </p>
-                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                    Ing. Enrique Saavedra Sada, PE
-                </p>
-            </div>
 
             {!hideActions && (
                 <FloatingFormActions

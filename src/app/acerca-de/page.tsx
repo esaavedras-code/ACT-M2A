@@ -53,7 +53,7 @@ export default function AboutPage() {
                             <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-200">Diseñador del Programa</span>
                         </div>
 
-                        <h2 className="text-3xl font-black mb-1 tracking-tight">Ing. Enrique Saavedra Sada, PE</h2>
+                        <h2 className="text-3xl font-black mb-1 tracking-tight">M2A GROUP</h2>
                         <p className="text-blue-200 font-semibold mb-6 text-lg">Professional Engineer · M2A Group</p>
                     </div>
                 </div>
@@ -121,7 +121,7 @@ export default function AboutPage() {
             </div>
 
             <footer className="mt-16 text-center text-slate-400 text-xs py-8 border-t border-slate-100">
-                <p>© {new Date().getFullYear()} M2A Group · Ing. Enrique Saavedra Sada, PE · Todos los derechos reservados.</p>
+                <p>© {new Date().getFullYear()} M2A Group · Todos los derechos reservados.</p>
                 <div className="flex justify-center gap-4 mt-4">
                     <span className="hover:text-slate-600 cursor-help">Términos de Uso</span>
                     <span>•</span>

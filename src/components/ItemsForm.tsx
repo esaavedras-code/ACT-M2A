@@ -554,7 +554,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                         item.additional_description?.toLowerCase().includes(s)
                                     );
                                 })
-                                .sort((a, b) => (parseInt(a.item.item_num) || 0) - (parseInt(b.item.item_num) || 0))
+                                .sort((a, b) => {
+                                    const numA = (a.item.item_num || "").toString().replace(/[^0-9]/g, '');
+                                    const numB = (b.item.item_num || "").toString().replace(/[^0-9]/g, '');
+                                    const parsedA = parseInt(numA || '0');
+                                    const parsedB = parseInt(numB || '0');
+                                    if (parsedA !== parsedB) return parsedA - parsedB;
+                                    return (a.item.item_num || "").localeCompare(b.item.item_num || "");
+                                })
                                 .map(({ item, originalIndex: idx }) => {
                             const choQty = getCHOQty(item.item_num);
                             const totalQty = (parseFloat(item.quantity) || 0) + choQty;

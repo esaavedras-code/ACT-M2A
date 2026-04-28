@@ -18,6 +18,7 @@ const COLORS = {
     WHITE: rgb(1, 1, 1),
     BLACK: rgb(0, 0, 0),
     RED_MARKER: rgb(1, 0, 0),
+    TEXT_RED: rgb(1, 0, 0),
     EVAL_ORANGE: hexToRgb('#f7caac'),
     CAT_YELLOW: hexToRgb('#fff2ca'),
     ITEM_GREEN: hexToRgb('#91cf50'),
@@ -55,6 +56,10 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         const { data: choData } = await supabase.from('chos').select('*').eq('id', choId).single();
         if (!projData || !choData) throw new Error("Datos insuficientes");
 
+        const dofaei = choData.dofaei_data || {};
+        const determinations = dofaei.determination_conditions || {};
+        const evaluations = dofaei.evaluations || {};
+
         const pdfDoc = await PDFDocument.create();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -66,6 +71,13 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         } catch (e) { console.warn("Logo not found", e); }
 
         const allItems = Array.isArray(choData.items) ? choData.items : [];
+        // Ordenar items de menor a mayor por item_num
+        allItems.sort((a: any, b: any) => {
+            const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+            const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+            return parseInt(numA || '0') - parseInt(numB || '0');
+        });
+
         const itemsPerPage = 5;
         const totalPages = Math.max(1, Math.ceil(allItems.length / itemsPerPage));
 
@@ -95,11 +107,18 @@ export async function generateDOFAEI(projectId: string, choId: string) {
             drawText(page, projData.num_federal || "", 380, y + 8, font, 8);
             
             // Road Classif Checks
-            drawCheck(page, 510, y - 5, true, fontBold);
+            const roadClassif = dofaei.road_classif || "NHS";
+            drawCheck(page, 510, y - 5, roadClassif === "Interstate", fontBold);
             drawText(page, "Interstate", 525, y + 3, font, 8);
-            drawRect(page, 510, y + 10, 15, 8, true, COLORS.RED_MARKER);
-            drawText(page, "NHS", 530, y + 17, fontBold, 8, false, false, COLORS.TEXT_RED);
-            drawCheck(page, 570, y - 5, false, fontBold);
+            
+            if (roadClassif === "NHS") {
+                drawRect(page, 510, y + 10, 15, 8, true, COLORS.RED_MARKER);
+                drawText(page, "NHS", 530, y + 17, fontBold, 8, false, false, COLORS.TEXT_RED);
+            } else {
+                drawText(page, "NHS", 530, y + 17, font, 8);
+            }
+            
+            drawCheck(page, 570, y - 5, roadClassif === "Non NHS", fontBold);
             drawText(page, "Non NHS", 585, y + 3, font, 8);
 
             y += 15;
@@ -118,8 +137,12 @@ export async function generateDOFAEI(projectId: string, choId: string) {
             
             y += 20;
             const isCO = choData.is_change_of_contract !== false;
-            drawRect(page, 45, y, 15, 8, true, COLORS.RED_MARKER);
-            drawText(page, "Change Order", 65, y + 8, fontBold, 8, false, false, COLORS.TEXT_RED);
+            if (isCO) {
+                drawRect(page, 45, y, 15, 8, true, COLORS.RED_MARKER);
+                drawText(page, "Change Order", 65, y + 8, fontBold, 8, false, false, COLORS.TEXT_RED);
+            } else {
+                drawText(page, "Change Order", 65, y + 8, font, 8);
+            }
             
             drawCheck(page, 45, y + 15, !isCO, fontBold);
             drawText(page, "Extra Work Order", 65, y + 23, font, 8);
@@ -128,8 +151,13 @@ export async function generateDOFAEI(projectId: string, choId: string) {
             drawCheck(page, mid, y, choData.is_new_item, fontBold);
             drawText(page, "Additional Scope of Work", mid + 15, y + 8, font, 8);
             
-            drawRect(page, mid, y + 15, 15, 8, true, COLORS.RED_MARKER);
-            drawText(page, "Time Extension", mid + 20, y + 23, fontBold, 8, false, false, COLORS.TEXT_RED);
+            if (choData.is_time_extension) {
+                drawRect(page, mid, y + 15, 15, 8, true, COLORS.RED_MARKER);
+                drawText(page, "Time Extension", mid + 20, y + 23, fontBold, 8, false, false, COLORS.TEXT_RED);
+            } else {
+                drawCheck(page, mid, y + 15, false, fontBold);
+                drawText(page, "Time Extension", mid + 20, y + 23, font, 8);
+            }
 
             drawCheck(page, mid + 125, y, false, fontBold);
             drawText(page, "Specification Change", mid + 140, y + 8, font, 8);
@@ -138,8 +166,15 @@ export async function generateDOFAEI(projectId: string, choId: string) {
 
             drawCheck(page, mid + 235, y, false, fontBold);
             drawText(page, "Differing Site Conditions", mid + 250, y + 8, font, 8);
-            drawRect(page, mid + 235, y + 15, 15, 8, true, COLORS.RED_MARKER);
-            drawText(page, "Overruns or Underruns Items", mid + 255, y + 23, fontBold, 8, false, false, COLORS.TEXT_RED);
+            
+            const isOverrun = (choData.proposed_change || 0) > 0 && !choData.is_new_item;
+            if (isOverrun) {
+                drawRect(page, mid + 235, y + 15, 15, 8, true, COLORS.RED_MARKER);
+                drawText(page, "Overruns or Underruns Items", mid + 255, y + 23, fontBold, 8, false, false, COLORS.TEXT_RED);
+            } else {
+                drawCheck(page, mid + 235, y + 15, false, fontBold);
+                drawText(page, "Overruns or Underruns Items", mid + 255, y + 23, font, 8);
+            }
 
             y += 40;
 
@@ -147,30 +182,32 @@ export async function generateDOFAEI(projectId: string, choId: string) {
             drawRect(page, 40, y, PW - 80, 15, true, COLORS.BLACK_BG);
             drawText(page, "IV. Determination Conditions", 45, y + 11, fontBold, 8, false, false, COLORS.WHITE);
             y += 20;
-            const amt = parseFloat(choData.proposed_change) || 0;
-            const isMajor = Math.abs(amt) > 100000;
-
-            drawCheck(page, 45, y, amt < 0, fontBold);
+            
+            drawCheck(page, 45, y, determinations.deductive_items, fontBold);
             drawText(page, "Deductive Items", 60, y + 8, font, 8);
-            drawCheck(page, 45, y + 15, false, fontBold);
+            drawCheck(page, 45, y + 15, determinations.safety_items, fontBold);
             drawText(page, "Safety Items", 60, y + 23, font, 8);
 
-            drawCheck(page, 160, y, false, fontBold);
+            drawCheck(page, 160, y, determinations.rideability_bonus, fontBold);
             drawText(page, "Rideability Bonus or Contract Incentives", 175, y + 8, font, 7);
-            drawCheck(page, 160, y + 15, false, fontBold);
+            drawCheck(page, 160, y + 15, determinations.sub_estimated_items, fontBold);
             drawText(page, "Sub-estimated Contract Items <100K", 175, y + 23, font, 7);
 
-            drawCheck(page, 310, y, !isMajor && amt > 0, fontBold);
+            drawCheck(page, 310, y, determinations.minor_change, fontBold);
             drawText(page, "Minor Change", 325, y + 8, font, 8);
-            drawCheck(page, 310, y + 15, false, fontBold);
+            drawCheck(page, 310, y + 15, determinations.known_non_participating, fontBold);
             drawText(page, "Known Non-Participating Items", 325, y + 23, font, 8);
 
-            drawCheck(page, 430, y, false, fontBold);
+            drawCheck(page, 430, y, !!determinations.other, fontBold);
             drawText(page, "Other:", 445, y + 8, font, 8);
+            drawText(page, determinations.other || "", 475, y + 8, font, 8);
             drawLine(page, 475, y + 10, 560, y + 10);
 
-            drawRect(page, 530, y + 15, 15, 8, true, COLORS.RED_MARKER);
-            drawText(page, "Major Change and/or NHS", PW - 45, y + 23, fontBold, 8, false, true, COLORS.TEXT_RED);
+            const isMajor = Math.abs(parseFloat(choData.proposed_change) || 0) > 100000;
+            if (isMajor || roadClassif !== "Non NHS") {
+                drawRect(page, 530, y + 15, 15, 8, true, COLORS.RED_MARKER);
+                drawText(page, "Major Change and/or NHS", PW - 45, y + 23, fontBold, 8, false, true, COLORS.TEXT_RED);
+            }
 
             y += 40;
 
@@ -229,11 +266,18 @@ export async function generateDOFAEI(projectId: string, choId: string) {
                 drawRect(page, colX - 20, y, 40, 35, true, COLORS.EVAL_ORANGE);
                 drawText(page, "Item", colX, y + 10, fontBold, 7, true);
                 drawText(page, `#${it.item_num}`, colX, y + 18, fontBold, 7, true);
-                // Subheader Y/T N/F
+                
+                // Subheader N/F Y/T (Intercambiados como pidió Enrique)
+                drawRect(page, colX - 20, y + 23, 20, 12, true, hexToRgb('#91cf50')); // Verde para N/F ahora?
+                drawRect(page, colX, y + 23, 20, 12, true, COLORS.TEXT_RED); // Rojo para Y/T ahora?
+                
+                // Enrique dijo: "intercambia donde dice N/F que diga Y/T y alreves"
+                // En el original: Y/T (Rojo) - N/F (Verde)
+                // Resultante: N/F (Rojo) - Y/T (Verde)
                 drawRect(page, colX - 20, y + 23, 20, 12, true, COLORS.TEXT_RED);
                 drawRect(page, colX, y + 23, 20, 12, true, hexToRgb('#91cf50'));
-                drawText(page, "Y/T", colX - 10, y + 31, fontBold, 6, true, false, COLORS.WHITE);
-                drawText(page, "N/F", colX + 10, y + 31, fontBold, 6, true, false, COLORS.BLACK);
+                drawText(page, "N/F", colX - 10, y + 31, fontBold, 6, true, false, COLORS.WHITE);
+                drawText(page, "Y/T", colX + 10, y + 31, fontBold, 6, true, false, COLORS.BLACK);
             });
             drawRect(page, viCols[7]-100, y, 100, 35, true, COLORS.EVAL_ORANGE);
             drawText(page, "Comments", viCols[7] - 50, y + 20, fontBold, 9, true);
@@ -241,16 +285,23 @@ export async function generateDOFAEI(projectId: string, choId: string) {
 
             const matrix = [
                 { cat: "1. Impact on the original scope of work", rows: [
-                    "1.1. Proposed work includes subsidiary obligations...",
-                    "1.2. Proposed work is out of the previously authorized scope...",
-                    "1.3. Proposed work extends beyond the project boundaries",
-                    "1.4. Proposed work adversely impacts work already underway",
-                    "1.5. The cost of the proposed work exceeds available funds",
-                    "1.6. Proposed change is related to re-do or faulty work."
+                    { id: "1.1", text: "1.1. Proposed work includes subsidiary obligations..." },
+                    { id: "1.2", text: "1.2. Proposed work is out of the previously authorized scope..." },
+                    { id: "1.3", text: "1.3. Proposed work extends beyond the project boundaries" },
+                    { id: "1.4", text: "1.4. Proposed work adversely impacts work already underway" },
+                    { id: "1.5", text: "1.5. The cost of the proposed work exceeds available funds" },
+                    { id: "1.6", text: "1.6. Proposed change is related to re-do or faulty work." }
                 ]},
                 { cat: "2. Basis of payment", rows: [
-                    "2.1. PRHTA's independent evaluation discovered discrepancies...",
-                    "2.2. Cost analysis has not been documented."
+                    { id: "2.1", text: "2.1. PRHTA's independent evaluation discovered discrepancies..." },
+                    { id: "2.2", text: "2.2. Cost analysis has not been documented." }
+                ]},
+                { cat: "3. Time Adjustments", rows: [
+                    { id: "3.1", text: "3.1. Contract time extension has not been fully justified..." }
+                ]},
+                { cat: "4. Other Considerations", rows: [
+                    { id: "4.1", text: "4.1. Proposed work involves routine maintenance." },
+                    { id: "4.2", text: "4.2. Proposed change involves maintenance items..." }
                 ]}
             ];
 
@@ -259,11 +310,17 @@ export async function generateDOFAEI(projectId: string, choId: string) {
                 drawText(page, m.cat, 45, y + 9, fontBold, 7.5);
                 y += 12;
                 m.rows.forEach(r => {
-                    drawText(page, r.substring(0, 80), 45, y + 9, font, 6.5);
+                    drawText(page, r.text.substring(0, 80), 45, y + 9, font, 6.5);
                     pageItems.forEach((it, idx) => {
-                        const isFed = (it.fund_source || "").includes("FHWA");
+                        const itemId = it.item_num;
+                        const evalVal = evaluations[itemId]?.[r.id]; // "YT" o "NF"
+                        
                         drawRect(page, viCols[2+idx]-20, y, 40, 12, true, COLORS.ITEM_GREEN);
-                        drawText(page, "X", viCols[2+idx] + (isFed ? -10 : 10), y + 9, fontBold, 8, true);
+                        if (evalVal === "NF") {
+                            drawText(page, "X", viCols[2+idx] - 10, y + 9, fontBold, 8, true);
+                        } else if (evalVal === "YT") {
+                            drawText(page, "X", viCols[2+idx] + 10, y + 9, fontBold, 8, true);
+                        }
                     });
                     y += 12;
                     drawLine(page, 40, y, PW - 40, y, 0.3, COLORS.GREY_LINE);
@@ -277,22 +334,28 @@ export async function generateDOFAEI(projectId: string, choId: string) {
             drawText(page, "VII. Contract Modification Impact", 45, y + 11, fontBold, 8, false, false, COLORS.WHITE);
             y += 20;
             drawText(page, "Time:", 40, y + 8, font, 8);
-            drawText(page, "60", 85, y + 8, font, 8, true);
+            drawText(page, (choData.time_extension_days || 0).toString(), 85, y + 8, font, 8, true);
             drawLine(page, 70, y + 10, 100, y + 10);
             drawText(page, "Calendar Days", 110, y + 8, font, 8);
 
             drawText(page, "Change Amount: $", 250, y + 8, font, 8);
-            drawText(page, "(862,022.10)", 370, y + 8, fontBold, 9, false, false, COLORS.TEXT_RED);
+            const amtStr = formatCurrency(Math.abs(parseFloat(choData.proposed_change) || 0));
+            drawText(page, `(${amtStr})`, 370, y + 8, fontBold, 9, false, false, (parseFloat(choData.proposed_change) || 0) < 0 ? COLORS.TEXT_RED : COLORS.BLACK);
             drawLine(page, 325, y + 10, 450, y + 10);
 
             y += 40;
-            drawText(page, "Prepared by: Eng. Luis R. Pastor Reyes", 40, y, fontBold, 9);
-            drawText(page, "12-Nov-25", PW - 100, y, font, 9, false, true);
+            const preparer = dofaei.prepared_by_name || "Eng. Luis R. Pastor Reyes";
+            const prepPos = dofaei.prepared_by_position || "Ingeniero Residente";
+            const prepDate = dofaei.prepared_by_date || new Date().toISOString().split('T')[0];
+
+            drawText(page, `Prepared by: ${preparer}`, 40, y, fontBold, 9);
+            drawText(page, prepDate, PW - 100, y, font, 9, false, true);
             
             y += 15;
             drawLine(page, 100, y, 350, y);
             drawLine(page, PW - 150, y, PW - 50, y);
             drawText(page, "Print Name", 225, y + 10, font, 7, true);
+            drawText(page, prepPos, 225, y + 20, font, 8, true);
             drawText(page, "Position", 225, y + 30, font, 7, true);
             drawText(page, "Date", PW - 100, y + 10, font, 7, true);
             drawText(page, "Date", PW - 100, y + 30, font, 7, true);

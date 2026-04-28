@@ -906,7 +906,16 @@ const PaymentCertForm = React.forwardRef(({
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {(c.items || []).map((item: any, itIdx: number) => {
+                                                {(c.items || [])
+                                                    .sort((a, b) => {
+                                                        const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+                                                        const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+                                                        const parsedA = parseInt(numA || '0');
+                                                        const parsedB = parseInt(numB || '0');
+                                                        if (parsedA !== parsedB) return parsedA - parsedB;
+                                                        return (a.item_num || "").localeCompare(b.item_num || "");
+                                                    })
+                                                    .map((item: any, itIdx: number) => {
                                                     const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
                                                     let paidInPrevious = 0;
                                                     for (let k = 0; k < certIdx; k++) {

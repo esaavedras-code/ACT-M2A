@@ -141,13 +141,14 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         if (data && data.length > 0) {
             setRecords(data.map(r => ({
                 ...r,
-                date_received: r.date_received || "",
-                date_expiry: r.date_expiry || "",
-                date_validated: r.date_validated || "",
-                is_general: r.is_general || false,
-                custom_doc_name: r.custom_doc_name || "",
                 email_sent_14d: r.email_sent_14d || false,
-            })));
+            }))
+            .sort((a, b) => {
+                const subA = (a.subcontractor_name || "").toLowerCase();
+                const subB = (b.subcontractor_name || "").toLowerCase();
+                if (subA !== subB) return subA.localeCompare(subB);
+                return (a.doc_type || "").localeCompare(b.doc_type || "");
+            }));
             setTimeout(() => checkUpcomingExpiries(data), 2000); // Check shortly after loading
         } else {
             addRecord([], true);
