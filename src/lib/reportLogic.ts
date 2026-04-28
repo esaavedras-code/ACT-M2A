@@ -1508,6 +1508,7 @@ import { generateAct117C } from "./generateAct117C";
 import { generateAct117B } from "./generateAct117B";
 import { generateAct122 } from "./generateAct122";
 import { generateAct122Excel } from "./generateAct122Excel";
+import { generateDOFAEI } from "./generateDOFAEI";
 
 import { generateAct124 } from "./generateAct124";
 import { generateRoa } from "./generateRoa";
@@ -1601,6 +1602,22 @@ export const generateAct122ReportLogic = async (projectId: string, choId: string
     } else {
         const blob = await generateAct122(projectId, choId, isFinal);
         if (blob) downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}${isFinal ? '_FINAL' : ''}.pdf`);
+    }
+};
+
+export const generateDOFAEIReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'pdf') => {
+    const { project, chos } = await fetchAllReportData(projectId);
+    const cho = chos?.find(c => c.id === choId);
+    if (!project || !cho) return;
+
+    if (format === 'excel') {
+        alert("El reporte DOFAEI oficial se genera en formato PDF por requerimiento de la ACT.");
+        // Podríamos implementar excel después si es crítico, pero el oficial es PDF.
+        const blob = await generateDOFAEI(projectId, choId);
+        if (blob) downloadBlob(blob, `DOFAEI_CHO_${cho.cho_num || choId}_${project.num_act}.pdf`);
+    } else {
+        const blob = await generateDOFAEI(projectId, choId);
+        if (blob) downloadBlob(blob, `DOFAEI_CHO_${cho.cho_num || choId}_${project.num_act}.pdf`);
     }
 };
 

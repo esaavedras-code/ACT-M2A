@@ -36,6 +36,7 @@ import {
     generateAct122ReportLogic,
     generateAct123BReportLogic,
     generateAct124ReportLogic,
+    generateDOFAEIReportLogic,
     generateRoaReportLogic,
     generateCCMLReportLogic,
 
@@ -832,6 +833,31 @@ function ReportesContent() {
                             </select>
                         </div>
                     </StandardReportItem>
+
+                    <SelectiveReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'dofaei-selective',
+                            label: 'DOFAEI (Federal Aid Eligibility)',
+                            description: 'Formulario de determinación de elegibilidad de ayuda federal para la orden de cambio seleccionada.',
+                            icon: <FileDigit size={18} className="text-purple-700" />,
+                            selectLabel: "Elegir CHO",
+                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
+                            onGenerate: async (ids) => {
+                                try {
+                                    for(const id of ids) {
+                                        await generateDOFAEIReportLogic(projectId, id, reportFormat);
+                                    }
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    />
 
                     {/* ROA UI Block */}
                     <StandardReportItem
