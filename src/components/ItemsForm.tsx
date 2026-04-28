@@ -4,7 +4,7 @@ import React, { useEffect, useState, forwardRef, useImperativeHandle } from "rea
 import { supabase } from "@/lib/supabase";
 import { Save, ListChecks, Plus, Trash2, Info, PlusSquare, FileText, Printer, Search } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { formatCurrency, formatNumber, roundedAmt } from "@/lib/utils";
+import { formatCurrency, formatNumber, roundedAmt, sortItemsNaturally } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 import mfgItemsData from "@/lib/mfgItems.json";
 
@@ -70,7 +70,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
     const fetchItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId).order('item_num', { ascending: true });
-        if (data && data.length > 0) setItems(data);
+        if (data && data.length > 0) setItems(sortItemsNaturally(data));
         else setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1 }]);
     };
 

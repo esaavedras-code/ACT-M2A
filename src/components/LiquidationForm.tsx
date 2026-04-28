@@ -4,7 +4,7 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, Gavel, CheckCircle, FileText, Plus, Trash2, Download, Upload, AlertCircle, Loader2, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, sortItemsNaturally } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 import { generateSignedItemsReportLogic, generateMissingSignaturesReportLogic } from "@/lib/reportLogic";
 
@@ -91,7 +91,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
         const { data: projData } = await supabase.from("projects").select("liquidation_data").eq("id", projectId).single();
         const { data: itemsData } = await supabase.from("contract_items").select("*").eq("project_id", projectId).order("item_num", { ascending: true });
         
-        if (itemsData) setContractItems(itemsData);
+        if (itemsData) setContractItems(sortItemsNaturally(itemsData));
 
         if (projData && projData.liquidation_data) {
             setFormData({

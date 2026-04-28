@@ -6,7 +6,7 @@ import { Project, AC49Report, LaborEntry, EquipmentEntry, MaterialEntry } from '
 import { EditableTable } from './EditableTable';
 import { calculateLaborTotal, applyAC51Rules, calculateEquipmentRental } from '../lib/fa2Calculations';
 import { supabase } from "@/lib/supabase";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, sortItemsNaturally } from "@/lib/utils";
 
 const PREDEFINED_EQUIPMENT_RATES = [
   { name: 'Pickup Truck (4x4)', model: 'Standard / Lariat', daily: 75, weekly: 350, monthly: 1200 },
@@ -374,7 +374,7 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
       if (rData) setReports(rData);
 
       const { data: cData } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
-      if (cData) setContractItems(cData);
+      if (cData) setContractItems(sortItemsNaturally(cData));
 
     } catch (err) {
       console.error(err);

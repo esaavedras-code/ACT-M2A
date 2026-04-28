@@ -269,7 +269,7 @@ export async function generateRoa(projectId: string, choId: string) {
                 const approvalNameField = form.createTextField(`printname_approval_p${pNum}`);
                 approvalNameField.addToPage(page, {
                     x: 90,
-                    y: PH - appY - 78,
+                    y: PH - appY - 75,
                     width: PW - 280,
                     height: 12,
                     borderWidth: 0,

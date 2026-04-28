@@ -1,10 +1,3 @@
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configurar el worker de PDF.js (necesario para que funcione en el navegador)
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-}
-
 /**
  * Procesa un PDF en base64 y extrae su texto directamente en el cliente.
  * Esto evita el uso de API Routes y permite la exportación estática para Electron.
@@ -13,6 +6,15 @@ export async function parsePdfClient(base64: string): Promise<{ success: boolean
     try {
         if (!base64) return { success: false, error: "No data provided" };
         
+        // Importación dinámica para evitar errores de carga global en Next.js/Webpack
+        // Usamos la ruta completa al archivo .mjs
+        const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
+        
+        // Configurar el worker de PDF.js (necesario para que funcione en el navegador)
+        if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+        }
+
         // Limpiar base64
         const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
         const binaryData = atob(base64Data);

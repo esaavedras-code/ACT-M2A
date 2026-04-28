@@ -25,7 +25,7 @@ import {
     Info
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatCurrency, formatNumber, sortItemsNaturally } from '@/lib/utils';
 import FloatingFormActions from '@/components/FloatingFormActions';
 import AboutModal from './AboutModal';
 
@@ -107,7 +107,7 @@ const PaymentCertForm = React.forwardRef(({
                 .eq('project_id', projectId)
                 .order('item_num', { ascending: true });
             
-            if (!iError) setInternalContractItems(items || []);
+            if (!iError) setInternalContractItems(sortItemsNaturally(items || []));
 
             // 3. Cargar certificaciones de pago
             const { data: certs, error: cError } = await supabase

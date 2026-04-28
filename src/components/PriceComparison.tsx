@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { TrendingUp, TrendingDown, Minus, BarChart3, Filter, ArrowUpDown, ChevronDown, ChevronUp, Info, List } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, sortItemsNaturally } from "@/lib/utils";
 
 interface HistoricalItem {
     spec_num: string;
@@ -61,7 +61,7 @@ export default function PriceComparison({ projectId }: { projectId?: string }) {
                     .select("id, item_num, specification, description, quantity, unit, unit_price")
                     .eq("project_id", projectId)
                     .order("item_num");
-                if (data) setContractItems(data);
+                if (data) setContractItems(sortItemsNaturally(data));
             }
             setLoading(false);
         };

@@ -94,7 +94,7 @@ export async function generateCCMLReport(
         };
 
         // --- Header Info & Metrics Calculations (A1-V29) ---
-        const cleanManager = (project.project_manager_name || project.admin_name || manager || '').replace(/^(Ing\.|Eng\.|Arq\.)\s+/i, '');
+        const pmName = project.project_manager_name || project.admin_name || manager || '';
         const englishTitle = translateDescription(project.name);
 
         // General Info (E Column)
@@ -103,8 +103,10 @@ export async function generateCCMLReport(
         setVal('E10', project.num_oracle || '');
         setVal('E11', project.name ? `${project.name}${englishTitle ? (" / " + englishTitle) : ""}` : "");
         setVal('E12', contrData?.name || project.contractor_name || '');
-        setVal('E13', cleanManager);
-        setVal('E14', reportDate);
+        setVal('E13', pmName);
+        const docDate = new Date(reportDate);
+        docDate.setHours(12, 0, 0, 0);
+        setVal('E14', docDate);
         setVal('E15', ""); // Requirement 4: Delete E15
         setVal('E16', project.num_contrato || '');
         setVal('B16', "Has the Project reached substantial completion?"); // Requirement 1
@@ -112,18 +114,25 @@ export async function generateCCMLReport(
         setVal('E17', trueChoList.filter((c: any) => c.cho_num !== undefined).length || 0);
         setVal('E18', ewoList.length || 0);
 
-        // Requirement 5: Reduce font size for labels and info (E8 to E14, B17, B18)
-        ['E8','E9','E10','E11','E12','E13','E14','B17','B18'].forEach(addr => {
+        // Requirement 5: Font size for labels and info (E8 to L14, B17, B18)
+        for (let r = 8; r <= 14; r++) {
+            for (let c = 5; c <= 12; c++) { // E to L
+                const cell = ws.getCell(r, c);
+                if (!cell.font) cell.font = {};
+                cell.font = { ...cell.font, size: 10 };
+            }
+        }
+        ['B17','B18'].forEach(addr => {
             const cell = ws.getCell(addr);
             if (!cell.font) cell.font = {};
-            cell.font = { ...cell.font, size: (cell.font.size || 11) - 1 };
+            cell.font = { ...cell.font, size: 10 };
         });
 
         // Performance Metrics (T Column)
-        const startDate = project.date_project_start ? new Date(project.date_project_start + "T00:00:00") : null;
-        const origEndDate = project.date_orig_completion ? new Date(project.date_orig_completion + "T23:59:59") : null;
-        const subEndDate = project.date_substantial_completion ? new Date(project.date_substantial_completion + "T23:59:59") : null;
-        const revEndDateVal = project.date_rev_completion ? new Date(project.date_rev_completion + "T23:59:59") : null;
+        const startDate = project.date_project_start ? new Date(project.date_project_start + "T12:00:00") : null;
+        const origEndDate = project.date_orig_completion ? new Date(project.date_orig_completion + "T12:00:00") : null;
+        const subEndDate = project.date_substantial_completion ? new Date(project.date_substantial_completion + "T12:00:00") : null;
+        const revEndDateVal = project.date_rev_completion ? new Date(project.date_rev_completion + "T12:00:00") : null;
 
         let totalDays = 0;
         if (startDate && origEndDate) {
@@ -135,8 +144,8 @@ export async function generateCCMLReport(
 
         // usedDays logic - Capped by reportDate
         let timeEndDate = reportDate;
-        const substantialDate = project.date_substantial_completion ? new Date(project.date_substantial_completion + "T23:59:59") : null;
-        const realDate = project.date_real_completion ? new Date(project.date_real_completion + "T23:59:59") : null;
+        const substantialDate = project.date_substantial_completion ? new Date(project.date_substantial_completion + "T12:00:00") : null;
+        const realDate = project.date_real_completion ? new Date(project.date_real_completion + "T12:00:00") : null;
         
         if (substantialDate && substantialDate < timeEndDate) {
             timeEndDate = substantialDate;
@@ -187,7 +196,7 @@ export async function generateCCMLReport(
         setVal('T15', roundedAmt(percentChangeCost * 100, 2) / 100);
         setVal('T16', roundedAmt(percentWork * 100, 2) / 100);
         // T17: Estimated Completion (uses date_est_completion or fallback)
-        const estimatedCompletion = project.date_est_completion ? new Date(project.date_est_completion + "T23:59:59") : (subEndDate || revEnd);
+        const estimatedCompletion = project.date_est_completion ? new Date(project.date_est_completion + "T12:00:00") : (subEndDate || revEnd);
         if (estimatedCompletion) setVal('T17', estimatedCompletion);
         if (adminEnd) setVal('T18', adminEnd);
 
@@ -234,7 +243,13 @@ export async function generateCCMLReport(
             setVal(`I${rowF}`, payroll).numFmt = '"$"#,##0.00';
 
             // Middle: Colored (K to P) - CALCULATED
-            setVal(`B${rowF}`, fund.unit_name);
+            // Forzar nombres de unidades B35-B39
+            if (rowF === 35) setVal(`B${rowF}`, 'Unit 1');
+            else if (rowF === 36) setVal(`B${rowF}`, 'Unit 2');
+            else if (rowF === 37) setVal(`B${rowF}`, 'Unit 3');
+            else if (rowF === 38) setVal(`B${rowF}`, 'Unit 4');
+            else if (rowF === 39) setVal(`B${rowF}`, 'Unit 5');
+            else setVal(`B${rowF}`, fund.unit_name);
             setVal(`C${rowF}`, fedPct).numFmt = '0.00%';
             setVal(`D${rowF}`, fedPct).numFmt = '0.00%';
 

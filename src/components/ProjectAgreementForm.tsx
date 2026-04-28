@@ -142,14 +142,42 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
     const handleChange = (index: number, field: keyof FundRow, value: any) => {
         const nextFunds = [...(fundsRef.current.length > 0 ? fundsRef.current : funds)];
         (nextFunds[index] as any)[field] = value;
+        
+        // Recalcular Fed Share % automáticamente si cambian sus dependencias
+        if (field === 'fa_funds_requested' || field === 'participating' || field === 'contingencies_participating') {
+            const row = nextFunds[index];
+            const fa = row.fa_funds_requested || 0;
+            const part = row.participating || 0;
+            const cont = row.contingencies_participating || 0;
+            const total = part + cont;
+            
+            if (total > 0) {
+                row.federal_share_pct = parseFloat(((fa / total) * 100).toFixed(2));
+            } else {
+                row.federal_share_pct = 0;
+            }
+        }
+
         setFunds(nextFunds);
         fundsRef.current = nextFunds;
     };
 
     const addUnit = () => {
         const currentFunds = fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds;
+        
+        // Encontrar el número más alto actual para sugerir el siguiente
+        let maxNum = 0;
+        currentFunds.forEach(f => {
+            const match = f.unit_name.match(/(\d+)/);
+            if (match) {
+                const n = parseInt(match[0]);
+                if (n > maxNum) maxNum = n;
+            }
+        });
+        const nextNum = Math.max(currentFunds.length + 1, maxNum + 1);
+
         const newFunds = [...currentFunds, { 
-            unit_name: `Unit ${currentFunds.length + 1}`, 
+            unit_name: `Unit ${nextNum}`, 
             federal_share_pct: 100, 
             participating: 0, contingencies_participating: 0, payroll_mileage_diets: 0, 
             fa_funds_requested: 0, contingencies_federal: 0, calc_toll_credits: 0, contingencies_toll: 0, 
@@ -160,22 +188,79 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
         fundsRef.current = newFunds;
     };
 
-    const saveFunds = async (silent = false) => {
-        setLoading(true);
-        // Evitamos guardar con un ref.current vacío si no se montó completamente antes de la acción rápida
+    const reIndexUnits = () => {
         const currentFunds = fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds;
-        try {
-            const { error } = await supabase
-                .from('project_agreement_funds')
-                .upsert(currentFunds.map(f => ({ ...f, project_id: projectId })));
+        const newFunds = currentFunds.map((f, i) => ({
+            ...f,
+            unit_name: `Unit ${i + 1}`
+        }));
+        setFunds(newFunds);
+        fundsRef.current = newFunds;
+    };
 
-            if (error) throw error;
+    const saveFunds = async (silent = false) => {
+        if (!projectId) {
+            console.warn("No se puede guardar fondos: projectId es nulo o indefinido");
+            return { success: false };
+        }
+
+        setLoading(true);
+        const currentFunds = fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds;
+        
+        try {
+            // Sanitizar datos para asegurar que son números válidos y tienen el project_id correcto
+            const dataToUpsert = currentFunds.map(f => {
+                const row = { ...f, project_id: projectId };
+                
+                // Si el ID está vacío o es null, lo eliminamos para que Supabase genere uno nuevo
+                if (!row.id || row.id === "") {
+                    delete row.id;
+                }
+
+                // Asegurar que todos los campos numéricos sean números (no strings o NaN)
+                Object.keys(row).forEach(key => {
+                    const val = (row as any)[key];
+                    if (key !== 'id' && key !== 'project_id' && key !== 'unit_name' && key !== 'created_at') {
+                        const parsed = parseFloat(val);
+                        (row as any)[key] = isNaN(parsed) ? 0 : parsed;
+                    }
+                });
+                return row;
+            });
+
+            console.log("DEBUG: Payload a enviar a Supabase:", JSON.stringify(dataToUpsert, null, 2));
+
+            const { data, error } = await supabase
+                .from('project_agreement_funds')
+                .upsert(dataToUpsert, { onConflict: 'project_id, unit_name' })
+                .select();
+
+            if (error) {
+                console.error("Supabase upsert error (raw):", error);
+                const detailedError = JSON.stringify(error, Object.getOwnPropertyNames(error), 2);
+                console.error("Supabase upsert error (detailed):", detailedError);
+                throw new Error(detailedError);
+            }
+            
+            if (data) {
+                setFunds(data);
+                fundsRef.current = data;
+            }
+
             if(!silent) alert("Información del Project Agreement guardada con éxito.");
             return { success: true };
         } catch (err: any) {
-            console.error("Error saving funds:", err);
-            if(!silent) alert("Error al guardar fondos: " + err.message);
-            // Re-lanzamos el error para que ProjectForm pueda capturarlo si es llamado desde allí
+            console.error("Error capturado en saveFunds:", err);
+            const errorInfo = err instanceof Error ? {
+                message: err.message,
+                stack: err.stack,
+                ...err
+            } : err;
+            
+            const errorMsg = JSON.stringify(errorInfo, Object.getOwnPropertyNames(errorInfo), 2);
+            console.error("Error detallado (JSON):", errorMsg);
+            
+            if(!silent) alert("Error al guardar fondos (Detalle): " + (err.message || errorMsg));
             throw err;
         } finally {
             setLoading(false);
@@ -189,74 +274,88 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
             <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
                 <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">Fondos Originales (Project Agreement)</h3>
                 <div className="flex gap-2 w-full sm:w-auto">
-                    <button type="button" onClick={addUnit} className="btn-secondary flex-1 sm:flex-none py-1.5 px-3 text-[10px] flex items-center justify-center gap-1">
-                        <Plus size={14} /> Añadir Unidad
+                    <button type="button" onClick={reIndexUnits} className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full py-2 px-4 text-[9px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-2 text-slate-500">
+                        Consecutivos (1, 2, 3...)
                     </button>
-                    {/* El botón de guardar ahora es flotante */}
+                    <button type="button" onClick={addUnit} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full py-2 px-4 text-[10px] font-black uppercase tracking-widest shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 text-slate-600 dark:text-slate-300">
+                        <Plus size={14} className="text-blue-500" /> Añadir Unidad
+                    </button>
                 </div>
             </div>
 
-            <div className="overflow-x-auto custom-scrollbar">
+            <div className="overflow-x-auto custom-scrollbar rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl">
                 <table className="min-w-full text-[10px] border-collapse bg-white dark:bg-slate-900">
                     <thead>
-                        <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                            <th className="border p-1">Units</th>
-                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Fed Share %</th>
-                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Participating</th>
-                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Contingencies (Participating)</th>
-                            <th className="border p-1">Payroll/Mileage and Diets</th>
-                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>F.A. Fund Requested</th>
-                            <th className="border p-1 bg-blue-50 dark:bg-blue-900/20">Fed Cont.</th>
-                            <th className="border p-1 bg-blue-50 dark:bg-blue-900/20">Toll Credits</th>
-                            <th className="border p-1 bg-blue-50 dark:bg-blue-900/20">Contingencies (Toll Credits)</th>
-                            <th className="border p-1 bg-green-50 dark:bg-green-900/20">State Share of Federal Funds</th>
-                            <th className="border p-1 bg-green-50 dark:bg-green-900/20">Contingencies (State Share)</th>
-                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Not Participating (State Funds)</th>
-                            <th className="border p-1" style={{ backgroundColor: '#66FF99' }}>Contingencies (No Part.)</th>
-                            <th className="border p-1 bg-gray-50 dark:bg-gray-900/20">Payroll, Millage and Diets</th>
-                            <th className="border p-1">Acciones</th>
+                        {/* Grouped Headers */}
+                        <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-tighter font-black">
+                            <th className="border-b border-r p-2" rowSpan={2}>Units</th>
+                            <th className="border-b border-r p-2" rowSpan={2} style={{ backgroundColor: '#FFF5EB' }}>Fed Share %</th>
+                            <th className="border-b border-r p-2 text-center bg-slate-100/50 dark:bg-slate-800" colSpan={3}>INPUT PROJECT AGREEMENT</th>
+                            <th className="border-b border-r p-2 text-center bg-orange-50/50 dark:bg-orange-900/10" colSpan={1}>FEDERAL FUNDS</th>
+                            <th className="border-b border-r p-2 text-center bg-yellow-50/50 dark:bg-yellow-900/10" colSpan={3}>STATE FUNDS</th>
+                            <th className="border-b p-2" rowSpan={2}>Acciones</th>
+                        </tr>
+                        <tr className="bg-slate-50 dark:bg-slate-800/30 text-slate-400 dark:text-slate-500 text-[9px]">
+                            {/* Input Project Agreement */}
+                            <th className="border-b border-r p-2">Participating</th>
+                            <th className="border-b border-r p-2">Contingencies (Part.)</th>
+                            <th className="border-b border-r p-2">Payroll/Mileage/Diets</th>
+                            {/* Federal Funds */}
+                            <th className="border-b border-r p-2">F.A. Fund Requested</th>
+                            {/* State Funds */}
+                            <th className="border-b border-r p-2">Not Participating</th>
+                            <th className="border-b border-r p-2">Contingencies (No Part.)</th>
+                            <th className="border-b border-r p-2">Payroll/Mileage/Diets</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {funds.map((row, idx) => (
-                            <tr key={idx}>
+                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                 {/* Unit name */}
-                                <td className="border p-0.5">
-                                    <input type="text" className="w-full bg-transparent border-none p-0.5 min-w-[120px]" value={row.unit_name} onChange={(e) => handleChange(idx, 'unit_name', e.target.value)} />
+                                <td className="border-r p-1">
+                                    <input 
+                                        type="text" 
+                                        className="w-full bg-transparent border-none p-1 font-bold text-slate-700 dark:text-slate-200 min-w-[100px]" 
+                                        value={row.unit_name} 
+                                        onChange={(e) => handleChange(idx, 'unit_name', e.target.value)} 
+                                    />
                                 </td>
-                                {/* Fed Share % */}
-                                <td className="border p-0.5" style={{ backgroundColor: '#66FF99' }}>
-                                    <input type="number" className="w-full bg-transparent border-none p-0.5 text-right min-w-[100px]" value={row.federal_share_pct} onChange={(e) => handleChange(idx, 'federal_share_pct', parseFloat(e.target.value))} />
+                                {/* Fed Share % (Calculado) */}
+                                <td className="border-r p-1 text-center" style={{ backgroundColor: '#FFF5EB' }}>
+                                    <input 
+                                        type="text" 
+                                        readOnly
+                                        className="w-full bg-transparent border-none p-1 text-center font-black text-orange-600 cursor-default focus:outline-none" 
+                                        value={`${row.federal_share_pct.toFixed(2)}%`}
+                                    />
                                 </td>
-                                {/* Celdas monetarias */}
-                                <MoneyCell fieldKey={`participating_${idx}`} rowIdx={idx} field="participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
-                                <MoneyCell fieldKey={`cont_part_${idx}`} rowIdx={idx} field="contingencies_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
-                                <MoneyCell fieldKey={`payroll_${idx}`} rowIdx={idx} field="payroll_mileage_diets" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} />
-                                {/* F.A. Requested — verde */}
-                                <MoneyCell fieldKey={`fa_req_${idx}`} rowIdx={idx} field="fa_funds_requested" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" style={{ backgroundColor: '#66FF99' }} />
-                                <MoneyCell fieldKey={`fed_cont_${idx}`} rowIdx={idx} field="contingencies_federal" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-blue-50/50 dark:bg-blue-900/10" />
-                                <MoneyCell fieldKey={`toll_${idx}`} rowIdx={idx} field="calc_toll_credits" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-blue-50/50 dark:bg-blue-900/10" />
-                                <MoneyCell fieldKey={`cont_toll_${idx}`} rowIdx={idx} field="contingencies_toll" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-blue-50/50 dark:bg-blue-900/10" />
-                                <MoneyCell fieldKey={`state_share_${idx}`} rowIdx={idx} field="state_share_federal" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-green-50/50 dark:bg-green-900/10" />
-                                <MoneyCell fieldKey={`cont_state_share_${idx}`} rowIdx={idx} field="contingencies_state_share" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-green-50/50 dark:bg-green-900/10" />
-                                {/* Not Participating (State Funds) — verde */}
-                                <td className="border p-0.5" style={{ backgroundColor: '#66FF99' }}>
-                                    <MoneyCell fieldKey={`not_participating_${idx}`} rowIdx={idx} field="not_participating_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" />
-                                </td>
-                                {/* Contingencies (No Part.) — verde */}
-                                <td className="border p-0.5" style={{ backgroundColor: '#66FF99' }}>
-                                    <MoneyCell fieldKey={`cont_nop_${idx}`} rowIdx={idx} field="contingencies_not_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="font-bold" />
-                                </td>
-                                <MoneyCell fieldKey={`payroll_mileage_diets_state_${idx}`} rowIdx={idx} field="payroll_mileage_diets_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="bg-gray-50/50 dark:bg-gray-900/10" />
+                                
+                                {/* INPUT PROJECT AGREEMENT */}
+                                <MoneyCell fieldKey={`participating_${idx}`} rowIdx={idx} field="participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="border-r font-bold text-slate-900 dark:text-white" style={{ backgroundColor: '#66FF99' }} />
+                                <MoneyCell fieldKey={`cont_part_${idx}`} rowIdx={idx} field="contingencies_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="border-r text-slate-700" style={{ backgroundColor: '#66FF99' }} />
+                                <MoneyCell fieldKey={`payroll_${idx}`} rowIdx={idx} field="payroll_mileage_diets" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="border-r text-slate-700" style={{ backgroundColor: '#66FF99' }} />
+                                
+                                {/* FEDERAL FUNDS */}
+                                <MoneyCell fieldKey={`fa_req_${idx}`} rowIdx={idx} field="fa_funds_requested" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="border-r font-black text-blue-700 bg-blue-50/30" style={{ backgroundColor: '#66FF99' }} />
+                                
+                                {/* STATE FUNDS */}
+                                <MoneyCell fieldKey={`not_participating_${idx}`} rowIdx={idx} field="not_participating_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="border-r font-bold text-emerald-800" style={{ backgroundColor: '#66FF99' }} />
+                                <MoneyCell fieldKey={`cont_nop_${idx}`} rowIdx={idx} field="contingencies_not_participating" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="border-r text-emerald-800" style={{ backgroundColor: '#66FF99' }} />
+                                <MoneyCell fieldKey={`payroll_mileage_diets_state_${idx}`} rowIdx={idx} field="payroll_mileage_diets_state" funds={funds} editingField={editingField} setEditingField={setEditingField} handleChange={handleChange} className="border-r text-slate-700" style={{ backgroundColor: '#66FF99' }} />
+                                
                                 {/* Acciones */}
-                                <td className="border p-0.5 text-center">
-                                    <button type="button" onClick={() => {
-                                        const currentFunds = fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds;
-                                        const newList = currentFunds.filter((_, i) => i !== idx);
-                                        setFunds(newList);
-                                        fundsRef.current = newList;
-                                    }} className="text-red-500 hover:text-red-700">
-                                        <Trash2 size={12} />
+                                <td className="p-1 text-center">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            const currentFunds = fundsRef.current && fundsRef.current.length > 0 ? fundsRef.current : funds;
+                                            const newList = currentFunds.filter((_, i) => i !== idx);
+                                            setFunds(newList);
+                                            fundsRef.current = newList;
+                                        }} 
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-all"
+                                    >
+                                        <Trash2 size={14} />
                                     </button>
                                 </td>
                             </tr>
@@ -264,6 +363,16 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                     </tbody>
                 </table>
             </div>
+
+            <div className="mt-12 py-8 border-t border-slate-200 dark:border-slate-800 text-center">
+                <p className="text-[10px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-[0.3em] mb-1">
+                    Diseñado por
+                </p>
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                    Ing. Enrique Saavedra Sada, PE
+                </p>
+            </div>
+
             {!hideActions && (
                 <FloatingFormActions
                     actions={[
@@ -279,14 +388,13 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
                             label: loading ? "Guardando..." : "Guardar cambios",
                             icon: <Save />,
                             onClick: () => saveFunds(),
-                            description: "Actualizar la tabla de fondos originales y créditos de peaje del Project Agreement",
+                            description: "Actualizar la tabla de fondos originales del Project Agreement",
                             variant: 'primary' as const,
                             disabled: loading
                         }
                     ]}
                 />
             )}
-
         </div>
     );
 });

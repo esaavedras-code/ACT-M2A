@@ -8,7 +8,8 @@ import Link from "next/link";
 import { 
     getLocalStorageItem, 
     setLocalStorageItem, 
-    formatProjectNumber 
+    formatProjectNumber,
+    sortItemsNaturally
 } from "@/lib/utils";
 import { 
     FileText, Download, AlertCircle, CheckCircle2,
@@ -363,7 +364,7 @@ function ReportesContent() {
         if (pc) setCerts(pc);
 
         const { data: ci } = await supabase.from("contract_items").select("id, item_num, description").eq("project_id", projectId).order('item_num');
-        if (ci) setItems(ci);
+        if (ci) setItems(sortItemsNaturally(ci));
 
         const { data: mn } = await supabase.from("meeting_minutes").select("id, meeting_number, meeting_date").eq("project_id", projectId).order('meeting_date', { ascending: false });
         if (mn) setMinutes(mn);

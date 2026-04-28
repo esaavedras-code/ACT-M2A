@@ -7,6 +7,7 @@ import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { parsePdfClient } from "@/lib/pdfClientParser";
 
+import { sortItemsNaturally } from "@/lib/utils";
 import { TodayButton } from "./TodayButton";
 
 interface ValidationResult {
@@ -58,8 +59,9 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
     const fetchItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
         if (data) {
-            setContractItems(data);
-            return data;
+            const sortedItems = sortItemsNaturally(data);
+            setContractItems(sortedItems);
+            return sortedItems;
         }
         return null;
     };

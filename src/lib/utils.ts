@@ -174,3 +174,16 @@ export function formatProjectNumber(value: string | null | undefined, cleanSuffi
 
     return `AC-${cleanValue}`;
 }
+
+/**
+ * Ordena un arreglo de items de forma natural basándose en item_num.
+ * Permite que "2" aparezca antes que "10".
+ */
+export function sortItemsNaturally<T extends { item_num?: string | number | null }>(items: T[]): T[] {
+    if (!Array.isArray(items)) return [];
+    return [...items].sort((a, b) => {
+        const aStr = a.item_num?.toString() || "";
+        const bStr = b.item_num?.toString() || "";
+        return aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: 'base' });
+    });
+}

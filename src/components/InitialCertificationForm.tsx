@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Save, ShieldCheck, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Info, Download, FileText, Printer, Calendar, X, FileCheck, Paperclip } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
-import { formatDate } from "@/lib/utils";
+import { formatDate, sortItemsNaturally } from "@/lib/utils";
 
 const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function InitialCertificationForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [certs, setCerts] = useState<any[]>([]);
@@ -127,7 +127,7 @@ const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAc
             .select("id, item_num, description, unit")
             .eq("project_id", projectId)
             .order("item_num", { ascending: true });
-        if (data) setContractItems(data);
+        if (data) setContractItems(sortItemsNaturally(data));
     };
 
     const addCert = (silent = false) => {

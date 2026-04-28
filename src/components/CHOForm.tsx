@@ -4,7 +4,7 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare, TrendingUp, Download, Upload, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { formatCurrency, roundedAmt } from "@/lib/utils";
+import { formatCurrency, roundedAmt, sortItemsNaturally } from "@/lib/utils";
 import { generateCCMLReportLogic } from "@/lib/reportLogic";
 import specsData from "@/data/specifications.json";
 
@@ -66,7 +66,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
 
     const fetchContractItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
-        if (data) setContractItems(data);
+        if (data) setContractItems(sortItemsNaturally(data));
     };
 
     const fetchCHOs = async () => {

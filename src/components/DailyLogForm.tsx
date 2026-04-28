@@ -13,7 +13,7 @@ import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { generateDailyLogReport } from "@/lib/generateDailyLogReport";
 import { downloadBlob } from "@/lib/reportLogic";
-
+import { sortItemsNaturally } from "@/lib/utils";
 const DELAY_TYPES = ["Condiciones existentes", "Material", "Falla en la especificación", "Decisión de ACT", "Calidad", "Evento de seguridad", "Clima"];
 const EQUIPMENT_TYPES = ["Bob Cat", "Pickup F-150", "Pickup Ram 2500", "Pickup F-450", "Truck Tumba 320", "Grúa de canasto", "Miniexcavadora"];
 
@@ -83,7 +83,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
             console.error("Error fetching contract items:", error);
             return;
         }
-        if (data) setContractItems(data);
+        if (data) setContractItems(sortItemsNaturally(data));
     };
 
     const fetchProjectInfo = async () => {
