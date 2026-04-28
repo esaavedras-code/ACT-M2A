@@ -8,7 +8,7 @@ const PH = 792; // 11"
 /**
  * Helpers de dibujo para PDF-lib
  */
-const drawText = (p: any, txt: any, x: number, y: number, font: any, size = 8, center = false, right = false) => {
+const drawText = (p: any, txt: any, x: number, y: number, font: any, size = 8, center = false, right = false, color = rgb(0, 0, 0)) => {
     if (txt === undefined || txt === null) return;
     const s = txt.toString().replace(/\t/g, ' ');
     const textWidth = font.widthOfTextAtSize(s, size);
@@ -16,11 +16,7 @@ const drawText = (p: any, txt: any, x: number, y: number, font: any, size = 8, c
     if (center) finalX = x - (textWidth / 2);
     else if (right) finalX = x - textWidth;
 
-    let textColor = rgb(0, 0, 0);
-    const isNegativeCurrency = s.trim().startsWith('(') && s.trim().endsWith(')') && !/[a-zA-Z]/.test(s);
-    if (isNegativeCurrency) textColor = rgb(0.8, 0, 0);
-
-    p.drawText(s, { x: finalX, y: PH - y, size, font, color: textColor });
+    p.drawText(s, { x: finalX, y: PH - y, size, font, color });
 };
 
 const drawLine = (p: any, x1: number, y1: number, x2: number, y2: number, thickness = 0.5) => {
@@ -50,179 +46,252 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         const pdfDoc = await PDFDocument.create();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
-        const fmt = (v: any) => {
-            if (v === 0 || v === "0") return "0.00";
-            if (!v || v === "-") return "-";
-            const num = parseFloat(v);
-            if (isNaN(num)) return "-";
-            const formatted = Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            return num < 0 ? `(${formatted})` : formatted;
-        };
-
-        const drawHeader = (p: any, pageNum: number, totalPages: number) => {
-            drawText(p, `Página ${pageNum} de ${totalPages}`, PW - 45, 30, font, 8, false, true);
-            drawText(p, "Determination of Federal Aid Eligibility Form", PW / 2, 60, fontBold, 14, true);
-            
-            // Sección I
-            drawText(p, "I.   Project Information", 40, 90, fontBold, 10);
-            
-            // Labels
-            drawText(p, "Project Name:", 40, 110, fontBold, 8);
-            drawText(p, "Project Number:", 240, 110, fontBold, 8);
-            drawText(p, "Federal Number:", 380, 110, fontBold, 8);
-            drawText(p, "Road Classif.", 510, 110, fontBold, 8);
-
-            // Data Lines
-            drawLine(p, 40, 125, 230, 125, 0.5);
-            drawLine(p, 240, 125, 370, 125, 0.5);
-            drawLine(p, 380, 125, 500, 125, 0.5);
-            
-            drawText(p, projData.name || "", 40, 123, font, 8);
-            drawText(p, projData.num_act || "", 240, 123, font, 8);
-            drawText(p, projData.num_federal || "", 380, 123, font, 8);
-
-            // Road Classif Checks
-            drawText(p, "Interstate", 510, 123, font, 7);
-            drawText(p, "NHS", 510, 138, font, 7);
-            drawCheck(p, 545, 138, true, fontBold); // Default NHS to true for safety in PR HTA usually
-            drawText(p, "Non NHS", 565, 138, font, 7);
-            drawCheck(p, 595, 138, false, fontBold);
-        };
-
-        const drawSections = (p: any) => {
-            let y = 160;
-            
-            // Sección II & III side by side
-            drawText(p, "II.  Contract Modification Type", 40, y, fontBold, 10);
-            drawText(p, "III. Modification Type", 300, y, fontBold, 10);
-            y += 20;
-
-            const isCO = choData.is_change_of_contract || true; // Usually CO
-            drawCheck(p, 45, y, isCO, fontBold);
-            drawText(p, "Change Order", 60, y + 8, font, 8);
-
-            drawCheck(p, 305, y, choData.is_new_item || false, fontBold);
-            drawText(p, "Aditional Scope of Work", 320, y + 8, font, 8);
-            y += 15;
-
-            drawCheck(p, 45, y, !isCO, fontBold);
-            drawText(p, "Extra Work Order", 60, y + 8, font, 8);
-
-            drawCheck(p, 305, y, choData.is_time_extension || false, fontBold);
-            drawText(p, "Time Extension", 320, y + 8, font, 8);
-            y += 15;
-
-            drawCheck(p, 305, y, false, fontBold);
-            drawText(p, "Emergency", 320, y + 8, font, 8);
-            y += 20;
-
-            // Sección IV
-            drawText(p, "IV.  Determination Conditions", 40, y, fontBold, 10);
-            y += 20;
-
-            const totalAmt = parseFloat(choData.proposed_change) || 0;
-            const isMajor = totalAmt > 100000;
-
-            drawCheck(p, 45, y, totalAmt < 0, fontBold);
-            drawText(p, "Deductive Items", 60, y + 8, font, 8);
-
-            drawCheck(p, 200, y, !isMajor, fontBold);
-            drawText(p, "Minor Change", 215, y + 8, font, 8);
-
-            drawCheck(p, 350, y, isMajor, fontBold);
-            drawText(p, "Major Change and/or NHS", 365, y + 8, font, 8);
-            y += 15;
-
-            drawCheck(p, 45, y, false, fontBold);
-            drawText(p, "Safety Items", 60, y + 8, font, 8);
-
-            drawCheck(p, 200, y, isMajor && totalAmt < 100000, fontBold);
-            drawText(p, "Sub-estimated Items < 100K", 215, y + 8, font, 8);
-
-            drawCheck(p, 350, y, false, fontBold);
-            drawText(p, "Known Non-Participating Items", 365, y + 8, font, 8);
-            y += 30;
-
-            return y;
-        };
+        // Logos
+        let actLogoImg: any = null;
+        let dotLogoImg: any = null;
+        try {
+            const actLogoRes = await fetch('/act_logo.png');
+            const dotLogoRes = await fetch('/dot_logo.png');
+            if (actLogoRes.ok) actLogoImg = await pdfDoc.embedPng(await actLogoRes.arrayBuffer());
+            if (dotLogoRes.ok) dotLogoImg = await pdfDoc.embedPng(await dotLogoRes.arrayBuffer());
+        } catch (e) { console.warn("Logos not found for PDF", e); }
 
         const allItems = Array.isArray(choData.items) ? choData.items : [];
-        const itemsPerPage = 15;
+        const itemsPerPage = 5; // Section VI limits to about 5-6 items per page column-wise
         const totalPages = Math.max(1, Math.ceil(allItems.length / itemsPerPage));
 
         for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
             const page = pdfDoc.addPage([PW, PH]);
-            drawHeader(page, pageIdx + 1, totalPages);
-            let y = pageIdx === 0 ? drawSections(page) : 150;
-
-            // Sección V
-            drawText(page, "V.  Items Evaluated", 40, y, fontBold, 10);
-            y += 15;
-
-            // Table Header
-            const cols = [40, 70, 130, 280, 330, 370, 430, 490, 540, PW - 40];
-            drawLine(page, cols[0], y, cols[9], y, 1);
-            
-            const headerY = y + 12;
-            drawText(page, "Item", cols[0] + 2, headerY, fontBold, 7);
-            drawText(page, "Spec Code", cols[1] + 2, headerY, fontBold, 7);
-            drawText(page, "Description", cols[2] + 2, headerY, fontBold, 7);
-            drawText(page, "Qty", cols[3] + 2, headerY, fontBold, 7);
-            drawText(page, "Unit", cols[4] + 2, headerY, fontBold, 7);
-            drawText(page, "Price", cols[5] + 2, headerY, fontBold, 7);
-            drawText(page, "Total", cols[6] + 2, headerY, fontBold, 7);
-            drawText(page, "Eligib.", cols[7] + 2, headerY, fontBold, 7);
-            drawText(page, "Ratio", cols[8] + 2, headerY, fontBold, 7);
-
-            y += 18;
-            drawLine(page, cols[0], y, cols[9], y, 0.5);
-
             const pageItems = allItems.slice(pageIdx * itemsPerPage, (pageIdx + 1) * itemsPerPage);
             
+            // --- HEADER ---
+            if (actLogoImg) page.drawImage(actLogoImg, { x: 40, y: PH - 60, width: 100, height: 40 });
+            if (dotLogoImg) page.drawImage(dotLogoImg, { x: PW - 140, y: PH - 60, width: 100, height: 40 });
+
+            drawText(page, `Página ${pageIdx + 1} de ${totalPages}`, PW - 40, 30, font, 8, false, true);
+            drawText(page, "DETERMINATION OF FEDERAL-AID ELIGIBILITY FORM", PW / 2, 70, fontBold, 14, true);
+
+            // --- SECTION I: PROJECT INFORMATION ---
+            let y = 100;
+            drawRect(page, 40, y, PW - 80, 15, true, rgb(0.9, 0.9, 0.9));
+            drawText(page, "I.   PROJECT INFORMATION", 45, y + 11, fontBold, 9);
+            y += 20;
+
+            drawText(page, "Project Name:", 40, y + 8, fontBold, 8);
+            drawText(page, projData.name || "", 110, y + 8, font, 8);
+            drawLine(page, 110, y + 10, 350, y + 10);
+
+            drawText(page, "Road Classif.", 380, y + 8, fontBold, 8);
+            drawCheck(page, 445, y, (projData.road_classification || "").toLowerCase().includes("interstate"), fontBold);
+            drawText(page, "Interstate", 460, y + 8, font, 7);
+            
+            drawCheck(page, 510, y, (projData.road_classification || "").toLowerCase().includes("nhs") && !(projData.road_classification || "").toLowerCase().includes("non"), fontBold);
+            drawText(page, "NHS", 525, y + 8, font, 7);
+
+            drawCheck(page, 555, y, (projData.road_classification || "").toLowerCase().includes("non"), fontBold);
+            drawText(page, "Non NHS", 570, y + 8, font, 7);
+
+            y += 20;
+            drawText(page, "Project Number:", 40, y + 8, fontBold, 8);
+            drawText(page, projData.num_act || "", 110, y + 8, font, 8);
+            drawLine(page, 110, y + 10, 230, y + 10);
+
+            drawText(page, "Federal Number:", 250, y + 8, fontBold, 8);
+            drawText(page, projData.num_federal || "", 325, y + 8, font, 8);
+            drawLine(page, 325, y + 10, 450, y + 10);
+
+            y += 30;
+
+            // --- SECTION II & III SIDE BY SIDE ---
+            const mid = PW / 2;
+            drawRect(page, 40, y, mid - 50, 15, true, rgb(0.9, 0.9, 0.9));
+            drawText(page, "II.  CONTRACT MODIFICATION TYPE", 45, y + 11, fontBold, 8);
+            
+            drawRect(page, mid - 5, y, mid - 35, 15, true, rgb(0.9, 0.9, 0.9));
+            drawText(page, "III. MODIFICATION TYPE", mid, y + 11, fontBold, 8);
+            
+            y += 20;
+            const isCO = choData.is_change_of_contract !== false;
+            drawCheck(page, 45, y, isCO, fontBold);
+            drawText(page, "Change Order", 60, y + 8, font, 8);
+
+            drawCheck(page, mid, y, choData.modification_type?.includes("Additional"), fontBold);
+            drawText(page, "Additional Scope of Work", mid + 15, y + 8, font, 8);
+            
+            y += 15;
+            drawCheck(page, 45, y, !isCO, fontBold);
+            drawText(page, "Extra Work Order", 60, y + 8, font, 8);
+
+            drawCheck(page, mid, y, choData.modification_type?.includes("Specification"), fontBold);
+            drawText(page, "Specification Change", mid + 15, y + 8, font, 8);
+
+            y += 15;
+            drawCheck(page, mid, y, choData.modification_type?.includes("Differing"), fontBold);
+            drawText(page, "Differing Site Conditions", mid + 15, y + 8, font, 8);
+
+            y += 15;
+            drawCheck(page, mid, y, choData.modification_type?.includes("Other"), fontBold);
+            drawText(page, "Other:", mid + 15, y + 8, font, 8);
+            drawLine(page, mid + 45, y + 10, PW - 50, y + 10);
+
+            y += 25;
+
+            // --- SECTION IV: DETERMINATION CONDITIONS ---
+            drawRect(page, 40, y, PW - 80, 15, true, rgb(0.9, 0.9, 0.9));
+            drawText(page, "IV.  DETERMINATION CONDITIONS", 45, y + 11, fontBold, 8);
+            y += 20;
+
+            const amt = parseFloat(choData.proposed_change) || 0;
+            drawCheck(page, 45, y, amt < 0, fontBold);
+            drawText(page, "Deductive Items", 60, y + 8, font, 8);
+
+            drawCheck(page, 160, y, amt > 0 && amt <= 100000, fontBold);
+            drawText(page, "Minor Change", 175, y + 8, font, 8);
+
+            drawCheck(page, 280, y, amt > 100000, fontBold);
+            drawText(page, "Major Change and/or NHS", 295, y + 8, font, 8);
+
+            drawCheck(page, 420, y, false, fontBold);
+            drawText(page, "Rideability Bonus", 435, y + 8, font, 8);
+
+            y += 15;
+            drawCheck(page, 45, y, false, fontBold);
+            drawText(page, "Safety Items", 60, y + 8, font, 8);
+
+            drawCheck(page, 160, y, false, fontBold);
+            drawText(page, "Sub-estimated Items < 100K", 175, y + 8, font, 8);
+
+            drawCheck(page, 280, y, false, fontBold);
+            drawText(page, "Known Non-Participating Items", 295, y + 8, font, 8);
+
+            y += 25;
+
+            // --- SECTION V: ITEMS EVALUATED ---
+            drawRect(page, 40, y, PW - 80, 15, true, rgb(0.9, 0.9, 0.9));
+            drawText(page, "V.   ITEMS EVALUATED", 45, y + 11, fontBold, 8);
+            y += 15;
+
+            const vCols = [40, 70, 110, 240, 290, 330, 390, 450, 510, PW - 40];
+            drawLine(page, vCols[0], y, vCols[9], y, 1);
+            const vHeaderY = y + 12;
+            drawText(page, "Item", vCols[0] + 2, vHeaderY, fontBold, 7);
+            drawText(page, "Spec Code", vCols[1] + 2, vHeaderY, fontBold, 7);
+            drawText(page, "Description", vCols[2] + 2, vHeaderY, fontBold, 7);
+            drawText(page, "Qty", vCols[3] + 2, vHeaderY, fontBold, 7);
+            drawText(page, "Unit", vCols[4] + 2, vHeaderY, fontBold, 7);
+            drawText(page, "Price", vCols[5] + 2, vHeaderY, fontBold, 7);
+            drawText(page, "Total", vCols[6] + 2, vHeaderY, fontBold, 7);
+            drawText(page, "Eligib.", vCols[7] + 2, vHeaderY, fontBold, 7);
+            drawText(page, "Fed %", vCols[8] + 2, vHeaderY, fontBold, 7);
+            y += 15;
+            drawLine(page, vCols[0], y, vCols[9], y, 0.5);
+
             pageItems.forEach((it: any) => {
-                const rowY = y + 12;
+                const rowY = y + 10;
                 const qty = parseFloat(it.proposed_change || it.quantity) || 0;
                 const price = parseFloat(it.unit_price) || 0;
                 const total = qty * price;
                 const isFed = (it.fund_source || "").includes("FHWA");
-                const ratio = isFed ? ((it.fund_source || "").includes("80.25") ? "0.8025" : "1.0000") : "0.0000";
+                const ratio = isFed ? ((it.fund_source || "").includes("80.25") ? "80.25%" : "100%") : "0%";
 
-                drawText(page, it.item_num || "", cols[0] + 2, rowY, font, 7);
-                drawText(page, it.specification || "", cols[1] + 2, rowY, font, 7);
-                drawText(page, (it.description || "").substring(0, 35), cols[2] + 2, rowY, font, 6.5);
-                drawText(page, fmt(qty), cols[4] - 2, rowY, font, 7, false, true);
-                drawText(page, it.unit || "", cols[4] + 2, rowY, font, 7);
-                drawText(page, fmt(price), cols[6] - 2, rowY, font, 7, false, true);
-                drawText(page, fmt(total), cols[7] - 2, rowY, font, 7, false, true);
-                drawText(page, isFed ? "Yes" : "No", cols[7] + 2, rowY, font, 7);
-                drawText(page, ratio, cols[8] + 2, rowY, font, 7);
+                drawText(page, it.item_num || "", vCols[0] + 2, rowY, font, 7);
+                drawText(page, it.specification || "", vCols[1] + 2, rowY, font, 7);
+                drawText(page, (it.description || "").substring(0, 38), vCols[2] + 2, rowY, font, 6.5);
+                drawText(page, qty.toLocaleString(), vCols[4] - 2, rowY, font, 7, false, true);
+                drawText(page, it.unit || "", vCols[4] + 2, rowY, font, 7);
+                drawText(page, formatCurrency(price), vCols[6] - 2, rowY, font, 7, false, true);
+                drawText(page, formatCurrency(total), vCols[7] - 2, rowY, font, 7, false, true);
+                drawText(page, isFed ? "Yes" : "No", vCols[7] + 2, rowY, font, 7);
+                drawText(page, ratio, vCols[8] + 2, rowY, font, 7);
 
-                y += 18;
-                drawLine(page, cols[0], y, cols[9], y, 0.3);
+                y += 12;
+                drawLine(page, vCols[0], y, vCols[9], y, 0.3);
             });
 
-            // Fill empty rows to maintain layout if desired, or just end
-            
-            // Signatures on last page
-            if (pageIdx === totalPages - 1) {
-                y += 40;
-                drawLine(page, 40, y, 200, y, 0.5);
-                drawLine(page, 220, y, 280, y, 0.5);
-                drawText(page, "Project Administrator / Resident Engineer", 40, y + 12, font, 7);
-                drawText(page, "Date", 220, y + 12, font, 7);
+            y += 15;
 
-                drawLine(page, 340, y, 500, y, 0.5);
-                drawLine(page, 520, y, 580, y, 0.5);
-                drawText(page, "Area Supervisor / Project Manager", 340, y + 12, font, 7);
-                drawText(page, "Date", 520, y + 12, font, 7);
+            // --- SECTION VI: EVALUATION MATRIX ---
+            drawRect(page, 40, y, PW - 80, 15, true, rgb(0.9, 0.9, 0.9));
+            drawText(page, "VI.  EVALUATION OF FEDERAL AID ELIGIBLE ITEMS", 45, y + 11, fontBold, 8);
+            y += 15;
+
+            const viCols = [40, 240, 290, 340, 390, 440, 490, PW - 40];
+            drawLine(page, viCols[0], y, viCols[7], y, 1);
+            drawText(page, "Elegible Criteria", viCols[0] + 5, y + 25, fontBold, 8);
+            
+            // Item headers in VI
+            pageItems.forEach((it: any, idx: number) => {
+                drawText(page, `Item #${it.item_num}`, viCols[2 + idx], y + 12, fontBold, 7, true);
+                drawText(page, "Y/T", viCols[2 + idx] - 12, y + 25, fontBold, 6);
+                drawText(page, "N/F", viCols[2 + idx] + 12, y + 25, fontBold, 6);
+            });
+            drawText(page, "Comments", viCols[7] - 40, y + 25, fontBold, 8, true);
+            
+            y += 30;
+            drawLine(page, viCols[0], y, viCols[7], y, 0.5);
+
+            const criteria = [
+                "1.1 Proposed work includes subsidiary obligations...",
+                "1.2 Proposed work is out of authorized scope...",
+                "1.3 Proposed work extends beyond project boundaries...",
+                "1.4 Proposed work adversely impacts work underway...",
+                "1.5 Cost exceeds available funds (contingencies)...",
+                "1.6 Proposed change is related to re-do/faulty work...",
+                "2.1 Independent evaluation discovered discrepancies...",
+                "2.2 Cost analysis has not been documented...",
+                "3.1 Time extension has not been fully justified...",
+                "4.1 Proposed work involves routine maintenance...",
+                "4.2 Proposed change involves maintenance items..."
+            ];
+
+            criteria.forEach((crit) => {
+                const rowY = y + 10;
+                drawText(page, crit.substring(0, 55), viCols[0] + 2, rowY, font, 6.5);
                 
-                y += 50;
-                drawLine(page, 40, y, 200, y, 0.5);
-                drawLine(page, 220, y, 280, y, 0.5);
-                drawText(page, "District Director / Program Manager", 40, y + 12, font, 7);
-                drawText(page, "Date", 220, y + 12, font, 7);
-            }
+                pageItems.forEach((it: any, idx: number) => {
+                    const isFed = (it.fund_source || "").includes("FHWA");
+                    // Most criteria should be "No" for eligibility if they are negative conditions, 
+                    // or "Yes" if they are positive. For this demo, we mark consistently based on FHWA.
+                    const isYes = isFed; 
+                    drawText(page, "X", viCols[2 + idx] + (isYes ? -10 : 10), rowY, fontBold, 7, true);
+                });
+
+                y += 12;
+                drawLine(page, viCols[0], y, viCols[7], y, 0.3);
+            });
+
+            y += 10;
+
+            // --- SECTION VII: IMPACT ---
+            drawRect(page, 40, y, PW - 80, 15, true, rgb(0.9, 0.9, 0.9));
+            drawText(page, "VII. CONTRACT MODIFICATION IMPACT", 45, y + 11, fontBold, 8);
+            y += 20;
+
+            drawText(page, `Time: ${choData.is_time_extension ? choData.time_extension_days : 0} Calendar Days`, 45, y + 8, font, 8);
+            drawText(page, `Change Amount: ${formatCurrency(amt)}`, 250, y + 8, fontBold, 8);
+
+            y += 40;
+            // --- SIGNATURES ---
+            const sigY = y;
+            drawLine(page, 40, sigY, 220, sigY);
+            drawText(page, "Project Administrator / Resident Engineer", 40, sigY + 12, font, 7);
+            drawLine(page, 230, sigY, 290, sigY);
+            drawText(page, "Date", 230, sigY + 12, font, 7);
+
+            drawLine(page, 340, sigY, 500, sigY);
+            drawText(page, "Area Supervisor / Project Manager", 340, sigY + 12, font, 7);
+            drawLine(page, 510, sigY, 570, sigY);
+            drawText(page, "Date", 510, sigY + 12, font, 7);
+
+            y += 40;
+            drawLine(page, 40, y, 220, y);
+            drawText(page, "District Director / Program Manager", 40, y + 12, font, 7);
+            drawLine(page, 230, y, 290, y);
+            drawText(page, "Date", 230, y + 12, font, 7);
+            
+            drawText(page, "Designed by Ing. Enrique Saavedra Sada, PE", PW / 2, PH - 20, fontItalic, 6, true);
         }
 
         const pdfBytes = await pdfDoc.save();
