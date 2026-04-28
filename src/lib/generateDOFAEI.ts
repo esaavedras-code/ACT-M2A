@@ -22,13 +22,14 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         // podemos intentar cargar el archivo desde la carpeta de la app o vía fetch si está en public.
         // Asumimos que el archivo se copió a la carpeta public o se puede acceder vía API.
         
-        // NOTA: Para que funcione en la versión web/build, lo ideal es tener el template en /public.
-        // Voy a intentar leerlo desde la ruta absoluta que dio Enrique si estamos en entorno local.
+        // Intentar cargar el template desde public
+        const templateUrl = '/templates/DOFAEI.xlsx';
+        console.log("Intentando cargar template desde:", templateUrl);
         
-        let response = await fetch('/templates/DOFAEI.xlsx');
+        let response = await fetch(templateUrl);
         if (!response.ok) {
-             // Fallback a la ruta de desarrollo si no está en public
-             throw new Error("No se encontró el template en /public/templates/DOFAEI.xlsx");
+             console.error("Error al cargar el template:", response.status, response.statusText);
+             throw new Error(`No se pudo cargar la plantilla del servidor (${response.status})`);
         }
         const arrayBuffer = await response.arrayBuffer();
         await workbook.xlsx.load(arrayBuffer);
