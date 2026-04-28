@@ -121,15 +121,21 @@ export default function DOFAEIForm({ projectId, choId, onClose }: DOFAEIFormProp
         }
     };
 
-    const handleGeneratePDF = async () => {
+    const handleGenerateExcel = async () => {
         await handleSave();
         try {
             const blob = await generateDOFAEI(projectId, choId);
             const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `DOFAEI_CHO_${choData?.cho_num}${choData?.amendment_letter || ""}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         } catch (err) {
-            console.error("Error generating PDF:", err);
-            alert("Error al generar el PDF");
+            console.error("Error generating Excel:", err);
+            alert("Error al generar el Excel. Asegúrese de que el template esté disponible.");
         }
     };
 
@@ -355,11 +361,11 @@ export default function DOFAEIForm({ projectId, choId, onClose }: DOFAEIFormProp
                             {saving ? "Guardando..." : "Guardar Datos"}
                         </button>
                         <button 
-                            onClick={handleGeneratePDF}
+                            onClick={handleGenerateExcel}
                             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-600/30 transition-all active:scale-95"
                         >
                             <FileText size={16} />
-                            Generar Reporte PDF
+                            Descargar Formato Excel
                         </button>
                     </div>
                 </div>
