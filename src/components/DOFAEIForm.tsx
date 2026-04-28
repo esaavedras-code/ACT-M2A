@@ -250,9 +250,9 @@ export default function DOFAEIForm({ projectId, choId, onClose }: DOFAEIFormProp
                                     <tr className="bg-slate-50 dark:bg-slate-800/50">
                                         <th className="p-4 text-[10px] font-black text-slate-400 uppercase w-1/3">Criterio de Elegibilidad</th>
                                         {items.map(it => (
-                                            <th key={it.id || it.item_num} className="p-4 text-[10px] font-black text-slate-400 uppercase text-center border-l border-slate-100 dark:border-slate-800 min-w-[100px]">
-                                                Item #{it.item_num}
-                                                <div className="text-[8px] opacity-60 line-clamp-1">{it.description}</div>
+                                            <th key={it.id || it.item_num} className="p-4 font-black text-slate-500 uppercase text-center border-l border-slate-100 dark:border-slate-800 min-w-[120px]">
+                                                <div className="text-[15px] text-blue-600 mb-1">Item #{it.item_num}</div>
+                                                <div className="text-[10px] opacity-60 line-clamp-1">{it.description}</div>
                                             </th>
                                         ))}
                                     </tr>
