@@ -1,8 +1,8 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatCurrency } from './utils';
+import { DOFAEI_TEMPLATE_BASE64 } from './dofaeiTemplate';
 
-// Esta función ahora devolverá un Buffer del Excel relleno
+// Esta función ahora usa el template incrustado en Base64 para máxima confiabilidad
 export async function generateDOFAEI(projectId: string, choId: string) {
     try {
         const { data: projData } = await supabase.from('projects').select('*').eq('id', projectId).single();
@@ -14,38 +14,12 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         const determinations = dofaei.determination_conditions || {};
         const evaluations = dofaei.evaluations || {};
 
-        // Cargar el template
+        // Cargar el template desde el Base64 incrustado
         const workbook = new ExcelJS.Workbook();
         
-        // En un entorno de Next.js/Browser, el acceso a archivos locales directos es restringido, 
-        // pero como es una App de Electron y el código corre en el cliente, 
-        // podemos intentar cargar el archivo desde la carpeta de la app o vía fetch si está en public.
-        // Asumimos que el archivo se copió a la carpeta public o se puede acceder vía API.
-        
-        // Intentar cargar el template desde public
-        let arrayBuffer: ArrayBuffer;
-        const templateUrl = '/templates/DOFAEI.xlsx';
-        console.log("Intentando cargar template desde:", templateUrl);
-        
-        try {
-            const response = await fetch(templateUrl);
-            if (!response.ok) throw new Error(`Status ${response.status}`);
-            arrayBuffer = await response.arrayBuffer();
-        } catch (fetchErr) {
-            console.warn("Fetch falló, intentando carga local (Electron)...", fetchErr);
-            // Si falla el fetch (común en Electron local), intentamos usar la API de Electron si existe
-            // @ts-ignore
-            const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
-            if (api?.readFile) {
-                // En Electron, los archivos de public suelen estar en la carpeta out tras el build
-                const data = await api.readFile('out/templates/DOFAEI.xlsx');
-                arrayBuffer = data.buffer;
-            } else {
-                throw new Error("No se pudo cargar la plantilla ni por red ni de forma local.");
-            }
-        }
-
-        await workbook.xlsx.load(arrayBuffer);
+        // Convertir Base64 a Buffer
+        const bufferTemplate = Buffer.from(DOFAEI_TEMPLATE_BASE64, 'base64');
+        await workbook.xlsx.load(bufferTemplate);
         
         const sheet = workbook.getWorksheet(1);
         if (!sheet) throw new Error("No se encontró la hoja en el Excel");
@@ -69,7 +43,7 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         sheet.getCell('L20').value = choData.is_new_item ? "X" : "";
         sheet.getCell('L22').value = choData.is_time_extension ? "X" : "";
         
-        const isOverrun = (choData.proposed_change || 0) > 0 && !choData.is_new_item;
+        const isOverrun = (parseFloat(choData.proposed_change) || 0) > 0 && !choData.is_new_item;
         sheet.getCell('U22').value = isOverrun ? "X" : "";
 
         // --- SECTION IV: Determination Conditions ---
@@ -85,7 +59,7 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         // --- SECTION V: Items Evaluated ---
         const items = Array.isArray(choData.items) ? choData.items : [];
         let startRow = 42;
-        items.forEach((it, idx) => {
+        items.slice(0, 15).forEach((it, idx) => {
             const row = sheet.getRow(startRow + idx);
             const isFed = (it.fund_source || "").includes("FHWA");
             const ratio = isFed ? ((it.fund_source || "").includes("80.25") ? "80.25%" : "100%") : "0%";
@@ -102,10 +76,7 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         });
 
         // --- SECTION VI: Evaluation Matrix ---
-        // Basado en el análisis de celdas, los ítems en la matriz empiezan en columnas L, O, R... (saltan de 3 en 3)
-        const matrixCols = [12, 15, 18, 21, 24]; // L, O, R, U, X
-        
-        // Mapeo de IDs de criterios a filas del Excel
+        const matrixCols = [12, 15, 18, 21, 24, 27, 30, 33, 36, 39]; // L, O, R, U, X, AA, AD, AG, AJ, AM
         const criterionRows: Record<string, number> = {
             "1.1": 70, "1.2": 72, "1.3": 74, "1.4": 76, "1.5": 78, "1.6": 80,
             "2.1": 83, "2.2": 85,
@@ -113,18 +84,18 @@ export async function generateDOFAEI(projectId: string, choId: string) {
             "4.1": 89, "4.2": 90
         };
 
-        items.slice(0, 5).forEach((it, itemIdx) => {
+        items.slice(0, 10).forEach((it, itemIdx) => {
             const colIdx = matrixCols[itemIdx];
-            
-            // Poner el número de ítem en el header de la matriz
+            if (!colIdx) return;
+
             sheet.getCell(68, colIdx).value = `#${it.item_num}`;
 
             Object.entries(criterionRows).forEach(([critId, rowIdx]) => {
-                const val = evaluations[it.item_num]?.[critId]; // "YT" o "NF"
+                const val = evaluations[it.item_num]?.[critId];
                 if (val === "NF") {
-                    sheet.getCell(rowIdx, colIdx - 1).value = "X"; // Columna izquierda (N/F)
+                    sheet.getCell(rowIdx, colIdx - 1).value = "X";
                 } else if (val === "YT") {
-                    sheet.getCell(rowIdx, colIdx).value = "X"; // Columna derecha (Y/T)
+                    sheet.getCell(rowIdx, colIdx).value = "X";
                 }
             });
         });
@@ -134,17 +105,13 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         sheet.getCell('N94').value = Math.abs(parseFloat(choData.proposed_change) || 0);
 
         // Signatures
-        const preparer = dofaei.prepared_by_name || "";
-        const prepPos = dofaei.prepared_by_position || "";
-        const prepDate = dofaei.prepared_by_date || "";
+        sheet.getCell('I96').value = dofaei.prepared_by_name || "";
+        sheet.getCell('I99').value = dofaei.prepared_by_position || "";
+        sheet.getCell('W96').value = dofaei.prepared_by_date || "";
 
-        sheet.getCell('I96').value = preparer;
-        sheet.getCell('I99').value = prepPos;
-        sheet.getCell('W96').value = prepDate;
-
-        // Generar Buffer
-        const buffer = await workbook.xlsx.writeBuffer();
-        return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        // Generar Buffer de salida
+        const outBuffer = await workbook.xlsx.writeBuffer();
+        return new Blob([outBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
     } catch (err: any) {
         console.error("Error generating DOFAEI Excel:", err);
