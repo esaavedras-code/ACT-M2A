@@ -1610,14 +1610,9 @@ export const generateDOFAEIReportLogic = async (projectId: string, choId: string
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
 
-    if (format === 'excel') {
-        alert("El reporte DOFAEI oficial se genera en formato PDF por requerimiento de la ACT.");
-        // Podríamos implementar excel después si es crítico, pero el oficial es PDF.
-        const blob = await generateDOFAEI(projectId, choId);
-        if (blob) downloadBlob(blob, `DOFAEI_CHO_${cho.cho_num || choId}_${project.num_act}.pdf`);
-    } else {
-        const blob = await generateDOFAEI(projectId, choId);
-        if (blob) downloadBlob(blob, `DOFAEI_CHO_${cho.cho_num || choId}_${project.num_act}.pdf`);
+    const blob = await generateDOFAEI(projectId, choId);
+    if (blob) {
+        downloadBlob(blob, `DOFAEI_CHO_${cho.cho_num}${cho.amendment_letter || ""}_${project.num_act}.xlsx`);
     }
 };
 
