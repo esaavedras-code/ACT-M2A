@@ -745,22 +745,22 @@ const PaymentCertForm = React.forwardRef(({
                                                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Certificación #</label>
                                                 <div className="text-2xl font-black text-primary">#{c.cert_num}</div>
                                             </div>
-                                            <div className="space-y-1">
+                                            <div className="flex flex-col gap-1">
                                                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha Cert.</label>
                                                 <input
                                                     type="date"
-                                                    className="input-field text-sm font-bold bg-white dark:bg-slate-900"
+                                                    className="input-field text-sm font-bold bg-white dark:bg-slate-900 !w-[140px]"
                                                     style={{ backgroundColor: '#66FF99' }}
                                                     value={c.cert_date || ""}
                                                     onChange={(e) => updateCert(certIdx, 'cert_date', e.target.value)}
                                                 />
                                             </div>
                                         </div>
-                                        <div className="space-y-1">
+                                        <div className="flex flex-col gap-1">
                                             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest text-[#d97706]">Work Performed up to</label>
                                             <input
                                                 type="date"
-                                                className="input-field text-sm font-bold border-amber-200 focus:ring-amber-500 w-full bg-white dark:bg-slate-900"
+                                                className="input-field text-sm font-bold border-amber-200 focus:ring-amber-500 !w-[140px] bg-white dark:bg-slate-900"
                                                 style={{ backgroundColor: '#66FF99' }}
                                                 value={c.wp_up_to || ""}
                                                 onChange={(e) => updateCert(certIdx, 'wp_up_to', e.target.value)}
@@ -768,13 +768,13 @@ const PaymentCertForm = React.forwardRef(({
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 items-start">
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Trabajo ejec. (WP)</span>
                                             <span className="text-lg xl:text-xl font-black text-emerald-600 font-geist tracking-tight">{formatCurrency(certWork)}</span>
                                         </div>
                                         <div className="space-y-1">
-                                            <div className="flex flex-col items-start xl:flex-row xl:items-center xl:justify-between gap-1 xl:gap-2">
+                                            <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">5% Retenido</span>
                                                     <label className="flex items-center gap-1 cursor-pointer group" title="No retener en esta certificación">
@@ -784,7 +784,7 @@ const PaymentCertForm = React.forwardRef(({
                                                             checked={!!c.skip_retention}
                                                             onChange={(e) => updateCert(certIdx, 'skip_retention', e.target.checked)}
                                                         />
-                                                        <span className="text-[9px] font-bold text-slate-400 group-hover:text-amber-600 transition-colors">Sin Ret.</span>
+                                                        <span className="text-[9px] font-bold text-slate-400 group-hover:text-amber-600 transition-colors leading-none">Sin Ret.</span>
                                                     </label>
                                                 </div>
                                                 <label className="flex items-center gap-1 cursor-pointer group" title="Devolución de retenido">
@@ -794,7 +794,7 @@ const PaymentCertForm = React.forwardRef(({
                                                         checked={!!c.show_retention_return}
                                                         onChange={(e) => updateCert(certIdx, 'show_retention_return', e.target.checked)}
                                                     />
-                                                    <span className="text-[8px] font-bold text-slate-400 group-hover:text-blue-600 transition-colors">Devolución</span>
+                                                    <span className="text-[8px] font-bold text-slate-400 group-hover:text-blue-600 transition-colors leading-none">Devolución</span>
                                                 </label>
                                             </div>
                                             <div className="flex items-end gap-3 flex-wrap">
