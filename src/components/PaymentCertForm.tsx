@@ -985,7 +985,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         placeholder="U"
                                                                     />
                                                                 </td>
-                                                                <td className="py-1 px-0.5 relative">
+                                                                <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="number"
                                                                         step="0.0001"
@@ -1003,9 +1003,9 @@ const PaymentCertForm = React.forwardRef(({
                                                                         placeholder="0.00"
                                                                     />
                                                                     {workQty > availableBalance + 0.0001 && availableBalance >= 0 && (
-                                                                        <span className="absolute -bottom-3 right-0 text-[8px] font-bold text-red-500 whitespace-nowrap">
-                                                                            Máx: {availableBalance.toFixed(4)}
-                                                                        </span>
+                                                                        <div className="text-[8px] font-black text-red-600 text-right leading-none mt-0.5 whitespace-nowrap">
+                                                                            ⚠️ Máx: {availableBalance.toFixed(4)}
+                                                                        </div>
                                                                     )}
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
