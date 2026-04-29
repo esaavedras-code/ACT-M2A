@@ -524,12 +524,12 @@ function ProjectDetailContent() {
                                                 </div>
                                             )}
                                             {selectedSection === "firmas" && <PersonnelForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                            {selectedSection === "partidas" && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                            {selectedSection === "partidas" && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} onlyOriginals={true} />}
                                             {selectedSection === "ccml" && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                         </div>
                                     </div>
                                 )}
-                                {activeTab === "items"       && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} readOnly={true} />}
+                                {activeTab === "items"       && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} readOnly={true} onlyOriginals={false} />}
                                 {activeTab === "materials"   && <MaterialsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "compliance"  && <ComplianceForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "cho"         && <CHOForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}

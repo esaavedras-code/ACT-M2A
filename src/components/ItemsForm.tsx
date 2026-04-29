@@ -20,7 +20,7 @@ interface SpecInfo {
 
 const specs = specsData as Record<string, SpecInfo>;
 
-const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void, readOnly?: boolean }>(function ItemsForm({ projectId, numAct, onDirty, onSaved, readOnly = false }, ref) {
+const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void, readOnly?: boolean, onlyOriginals?: boolean }>(function ItemsForm({ projectId, numAct, onDirty, onSaved, readOnly = false, onlyOriginals = false }, ref) {
     const [items, setItems] = useState<any[]>([]);
     const [chos, setChos] = useState<any[]>([]);
     const [certs, setCerts] = useState<any[]>([]);
@@ -545,6 +545,9 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         {items
                                 .map((item, originalIndex) => ({ item, originalIndex }))
                                 .filter(({ item }) => {
+                                    // Si solo queremos originales, filtramos los que tengan cantidad original 0
+                                    if (onlyOriginals && (parseFloat(item.quantity) || 0) <= 0) return false;
+
                                     if (!searchTerm) return true;
                                     const s = searchTerm.toLowerCase().trim();
                                     return (
