@@ -207,7 +207,17 @@ const PaymentCertForm = React.forwardRef(({
             if (!c.skip_retention) retention += cRet;
             
             liquidated += parseFloat(c.liquidated_damages) || 0;
-            totalPaid += certWork - (c.skip_retention ? 0 : cRet) + certMOSNet - (parseFloat(c.liquidated_damages) || 0);
+            const extraRet = parseFloat(c.extra_retention) || 0;
+            const priceAdj = parseFloat(c.price_adjustment) || 0;
+            const insurance = parseFloat(c.insurance_fines) || 0;
+            const otherPenalties = parseFloat(c.other_penalties) || 0;
+            
+            totalPaid += certWork - (c.skip_retention ? 0 : cRet) + certMOSNet 
+                - (parseFloat(c.liquidated_damages) || 0)
+                - extraRet
+                + priceAdj
+                - insurance
+                - otherPenalties;
         });
 
         const changeOrders = projectData?.change_orders || [];
@@ -755,7 +765,15 @@ const PaymentCertForm = React.forwardRef(({
                         if (it.skip_retention) return acc;
                         return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
                     }, 0) - (c.retention_return_amount || 0);
-                    const certNetChange = certWork - (c.skip_retention ? 0 : (certRetention < 0 && !c.show_retention_return ? 0 : certRetention)) + certMOSNet;
+                    
+                    const certNetChange = certWork 
+                        - (c.skip_retention ? 0 : (certRetention < 0 && !c.show_retention_return ? 0 : certRetention)) 
+                        + certMOSNet
+                        - (parseFloat(c.liquidated_damages) || 0)
+                        - (parseFloat(c.extra_retention) || 0)
+                        + (parseFloat(c.price_adjustment) || 0)
+                        - (parseFloat(c.insurance_fines) || 0)
+                        - (parseFloat(c.other_penalties) || 0);
 
                     return (
                         <div key={certIdx} className="card border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 p-0">
@@ -853,6 +871,60 @@ const PaymentCertForm = React.forwardRef(({
                                                 {formatCurrency(certNetChange)}
                                             </span>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Nueva Sección de Deducciones y Ajustes */}
+                                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 md:grid-cols-5 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Daños Líquidos</label>
+                                        <input
+                                            type="number"
+                                            className="input-field text-xs font-bold text-red-600 bg-white dark:bg-slate-900 border-red-50 focus:border-red-200"
+                                            value={c.liquidated_damages ?? ""}
+                                            onChange={(e) => updateCert(certIdx, 'liquidated_damages', e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Retención Extra</label>
+                                        <input
+                                            type="number"
+                                            className="input-field text-xs font-bold text-amber-700 bg-white dark:bg-slate-900 border-amber-50 focus:border-amber-200"
+                                            value={c.extra_retention ?? ""}
+                                            onChange={(e) => updateCert(certIdx, 'extra_retention', e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Ajuste Precio (Clause)</label>
+                                        <input
+                                            type="number"
+                                            className="input-field text-xs font-bold text-blue-600 bg-white dark:bg-slate-900 border-blue-50 focus:border-blue-200"
+                                            value={c.price_adjustment ?? ""}
+                                            onChange={(e) => updateCert(certIdx, 'price_adjustment', e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Seguros / Multas</label>
+                                        <input
+                                            type="number"
+                                            className="input-field text-xs font-bold text-red-700 bg-white dark:bg-slate-900 border-red-50 focus:border-red-200"
+                                            value={c.insurance_fines ?? ""}
+                                            onChange={(e) => updateCert(certIdx, 'insurance_fines', e.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Otras Penalidades</label>
+                                        <input
+                                            type="number"
+                                            className="input-field text-xs font-bold text-slate-700 bg-white dark:bg-slate-900 border-slate-100 focus:border-slate-200"
+                                            value={c.other_penalties ?? ""}
+                                            onChange={(e) => updateCert(certIdx, 'other_penalties', e.target.value)}
+                                            placeholder="0.00"
+                                        />
                                     </div>
                                 </div>
 
