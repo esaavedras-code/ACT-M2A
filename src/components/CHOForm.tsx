@@ -431,9 +431,9 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ext. Días</label>
-                                        <input suppressHydrationWarning type="number" className="input-field text-xs text-center font-bold w-16 bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.time_extension_days ?? 0} onChange={(e) => updateCHO(idx, 'time_extension_days', parseInt(e.target.value))} />
-                                    </div>
+                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ext. Días</label>
+                                         <input suppressHydrationWarning type="number" className="input-field text-xs text-center font-bold !w-[60px] bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.time_extension_days ?? 0} onChange={(e) => updateCHO(idx, 'time_extension_days', parseInt(e.target.value))} />
+                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Estatus Doc.</label>
                                         <select suppressHydrationWarning className="input-field text-xs font-bold bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.doc_status || DOC_STATUSES[0]} onChange={(e) => updateCHO(idx, 'doc_status', e.target.value)}>
