@@ -84,42 +84,50 @@ export async function generateAct117C(projectId: string, certId: string, certNum
         const totalToDatePaid = sumNetPayments;
         const percentWPValue = totalProjectAmount > 0 ? (wpTotalToDate / totalProjectAmount) * 100 : 0;
         
-        const totalRetentionToDate = currentCert?.skip_retention ? 0 : (wpTotalToDate * 0.05);
-        
         let previousRetention = 0;
-        allCerts?.filter(c => c.cert_num < certNum).forEach(c => {
-            if (!c.skip_retention) {
-                const cItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-                let cWP = 0;
-                let rWP = 0;
-                allCerts?.filter(prev => prev.cert_num <= c.cert_num).forEach(prev => {
-                     const pItems = Array.isArray(prev.items) ? prev.items : (prev.items?.list || []);
-                     pItems.forEach((it: any) => rWP += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
-                });
-                previousRetention = (allCerts?.filter(pc => pc.cert_num < certNum && !pc.skip_retention).length > 0) ? 
-                    (allCerts?.filter(pc => pc.cert_num < certNum).reduce((acc, pc) => {
-                        let pcWP = 0;
-                        allCerts?.filter(p => p.cert_num <= pc.cert_num).forEach(p => (Array.isArray(p.items) ? p.items : (p.items?.list || [])).forEach((it: any) => pcWP += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)));
-                        return pc.skip_retention ? acc : (pcWP * 0.05);
-                    }, 0)) : 0;
-            }
-        });
+        let currentRetention = 0;
+        let totalRetentionToDate = 0;
+        let reimbursementThisPeriod = 0;
+
+        const sortedCerts = allCerts?.sort((a, b) => a.cert_num - b.cert_num) || [];
         
-        // Re-calculate previous retention correctly
-        previousRetention = 0;
-        let prevRunningWP = 0;
-        const prevCerts = allCerts?.filter(c => c.cert_num < certNum) || [];
-        prevCerts.forEach(c => {
-            const itemsList = Array.isArray(c.items) ? c.items : (c.items?.list || []);
-            itemsList.forEach((it: any) => { prevRunningWP += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0); });
-            if (!c.skip_retention) {
-                // Retention is always calculated on the TOTAL to date at that cert
-                previousRetention = prevRunningWP * 0.05;
+        sortedCerts.forEach(c => {
+            if (c.cert_num <= certNum) {
+                const itemsList = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+                
+                const cRet = itemsList.reduce((acc: number, it: any) => {
+                    if (it.skip_retention) return acc;
+                    return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
+                }, 0);
+
+                const returnAmount = parseFloat(c.retention_return_amount as any) || 0;
+
+                let actualCertRet = 0;
+                let actualReturn = 0;
+
+                if (!c.skip_retention) {
+                    actualCertRet = cRet;
+                    if (c.show_retention_return) {
+                        actualReturn = returnAmount;
+                    }
+                } else {
+                    actualCertRet = 0;
+                    if (c.show_retention_return) {
+                        actualReturn = returnAmount;
+                    }
+                }
+
+                if (c.cert_num < certNum) {
+                    previousRetention += actualCertRet;
+                } else if (c.cert_num === certNum) {
+                    currentRetention = actualCertRet;
+                    reimbursementThisPeriod = actualReturn;
+                }
+                totalRetentionToDate += actualCertRet;
             }
         });
 
-        const currentRetention = totalRetentionToDate - previousRetention;
-        const subTotalValue = wpCurrent - currentRetention;
+        const subTotalValue = wpCurrent - currentRetention + reimbursementThisPeriod;
 
         const prevMOSBalance = (prevCerts || []).reduce((acc, c) => {
              let cMOS = 0;
@@ -487,8 +495,8 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             const sx = 415; // Moved 1.5cm left from 455 as requested
             const sumDefs = [
                 ["26", "Work Performed (WP):", fmt(wpCurrent, 2, true)],
-                ["27", "5% Retained (WP):", fmt(-Math.abs(currentRetention), 2, true)],
-                ["28", "Reimbursement (WP)(+/-):", fmt(0, 2, true)],
+                ["27", "5% Retained (WP):", currentRetention === 0 ? "$0.00" : fmt(-Math.abs(currentRetention), 2, true)],
+                ["28", "Reimbursement (WP)(+/-):", fmt(reimbursementThisPeriod, 2, true)],
                 ["29", "Sub Total:", fmt(subTotalValue, 2, true)],
                 ["30", "Material on Site (+/-):", fmt(currentMOSChange, 2, true)],
                 ["31", "Liquidated Damages (LQD)(-):", fmt(-Math.abs(currentCert?.liquidated_damages || 0), 2, true)],
