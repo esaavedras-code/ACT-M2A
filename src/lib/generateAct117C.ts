@@ -129,7 +129,8 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
         const subTotalValue = wpCurrent - currentRetention + reimbursementThisPeriod;
 
-        const prevMOSBalance = (prevCerts || []).reduce((acc, c) => {
+        const prevCerts = allCerts?.filter(c => c.cert_num < certNum) || [];
+        const prevMOSBalance = prevCerts.reduce((acc, c) => {
              let cMOS = 0;
              const cItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
              cItems.forEach((it: any) => {
