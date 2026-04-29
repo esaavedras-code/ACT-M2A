@@ -814,7 +814,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
         if (baseItem) {
             const origQty = parseFloat(baseItem.quantity) || 0;
             currentBalance += origQty;
-            reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2)), currentBalance.toFixed(4), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
+            reportData.push(['', '', '  - Cantidad Original de Contrato', origQty.toFixed(2), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(origQty * uPrice, 2)), currentBalance.toFixed(2), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
         }
 
         const itemChos = filteredChos.filter(c => (Array.isArray(c.items) ? c.items : []).some((i: any) => i.item_num === itemNum));
@@ -824,7 +824,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
                 const choQty = parseFloat(i.proposed_change !== undefined ? i.proposed_change : i.quantity) || 0;
                 currentBalance += choQty;
                 const statusStr = c.doc_status === "Borrador" ? "" : ` ${c.doc_status}`;
-                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''}${statusStr} (${formatDate(c.cho_date)})`, choQty.toFixed(4), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2)), currentBalance.toFixed(4), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
+                reportData.push(['', '', `  - CHO #${c.cho_num}${c.amendment_letter || ''}${statusStr} (${formatDate(c.cho_date)})`, choQty.toFixed(2), unit || '', formatCurrency(uPrice), formatCurrency(roundedAmt(choQty * uPrice, 2)), currentBalance.toFixed(2), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
             }
         });
 
@@ -835,7 +835,7 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
                 const certQty = parseFloat(i.quantity) || 0;
                 currentBalance -= certQty;
                 const amt = roundedAmt(certQty * uPrice, 2);
-                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, (-certQty).toFixed(4), unit || '', formatCurrency(uPrice), `-${formatCurrency(amt)}`, currentBalance.toFixed(4), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
+                reportData.push(['', '', `  - Certificación de Pago #${c.cert_num} (${formatDate(c.cert_date)})`, (-certQty).toFixed(2), unit || '', formatCurrency(uPrice), `-${formatCurrency(amt)}`, currentBalance.toFixed(2), formatCurrency(roundedAmt(currentBalance * uPrice, 2))]);
             }
         });
         reportData.push(['', '', '', '', '', '', '', '', '']);

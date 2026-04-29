@@ -555,11 +555,25 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         <input type="text" className="input-field text-xs text-center !px-2 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <div className="space-y-1">
-                                                            <input type="text" className="input-field text-xs !px-2 h-7" value={item.description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} disabled={item.is_admin_amendment} />
-                                                            <input type="text" className="input-field text-[10px] !px-2 h-6 opacity-70" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.additional_description || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." disabled={item.is_admin_amendment} />
-                                                        </div>
-                                                    </td>
+                                                         <div className="space-y-1">
+                                                             <textarea 
+                                                                 className="input-field text-xs !px-2 py-1 min-h-[30px] h-auto resize-none w-full leading-tight" 
+                                                                 value={item.description || ""} 
+                                                                 onChange={(e) => updateCHOItem(idx, itIdx, 'description', e.target.value)} 
+                                                                 disabled={item.is_admin_amendment}
+                                                                 rows={1}
+                                                             />
+                                                             <textarea 
+                                                                 className="input-field text-[10px] !px-2 py-1 min-h-[24px] h-auto resize-none w-full opacity-70 leading-tight" 
+                                                                 style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} 
+                                                                 value={item.additional_description || ""} 
+                                                                 onChange={(e) => updateCHOItem(idx, itIdx, 'additional_description', e.target.value)} 
+                                                                 placeholder="Descripción Adicional..." 
+                                                                 disabled={item.is_admin_amendment}
+                                                                 rows={1}
+                                                             />
+                                                         </div>
+                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                         <input type="text" className="input-field text-xs !px-2 h-7 text-center" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>

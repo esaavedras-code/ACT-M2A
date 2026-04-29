@@ -92,15 +92,21 @@ const PaymentCertForm = React.forwardRef(({
         if (!projectId) return;
         setLoading(true);
         try {
-            // 1. Cargar datos del proyecto
+            // 1. Cargar datos del proyecto incluyendo CHOs
             const { data: project, error: pError } = await supabase
                 .from('projects')
-                .select('*')
+                .select('*, chos(*)')
                 .eq('id', projectId)
                 .single();
 
             if (pError) throw pError;
-            setInternalProjectData(project);
+            
+            // Mapear chos a change_orders para compatibilidad con el resto del código
+            const projectWithCHOs = {
+                ...project,
+                change_orders: project.chos || []
+            };
+            setInternalProjectData(projectWithCHOs);
 
             // 2. Cargar partidas del contrato
             const { data: items, error: iError } = await supabase
@@ -316,8 +322,9 @@ const PaymentCertForm = React.forwardRef(({
         const newCerts = [...certs];
         const newItems = [...(newCerts[certIdx].items || [])];
         
-        if (field === 'item_num' && value) {
-            const baseItem = contractItems.find(it => it.item_num === value);
+        if (field === 'item_num') {
+            const paddedValue = value.toString().padStart(3, '0');
+            const baseItem = contractItems.find(it => it.item_num === paddedValue || it.item_num === value);
             if (baseItem) {
                 newItems[itIdx] = {
                     ...newItems[itIdx],
@@ -326,6 +333,7 @@ const PaymentCertForm = React.forwardRef(({
                     description: baseItem.description,
                     unit: baseItem.unit,
                     unit_price: baseItem.unit_price,
+                    fund_source: baseItem.fund_source
                 };
             } else {
                 newItems[itIdx] = { ...newItems[itIdx], [field]: value };
@@ -337,13 +345,19 @@ const PaymentCertForm = React.forwardRef(({
                 const tot = parseFloat(newItems[itIdx].mos_invoice_total) || 0;
                 const qty = parseFloat(newItems[itIdx].mos_quantity) || 0;
                 if (qty > 0) {
-                    newItems[itIdx].mos_unit_price = (tot / qty).toFixed(4);
+                    newItems[itIdx].mos_unit_price = (tot / qty).toFixed(2);
                 }
             }
         }
-        
+
         newCerts[certIdx].items = newItems;
         setCerts(newCerts);
+
+        const it = newItems[itIdx];
+        const isComplete = it.item_num && it.specification && it.description && it.unit && (parseFloat(it.unit_price) > 0);
+        if (isComplete && (field === 'unit_price' || field === 'unit')) {
+            setTimeout(() => sortCertItems(certIdx), 500);
+        }
     };
 
     const sortCertItems = (certIdx: number) => {
@@ -446,16 +460,21 @@ const PaymentCertForm = React.forwardRef(({
 
     const getItemTotalRevisedQty = (itemNum: string) => {
         const baseItem = contractItems.find(it => (it.item_num || "").toString().trim() === (itemNum || "").toString().trim());
-        if (!baseItem) return 0;
+        let baseQty = Number(baseItem?.quantity) || 0;
         
-        const changeOrders = projectData?.change_orders || [];
+        const changeOrders = projectData?.change_orders || projectData?.chos || [];
         let extra = 0;
         changeOrders.forEach((co: any) => {
-            const coItem = (co.items || []).find((it: any) => (it.item_num || "").toString().trim() === (itemNum || "").toString().trim());
-            if (coItem) extra += parseFloat(coItem.quantity) || 0;
+            const items = Array.isArray(co.items) ? co.items : (co.items as any)?.list || [];
+            const coItem = items.find((it: any) => (it.item_num || "").toString().trim() === (itemNum || "").toString().trim());
+            if (coItem) {
+                // Considerar proposed_change si existe, de lo contrario quantity
+                const qty = parseFloat(coItem.proposed_change !== undefined ? coItem.proposed_change : coItem.quantity) || 0;
+                extra += qty;
+            }
         });
         
-        return (parseFloat(baseItem.quantity) || 0) + extra;
+        return baseQty + extra;
     };
 
     const getCertMOSBalance = (certIdx: number) => {
@@ -895,16 +914,16 @@ const PaymentCertForm = React.forwardRef(({
                                         <table suppressHydrationWarning className="w-full text-left border-collapse table-fixed">
                     <thead className="text-[8px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                                 <tr>
-                                                    <th className="py-1 px-0.5 w-[60px] text-center"># Item</th>
-                                                    <th className="py-1 px-0.5 w-[115px] text-center">Espec.</th>
+                                                    <th className="py-1 px-0.5 w-[50px] text-center"># Item</th>
+                                                    <th className="py-1 px-0.5 w-[80px] text-center">Espec.</th>
                                                     <th className="py-1 px-0.5">Descripción</th>
-                                                    <th className="py-1 px-0.5 w-[65px] text-center">Unidad</th>
-                                                    <th className="py-1 px-0.5 w-[85px] text-right">Cant. WP</th>
-                                                    <th className="py-1 px-0.5 w-[95px] text-right">P. Unitario</th>
-                                                    <th className="py-1 px-0.5 w-[105px] text-right">Total WP</th>
-                                                    <th className="py-1 px-0.5 w-[75px] text-right">Cant. MOS</th>
-                                                    <th className="py-1 px-0.5 w-[90px] text-right">Deducción MOS</th>
-                                                    <th className="py-1 px-0.5 w-[95px] text-right">Total Neto</th>
+                                                    <th className="py-1 px-0.5 w-[50px] text-center">Un.</th>
+                                                    <th className="py-1 px-0.5 w-[80px] text-right">Cant. WP</th>
+                                                    <th className="py-1 px-0.5 w-[90px] text-right">P. Unitario</th>
+                                                    <th className="py-1 px-0.5 w-[90px] text-right">Total WP</th>
+                                                    <th className="py-1 px-0.5 w-[70px] text-right">Cant. MOS</th>
+                                                    <th className="py-1 px-0.5 w-[85px] text-right">Ded. MOS</th>
+                                                    <th className="py-1 px-0.5 w-[90px] text-right">Total Neto</th>
                                                     <th className="py-1 px-1 w-[60px] text-center">Acción</th>
                                                 </tr>
                                             </thead>
@@ -913,30 +932,38 @@ const PaymentCertForm = React.forwardRef(({
                                                     .map((item: any, itIdx: number) => {
                                                     const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
                                                     let paidInPrevious = 0;
-                                                    for (let k = 0; k < certIdx; k++) {
+                                                    // Las certificaciones están en orden descendente (Index 0 = Cert Reciente)
+                                                    // Necesitamos sumar desde certIdx + 1 hasta el final para pagos PREVIOS
+                                                    for (let k = certIdx + 1; k < certs.length; k++) {
                                                         const prevCertItems = certs[k]?.items || [];
                                                         const match = prevCertItems.find((p: any) => (p.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
                                                         if (match) paidInPrevious += parseFloat(match.quantity) || 0;
                                                     }
                                                     const availableBalance = totalRevisedQty - paidInPrevious;
                                                     
-                                                    const itemExistsInContract = contractItems.some(it => (it.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
+                                                    const isKnownItem = itemExistsInContract || (projectData?.change_orders || projectData?.chos || []).some((co: any) => {
+                                                        const items = Array.isArray(co.items) ? co.items : (co.items as any)?.list || [];
+                                                        return items.some((it: any) => (it.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
+                                                    });
 
                                                     const workQty = parseFloat(item.quantity) || 0;
-                                                    const isQtyExceeded = itemExistsInContract && workQty > availableBalance + 0.0001 && availableBalance >= 0;
+                                                    const isQtyExceeded = isKnownItem && workQty > availableBalance + 0.0001 && availableBalance >= 0;
                                                     
                                                     let cumulativeMOSInvoicedAmount = 0;
                                                     let cumulativeMOSUsedAmountBefore = 0;
 
-                                                    // Calcular acumulado de facturas MOS hasta la cert actual (inclusive)
-                                                    // y deducciones usadas hasta la cert ANTERIOR
-                                                    certs.slice(0, certIdx + 1).forEach((cert, cIndex) => {
+                                                    // Calcular acumulado de facturas MOS y deducciones
+                                                    // Las certs están en orden descendente: [#13, #12, ..., #1]
+                                                    // slice(certIdx) nos da desde la actual hasta la primera
+                                                    certs.slice(certIdx).forEach((cert, sliceIdx) => {
                                                         const certItems = cert?.items || [];
                                                         certItems.forEach((it: any) => {
                                                             if (it.item_num === item.item_num) {
                                                                 cumulativeMOSInvoicedAmount += parseFloat(it.has_material_on_site ? it.mos_invoice_total : 0) || 0;
-                                                                if (cIndex < certIdx) {
-                                                                    const pr = getInvoicePUFromList(certs, it.item_num, cIndex);
+                                                                // Si es una certificación ANTERIOR a la actual (sliceIdx > 0)
+                                                                if (sliceIdx > 0) {
+                                                                    const originalIdxInCerts = certIdx + sliceIdx;
+                                                                    const pr = getInvoicePUFromList(certs, it.item_num, originalIdxInCerts);
                                                                     cumulativeMOSUsedAmountBefore += (parseFloat(it.qty_from_mos) || 0) * (pr > 0 ? pr : (parseFloat(it.unit_price) || 0));
                                                                 }
                                                             }
@@ -992,10 +1019,14 @@ const PaymentCertForm = React.forwardRef(({
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <textarea
-                                                                        className="w-full bg-transparent border-none text-[10px] font-medium leading-tight resize-none h-6 outline-none scrollbar-none"
+                                                                        className="w-full bg-transparent border-none text-[10px] font-medium leading-tight resize-none min-h-[24px] h-auto outline-none scrollbar-none py-1"
                                                                         value={item.description}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'description', e.target.value)}
                                                                         rows={1}
+                                                                        onBlur={(e) => {
+                                                                            e.target.style.height = 'auto';
+                                                                            e.target.style.height = e.target.scrollHeight + 'px';
+                                                                        }}
                                                                     />
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
@@ -1019,7 +1050,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         onBlur={(e) => {
                                                                             const entered = parseFloat(e.target.value) || 0;
-                                                                            if (itemExistsInContract && entered > availableBalance + 0.0001 && availableBalance >= 0) {
+                                                                            if (isKnownItem && entered > availableBalance + 0.0001 && availableBalance >= 0) {
                                                                                 alert(`La cantidad ingresada (${entered.toFixed(4)}) excede el balance disponible de la partida ${item.item_num} (${availableBalance.toFixed(4)}). Se ajustará al balance máximo disponible.`);
                                                                                 updateCertItem(certIdx, itIdx, 'quantity', availableBalance.toFixed(4));
                                                                             }
