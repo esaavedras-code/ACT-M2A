@@ -445,13 +445,13 @@ const PaymentCertForm = React.forwardRef(({
     };
 
     const getItemTotalRevisedQty = (itemNum: string) => {
-        const baseItem = contractItems.find(it => it.item_num === itemNum);
+        const baseItem = contractItems.find(it => (it.item_num || "").toString().trim() === (itemNum || "").toString().trim());
         if (!baseItem) return 0;
         
         const changeOrders = projectData?.change_orders || [];
         let extra = 0;
         changeOrders.forEach((co: any) => {
-            const coItem = (co.items || []).find((it: any) => it.item_num === itemNum);
+            const coItem = (co.items || []).find((it: any) => (it.item_num || "").toString().trim() === (itemNum || "").toString().trim());
             if (coItem) extra += parseFloat(coItem.quantity) || 0;
         });
         
@@ -915,12 +915,12 @@ const PaymentCertForm = React.forwardRef(({
                                                     let paidInPrevious = 0;
                                                     for (let k = 0; k < certIdx; k++) {
                                                         const prevCertItems = certs[k]?.items || [];
-                                                        const match = prevCertItems.find((p: any) => p.item_num === item.item_num);
+                                                        const match = prevCertItems.find((p: any) => (p.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
                                                         if (match) paidInPrevious += parseFloat(match.quantity) || 0;
                                                     }
                                                     const availableBalance = totalRevisedQty - paidInPrevious;
                                                     
-                                                    const itemExistsInContract = contractItems.some(it => it.item_num === item.item_num);
+                                                    const itemExistsInContract = contractItems.some(it => (it.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
 
                                                     const workQty = parseFloat(item.quantity) || 0;
                                                     const isQtyExceeded = itemExistsInContract && workQty > availableBalance + 0.0001 && availableBalance >= 0;
