@@ -346,6 +346,19 @@ const PaymentCertForm = React.forwardRef(({
         setCerts(newCerts);
     };
 
+    const sortCertItems = (certIdx: number) => {
+        const newCerts = [...certs];
+        newCerts[certIdx].items.sort((a: any, b: any) => {
+            const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+            const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+            const parsedA = parseInt(numA || '0');
+            const parsedB = parseInt(numB || '0');
+            if (parsedA !== parsedB) return parsedA - parsedB;
+            return (a.item_num || "").localeCompare(b.item_num || "");
+        });
+        setCerts(newCerts);
+    };
+
     const importContractItems = (certIdx: number) => {
         const newCerts = [...certs];
         const existingItems = newCerts[certIdx].items || [];
@@ -906,8 +919,11 @@ const PaymentCertForm = React.forwardRef(({
                                                         if (match) paidInPrevious += parseFloat(match.quantity) || 0;
                                                     }
                                                     const availableBalance = totalRevisedQty - paidInPrevious;
+                                                    
+                                                    const itemExistsInContract = contractItems.some(it => it.item_num === item.item_num);
 
                                                     const workQty = parseFloat(item.quantity) || 0;
+                                                    const isQtyExceeded = itemExistsInContract && workQty > availableBalance + 0.0001 && availableBalance >= 0;
                                                     
                                                     let cumulativeMOSInvoicedAmount = 0;
                                                     let cumulativeMOSUsedAmountBefore = 0;
@@ -954,6 +970,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.item_num}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'item_num', e.target.value)}
+                                                                        onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         placeholder="000"
                                                                     />
                                                                 </td>
@@ -989,20 +1006,21 @@ const PaymentCertForm = React.forwardRef(({
                                                                     <input
                                                                         type="number"
                                                                         step="0.0001"
-                                                                        className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${workQty > availableBalance + 0.0001 ? 'text-red-600 border-red-300' : ''}`}
-                                                                        style={{ backgroundColor: workQty > availableBalance + 0.0001 ? '#fee2e2' : '#66FF99' }}
+                                                                        className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${isQtyExceeded ? 'text-red-600 border-red-300' : ''}`}
+                                                                        style={{ backgroundColor: isQtyExceeded ? '#fee2e2' : '#66FF99' }}
                                                                         value={item.quantity ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'quantity', e.target.value)}
+                                                                        onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         onBlur={(e) => {
                                                                             const entered = parseFloat(e.target.value) || 0;
-                                                                            if (entered > availableBalance + 0.0001 && availableBalance >= 0) {
+                                                                            if (itemExistsInContract && entered > availableBalance + 0.0001 && availableBalance >= 0) {
                                                                                 alert(`La cantidad ingresada (${entered.toFixed(4)}) excede el balance disponible de la partida ${item.item_num} (${availableBalance.toFixed(4)}). Se ajustará al balance máximo disponible.`);
                                                                                 updateCertItem(certIdx, itIdx, 'quantity', availableBalance.toFixed(4));
                                                                             }
                                                                         }}
                                                                         placeholder="0.00"
                                                                     />
-                                                                    {workQty > availableBalance + 0.0001 && availableBalance >= 0 && (
+                                                                    {isQtyExceeded && (
                                                                         <div className="text-[8px] font-black text-red-600 text-right leading-none mt-0.5 whitespace-nowrap">
                                                                             ⚠️ Máx: {availableBalance.toFixed(4)}
                                                                         </div>
@@ -1016,6 +1034,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.unit_price ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
+                                                                        onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         placeholder="0.00"
                                                                     />
                                                                 </td>
