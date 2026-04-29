@@ -28,6 +28,8 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatNumber, sortItemsNaturally } from '@/lib/utils';
 import FloatingFormActions from '@/components/FloatingFormActions';
 import AboutModal from './AboutModal';
+import { generateAct117C } from '@/lib/generateAct117C';
+
 
 const FUND_SOURCES = ['Federal', 'Estatal', 'Combinado'];
 
@@ -552,28 +554,16 @@ const PaymentCertForm = React.forwardRef(({
     const handlePrint = async (cert: any) => {
         setGenerating(cert.cert_num);
         try {
-            const response = await fetch('/api/reports/act117c', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    project: projectData, 
-                    cert: cert,
-                    allCerts: certs,
-                    contractItems: contractItems
-                })
-            });
-
-            if (!response.ok) throw new Error('Error al generar reporte');
-            
-            const blob = await response.blob();
+            const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `ACT-117C_Cert_${cert.cert_num}_${projectData.project_number}.pdf`;
+            a.download = `ACT-117C_Cert_${cert.cert_num}_${projectData.num_act}.pdf`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
         } catch (err: any) {
+            console.error("Error printing cert:", err);
             alert('Error: ' + err.message);
         } finally {
             setGenerating(null);
