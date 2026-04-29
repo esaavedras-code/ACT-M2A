@@ -897,14 +897,6 @@ const PaymentCertForm = React.forwardRef(({
                                             </thead>
                                             <tbody>
                                                 {(c.items || [])
-                                                    .sort((a, b) => {
-                                                        const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
-                                                        const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
-                                                        const parsedA = parseInt(numA || '0');
-                                                        const parsedB = parseInt(numB || '0');
-                                                        if (parsedA !== parsedB) return parsedA - parsedB;
-                                                        return (a.item_num || "").localeCompare(b.item_num || "");
-                                                    })
                                                     .map((item: any, itIdx: number) => {
                                                     const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
                                                     let paidInPrevious = 0;
@@ -997,12 +989,24 @@ const PaymentCertForm = React.forwardRef(({
                                                                     <input
                                                                         type="number"
                                                                         step="0.0001"
-                                                                        className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${workQty > availableBalance ? 'text-red-600' : ''}`}
-                                                                        style={{ backgroundColor: '#66FF99' }}
+                                                                        className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${workQty > availableBalance + 0.0001 ? 'text-red-600 border-red-300' : ''}`}
+                                                                        style={{ backgroundColor: workQty > availableBalance + 0.0001 ? '#fee2e2' : '#66FF99' }}
                                                                         value={item.quantity ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'quantity', e.target.value)}
+                                                                        onBlur={(e) => {
+                                                                            const entered = parseFloat(e.target.value) || 0;
+                                                                            if (entered > availableBalance + 0.0001 && availableBalance >= 0) {
+                                                                                alert(`La cantidad ingresada (${entered.toFixed(4)}) excede el balance disponible de la partida ${item.item_num} (${availableBalance.toFixed(4)}). Se ajustará al balance máximo disponible.`);
+                                                                                updateCertItem(certIdx, itIdx, 'quantity', availableBalance.toFixed(4));
+                                                                            }
+                                                                        }}
                                                                         placeholder="0.00"
                                                                     />
+                                                                    {workQty > availableBalance + 0.0001 && availableBalance >= 0 && (
+                                                                        <span className="absolute -bottom-3 right-0 text-[8px] font-bold text-red-500 whitespace-nowrap">
+                                                                            Máx: {availableBalance.toFixed(4)}
+                                                                        </span>
+                                                                    )}
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <input
