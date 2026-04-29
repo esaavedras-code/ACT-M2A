@@ -545,6 +545,9 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         {items
                                 .map((item, originalIndex) => ({ item, originalIndex }))
                                 .filter(({ item }) => {
+                                    // Solo partidas originales (cantidad > 0)
+                                    if ((parseFloat(item.quantity) || 0) <= 0) return false;
+                                    
                                     if (!searchTerm) return true;
                                     const s = searchTerm.toLowerCase().trim();
                                     return (
