@@ -971,6 +971,12 @@ const PaymentCertForm = React.forwardRef(({
                                                                         value={item.item_num}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'item_num', e.target.value)}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
+                                                                        onBlur={(e) => {
+                                                                            const val = e.target.value;
+                                                                            if (val !== "" && !isNaN(parseInt(val))) {
+                                                                                updateCertItem(certIdx, itIdx, 'item_num', val.padStart(3, '0'));
+                                                                            }
+                                                                        }}
                                                                         placeholder="000"
                                                                     />
                                                                 </td>

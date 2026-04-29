@@ -423,7 +423,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 drawText(fullDesc.substring(0, 48), 185, rowY, 6.5);
                 
                 drawText(it.unit, 365, rowY, 7, false, true);
-                drawText(fmt(parseFloat(it.quantity) || 0, 4), 415, rowY, 7, false, true);
+                drawText(fmt(parseFloat(it.quantity) || 0, 2), 415, rowY, 7, false, true);
                 drawText(fmt(parseFloat(it.unit_price) || 0, 2, true), 480, rowY, 7, false, true);
                 drawText(fmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2, true), 553.5, rowY, 7, false, true);
             });

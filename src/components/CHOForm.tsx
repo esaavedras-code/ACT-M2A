@@ -499,6 +499,13 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     <table className="w-full text-left border-collapse">
                                         <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                             <tr>
+                                                <td colSpan={13} className="py-2">
+                                                    <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                                                        <Plus size={14} /> Añadir item
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <tr>
                                                 <th className="py-1 px-0.5 w-10 text-center text-blue-600">Nuevo</th>
 
                                                 <th className="py-1 px-0.5 w-24 text-center"># Item</th>
@@ -537,7 +544,12 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     </td>
 
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" maxLength={20} className="input-field text-xs text-center !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} disabled={item.is_admin_amendment} />
+                                                        <input type="text" maxLength={20} className="input-field text-xs text-center !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} onBlur={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val !== "" && !isNaN(parseInt(val))) {
+                                                                updateCHOItem(idx, itIdx, 'item_num', val.padStart(3, '0'));
+                                                            }
+                                                        }} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                         <input type="text" className="input-field text-xs text-center !px-2 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} disabled={item.is_admin_amendment} />
@@ -608,13 +620,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     </td>
                                                 </tr>
                                             ))}
-                                            <tr>
-                                                <td colSpan={13} className="py-2">
-                                                    <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                                                        <Plus size={14} /> Añadir item
-                                                    </button>
-                                                </td>
-                                            </tr>
+
                                         </tbody>
                                     </table>
                                 </div>
