@@ -941,6 +941,7 @@ const PaymentCertForm = React.forwardRef(({
                                                     }
                                                     const availableBalance = totalRevisedQty - paidInPrevious;
                                                     
+                                                    const itemExistsInContract = contractItems.some(it => (it.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
                                                     const isKnownItem = itemExistsInContract || (projectData?.change_orders || projectData?.chos || []).some((co: any) => {
                                                         const items = Array.isArray(co.items) ? co.items : (co.items as any)?.list || [];
                                                         return items.some((it: any) => (it.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
