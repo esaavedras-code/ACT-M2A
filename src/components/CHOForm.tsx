@@ -416,33 +416,33 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                         <div className="p-4 flex flex-col gap-4 bg-slate-50/50 dark:bg-slate-800/20">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="space-y-1">
+                                    <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">CHO / Enmienda</label>
                                         <div className="text-2xl font-black text-primary flex items-baseline gap-1">
                                             #{cho.cho_num}
                                             <span className="text-lg text-slate-400 font-bold">{cho.amendment_letter}</span>
                                         </div>
                                     </div>
-                                    <div className="space-y-1 relative">
+                                    <div className="flex flex-col gap-1 relative">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha</label>
                                         <div className="relative">
                                             <input suppressHydrationWarning type="date" className="input-field text-xs font-bold bg-white dark:bg-slate-900 w-36 pr-12" style={{ backgroundColor: '#66FF99' }} value={cho.cho_date || ""} onChange={(e) => updateCHO(idx, 'cho_date', e.target.value)} />
                                             <TodayButton onSelect={(date) => updateCHO(idx, 'cho_date', date)} />
                                         </div>
                                     </div>
-                                    <div className="space-y-1">
-                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ext. Días</label>
-                                         <input suppressHydrationWarning type="number" className="input-field text-xs text-center font-bold !w-[60px] bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.time_extension_days ?? 0} onChange={(e) => updateCHO(idx, 'time_extension_days', parseInt(e.target.value))} />
-                                     </div>
-                                    <div className="space-y-1">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ext. Días</label>
+                                        <input suppressHydrationWarning type="number" className="input-field text-xs text-center font-bold !w-[60px] bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.time_extension_days ?? 0} onChange={(e) => updateCHO(idx, 'time_extension_days', parseInt(e.target.value))} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Estatus Doc.</label>
                                         <select suppressHydrationWarning className="input-field text-xs font-bold bg-white dark:bg-slate-900" style={{ backgroundColor: '#66FF99' }} value={cho.doc_status || DOC_STATUSES[0]} onChange={(e) => updateCHO(idx, 'doc_status', e.target.value)}>
                                             {DOC_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                     </div>
-                                    <div className="space-y-1">
+                                    <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Importe Total</label>
-                                        <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex flex-col justify-center px-3 h-auto min-h-[30px] border-emerald-500/30 text-emerald-600 min-w-[150px] py-1">
+                                        <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex flex-col justify-center px-3 h-auto min-h-[30px] border-emerald-500/30 text-emerald-600 min-w-[200px] py-1">
                                             {(() => {
                                                 const { act, fed80, fed100, fed } = calculateChoBreakdown(cho.items);
                                                 const total = roundedAmt(act + fed, 2);
