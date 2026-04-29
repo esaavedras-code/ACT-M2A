@@ -62,11 +62,8 @@ export default function RootLayout({
 
                         <footer className="bg-slate-900 text-slate-500 py-10 px-4 text-center text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800 mb-20 lg:mb-0" suppressHydrationWarning>
                             <div className="max-w-7xl mx-auto space-y-4">
-                                <p>PACT - ADMINISTRADORES</p>
                                 <p>Control de Proyectos Carreteras</p>
-                                <div className="text-left">
-                                    <h3 className="text-white font-black text-sm tracking-tight leading-none">PACT - ADMINISTRADORES</h3>
-                                </div>
+                                <p className="text-white font-black text-xs">Diseñado por Ing. Enrique Saavedra Sada, PE</p>
                             </div>
                         </footer>
                         <Suspense fallback={null}>
