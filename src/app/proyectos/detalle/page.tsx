@@ -336,9 +336,43 @@ function ProjectDetailContent() {
 
         return () => {
             document.getElementById('theme-contratista')?.remove();
+            document.getElementById('theme-lector')?.remove();
             supabase.removeChannel(projectSubscription);
+            if (typeof window !== 'undefined') (window as any).pact_role = null;
         };
     }, [id]);
+
+    useEffect(() => {
+        if (role === 'D') {
+            if (typeof window !== 'undefined') (window as any).pact_role = 'D';
+            if (!document.getElementById('theme-lector')) {
+                const style = document.createElement('style');
+                style.innerHTML = `
+                    .lector-mode input:not([type="search"]), 
+                    .lector-mode select, 
+                    .lector-mode textarea { 
+                        pointer-events: none !important; 
+                        background-color: rgba(248, 250, 252, 0.5) !important; 
+                        color: #475569 !important; 
+                        border-color: rgba(226, 232, 240, 0.3) !important; 
+                        box-shadow: none !important;
+                    }
+                    .lector-mode input[type="checkbox"], 
+                    .lector-mode input[type="radio"] {
+                        opacity: 0.6 !important;
+                    }
+                    /* Ocultar botones de añadir y eliminar en modo lector */
+                    .lector-mode button:has(svg.lucide-plus),
+                    .lector-mode button:has(svg.lucide-trash),
+                    .lector-mode button:has(svg.lucide-trash-2) {
+                        display: none !important;
+                    }
+                `;
+                style.id = 'theme-lector';
+                document.head.appendChild(style);
+            }
+        }
+    }, [role]);
 
 
     if (!id) return <div className="p-20 text-center font-bold text-red-500 uppercase tracking-widest">Error: Proyecto no encontrado</div>;
@@ -443,7 +477,7 @@ function ProjectDetailContent() {
                 </div>
 
                 {/* Área de Contenido Principal */}
-                <div className="flex-1 w-full min-w-0 md:ml-[220px] lg:ml-[240px]">
+                <div className={`flex-1 w-full min-w-0 md:ml-[220px] lg:ml-[240px] ${role === 'D' ? 'lector-mode' : ''}`}>
                     <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-1 md:p-2 lg:p-3 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
                         <div className="relative z-10">

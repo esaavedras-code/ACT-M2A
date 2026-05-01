@@ -18,8 +18,11 @@ interface FloatingFormActionsProps {
 }
 
 export default function FloatingFormActions({ actions }: FloatingFormActionsProps) {
-  const bottomActions = actions.filter(a => a.position !== 'middle-right');
-  const middleActions = actions.filter(a => a.position === 'middle-right');
+  const isLector = typeof window !== 'undefined' && (window as any).pact_role === 'D';
+  const visibleActions = actions.filter(a => !(isLector && (a.label.toLowerCase().includes('guardar') || a.label.toLowerCase().includes('save') || a.label.toLowerCase().includes('borrar'))));
+
+  const bottomActions = visibleActions.filter(a => a.position !== 'middle-right');
+  const middleActions = visibleActions.filter(a => a.position === 'middle-right');
 
   const renderAction = (action: Action, i: number) => {
     const isSmall = action.size === 'small';

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Gavel, CheckCircle, FileText, Plus, Trash2, Download, Upload, AlertCircle, Loader2, Printer } from "lucide-react";
+import { Save, Gavel, CheckCircle, FileText, Plus, Trash2, Download, Upload, AlertCircle, Loader2, Printer, FileCheck2, CheckSquare, Activity, Eye, X } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatCurrency, sortItemsNaturally } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
