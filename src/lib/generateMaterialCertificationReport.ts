@@ -42,20 +42,7 @@ export async function generateMaterialCertificationReport(projectId: string) {
         };
 
         // 3. Header Section (Logos & Title)
-        try {
-            const logoResp = await fetch(`${window.location.origin}/act_logo.png`);
-            if (logoResp.ok) {
-                const logoBytes = await logoResp.arrayBuffer();
-                const logoImg = await pdfDoc.embedPng(logoBytes);
-                const dims = logoImg.scaleToFit(140, 65);
-                pg.drawImage(logoImg, {
-                    x: ML,
-                    y: PH - 25 - dims.height,
-                    width: dims.width,
-                    height: dims.height
-                });
-            }
-        } catch (e) { console.warn("Logo PRHTA no cargado"); }
+        // Logo ACT removido
 
         let curY = 105;
         TXT("Commonwealth of Puerto Rico", PW / 2, curY, 14, false, 'center');

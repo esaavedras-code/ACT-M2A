@@ -80,21 +80,7 @@ export async function generateFinalAcceptanceReportOfficial(projectId: string) {
         // Center Title
         TXT("FINAL ACCEPTANCE REPORT", PW / 2, 70, 16, true, 'center');
 
-        // Right Logo (ACT)
-        try {
-            const logoResp = await fetch(`${window.location.origin}/act_logo.png`);
-            if (logoResp.ok) {
-                const logoBytes = await logoResp.arrayBuffer();
-                const logoImg = await pdfDoc.embedPng(logoBytes);
-                const dims = logoImg.scaleToFit(100, 50);
-                pg.drawImage(logoImg, {
-                    x: PW - MR - dims.width,
-                    y: PH - 25 - dims.height,
-                    width: dims.width,
-                    height: dims.height
-                });
-            }
-        } catch (e) { console.warn("Logo PRHTA no cargado"); }
+        // Right Logo (ACT) removido
 
         // 4. Grid Section 1
         let Y = 110;

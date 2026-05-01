@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, formatCurrency } from './utils';
+import { formatDate, formatCurrency, getFederalSharePct } from './utils';
 
 const PW = 612; // 8.5"
 const PH = 792; // 11"
@@ -262,7 +262,8 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                     const q = parseFloat(it.proposed_change || it.quantity) || 0;
                     const up = parseFloat(it.unit_price) || 0;
                     const amt = q * up;
-                    const fedP = (it.fund_source || "").includes('80.25') ? "80.25%" : ((it.fund_source || "").includes('FHWA:100%') ? "100%" : "0%");
+                    const fedPct = getFederalSharePct(projData, it);
+                    const fedP = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
 
                     const fullDesc = [it.description, it.additional_description].filter(Boolean).join(' - ');
                     drawText(p, it.item_num || "", vc[0]+(vc[1]-vc[0])/2, cy+10, font, 7, true);
@@ -302,7 +303,8 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                     const q = parseFloat(it.proposed_change || it.quantity) || 0;
                     const up = parseFloat(it.unit_price) || 0;
                     const amt = q * up;
-                    const fedP = (it.fund_source || "").includes('80.25') ? "80.25%" : ((it.fund_source || "").includes('FHWA:100%') ? "100%" : "0%");
+                    const fedPct = getFederalSharePct(projData, it);
+                    const fedP = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
 
                     const fullDesc = [it.description, it.additional_description].filter(Boolean).join(' - ');
                     drawText(p, it.item_num || "", vc[0]+(vc[1]-vc[0])/2, cy+10, font, 7, true);

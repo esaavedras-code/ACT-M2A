@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { formatDate } from './utils';
+import { formatDate, getFederalSharePct } from './utils';
 
 const translateDescription = (text: string) => {
     if (!text) return "";
@@ -84,7 +84,7 @@ export async function generateCCMLReport(
         const ewoList = chosToInclude.filter((c: any) => c.cho_num === null || c.amendment_letter?.includes('EWO'));
         const trueChoList = chosToInclude.filter((c: any) => c.cho_num !== null && !c.amendment_letter?.includes('EWO'));
         const manager = personnel?.find((p: any) => p.role === 'Project Manager')?.name || '';
-        const defaultFedPct = project.federal_share_pct != null ? parseFloat(project.federal_share_pct) : 80.25;
+        const defaultFedPct = getFederalSharePct(project);
 
         // --- Helpers ---
         const setVal = (addr: string, val: any) => {
@@ -348,7 +348,7 @@ export async function generateCCMLReport(
         for (let i = 0; i < chosToInclude.length && modRow < 220; i++) {
             const cho = chosToInclude[i];
             const amount = parseFloat(cho.proposed_change) || 0;
-            const fedPct = (cho.federal_share_pct != null ? parseFloat(cho.federal_share_pct) : defaultFedPct) / 100;
+            const fedPct = getFederalSharePct(project, cho) / 100;
             const fedAmt = amount * fedPct;
 
             totalModAmount += amount;

@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { formatDate } from './utils';
+import { formatDate, getFederalSharePct } from './utils';
 import { supabase } from './supabase';
 
 export async function generateAct122Excel(
@@ -99,7 +99,8 @@ export async function generateAct122Excel(
             setVal(`AN${row}`, parseFloat(it.proposed_change) || 0);
             setVal(`AT${row}`, parseFloat(it.unit_price) || 0);
             setVal(`AZ${row}`, (parseFloat(it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0));
-            setVal(`BF${row}`, (parseFloat(choData.federal_share_pct) || 80.25) / 100);
+            const fedPct = getFederalSharePct(projData, it);
+            setVal(`BF${row}`, fedPct / 100);
             row++;
         });
 
@@ -112,7 +113,8 @@ export async function generateAct122Excel(
             setVal(`AN${row}`, parseFloat(it.proposed_change) || 0);
             setVal(`AT${row}`, parseFloat(it.unit_price) || 0);
             setVal(`AZ${row}`, (parseFloat(it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0));
-            setVal(`BF${row}`, (parseFloat(choData.federal_share_pct) || 80.25) / 100);
+            const fedPct = getFederalSharePct(projData, it);
+            setVal(`BF${row}`, fedPct / 100);
             row++;
         });
 

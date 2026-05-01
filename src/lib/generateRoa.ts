@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, formatCurrency } from './utils';
+import { formatDate, formatCurrency, getFederalSharePct } from './utils';
 
 const PW = 612; // 8.5"
 const PH = 792; // 11"
@@ -486,7 +486,8 @@ export async function generateRoa(projectId: string, choId: string) {
                         drawText(pageTable, q.toString(), (cols[4]+cols[5])/2, curRowY + 11, font, 7, true);
                         drawText(pageTable, formatCurrency(up).replace('$', ''), cols[6] - 4, curRowY + 11, font, 7, false, true);
                         drawText(pageTable, formatCurrency(q*up).replace('$', ''), cols[7] - 4, curRowY + 11, font, 7, false, true);
-                        const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('FHWA') ? '100.00%' : '0%');
+                        const fedPct = getFederalSharePct(projData, it);
+                        const fedP = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
                         drawText(pageTable, fedP, (cols[7] + cols[8]) / 2, curRowY + 11, font, 7, true);
                     }
                     // Bottom border of each row

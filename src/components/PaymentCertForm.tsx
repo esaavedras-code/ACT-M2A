@@ -25,7 +25,7 @@ import {
     Info
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency, formatNumber, sortItemsNaturally } from '@/lib/utils';
+import { formatCurrency, formatNumber, sortItemsNaturally, getReportFileName } from '@/lib/utils';
 import FloatingFormActions from '@/components/FloatingFormActions';
 import AboutModal from './AboutModal';
 import { generateAct117C } from '@/lib/generateAct117C';
@@ -600,7 +600,8 @@ const PaymentCertForm = React.forwardRef(({
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `ACT-117C_Cert_${cert.cert_num}_${projectData.num_act}.pdf`;
+            const fileName = getReportFileName(projectData.num_act, `CERT_${cert.cert_num}`);
+            a.download = `${fileName}.pdf`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);

@@ -48,28 +48,8 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
     const BK = rgb(0, 0, 0);
     const WH = rgb(1, 1, 1);
 
-    // ── Logo ACT (Carreteras) ──────────────────────────────────
-    // Primero el logo oficial ACT, luego icon.png como respaldo
+    // ── Logo ACT removido ──────────────────────────────────
     let logoImg: any = null;
-    try {
-        const paths = ['/act_logo.png', '/icon.png', '/logo.png'];
-        for (const p of paths) {
-            try {
-                const resp = await fetch(p);
-                if (resp.ok) {
-                    const bytes = await resp.arrayBuffer();
-                    const arr = new Uint8Array(bytes);
-                    // Detectar PNG (89 50 4E 47) o JPG (FF D8)
-                    if (arr[0] === 0x89 && arr[1] === 0x50) {
-                        logoImg = await pdfDoc.embedPng(arr);
-                    } else if (arr[0] === 0xFF && arr[1] === 0xD8) {
-                        logoImg = await pdfDoc.embedJpg(arr);
-                    }
-                    if (logoImg) break;
-                }
-            } catch (_) { /* continuar con siguiente */ }
-        }
-    } catch (_) { }
 
 
     // ── Dimensiones: Landscape Letter 792 × 612 ────────────────

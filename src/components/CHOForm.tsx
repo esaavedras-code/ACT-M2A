@@ -14,32 +14,30 @@ const specs = specsData as Record<string, { unit: string; description: string }>
 
 const DOC_STATUSES = ["Borrador", "En trámite", "Aprobado"];
 const TIME_EXT_STATUSES = ["Aprobada", "Pendiente"];
-const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
+const FUND_SOURCES = ["ACT:100%", "FHWA (Project %)", "FHWA:100%"];
 
 import { TodayButton } from "./TodayButton";
 import dynamic from "next/dynamic";
 
 const DOFAEIForm = dynamic(() => import("./DOFAEIForm"), { ssr: false });
 
-const calculateChoBreakdown = (items: any[]) => {
-    let fed80 = 0, fed100 = 0, act = 0;
+const calculateChoBreakdown = (items: any[], project: any) => {
+    let fed = 0, act = 0;
     (items || []).forEach((it: any) => {
         const total = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
-        if (it.fund_source === "ACT:100%") act = roundedAmt(act + total, 2);
-        else if (it.fund_source === "FHWA:80.25") {
-            const fShare = roundedAmt(total * 0.8025, 2);
-            fed80 = roundedAmt(fed80 + fShare, 2);
-            act = roundedAmt(act + roundedAmt(total - fShare, 2), 2);
-        }
-        else if (it.fund_source === "FHWA:100%") fed100 = roundedAmt(fed100 + total, 2);
-        else act = roundedAmt(act + total, 2);
+        const fedPct = getFederalSharePct(project, it);
+        const fedShare = roundedAmt(total * (fedPct / 100), 2);
+        const actShare = roundedAmt(total - fedShare, 2);
+        fed = roundedAmt(fed + fedShare, 2);
+        act = roundedAmt(act + actShare, 2);
     });
-    return { fed80, fed100, act, fed: roundedAmt(fed80 + fed100, 2) };
+    return { fed, act, fedDynamic: 0, fed100: 0 }; // fedDynamic y fed100 se mantienen por compatibilidad si se usan en algún lugar
 };
 
 const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function CHOForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [chos, setChos] = useState<any[]>([]);
     const [contractItems, setContractItems] = useState<any[]>([]);
+    const [projectData, setProjectData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [expandedCHO, setExpandedCHO] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -52,6 +50,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
 
     useEffect(() => {
         if (projectId && mounted) {
+            fetchProjectData();
             fetchContractItems();
             fetchCHOs();
 
@@ -67,6 +66,11 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             };
         }
     }, [projectId, mounted]);
+
+    const fetchProjectData = async () => {
+        const { data } = await supabase.from("projects").select("*").eq("id", projectId).single();
+        if (data) setProjectData(data);
+    };
 
     const fetchContractItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
@@ -395,8 +399,10 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                 const pendingTotal = chos.filter(c => c.doc_status === "En trámite").reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
                 const approvedDays = chos.filter(c => c.doc_status === "Aprobado").reduce((sum, c) => sum + (c.time_extension_days || 0), 0);
                 let approvedFed = 0, approvedAct = 0;
+                const pFedPct = projectData?.federal_share_pct ?? 80.25;
+
                 chos.filter(c => c.doc_status === "Aprobado").forEach(c => {
-                    const b = calculateChoBreakdown(c.items);
+                    const b = calculateChoBreakdown(c.items, projectData);
                     approvedFed = roundedAmt(approvedFed + b.fed, 2);
                     approvedAct = roundedAmt(approvedAct + b.act, 2);
                 });
@@ -444,15 +450,15 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Importe Total</label>
                                         <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex flex-col justify-center px-3 h-auto min-h-[30px] border-emerald-500/30 text-emerald-600 min-w-[200px] py-1">
                                             {(() => {
-                                                const { act, fed80, fed100, fed } = calculateChoBreakdown(cho.items);
+                                                const pFedPct = projectData?.federal_share_pct ?? 80.25;
+                                                const { act, fed } = calculateChoBreakdown(cho.items, projectData);
                                                 const total = roundedAmt(act + fed, 2);
                                                 return (
                                                     <>
                                                         <div className="text-sm">{formatCurrency(total)}</div>
                                                         <div className="text-[9px] text-slate-500 font-bold flex flex-col mt-0.5 space-y-0.5 uppercase tracking-wide">
                                                             {act !== 0 && <span className="text-blue-600">ACT: {formatCurrency(act)}</span>}
-                                                            {fed80 !== 0 && <span className="text-amber-600">FHWA 80.25: {formatCurrency(fed80)}</span>}
-                                                            {fed100 !== 0 && <span className="text-emerald-600">FHWA 100%: {formatCurrency(fed100)}</span>}
+                                                            {fed !== 0 && <span className="text-amber-600">FHWA: {formatCurrency(fed)}</span>}
                                                         </div>
                                                     </>
                                                 );

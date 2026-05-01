@@ -59,6 +59,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
         chief_project_control: "",
         dir_construction: "",
         project_origin: "ACT",
+        federal_share_pct: 80.25,
         temporaryItems: [] as any[],
     });
     const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
@@ -1406,6 +1407,21 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <span className="text-[9px] text-slate-400 font-medium italic">Editable</span>
                         </div>
+                    </div>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Participación Federal (%)</label>
+                    <div className="relative group">
+                        <input
+                            type="number"
+                            step="0.01"
+                            className="input-field border-blue-100 focus:ring-blue-500 font-bold"
+                            style={getFieldStyle('federal_share_pct')}
+                            value={formData.federal_share_pct ?? 80.25}
+                            onChange={(e) => handleChange('federal_share_pct', parseFloat(e.target.value) || 0)}
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors font-bold">%</div>
                     </div>
                 </div>
                 <div className="space-y-1 md:col-span-2">

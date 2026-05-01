@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber } from './utils';
+import { formatDate, formatProjectNumber, getFederalSharePct } from './utils';
 
 export async function generateAct117C(projectId: string, certId: string, certNum: number, certDate: string, isFinal?: boolean) {
     try {
@@ -413,7 +413,8 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 drawText(specCode, 117.5, rowY, 7, false, true);
                 
                 // Column 20: % Federal participation
-                const fedP = it.fund_source?.includes('80.25') ? '80.25%' : (it.fund_source?.includes('FHWA') ? '100.00%' : '0%');
+                const fedPct = getFederalSharePct(projData, it);
+                const fedP = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
                 drawText(fedP, 157.5, rowY, 7, false, true);
                 
                 const matchCi = items?.find((i: any) => i.item_num === it.item_num);

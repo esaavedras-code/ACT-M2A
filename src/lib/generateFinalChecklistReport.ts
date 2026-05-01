@@ -59,22 +59,7 @@ export async function generateFinalAcceptanceReport(projectId: string) {
 
         // 3. Header Section (Logos & Title)
         // Logo PRHTA (Right)
-        try {
-            const logoResp = await fetch(`${window.location.origin}/act_logo.png`);
-            if (logoResp.ok) {
-                const logoBytes = await logoResp.arrayBuffer();
-                const logoImg = await pdfDoc.embedPng(logoBytes);
-                const dims = logoImg.scale(1);
-                const targetHeight = 45;
-                const targetWidth = (dims.width / dims.height) * targetHeight;
-                pg.drawImage(logoImg, {
-                    x: PW - MR - targetWidth,
-                    y: PH - 25 - targetHeight,
-                    width: targetWidth,
-                    height: targetHeight
-                });
-            }
-        } catch (e) { console.warn("Logo PRHTA no cargado"); }
+        // Logo PRHTA removido
 
         // FHWA Logo (Left)
         try {

@@ -48,21 +48,7 @@ export async function generatePayrollCertificationReport(projectId: string) {
         };
 
         // 3. Header Section (Logos & Title)
-        // Logo ACT (Left Top)
-        try {
-            const logoResp = await fetch(`${window.location.origin}/act_logo.png`);
-            if (logoResp.ok) {
-                const logoBytes = await logoResp.arrayBuffer();
-                const logoImg = await pdfDoc.embedPng(logoBytes);
-                const dims = logoImg.scaleToFit(140, 65);
-                pg.drawImage(logoImg, {
-                    x: ML,
-                    y: PH - 25 - dims.height,
-                    width: dims.width,
-                    height: dims.height
-                });
-            }
-        } catch (e) { console.warn("Logo PRHTA no cargado"); }
+        // Logo ACT removido
 
         // Header Text
         let curY = 105;

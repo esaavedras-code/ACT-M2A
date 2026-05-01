@@ -59,21 +59,7 @@ export async function generateEnvironmentalReviewReportLogic(projectId: string) 
             return currentY;
         };
 
-        // Header
-        try {
-            const logoUrl = '/act_logo.png';
-            const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
-            const logoImage = await pdfDoc.embedPng(logoBytes);
-            const logoDims = logoImage.scale(0.18);
-            pg.drawImage(logoImage, {
-                x: 50,
-                y: PH - 80,
-                width: logoDims.width,
-                height: logoDims.height,
-            });
-        } catch (e) {
-            console.warn("No se pudo cargar el logo de ACT:", e);
-        }
+        // Logo ACT removido
 
         TXT("Commonwealth of Puerto Rico", PW / 2, 50, 10, false, 'center');
         TXT("Department of Transportation and Public Works", PW / 2, 65, 11, false, 'center');

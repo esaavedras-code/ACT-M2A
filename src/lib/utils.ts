@@ -179,11 +179,70 @@ export function formatProjectNumber(value: string | null | undefined, cleanSuffi
  * Ordena un arreglo de items de forma natural basándose en item_num.
  * Permite que "2" aparezca antes que "10".
  */
-export function sortItemsNaturally<T extends { item_num?: string | number | null }>(items: T[]): T[] {
-    if (!Array.isArray(items)) return [];
+export function sortItemsNaturally(items: any[]): any[] {
     return [...items].sort((a, b) => {
-        const aStr = a.item_num?.toString() || "";
-        const bStr = b.item_num?.toString() || "";
-        return aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: 'base' });
+        const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+        const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+        const parsedA = parseInt(numA || '0');
+        const parsedB = parseInt(numB || '0');
+        if (parsedA !== parsedB) return parsedA - parsedB;
+        return (a.item_num || "").localeCompare(b.item_num || "");
     });
 }
+
+/**
+ * Obtiene el porcentaje de participación federal para un proyecto o item específico.
+ * Prioriza la configuración individual del proyecto.
+ */
+export function getFederalSharePct(project: any, item?: any): number {
+    // 1. Si el item tiene un porcentaje explícito en un campo numérico
+    if (item && item.federal_share_pct != null) {
+        const val = parseFloat(item.federal_share_pct);
+        if (!isNaN(val)) return val;
+    }
+    
+    // 2. Analizar el fund_source del ítem (ej: "FHWA:100%", "ACT:100%", "FHWA:80%")
+    if (item && item.fund_source) {
+        const source = item.fund_source.trim().toUpperCase();
+        
+        // Si el fondo es puramente estatal
+        if (source.includes("ACT") && (source.includes("100") || !source.includes("FHWA"))) {
+            return 0;
+        }
+
+        // Buscar un porcentaje explícito en el string (ej: "80%", "100%")
+        const match = source.match(/(\d+)\s*%/);
+        if (match) {
+            return parseFloat(match[1]);
+        }
+
+        // Si solo dice FHWA sin porcentaje, usamos el valor del proyecto o el estándar
+        if (source.includes("FHWA")) {
+             const projPct = project?.federal_share_pct != null ? parseFloat(project.federal_share_pct) : 80.25;
+             return isNaN(projPct) ? 80.25 : projPct;
+        }
+    }
+
+    // 3. Porcentaje del proyecto como base si no hay información en el ítem
+    if (project && project.federal_share_pct != null) {
+        const projPct = parseFloat(project.federal_share_pct);
+        if (!isNaN(projPct)) return projPct;
+    }
+
+    return 80.25;
+}
+
+/**
+ * Genera el nombre del archivo del reporte siguiendo el formato: ACXXXXXX-YYMM-RRRRRRRR
+ * @param projectNum Número del proyecto (ej: AC-123456)
+ * @param reportName Nombre del reporte (ej: ROA, ACT-117C)
+ */
+export function getReportFileName(projectNum: string, reportName: string): string {
+    const cleanNum = (projectNum || "").replace(/[^0-9]/g, '');
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2);
+    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+    const cleanReportName = (reportName || "").replace(/\s+/g, '_').toUpperCase();
+    return `AC${cleanNum}-${yy}${mm}-${cleanReportName}`;
+}
+

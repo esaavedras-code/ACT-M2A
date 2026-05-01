@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber } from "./utils";
+import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName } from "./utils";
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
 
@@ -152,33 +152,9 @@ export const createPdfBlob = async (
         page.drawText(txt, { x: marginX + (contentWidth - textWidth) / 2, y: yPos, size: sz, font });
     };
 
-    // Logos
-    let actLogoImg: any = null;
-    let m2aLogoImg: any = null;
-    try {
-        const actResp = await fetch('/act_logo.png');
-        if (actResp.ok) {
-            const bytes = await actResp.arrayBuffer();
-            actLogoImg = await pdfDoc.embedPng(bytes).catch(() => pdfDoc.embedJpg(bytes));
-        }
-    } catch (_) { }
-
-
+    // Logos eliminados
     const headerY = height - 50;
-    if (actLogoImg) {
-        const dims = actLogoImg.scale(1);
-        const targetHeight = 35; // Slightly smaller to avoid distortion
-        const targetWidth = (dims.width / dims.height) * targetHeight;
-        
-        page.drawImage(actLogoImg, { 
-            x: marginX, 
-            y: height - 55, 
-            width: targetWidth, 
-            height: targetHeight 
-        });
-    }
-
-    // Se eliminó el logo de M2A por requerimiento del usuario.
+    // Se eliminó el logo de M2A y ACT por requerimiento del usuario.
 
     // Centered Headers
     centerText('Sistema de Control de Proyectos', timesRomanFont, 10, y);
@@ -510,11 +486,24 @@ export const createExcelBlob = async (
     return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 };
 
-export const downloadBlob = async (blob: Blob, filename: string) => {
+export const downloadBlob = async (blob: Blob, filename: string, projectNum?: string) => {
     try {
-        console.log("Intentando descargar:", filename, "size:", blob.size);
+        let finalFilename = filename;
+        if (projectNum) {
+            // Extraer el nombre base del reporte (quitar extensiones y prefijos comunes)
+            let reportBase = filename.replace(/\.(pdf|xlsx|xls)$/i, '');
+            // Si el nombre base no sigue el formato ACXXXXXX, lo formateamos
+            if (!reportBase.startsWith('AC')) {
+                finalFilename = getReportFileName(projectNum, reportBase);
+                // Restaurar extensión
+                const ext = filename.split('.').pop();
+                finalFilename = `${finalFilename}.${ext}`;
+            }
+        }
+
+        console.log("Intentando descargar:", finalFilename, "size:", blob.size);
         if (!blob || blob.size === 0) {
-            alert("Error: El documento PDF está vacío o no se generó correctamente.");
+            alert("Error: El documento está vacío o no se generó correctamente.");
             return;
         }
 
@@ -540,7 +529,7 @@ export const downloadBlob = async (blob: Blob, filename: string) => {
                     reader.onloadend = async () => {
                         const base64data = reader.result as string;
                         const cleanBase64 = base64data.split(',')[1];
-                        const fullPath = `${defaultFolder}\\${filename}`.replace(/\//g, '\\').replace(/\\\\/g, '\\');
+                        const fullPath = `${defaultFolder}\\${finalFilename}`.replace(/\//g, '\\').replace(/\\\\/g, '\\');
                         
                         // @ts-ignore
                         const result = await window.electronAPI.saveFileBinary({
@@ -557,7 +546,7 @@ export const downloadBlob = async (blob: Blob, filename: string) => {
                             const url = URL.createObjectURL(blob);
                             const link = document.createElement('a');
                             link.href = url;
-                            link.download = filename;
+                            link.download = finalFilename;
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);
@@ -572,7 +561,7 @@ export const downloadBlob = async (blob: Blob, filename: string) => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = filename;
+        link.download = finalFilename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -595,10 +584,10 @@ export const generateReport = async (
 ) => {
     if (format === 'excel') {
         const blob = await createExcelBlob(title, data, project, cutOffDate);
-        downloadBlob(blob, filename.replace('.pdf', '.xlsx'));
+        downloadBlob(blob, filename.replace('.pdf', '.xlsx'), project?.num_act);
     } else {
         const blob = await createPdfBlob(title, data, project, widths, orient, cutOffDate);
-        downloadBlob(blob, filename);
+        downloadBlob(blob, filename, project?.num_act);
     }
 };
 
@@ -1059,7 +1048,7 @@ export const generateCCMLReportLogic = async (projectId: string, choId?: string)
         }
     }
 
-    await downloadBlob(blob, `CCML_${project.num_act || projectId}_${suffix}.xlsx`);
+    await downloadBlob(blob, `CCML_${suffix}.xlsx`, project.num_act);
 };
 
 
@@ -1194,16 +1183,22 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
 
     items?.forEach((item: any) => {
         const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-        if (item.fund_source?.includes('ACT')) actProjected = roundedAmt(actProjected + amount, 2);
-        else if (item.fund_source?.includes('FHWA')) fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
+        const fedPct = getFederalSharePct(proj, item);
+        const fhwaShare = roundedAmt(amount * (fedPct / 100), 2);
+        const actShare = roundedAmt(amount - fhwaShare, 2);
+        fhwaProjected = roundedAmt(fhwaProjected + fhwaShare, 2);
+        actProjected = roundedAmt(actProjected + actShare, 2);
     });
 
     filteredChos.forEach((cho: any) => {
         if (cho.items && Array.isArray(cho.items)) {
             cho.items.forEach((item: any) => {
                 const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-                if (item.fund_source?.includes('ACT')) actProjected = roundedAmt(actProjected + amount, 2);
-                else if (item.fund_source?.includes('FHWA')) fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
+                const fedPct = getFederalSharePct(proj, item);
+                const fhwaShare = roundedAmt(amount * (fedPct / 100), 2);
+                const actShare = roundedAmt(amount - fhwaShare, 2);
+                fhwaProjected = roundedAmt(fhwaProjected + fhwaShare, 2);
+                actProjected = roundedAmt(actProjected + actShare, 2);
             });
         }
     });
@@ -1221,13 +1216,11 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
             const amount = roundedAmt(qty * up, 2);
             const source = (item.fund_source || "").trim();
 
-            if (source === "FHWA:100%") fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
-            else if (source === "FHWA:80.25") {
-                const fhwaShare = roundedAmt(amount * 0.8025, 2);
-                const actShare = roundedAmt(amount - fhwaShare, 2);
-                fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
-                actTotal = roundedAmt(actTotal + actShare, 2);
-            } else actTotal = roundedAmt(actTotal + amount, 2);
+            const fedPct = getFederalSharePct(proj, item);
+            const fhwaShare = roundedAmt(amount * (fedPct / 100), 2);
+            const actShare = roundedAmt(amount - fhwaShare, 2);
+            fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
+            actTotal = roundedAmt(actTotal + actShare, 2);
 
             totalCertified = roundedAmt(totalCertified + amount, 2);
             
@@ -1395,17 +1388,21 @@ export const generateFundSourceReportLogic = async (projectId: string, format: '
             const total = roundedAmt(qty * up, 2);
             const source = (item.fund_source || '').trim();
 
-            if (source === 'FHWA:100%') {
-                addToMap(fhwaMap, item, total, qty);
-            } else if (source === 'FHWA:80.25') {
-                const fhwaAmt = roundedAmt(total * 0.8025, 2);
-                const actAmt = roundedAmt(total - fhwaAmt, 2);
-                const fhwaQty = roundedAmt(qty * 0.8025, 4);
-                const actQty = roundedAmt(qty - fhwaQty, 4);
-                addToMap(fhwaMap, { ...item, description: `${item.description || ''} [80.25%]` }, fhwaAmt, fhwaQty);
-                addToMap(actMap, { ...item, description: `${item.description || ''} [19.75%]` }, actAmt, actQty);
-            } else {
-                addToMap(actMap, item, total, qty);
+            const fedPct = getFederalSharePct(project, item);
+            const statePct = 100 - fedPct;
+
+            if (fedPct > 0) {
+                const fhwaAmt = roundedAmt(total * (fedPct / 100), 2);
+                const fhwaQty = roundedAmt(qty * (fedPct / 100), 4);
+                const label = fedPct === 100 ? "" : ` [${fedPct}%]`;
+                addToMap(fhwaMap, { ...item, description: `${item.description || ''}${label}` }, fhwaAmt, fhwaQty);
+            }
+
+            if (statePct > 0) {
+                const actAmt = roundedAmt(total * (statePct / 100), 2);
+                const actQty = roundedAmt(qty * (statePct / 100), 4);
+                const label = statePct === 100 ? "" : ` [${statePct}%]`;
+                addToMap(actMap, { ...item, description: `${item.description || ''}${label}` }, actAmt, actQty);
             }
         });
     });

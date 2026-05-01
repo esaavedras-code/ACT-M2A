@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
+import { getFederalSharePct } from './utils';
 import { DOFAEI_TEMPLATE_BASE64 } from './dofaeiTemplate';
 
 export async function generateDOFAEI(projectId: string, choId: string) {
@@ -94,8 +95,8 @@ function fillSheetConservatively(sheet: ExcelJS.Worksheet, projData: any, choDat
     let startRow = 46;
     pageItems.forEach((it, idx) => {
         const row = sheet.getRow(startRow + idx);
-        const isFed = (it.fund_source || "").includes("FHWA");
-        const ratio = isFed ? ((it.fund_source || "").includes("80.25") ? "80.25%" : "100%") : "0%";
+        const fedPct = getFederalSharePct(projData, it);
+        const ratio = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
         
         row.getCell(2).value = it.item_num;
         row.getCell(5).value = it.specification;
