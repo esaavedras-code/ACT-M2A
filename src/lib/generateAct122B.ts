@@ -261,14 +261,5 @@ export async function generateAct122B(
     }
 }
 
-        const buffer = await wb.xlsx.writeBuffer();
-        return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-    } catch (err: any) {
-        console.error("ACT-122B Export error:", err);
-        throw err;
-    }
-}
-
 
 
