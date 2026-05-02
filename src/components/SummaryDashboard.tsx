@@ -274,7 +274,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const mosEntries = Object.entries(perItemMosBalance)
             .filter(([_, balance]) => balance > 0.01)
-            .map(([item_num, balance]) => ({ item_num, balance }));
+            .map(([item_num, balance]) => {
+                // Buscar el PU de MOS para este item
+                let lastPU = 0;
+                for (let i = certs.length - 1; i >= 0; i--) {
+                    const its = Array.isArray(certs[i].items) ? certs[i].items : (certs[i].items?.list || []);
+                    const match = its.find((itx: any) => itx.item_num === item_num && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
+                    if (match) {
+                        lastPU = parseFloat(match.mos_unit_price);
+                        break;
+                    }
+                }
+                return { item_num, balance, mosPU: lastPU };
+            });
         const mosTotal = roundedAmt(mosEntries.reduce((acc, e) => roundedAmt(acc + e.balance, 2), 0), 2);
 
         const certified = roundedAmt(actTotal + fhwaTotal, 2);
@@ -509,9 +521,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             
                             {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
                                 <div className="mt-2 p-2 bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/30 rounded shadow-inner space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
-                                    {metrics.cost.mosBalances.map((e, i) => {
+                                    {metrics.cost.mosBalances.map((e: any, i: number) => {
                                         const it = (internalContractItems || []).find((ci: any) => ci.item_num === e.item_num);
-                                        const pu = it?.unit_price || 1;
+                                        const pu = e.mosPU || it?.unit_price || 1;
                                         const qty = e.balance / pu;
                                         return (
                                             <div key={i} className="flex justify-between items-center text-[10px] font-bold text-amber-800 py-1 border-b border-amber-50 dark:border-amber-900/10 last:border-0">
