@@ -494,6 +494,13 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         size: 'small' as const
                     },
                     !readOnly ? {
+                        label: "Extraer de PDF (IA)",
+                        icon: <FileText />,
+                        onClick: () => document.getElementById('import-items-pdf')?.click(),
+                        description: "Leer un PDF o escaneo para extraer automáticamente las partidas",
+                        variant: 'secondary' as const
+                    } : null,
+                    !readOnly ? {
                         label: "Añadir Item",
                         icon: <Plus />,
                         onClick: addItem,
