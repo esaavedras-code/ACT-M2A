@@ -834,16 +834,16 @@ const PaymentCertForm = React.forwardRef(({
                                                     <span className={`text-xl xl:text-2xl font-black ${c.skip_retention ? 'text-slate-300 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
                                                         {formatCurrency(c.skip_retention ? 0 : -certRetention)}
                                                     </span>
-                                                    <label className="flex items-center gap-1.5 cursor-pointer group" title="Devolución de retenido">
-                                                        <input
-                                                            type="checkbox"
-                                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                                                            checked={!!c.show_retention_return}
-                                                            onChange={(e) => updateCert(certIdx, 'show_retention_return', e.target.checked)}
-                                                        />
-                                                        <span className="text-[9px] font-black text-slate-400 group-hover:text-blue-600 transition-colors leading-none uppercase tracking-wider">Devolución</span>
-                                                    </label>
                                                 </div>
+                                                <label className="flex items-center gap-1.5 cursor-pointer group mt-1" title="Devolución de retenido">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                                                        checked={!!c.show_retention_return}
+                                                        onChange={(e) => updateCert(certIdx, 'show_retention_return', e.target.checked)}
+                                                    />
+                                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-blue-600 transition-colors leading-none uppercase tracking-wider">Devolución</span>
+                                                </label>
                                                 {c.show_retention_return && (
                                                     <div className="mt-1 bg-blue-50/50 dark:bg-blue-900/10 p-1.5 rounded-lg border border-blue-100 dark:border-blue-800/50">
                                                         <span className="text-[8px] font-black text-blue-500 uppercase leading-none block mb-1 tracking-widest">Monto a Devolver</span>
