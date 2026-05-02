@@ -34,6 +34,7 @@ import {
     generateAct117CReportLogic,
     generateAct117BReportLogic,
     generateAct122ReportLogic,
+    generateAct122BReportLogic,
     generateAct123BReportLogic,
     generateAct124ReportLogic,
     generateDOFAEIReportLogic,
@@ -541,11 +542,7 @@ function ReportesContent() {
                             description: 'Resumen gerencial de costos y tiempo.',
                             icon: <Activity size={18} className="text-indigo-500" />,
                             action: () => {
-                                if (reportFormat === 'excel') {
-                                    alert("El reporte de informacion principal no esta disponible en formato Excel por requerimiento.");
-                                    setLoading(false);
-                                    return;
-                                }
+                                // Excel habilitado
                                 generateDashboardReportLogic(projectId, reportFormat, endDate)
                                     .then(() => setStatus("Reporte generado."))
                                     .catch(e => {
@@ -696,11 +693,7 @@ function ReportesContent() {
                                         alert("Por favor seleccione certificacion y partida.");
                                         throw new Error("Selection required");
                                     }
-                                    if (reportFormat === 'excel') {
-                                        alert("El reporte ACT-117B no esta disponible en formato Excel por requerimiento.");
-                                        setLoading(false);
-                                        return;
-                                    }
+                                    // Excel habilitado
                                     await generateAct117BReportLogic(projectId, certId, itemNum, reportFormat);
                                     setStatus("Reporte generado.");
                                 } catch (e: any) {
@@ -763,6 +756,31 @@ function ReportesContent() {
                         }}
                     />
 
+                    <SelectiveReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'act122b-selective',
+                            label: 'ACT-122B (Revised Dec-2024)',
+                            description: 'Formulario oficial revisado de Órdenes de Cambio utilizando la plantilla de diciembre 2024.',
+                            icon: <FileCheck size={18} className="text-purple-600" />,
+                            selectLabel: "Elegir CHO",
+                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
+                            onGenerate: async (ids) => {
+                                try {
+                                    for(const id of ids) {
+                                        await generateAct122BReportLogic(projectId, id);
+                                    }
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    />
+
 
                     <SelectiveReportItem
                         onAction={handleAction}
@@ -805,11 +823,7 @@ function ReportesContent() {
                                         alert("Por favor seleccione una Orden de Cambio (CHO).");
                                         throw new Error("Selection required");
                                     }
-                                    if (reportFormat === 'excel') {
-                                        alert("El reporte ACT-124 no esta disponible en formato Excel por requerimiento.");
-                                        setLoading(false);
-                                        return;
-                                    }
+                                    // Excel habilitado
                                     await generateAct124ReportLogic(projectId, choId, [], reportFormat);
                                     setStatus("Reporte generado.");
                                 } catch (e: any) {

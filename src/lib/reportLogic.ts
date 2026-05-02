@@ -22,8 +22,8 @@ export const formatCurrency = (val: number, label?: string) => {
 export const formatNum = (val: number, decimals: number = 2) => {
     if (val === null || val === undefined || isNaN(val)) return "0.00";
     const formatted = Math.abs(val).toLocaleString('en-US', {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     });
     return val < 0 ? `(${formatted})` : formatted;
 };
@@ -455,34 +455,118 @@ export const createExcelBlob = async (
     projectInfo?: any | null,
     cutOffDate?: string | Date
 ) => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Reporte');
+
     const cutStr = cutOffDate ? utilsFormatDate(new Date(cutOffDate)) : "";
     const todayStr = utilsFormatDate(new Date());
 
-    const dateHeader = [
-        [`Fecha de Impresión: ${todayStr}`]
-    ];
+    // --- ESTILOS ---
+    const titleStyle: Partial<ExcelJS.Style> = {
+        font: { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }, // Slate-800
+        alignment: { horizontal: 'center', vertical: 'middle' }
+    };
 
-    if (cutStr) {
-        dateHeader.push([`Fecha de Corte: ${cutStr}`]);
+    const headerStyle: Partial<ExcelJS.Style> = {
+        font: { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }, // Slate-700
+        border: {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        },
+        alignment: { horizontal: 'center', vertical: 'middle' }
+    };
+
+    const infoStyle: Partial<ExcelJS.Style> = {
+        font: { name: 'Arial', size: 10, bold: true },
+        alignment: { horizontal: 'left' }
+    };
+
+    // --- ENCABEZADO DEL PROYECTO ---
+    worksheet.addRow([title]).getCell(1).style = titleStyle;
+    worksheet.mergeCells(1, 1, 1, 8);
+    worksheet.getRow(1).height = 30;
+
+    if (projectInfo) {
+        const p1 = worksheet.addRow([`PROYECTO: ${projectInfo.name} - ${formatProjectNumber(projectInfo.num_act)}`]);
+        p1.getCell(1).style = infoStyle;
+        worksheet.mergeCells(p1.number, 1, p1.number, 8);
+
+        const p2 = worksheet.addRow([`Fed: ${projectInfo.num_federal || 'N/A'} | Contrato: ${projectInfo.num_contrato || 'N/A'} | Region: ${projectInfo.region || 'N/A'}`]);
+        p2.getCell(1).font = { italic: true, size: 9 };
+        worksheet.mergeCells(p2.number, 1, p2.number, 8);
+
+        const p3 = worksheet.addRow([`Municipios: ${Array.isArray(projectInfo.municipios) ? projectInfo.municipios.join(', ') : (projectInfo.municipios || 'N/A')}`]);
+        p3.getCell(1).font = { size: 9 };
+        worksheet.mergeCells(p3.number, 1, p3.number, 8);
+
+        const p4 = worksheet.addRow([`Contratista: ${projectInfo.contractor_name || 'N/A'} | PM: ${projectInfo.project_manager_name || 'N/A'} | Admin: ${projectInfo.admin_name || 'N/A'}`]);
+        p4.getCell(1).font = { size: 9 };
+        worksheet.mergeCells(p4.number, 1, p4.number, 8);
     }
 
-    // Combine title and data for better excel layout
-    const excelData = [
-        [title],
-        [projectInfo ? `PROYECTO: ${projectInfo.name} - ${formatProjectNumber(projectInfo.num_act)}` : ""],
-        [projectInfo ? `Fed: ${projectInfo.num_federal || 'N/A'} | Contrato: ${projectInfo.num_contrato || 'N/A'} | Region: ${projectInfo.region || 'N/A'}` : ""],
-        [projectInfo ? `Municipios: ${Array.isArray(projectInfo.municipios) ? projectInfo.municipios.join(', ') : (projectInfo.municipios || 'N/A')}` : ""],
-        [projectInfo ? `Contratista: ${projectInfo.contractor_name || 'N/A'} | PM: ${projectInfo.project_manager_name || 'N/A'} | Admin: ${projectInfo.admin_name || 'N/A'}` : ""],
-        ...dateHeader,
-        [],
-        ...data
-    ];
-    
-    const ws = XLSX.utils.aoa_to_sheet(excelData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-    
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const d1 = worksheet.addRow([`Fecha de Impresión: ${todayStr}${cutStr ? ` | Fecha de Corte: ${cutStr}` : ""}`]);
+    d1.getCell(1).font = { size: 9, color: { argb: 'FF64748B' } };
+    worksheet.mergeCells(d1.number, 1, d1.number, 8);
+
+    worksheet.addRow([]); // Espacio
+
+    // --- DATOS ---
+    if (data.length > 0) {
+        // La primera fila de data suele ser el encabezado de la tabla
+        const headerRow = worksheet.addRow(data[0]);
+        headerRow.eachCell((cell) => {
+            cell.style = headerStyle;
+        });
+
+        // El resto de las filas
+        for (let i = 1; i < data.length; i++) {
+            const row = worksheet.addRow(data[i]);
+            row.eachCell((cell, colNumber) => {
+                // Estilo básico para celdas de datos
+                cell.font = { name: 'Arial', size: 9 };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+
+                // Si la celda es un número, intentar formatearla
+                const val = cell.value?.toString() || "";
+                if (val.includes('$') || (typeof cell.value === 'number' && colNumber >= 5)) {
+                    cell.alignment = { horizontal: 'right' };
+                }
+                
+                // Si la fila parece un subtotal (contiene "TOTAL" o "BALANCE")
+                const rowText = data[i].join(" ").toUpperCase();
+                if (rowText.includes("TOTAL") || rowText.includes("BALANCE") || rowText.includes("GRAN TOTAL")) {
+                    cell.font = { bold: true, name: 'Arial', size: 9 };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+                }
+                
+                // Si la fila es un separador o título de sección
+                if (data[i][0] && data[i][0].toString().includes("PARTIDA") && !data[i][1]) {
+                    cell.font = { bold: true, size: 10, color: { argb: 'FF1E293B' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+                    worksheet.mergeCells(row.number, 1, row.number, 8);
+                }
+            });
+        }
+    }
+
+    // Auto-ajustar anchos de columna (aproximado)
+    worksheet.columns.forEach((column, i) => {
+        let maxLen = 10;
+        column.eachCell!({ includeEmpty: true }, (cell) => {
+            const len = cell.value ? cell.value.toString().length : 0;
+            if (len > maxLen) maxLen = len;
+        });
+        column.width = Math.min(maxLen < 12 ? 12 : maxLen + 2, 50);
+    });
+
+    const buf = await workbook.xlsx.writeBuffer();
     return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 };
 
@@ -683,11 +767,11 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
                 b.item_num,
                 b.description,
                 b.unit,
-                formatNum(b.origQty, 4),
-                formatNum(b.choQty, 4),
-                formatNum(b.totalQty, 4),
-                formatNum(b.certQty * -1, 4),
-                formatNum(b.balance, 4)
+                formatNum(b.origQty),
+                formatNum(b.choQty),
+                formatNum(b.totalQty),
+                formatNum(b.certQty * -1),
+                formatNum(b.balance)
             ]);
             
             // Línea de balance total por partida (item)
@@ -699,7 +783,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
                 '',
                 '',
                 'QTY:',
-                formatNum(b.balance, 4)
+                formatNum(b.balance)
             ]);
             reportData.push([
                 '',
@@ -732,7 +816,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
             '', 
             '', 
             'TOTAL QTY:', 
-            formatNum(subtotalQty, 4)
+            formatNum(subtotalQty)
         ]);
         reportData.push([
             '', 
@@ -747,10 +831,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
         reportData.push(['', '', '', '', '', '', '', '']); // Espacio entre partidas
     });
 
-    if (format === 'excel') {
-        alert("Este reporte no está disponible en formato Excel por requerimiento.");
-        return;
-    }
+    // El formato Excel ahora está habilitado a través de createExcelBlob mejorado
 
     await generateReport('REPORTE DE BALANCES DE PARTIDAS', reportData, project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape', format, 'Reporte_Balances_Partidas.pdf', endDate);
 };
@@ -855,7 +936,7 @@ export const generateMfgReportLogic = async (projectId: string, format: 'pdf' | 
                 it?.item_num || c.item_num || '',
                 it?.specification || c.specification || '',
                 fullDescription || c.material_description || '',
-                c.quantity.toFixed(4),
+                formatNum(c.quantity),
                 unit,
                 formatDate(c.cert_date)
             ];
@@ -896,10 +977,10 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
             m.item_num, 
             m.spec, 
             m.desc, 
-            m.certQty.toFixed(4), 
+            formatNum(m.certQty), 
             m.unit,
-            m.mfgQty.toFixed(4), 
-            m.missing.toFixed(4), 
+            formatNum(m.mfgQty), 
+            formatNum(m.missing), 
             m.date
         ])
     ];
@@ -1005,7 +1086,7 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
                 idx === 0 ? group.desc : '', 
                 `#${act.certNum}`, 
                 act.type, 
-                act.qty.toFixed(2), 
+                formatNum(act.qty), 
                 unit, 
                 formatCurrency(act.cost), 
                 formatCurrency(itemBalance)
@@ -1105,7 +1186,7 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
             const pu = parseFloat(it.unit_price) || 0;
             const total = qty * pu;
             subtotal += total;
-            reportData.push([it.item_num || '', fullDesc || '', qty.toFixed(4), it.unit || '', formatCurrency(pu), formatCurrency(total)]);
+            reportData.push([it.item_num || '', fullDesc || '', formatNum(qty), it.unit || '', formatCurrency(pu), formatCurrency(total)]);
             // MOS
             if (it.has_material_on_site) mosDelta += parseFloat(it.mos_invoice_total) || 0;
             if (parseFloat(it.qty_from_mos) > 0) {
@@ -1149,10 +1230,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
     if (!proj) return;
 
-    if (format === 'excel') {
-        alert("El reporte de información principal no está disponible en formato Excel por requerimiento.");
-        return;
-    }
+    // El formato Excel ahora está habilitado a través de createExcelBlob mejorado
 
     const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
 
@@ -1505,6 +1583,7 @@ import { generateAct117C } from "./generateAct117C";
 import { generateAct117B } from "./generateAct117B";
 import { generateAct122 } from "./generateAct122";
 import { generateAct122Excel } from "./generateAct122Excel";
+import { generateAct122B } from "./generateAct122B";
 import { generateDOFAEI } from "./generateDOFAEI";
 
 import { generateAct124 } from "./generateAct124";
@@ -1522,10 +1601,7 @@ import { generateFinalConstructionReport } from "./generateFinalConstructionRepo
 import { generateLiquidacionItemsReportLogic as generateLiquidacionGenerator } from "./generateLiquidacionReport";
 
 export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'pdf', isFinal?: boolean) => {
-    if (format === 'excel') {
-        alert("El reporte ACT-117C no está disponible en formato Excel por requerimiento.");
-        return;
-    }
+    // El formato Excel ahora está habilitado a través de createExcelBlob mejorado
     const { project, certs } = await fetchAllReportData(projectId);
     if (!project) return;
     let cert = certId ? certs?.find(c => c.id === certId) : (certs && certs.length > 0 ? certs[certs.length - 1] : null);
@@ -1538,10 +1614,7 @@ export const generateAct117CReportLogic = async (projectId: string, certId?: str
 };
 
 export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string, format: 'pdf' | 'excel' = 'pdf') => {
-    if (format === 'excel') {
-        alert("El reporte ACT-117B no está disponible en formato Excel por requerimiento.");
-        return;
-    }
+    // El formato Excel ahora está habilitado a través de createExcelBlob mejorado
     const blob = await generateAct117B(projectId, certId, itemNum);
     downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.pdf`);
 };
@@ -1572,6 +1645,15 @@ export const generateMaterialCertificationReportLogic = async (projectId: string
     if (!project) return;
     const blob = await generateMaterialCertificationReport(projectId);
     if (blob) downloadBlob(blob, `Material_Certification_${project.num_act}.pdf`);
+};
+
+export const generateAct122BReportLogic = async (projectId: string, choId: string) => {
+    const { project, chos } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const cho = chos?.find(c => c.id === choId);
+    if (!cho) return;
+    const blob = await generateAct122B(projectId, choId);
+    downloadBlob(blob, `ACT-122B_CHO_${cho.cho_num}_${project.num_act}.xlsx`);
 };
 
 export const generateDbeCertificationReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {

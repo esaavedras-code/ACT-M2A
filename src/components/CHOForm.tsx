@@ -4,7 +4,7 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare, TrendingUp, Download, Upload, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { formatCurrency, roundedAmt, sortItemsNaturally } from "@/lib/utils";
+import { formatCurrency, roundedAmt, sortItemsNaturally, getFederalSharePct } from "@/lib/utils";
 import { generateCCMLReportLogic } from "@/lib/reportLogic";
 import specsData from "@/data/specifications.json";
 

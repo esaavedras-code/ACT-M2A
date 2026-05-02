@@ -808,51 +808,53 @@ const PaymentCertForm = React.forwardRef(({
                                             />
                                         </div>
                                     </div>
-
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 items-start">
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 flex-1 items-start bg-white/50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
                                         <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Trabajo ejec. (WP)</span>
-                                            <span className="text-lg xl:text-xl font-black text-emerald-600 font-geist tracking-tight">{formatCurrency(certWork)}</span>
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">Trabajo ejec. (WP)</span>
+                                            <span className="text-xl xl:text-2xl font-black text-emerald-600 font-geist tracking-tight">{formatCurrency(certWork)}</span>
                                         </div>
                                         <div className="space-y-1">
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">5% Retenido</span>
-                                                    <label className="flex items-center gap-1 cursor-pointer group" title="No retener en esta certificación">
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block">5% Retenido</span>
+                                                    <label className="flex items-center gap-1.5 cursor-pointer group" title="No retener en esta certificación">
                                                         <input
                                                             type="checkbox"
-                                                            className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3 h-3"
+                                                            className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
                                                             checked={!!c.skip_retention}
                                                             onChange={(e) => updateCert(certIdx, 'skip_retention', e.target.checked)}
                                                         />
-                                                        <span className="text-[9px] font-bold text-slate-400 group-hover:text-amber-600 transition-colors leading-none">Sin Ret.</span>
+                                                        <span className="text-[9px] font-black text-slate-400 group-hover:text-amber-600 transition-colors leading-none uppercase tracking-wider">Sin Ret.</span>
                                                     </label>
                                                 </div>
-                                                <label className="flex items-center gap-1 cursor-pointer group" title="Devolución de retenido">
+                                                <label className="flex items-center gap-1.5 cursor-pointer group w-fit" title="Devolución de retenido">
                                                     <input
                                                         type="checkbox"
-                                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
+                                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                                                         checked={!!c.show_retention_return}
                                                         onChange={(e) => updateCert(certIdx, 'show_retention_return', e.target.checked)}
                                                     />
-                                                    <span className="text-[8px] font-bold text-slate-400 group-hover:text-blue-600 transition-colors leading-none">Devolución</span>
+                                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-blue-600 transition-colors leading-none uppercase tracking-wider">Devolución</span>
                                                 </label>
                                             </div>
-                                            <div className="flex items-end gap-3 flex-wrap">
-                                                <span className={`text-lg xl:text-xl font-black ${c.skip_retention ? 'text-slate-400 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
+                                            <div className="flex items-end gap-3 flex-wrap mt-1">
+                                                <span className={`text-xl xl:text-2xl font-black ${c.skip_retention ? 'text-slate-300 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
                                                     {formatCurrency(c.skip_retention ? 0 : -certRetention)}
                                                 </span>
                                                 {c.show_retention_return && (
-                                                    <div className="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-900/10 p-1.5 rounded-lg border border-blue-100 dark:border-blue-800/50 w-full mt-1">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[8px] font-bold text-blue-400 uppercase leading-none mb-1">Monto a Devolver</span>
-                                                            <input
-                                                                type="number"
-                                                                className="w-full bg-transparent border-none p-0 text-xs font-black text-blue-700 outline-none focus:ring-0 h-4"
-                                                                value={c.retention_return_amount ?? ""}
-                                                                onChange={(e) => updateCert(certIdx, 'retention_return_amount', e.target.value)}
-                                                                placeholder="0.00"
-                                                            />
+                                                    <div className="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-900/10 p-2 rounded-xl border border-blue-100 dark:border-blue-800/50 w-full mt-2">
+                                                        <div className="flex flex-col w-full">
+                                                            <span className="text-[8px] font-black text-blue-500 uppercase leading-none mb-1.5 tracking-widest">Monto a Devolver</span>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-blue-600 font-bold text-xs">$</span>
+                                                                <input
+                                                                    type="number"
+                                                                    className="w-full bg-transparent border-none p-0 text-sm font-black text-blue-700 outline-none focus:ring-0 h-5"
+                                                                    value={c.retention_return_amount ?? ""}
+                                                                    onChange={(e) => updateCert(certIdx, 'retention_return_amount', e.target.value)}
+                                                                    placeholder="0.00"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -860,15 +862,15 @@ const PaymentCertForm = React.forwardRef(({
                                         </div>
                                         <div className="space-y-1">
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">MOS Neto (M)</span>
-                                                <span className={`text-lg xl:text-xl font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">MOS Neto (M)</span>
+                                                <span className={`text-xl xl:text-2xl font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
                                                     {formatCurrency(certMOSNet)}
                                                 </span>
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Neto Certificado</span>
-                                            <span className="text-xl xl:text-2xl font-black text-primary font-geist tracking-tighter">
+                                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.15em] block mb-1">Neto Certificado</span>
+                                            <span className="text-2xl xl:text-3xl font-black text-primary font-geist tracking-tighter">
                                                 {formatCurrency(certNetChange)}
                                             </span>
                                         </div>

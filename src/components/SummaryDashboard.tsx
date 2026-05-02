@@ -496,12 +496,20 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             
                             {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
                                 <div className="mt-2 p-2 bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/30 rounded shadow-inner space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
-                                    {metrics.cost.mosBalances.map((e, i) => (
-                                        <div key={i} className="flex justify-between items-center text-[10px] font-bold text-amber-800">
-                                            <span>Item {e.item_num}</span>
-                                            <span>{formatCurrency(e.balance)}</span>
-                                        </div>
-                                    ))}
+                                    {metrics.cost.mosBalances.map((e, i) => {
+                                        const it = (initialContractItems || internalContractItems || []).find((ci: any) => ci.item_num === e.item_num);
+                                        const pu = it?.unit_price || 1;
+                                        const qty = e.balance / pu;
+                                        return (
+                                            <div key={i} className="flex justify-between items-center text-[10px] font-bold text-amber-800 py-1 border-b border-amber-50 dark:border-amber-900/10 last:border-0">
+                                                <div className="flex gap-2">
+                                                    <span className="w-12">Item {e.item_num}</span>
+                                                    <span className="text-amber-600/70 font-black">({formatNumber(qty, 2)} {it?.unit || 'UN'})</span>
+                                                </div>
+                                                <span className="font-black">{formatCurrency(e.balance)}</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
