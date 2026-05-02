@@ -172,32 +172,7 @@ function ProjectDetailContent() {
         setActiveTab(newTab);
     };
 
-    const getReportNote = (tab: string) => {
-        switch (tab) {
-            case "dashboard": return "El Dashboard Ejecutivo del proyecto pueden verlo en la pestaña de REPORTES, opción '1. Información General'.";
-            case "project": return "La información básica (Entrada de datos) y del contratista se gestiona en esta sección.";
-            case "project2": return "Consolidado de Entrada de Datos para revisión rápida.";
-            case "personnel": return "El personal de ACT asignado al proyecto se gestiona en esta sección.";
-            case "presentations": return "Cree reportes ejecutivos mensuales con actividades y fotos para exportar a PowerPoint.";
-            case "items": return "Los balances y modificaciones de partidas los pueden ver en la pestaña de REPORTES, opción '2. Gestión de Partidas'.";
-            case "materials": return "El reporte oficial de materiales 'ACT-117B' lo pueden ver en la pestaña de REPORTES, opción '4. Material on Site (MOS)'.";
-            case "compliance": return "La documentación de cumplimiento los pueden ver en la pestaña de REPORTES.";
-            case "cho": return "Los reportes ACT-122, ACT-124, ROA y CCML los pueden ver en la pestaña de REPORTES, opción '5. Change Orders'.";
-            case "payment": return "Las certificaciones de pago 'ACT-117C' las pueden ver en la pestaña de REPORTES, opción '6. Certificaciones de Pago'.";
-            case "mfg": return "Los 'Certificados de Manufactura' los pueden ver en la pestaña de REPORTES, opción '3. Certificados de Manufactura'.";
-            case "icc": return "Gestione los Initial Contract Certifications (ICC) notarizados y su vigencia de 60 días.";
-            case "minutes": return "Las minutas documentadas las pueden ver en la pestaña de REPORTES.";
-            case "logs": return "Los controles de tiempo de actividades los pueden ver en la pestaña de REPORTES.";
-            case "inspection": return "Los informes de inspección los pueden ver en la pestaña de REPORTES.";
-            case "force": return "El balance de Force Account lo pueden ver en la pestaña de REPORTES.";
-            case "force2": return "Gestión avanzada de Force Account (AC-49, AC-50 y AC-51).";
-            case "liquidation": return "Las hojas de liquidación y checklists (Final Acceptance) los pueden ver en la pestaña de REPORTES, opción '7. Liquidación'.";
-            case "ccml": return "La información de las Cartas de Requerimiento de Modificación (Project Modification Letters) se gestiona en esta sección.";
-            case "update-tables": return "";
-            case "negotiation": return "Zona de negociación y consulta de historial de precios de la ACT.";
-            default: return "Los reportes de esta sección los pueden ver en la pestaña de REPORTES de este proyecto.";
-        }
-    };
+
 
     useEffect(() => {
         if (!id) return;
@@ -480,12 +455,7 @@ function ProjectDetailContent() {
                     <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] p-1 md:p-2 lg:p-3 shadow-2xl shadow-blue-900/5 border border-white dark:border-slate-900 relative min-h-[60vh]">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
                         <div className="relative z-10">
-                            {getReportNote(activeTab) && (
-                                <div className="mb-8 px-6 py-3 border-l-4 border-blue-500 bg-blue-50/30 dark:bg-blue-900/10 rounded-r shadow-sm flex items-center gap-3">
-                                    <Info size={18} className="text-blue-600 shrink-0" />
-                                    <span className="text-xs font-bold text-blue-800 dark:text-blue-300 leading-relaxed">{getReportNote(activeTab)}</span>
-                                </div>
-                            )}
+
 
                             <Suspense fallback={<div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-blue-500" size={32} /><span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Preparando sección...</span></div>}>
                                 {activeTab === "dashboard"   && <SummaryDashboard projectId={id} />}
