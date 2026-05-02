@@ -72,7 +72,7 @@ export async function pdfToImages(base64: string): Promise<{ success: boolean; i
 
         for (let i = 1; i <= maxPages; i++) {
             const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 1.5 });
+            const viewport = page.getViewport({ scale: 2.5 });
             
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -87,7 +87,7 @@ export async function pdfToImages(base64: string): Promise<{ success: boolean; i
             };
             
             await page.render(renderContext).promise;
-            const base64Img = canvas.toDataURL('image/jpeg', 0.8);
+            const base64Img = canvas.toDataURL('image/jpeg', 0.95);
             images.push(base64Img);
         }
 

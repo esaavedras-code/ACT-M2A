@@ -413,7 +413,22 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
                         if (imagesArray.length > 0) {
                             console.log(`Enviando ${imagesArray.length} imágenes a la IA...`);
-                            const prompt = "Analiza esta imagen de partidas/items de contrato de construcción. Extrae cada partida y devuelve EXACTAMENTE un JSON array puro con este formato: [{\"specification\": \"123-456\", \"quantity\": 500, \"unit\": \"LNM\", \"unit_price\": 10.50}]. NO incluyas markdown, no incluyas descripciones de texto, SOLO EL ARREGLO JSON. Ignora texto no relacionado a items. Revisa bien las cantidades y precios. Si no encuentras items, devuelve [].";
+                            const prompt = `Analiza estas imágenes de un contrato de construcción. 
+                            Tu objetivo es extraer la TABLA DE PARTIDAS (PROPOSAL SCHEDULE).
+                            Para cada fila de la tabla, identifica:
+                            1. El código de especificación (ej: "151-001", "638-005").
+                            2. La cantidad (un número).
+                            3. La unidad (ej: "LS", "SqM", "LnM", "Each").
+                            4. El precio unitario (un número).
+
+                            Responde ÚNICAMENTE con un arreglo JSON con este formato:
+                            [
+                              {"specification": "638-001", "quantity": 50, "unit": "SqM", "unit_price": 390.00},
+                              ...
+                            ]
+                            
+                            Si el código tiene letras, inclúyelas. Si ves el símbolo de $, ignóralo y solo pon el número.
+                            SI NO ENCUENTRAS NADA, responde con un arreglo vacío [].`;
                             
                             const payload = { prompt, image: imagesArray };
                             let aiResponse: any;
