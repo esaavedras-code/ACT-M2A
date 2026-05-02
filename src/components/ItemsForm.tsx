@@ -394,56 +394,81 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
                     // 2. Fallback a IA con Visión (Si es escaneo o imagen)
                     if (finalItems.length === 0) {
+                        console.log("Iniciando fallback de IA con Visión...");
                         usedAI = true;
                         let imagesArray: string[] = [];
                         
                         if (file.type === 'application/pdf') {
+                            // Notificar al usuario que esto tomará un momento
+                            console.log("Convirtiendo PDF a imágenes para análisis visual...");
                             const imgRes = await pdfToImages(base64);
                             if (imgRes.success && imgRes.images) {
                                 imagesArray = imgRes.images;
+                            } else {
+                                console.error("Error convirtiendo PDF a imágenes:", imgRes.error);
                             }
                         } else {
                             imagesArray = [base64];
                         }
 
                         if (imagesArray.length > 0) {
+                            console.log(`Enviando ${imagesArray.length} imágenes a la IA...`);
                             const prompt = "Analiza esta imagen de partidas/items de contrato de construcción. Extrae cada partida y devuelve EXACTAMENTE un JSON array puro con este formato: [{\"specification\": \"123-456\", \"quantity\": 500, \"unit\": \"LNM\", \"unit_price\": 10.50}]. NO incluyas markdown, no incluyas descripciones de texto, SOLO EL ARREGLO JSON. Ignora texto no relacionado a items. Revisa bien las cantidades y precios. Si no encuentras items, devuelve [].";
                             
                             const payload = { prompt, image: imagesArray };
                             let aiResponse: any;
 
                             const win = typeof window !== 'undefined' ? (window as any) : null;
-                            if (win?.electronAPI?.analyzeDocument) {
-                                aiResponse = await win.electronAPI.analyzeDocument(payload);
-                            } else {
-                                const req = await fetch('/api/analyze-document', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(payload)
-                                });
-                                aiResponse = await req.json();
+                            try {
+                                if (win?.electronAPI?.analyzeDocument) {
+                                    aiResponse = await win.electronAPI.analyzeDocument(payload);
+                                } else {
+                                    const req = await fetch('/api/analyze-document', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(payload)
+                                    });
+                                    aiResponse = await req.json();
+                                }
+                            } catch (apiErr: any) {
+                                console.error("Error de conexión con la IA:", apiErr);
+                                alert("No se pudo conectar con el servicio de IA. Revisa tu conexión a internet.");
                             }
 
                             if (aiResponse?.success && aiResponse.result) {
+                                console.log("Respuesta de IA recibida:", aiResponse.result);
                                 try {
-                                    let jsonStr = aiResponse.result.replace(/```json/g, '').replace(/```/g, '').trim();
-                                    const parsedData = JSON.parse(jsonStr);
-                                    if (Array.isArray(parsedData)) {
-                                        finalItems = parsedData.map(it => {
-                                            const specInfo = specs[it.specification] || { description: "Item no listado en Especificaciones" };
-                                            return {
-                                                specification: it.specification,
-                                                description: specInfo.description,
-                                                quantity: Number(it.quantity) || 0,
-                                                unit: it.unit || "LS",
-                                                unit_price: Number(it.unit_price) || 0
-                                            };
-                                        }).filter(it => it.quantity > 0 || it.unit_price > 0);
+                                    // Limpieza agresiva de JSON en caso de que la IA responda con texto extra
+                                    let resultText = aiResponse.result;
+                                    let jsonStartIndex = resultText.indexOf('[');
+                                    let jsonEndIndex = resultText.lastIndexOf(']');
+                                    
+                                    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+                                        let jsonStr = resultText.substring(jsonStartIndex, jsonEndIndex + 1);
+                                        const parsedData = JSON.parse(jsonStr);
+                                        if (Array.isArray(parsedData)) {
+                                            finalItems = parsedData.map(it => {
+                                                const specInfo = specs[it.specification] || { description: "Item no listado en Especificaciones" };
+                                                return {
+                                                    specification: it.specification,
+                                                    description: specInfo.description,
+                                                    quantity: Number(it.quantity) || 0,
+                                                    unit: (it.unit || "LS").toUpperCase(),
+                                                    unit_price: Number(it.unit_price) || 0
+                                                };
+                                            }).filter(it => it.quantity > 0 || it.unit_price > 0);
+                                        }
+                                    } else {
+                                        console.warn("La IA no devolvió un formato JSON válido (no se encontró '[' o ']')");
                                     }
                                 } catch (err) {
-                                    console.error("No se pudo parsear el JSON de la IA:", aiResponse.result);
+                                    console.error("Error parseando JSON de la IA:", err, aiResponse.result);
                                 }
+                            } else if (aiResponse?.error) {
+                                alert("Error de la IA: " + (aiResponse.error.message || aiResponse.error));
                             }
+                        } else {
+                            console.error("No se pudieron generar imágenes del documento.");
                         }
                     }
 
@@ -464,11 +489,12 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
                         setItems(parsedItems);
                         if (onDirty) onDirty();
-                        alert(`✓ ¡EXTRACCIÓN COMPLETADA!\n\nMétodo utilizado: ${usedAI ? 'Inteligencia Artificial (Visión)' : 'Extracción Nativa Rápida'}\nSe detectaron ${parsedItems.length} partidas válidas.\n\nRevisa los precios y cantidades para asegurar precisión.`);
+                        alert(`✓ ¡EXTRACCIÓN COMPLETADA!\n\nMétodo: ${usedAI ? 'Inteligencia Artificial (Visión)' : 'Extracción Nativa Rápida'}\nPartidas detectadas: ${parsedItems.length}\n\nPor favor, verifica que las cantidades y precios coincidan con el original.`);
                     } else {
-                        alert("No se detectaron partidas automáticamente. La IA no encontró la tabla correctamente o la imagen es ilegible.");
+                        alert("No pudimos extraer las partidas. \n\nPosibles causas:\n1. El documento es ilegible.\n2. No se detectó la tabla de partidas.\n3. Error en la conexión con la IA.");
                     }
                 } catch (err: any) {
+                    console.error("Error en flujo de importación:", err);
                     alert("Error procesando documento: " + err.message);
                 } finally {
                     setLoading(false);
@@ -563,10 +589,17 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 ].filter(Boolean) as any}
             />
 
-            <input id="import-items-pdf" type="file" accept="application/pdf" className="hidden" onChange={handleImportPDF} />
+            <input id="import-items-pdf" type="file" accept="application/pdf,image/*" className="hidden" onChange={handleImportPDF} />
 
-
-
+            {loading && (
+                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm">
+                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 animate-pulse">
+                        Procesando Documento con IA...
+                    </p>
+                    <p className="text-[10px] mt-2 text-slate-400 uppercase tracking-widest">Esto puede tardar unos segundos</p>
+                </div>
+            )}
 
             <div className="card overflow-x-auto p-0 border-none shadow-sm">
                 <table className="w-full text-left border-collapse">
