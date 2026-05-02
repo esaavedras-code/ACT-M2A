@@ -1,6 +1,6 @@
 {
     "name": "pact-administradores",
-    "version": "3.28.0501",
+    "version": "3.28.0502",
     "private": true,
     "main": "electron/main.js",
     "scripts": {

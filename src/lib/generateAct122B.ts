@@ -13,32 +13,35 @@ export async function generateAct122B(
     try {
         const { data: projData } = await supabase.from('projects').select('*').eq('id', projectId).single();
         if (!projData) throw new Error("Proyecto no encontrado");
+        
         const { data: contrData } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
         const { data: choData } = await supabase.from('chos').select('*').eq('id', choId).single();
         const { data: allChos } = await supabase.from('chos').select('cho_num, time_extension_days, proposed_change').eq('project_id', projectId).order('cho_num', { ascending: true });
         
+        const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
+        const personnelMap: Record<string, string> = {};
+        personnel?.forEach(p => { personnelMap[p.role] = p.name; });
+
         if (!choId || !choData) throw new Error("CHO no encontrado");
 
+        // Usar la plantilla nueva copiada (Rev 12-2024)
         const response = await fetch('/ACT-122B_Template.xlsx');
         if (!response.ok) throw new Error(`Plantilla ACT-122B no encontrada`);
         const templateBuf = await response.arrayBuffer();
 
         const wb = new ExcelJS.Workbook();
         await wb.xlsx.load(templateBuf);
-        const ws = wb.getWorksheet('ACT-122');
-        if (!ws) throw new Error('No se encontró la hoja "ACT-122"');
+        const templateWs = wb.getWorksheet('ACT-122');
+        if (!templateWs) throw new Error('No se encontró la hoja "ACT-122" en la plantilla');
 
-        // Desproteger para permitir escritura limpia
-        try { ws.unprotect(); } catch(e) {}
-
-        // Cálculos de Tiempo y Montos Acumulados
+        // --- CÁLCULOS ---
         let prevExtDays = 0;
         let prevCostMods = 0;
+        const currentChoNum = parseFloat(choData.cho_num);
         if (allChos) {
             for (const c of allChos) {
-                const currentNum = parseFloat(choData.cho_num);
                 const loopNum = parseFloat(c.cho_num);
-                if (loopNum < currentNum) {
+                if (loopNum < currentChoNum) {
                     prevExtDays += (parseInt(c.time_extension_days) || 0);
                     prevCostMods += (parseFloat(c.proposed_change) || 0);
                 }
@@ -58,95 +61,196 @@ export async function generateAct122B(
         const adminDate = projData.date_rev_completion ? new Date(projData.date_rev_completion + "T00:00:00") : dateNewBox12;
         let adminEnd = adminDate ? new Date(adminDate) : null;
         if (adminEnd) {
-            adminEnd = new Date(adminEnd.getTime() + 730 * 86400000); // Instrucción 13: +730 días
+            adminEnd = new Date(adminEnd.getTime() + 730 * 86400000); 
         }
 
-        // Helper para inyectar valores preservando estilos
-        const setVal = (addr: string, val: any) => {
+        const allItems = Array.isArray(choData.items) ? choData.items : [];
+        const contractChoItems = allItems.filter((it: any) => !it.is_new);
+        const extraWorkItems = allItems.filter((it: any) => it.is_new);
+
+        // Determinamos cuántas páginas necesitamos. 
+        // Cada página tiene espacio para 5 ítems de contrato y 3 ítems extra.
+        const totalPages = Math.max(
+            Math.ceil(contractChoItems.length / 5), 
+            Math.ceil(extraWorkItems.length / 3), 
+            1
+        );
+
+        // --- FUNCIONES DE AYUDA ---
+        const setVal = (ws: ExcelJS.Worksheet, addr: string, val: any, options: { bold?: boolean, center?: boolean, shrink?: boolean, fontSize?: number } = {}) => {
             const cell = ws.getCell(addr);
-            cell.protection = { locked: false, hidden: false };
             cell.value = val;
+            
+            if (options.fontSize) {
+                cell.font = { ...cell.font, size: options.fontSize };
+            } else if (options.shrink && typeof val === 'string' && val.length > 25) {
+                cell.font = { ...cell.font, size: val.length > 45 ? 6 : 8 };
+            }
+            
+            if (options.center) {
+                cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            }
             return cell;
         };
 
-        // --- APLICANDO INSTRUCCIONES DE ENRIQUE (MAPEO FINAL) ---
+        // Función para clonar el formato de la hoja maestra (incluyendo celdas combinadas y dimensiones)
+        const cloneSheetFormat = (source: ExcelJS.Worksheet, target: ExcelJS.Worksheet) => {
+            // Copiar dimensiones de columnas
+            source.columns.forEach((col, i) => {
+                if (col.width) target.getColumn(i + 1).width = col.width;
+            });
 
-        // 1-8 Bloque Identificación (Columna J)
-        setVal('J7', projData.name || '');                              // 1. Nombre del proyecto
-        setVal('J8', contrData?.name || projData.contractor_name || ''); // 2. Contratista
-        setVal('J9', projData.num_act || '');                           // 3. Número de proyecto
-        setVal('J10', projData.num_federal || 'N/A');                   // 4. Número federal
-        setVal('J11', projData.num_oracle || '');                        // 5. Número Oracle
-        setVal('J12', projData.num_contrato || '');                     // 6. Número contrato
-        setVal('J13', choData.amendment_letter || '0');                 // 7. Letra enmienda
-        setVal('J14', choData.cho_num || '');                           // 8. Número correlativo CHO
+            // Copiar filas y estilos (limitado por ExcelJS, pero intentaremos lo esencial)
+            source.eachRow({ includeEmpty: true }, (row, rowNum) => {
+                const newRow = target.getRow(rowNum);
+                newRow.height = row.height;
+                row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+                    const newCell = newRow.getCell(colNum);
+                    newCell.style = JSON.parse(JSON.stringify(cell.style));
+                    newCell.value = cell.value;
+                });
+            });
 
-        // 9-14 Bloque Tiempo (Columna BA)
-        setVal('BA7', projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null); // 9. NTP
-        setVal('BA8', dateRevisedBox10);                                // 10. Term. contractual revisada
-        setVal('BA9', timeExt);                                         // 11. Extensión de tiempo
-        setVal('BA10', 0);                                              // 11.a Compensables
-        setVal('BA11', dateNewBox12);                                   // 12. Automática: Nueva fecha term.
-        setVal('BA12', adminEnd);                                       // 13. Automática: Vigencia Contralor
-        setVal('BA13', projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null); // 14. FMIS End Date
+            // Copiar celdas combinadas
+            // @ts-ignore
+            if (source._merges) {
+                // @ts-ignore
+                Object.values(source._merges).forEach((m: any) => {
+                    try { target.mergeCells(m.model.top, m.model.left, m.model.bottom, m.model.right); } catch(e) {}
+                });
+            }
+        };
 
-        // 15. Checkboxes (Marcar con 'X')
-        const type = (choData.type || '').toLowerCase();
-        if (type.includes('contract')) setVal('B18', 'X');
-        if (type.includes('extra')) setVal('V18', 'X');
-        if (type.includes('time')) setVal('AN18', 'X');
+        const fillPage = (ws: ExcelJS.Worksheet, pageIndex: number, isLast: boolean) => {
+            try { ws.unprotect(); } catch(e) {}
 
-        // 16. Descripción / Scope (B21:B26)
-        setVal('B21', choData.description || '');
+            // 1. Identificación y Proyecto
+            setVal(ws, 'J7', projData.name || '', { shrink: true });
+            setVal(ws, 'J8', contrData?.name || projData.contractor_name || '', { shrink: true });
+            setVal(ws, 'J9', projData.num_act || '');
+            setVal(ws, 'J10', projData.num_federal || 'N/A');
+            setVal(ws, 'J11', projData.num_oracle || '');
+            setVal(ws, 'J12', projData.num_contrato || '');
+            setVal(ws, 'J13', choData.amendment_letter || '0');
+            setVal(ws, 'J14', choData.cho_num || '');
 
-        // --- PARTIDAS / ITEMS (Celdas 32 a 36) ---
-        const allItems = Array.isArray(choData.items) ? choData.items : [];
-        const { data: contractItemsList } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
-        const contractItemNums = new Set(contractItemsList?.map(ci => ci.item_num) || []);
+            // Descripción del proyecto (bajo el nombre)
+            setVal(ws, 'B16', projData.description || '', { shrink: true });
 
-        const contractChoItems = allItems.filter((it: any) => contractItemNums.has(it.item_num));
-        const extraWorkItems = allItems.filter((it: any) => !contractItemNums.has(it.item_num));
+            // 2. Tiempo
+            setVal(ws, 'BA7', projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null);
+            setVal(ws, 'BA8', dateRevisedBox10);
+            setVal(ws, 'BA9', timeExt);
+            setVal(ws, 'BA10', 0);
+            setVal(ws, 'BA11', dateNewBox12);
+            setVal(ws, 'BA12', adminEnd);
+            setVal(ws, 'BA13', projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null);
 
-        // Partidas del Contrato (Filas 32-36)
-        let row = 32;
-        let subtotalContract = 0;
-        contractChoItems.slice(0, 5).forEach((it: any) => {
-            const amount = (parseFloat(it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0);
-            subtotalContract += amount;
-            setVal(`B${row}`, it.item_num);             // 17. Número de partida
-            setVal(`H${row}`, it.description);          // 19. Descripción
-            setVal(`AJ${row}`, it.unit);                // 21. Unidad
-            setVal(`AN${row}`, parseFloat(it.proposed_change) || 0); // 22. Cantidad
-            setVal(`AT${row}`, parseFloat(it.unit_price) || 0);      // 23. Precio unitario
-            setVal(`AZ${row}`, amount);                 // 24. Monto total
-            const fedPct = getFederalSharePct(projData, it);
-            setVal(`BF${row}`, fedPct / 100);           // 25. % Federal
-            row++;
-        });
+            // 3. Checkboxes de Tipo (Sección 15)
+            if (contractChoItems.length > 0) setVal(ws, 'B18', 'X', { center: true });
+            if (extraWorkItems.length > 0) setVal(ws, 'V18', 'X', { center: true });
+            if (timeExt > 0) setVal(ws, 'AN18', 'X', { center: true });
 
-        // Trabajo Extra (Usando el mismo bloque de partidas si aplica, o a continuación)
-        // Enrique no especificó un bloque distinto para New Items en el PDF de celdas, 
-        // pero usaremos el AZ42 para su subtotal según instrucción 27.
-        let subtotalExtra = 0;
-        extraWorkItems.forEach((it: any) => {
-            subtotalExtra += (parseFloat(it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0);
-        });
+            // 4. Descripción / Scope del CHO
+            setVal(ws, 'B21', choData.description || '', { shrink: true });
 
-        // 26-30 Resumen Financiero
-        setVal('AZ37', subtotalContract);               // 26. Subtotal partidas contrato
-        setVal('AZ42', subtotalExtra);                  // 27. Subtotal nuevas partidas
-        setVal('BA44', subtotalContract + subtotalExtra); // 28. Suma total
-        setVal('BA45', actualContractAmount);           // 29. Costo original + previos
-        setVal('BA46', newContractAmount);              // 30. Monto revisado actual
+            // 5. ÍTEMS
+            const cStart = pageIndex * 5;
+            const eStart = pageIndex * 3;
+            
+            // Items de Contrato (Filas 32-36)
+            let row = 32;
+            contractChoItems.slice(cStart, cStart + 5).forEach((it: any) => {
+                const qty = parseFloat(it.quantity) || 0;
+                const up = parseFloat(it.unit_price) || 0;
+                setVal(ws, `B${row}`, it.item_num);
+                setVal(ws, `G${row}`, it.specification);
+                setVal(ws, `H${row}`, it.description, { shrink: true });
+                setVal(ws, `AJ${row}`, it.unit);
+                setVal(ws, `AN${row}`, qty);
+                setVal(ws, `AT${row}`, up);
+                setVal(ws, `AZ${row}`, qty * up);
+                setVal(ws, `BF${row}`, (getFederalSharePct(projData, it) / 100));
+                setVal(ws, `E${row}`, 'X', { center: true }); // Marcamos como item de contrato
+                row++;
+            });
 
-        // 31-34 Firmas
-        setVal('M44', projData.resident_engineer_name || '');   // 31. Residente
-        setVal('M46', projData.contractor_name || '');          // 32. Contratista
-        setVal('M48', projData.project_manager_name || '');     // 33. PM / Supervisor
-        setVal('M52', 'Ing. Ayubi G. Gonzalez Cotto');          // 34. Director Ejecutivo
+            // Items Extra (Filas 39-41)
+            row = 39;
+            extraWorkItems.slice(eStart, eStart + 3).forEach((it: any) => {
+                const qty = parseFloat(it.quantity) || 0;
+                const up = parseFloat(it.unit_price) || 0;
+                setVal(ws, `B${row}`, it.item_num);
+                setVal(ws, `G${row}`, it.specification);
+                setVal(ws, `H${row}`, it.description, { shrink: true });
+                setVal(ws, `AJ${row}`, it.unit);
+                setVal(ws, `AN${row}`, qty);
+                setVal(ws, `AT${row}`, up);
+                setVal(ws, `AZ${row}`, qty * up);
+                setVal(ws, `BF${row}`, (getFederalSharePct(projData, it) / 100));
+                setVal(ws, `V${row}`, 'X', { center: true }); // Marcamos como ítem nuevo
+                row++;
+            });
 
-        // 36. Justificación Detallada (C68:BI107)
-        setVal('C68', choData.justification || '');
+            // 6. RESUMEN FINANCIERO (Solo en la última página)
+            if (isLast) {
+                let totalContract = 0;
+                contractChoItems.forEach((it: any) => totalContract += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
+                let totalExtra = 0;
+                extraWorkItems.forEach((it: any) => totalExtra += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
+
+                setVal(ws, 'AZ37', totalContract);
+                setVal(ws, 'AZ42', totalExtra);
+                setVal(ws, 'BA44', totalContract + totalExtra);
+                setVal(ws, 'BA45', actualContractAmount);
+                setVal(ws, 'BA46', newContractAmount);
+            } else {
+                // Dejar vacíos si no es la última
+                setVal(ws, 'AZ37', '');
+                setVal(ws, 'AZ42', '');
+                setVal(ws, 'BA44', '');
+                setVal(ws, 'BA45', '');
+                setVal(ws, 'BA46', '');
+            }
+
+            // 7. FIRMAS (En todas las páginas para consistencia)
+            setVal(ws, 'M44', personnelMap["Administrador del Proyecto"] || projData.resident_engineer_name || '', { shrink: true });
+            setVal(ws, 'M46', contrData?.representative || contrData?.name || projData.contractor_name || '', { shrink: true });
+            setVal(ws, 'M48', personnelMap["Supervisor de Área"] || projData.project_manager_name || '', { shrink: true });
+            setVal(ws, 'M50', personnelMap["Director Regional"] || '', { shrink: true });
+            setVal(ws, 'M52', 'Edwin González Montalvo, P.E.', { shrink: true }); 
+            setVal(ws, 'BA50', personnelMap["Director Oficina Construccion"] || '');
+            setVal(ws, 'BA52', 'N/A');
+
+            // 8. PÁGINA 2 (BACK)
+            setVal(ws, 'J61', projData.name || '', { shrink: true });
+            setVal(ws, 'J63', projData.num_act || '');
+            // Campo 8: CHO Number con enmienda
+            setVal(ws, 'BA63', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
+            
+            const reason = (choData.reason || '');
+            if (reason === 'Design') setVal(ws, 'I69', 'X', { center: true });
+            if (reason === 'Construction') setVal(ws, 'O69', 'X', { center: true });
+            if (reason === 'Contract') setVal(ws, 'U69', 'X', { center: true });
+            if (reason === 'Utilities') setVal(ws, 'AA69', 'X', { center: true });
+            if (reason === 'Other') setVal(ws, 'AG69', 'X', { center: true });
+
+            // Justificación con letra el doble de grande (aprox 16-18pt)
+            setVal(ws, 'C76', choData.justification || '', { fontSize: 16 });
+
+            // Numeración de página
+            setVal(ws, 'Z1', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
+        };
+
+        // Llenar página 1 (ya existe en el workbook como 'ACT-122')
+        fillPage(templateWs, 0, totalPages === 1);
+
+        // Crear y llenar páginas adicionales si es necesario
+        for (let i = 1; i < totalPages; i++) {
+            const newWs = wb.addWorksheet(`Sheet ${i + 1}`);
+            cloneSheetFormat(templateWs, newWs);
+            fillPage(newWs, i, i === totalPages - 1);
+        }
 
         const buffer = await wb.xlsx.writeBuffer();
         return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -156,3 +260,15 @@ export async function generateAct122B(
         throw err;
     }
 }
+
+        const buffer = await wb.xlsx.writeBuffer();
+        return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    } catch (err: any) {
+        console.error("ACT-122B Export error:", err);
+        throw err;
+    }
+}
+
+
+

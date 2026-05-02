@@ -50,6 +50,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     const [mounted, setMounted] = useState(false);
     const [liveIndicator, setLiveIndicator] = useState(false);
     const [showMOSDetails, setShowMOSDetails] = useState(false);
+    const [internalContractItems, setInternalContractItems] = useState<any[]>([]);
 
     useEffect(() => {
         setMounted(true);
@@ -113,6 +114,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const { data: items } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
         const totalItemsCount = items?.length || 0;
+        setInternalContractItems(items || []);
 
         const { data: chos } = await supabase.from("chos").select("proposed_change, doc_status, time_extension_days, items").eq("project_id", projectId);
 
@@ -497,7 +499,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
                                 <div className="mt-2 p-2 bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/30 rounded shadow-inner space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
                                     {metrics.cost.mosBalances.map((e, i) => {
-                                        const it = (initialContractItems || internalContractItems || []).find((ci: any) => ci.item_num === e.item_num);
+                                        const it = (internalContractItems || []).find((ci: any) => ci.item_num === e.item_num);
                                         const pu = it?.unit_price || 1;
                                         const qty = e.balance / pu;
                                         return (

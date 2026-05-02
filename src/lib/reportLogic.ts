@@ -1580,6 +1580,9 @@ export const generateProjectedFundDistributionReportLogic = async (projectId: st
 };
 
 import { generateAct117C } from "./generateAct117C";
+import { generateAct117CExcel } from "./generateAct117CExcel";
+import { generateAct117AExcel } from "./generateAct117AExcel";
+import { generateAct123Excel } from "./generateAct123Excel";
 import { generateAct117B } from "./generateAct117B";
 import { generateAct122 } from "./generateAct122";
 import { generateAct122Excel } from "./generateAct122Excel";
@@ -1601,7 +1604,6 @@ import { generateFinalConstructionReport } from "./generateFinalConstructionRepo
 import { generateLiquidacionItemsReportLogic as generateLiquidacionGenerator } from "./generateLiquidacionReport";
 
 export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'pdf', isFinal?: boolean) => {
-    // El formato Excel ahora está habilitado a través de createExcelBlob mejorado
     const { project, certs } = await fetchAllReportData(projectId);
     if (!project) return;
     let cert = certId ? certs?.find(c => c.id === certId) : (certs && certs.length > 0 ? certs[certs.length - 1] : null);
@@ -1609,8 +1611,37 @@ export const generateAct117CReportLogic = async (projectId: string, certId?: str
         alert("No se encontró la certificación de pago.");
         return;
     }
-    const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date, isFinal);
-    downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}${isFinal ? '_FINAL' : ''}.pdf`);
+    if (format === 'excel') {
+        const blob = await generateAct117CExcel(projectId, cert.id, cert.cert_num, cert.cert_date, isFinal);
+        downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}${isFinal ? '_FINAL' : ''}.xlsx`);
+    } else {
+        const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date, isFinal);
+        downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}${isFinal ? '_FINAL' : ''}.pdf`);
+    }
+};
+
+export const generateAct117AReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'excel') => {
+    const { project, certs } = await fetchAllReportData(projectId);
+    if (!project) return;
+    let cert = certId ? certs?.find(c => c.id === certId) : (certs && certs.length > 0 ? certs[certs.length - 1] : null);
+    if (!cert) {
+        alert("No se encontró la certificación de pago.");
+        return;
+    }
+    const blob = await generateAct117AExcel(projectId, cert.id, cert.cert_num, cert.cert_date);
+    downloadBlob(blob, `ACT-117A_Cert_${cert.cert_num}_${project.num_act}.xlsx`);
+};
+
+export const generateAct123ReportLogic = async (projectId: string, choId: string) => {
+    const { project, chos } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const cho = chos?.find(c => c.id === choId);
+    if (!cho) {
+        alert("No se encontró el CHO.");
+        return;
+    }
+    const blob = await generateAct123Excel(projectId, choId);
+    downloadBlob(blob, `ACT-123_CHO_${cho.cho_num}${cho.amendment_letter || ''}_${project.num_act}.xlsx`);
 };
 
 export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string, format: 'pdf' | 'excel' = 'pdf') => {

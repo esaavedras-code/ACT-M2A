@@ -16,7 +16,8 @@ import {
     Package, ListChecks, ArrowLeft, Loader2,
     Activity, Info, Files, BadgeAlert, FileDigit,
     ChevronDown, Search, FileCheck, BarChart, Calculator, 
-    ShieldCheck as ShieldCheckIcon, Plus, MessageSquare
+    ShieldCheck as ShieldCheckIcon, Plus, MessageSquare,
+    FileSpreadsheet
 } from "lucide-react";
 
 import {
@@ -32,6 +33,8 @@ import {
     generateFundSourceReportLogic,
     generateProjectedFundDistributionReportLogic,
     generateAct117CReportLogic,
+    generateAct117AReportLogic,
+    generateAct123ReportLogic,
     generateAct117BReportLogic,
     generateAct122ReportLogic,
     generateAct122BReportLogic,
@@ -62,7 +65,7 @@ import {
     generateMinuteReportLogic,
     formatDate
 } from "@/lib/reportLogic";
-import { generateAct117C } from "@/lib/generateAct117C";
+
 import ACT45Form from "@/components/ACT45Form";
 import ACT96Form from "@/components/ACT96Form";
 import { X } from "lucide-react";
@@ -962,6 +965,45 @@ function ReportesContent() {
                         onAction={handleAction}
                         loading={loading}
                         option={{
+                            id: 'act123-excel',
+                            label: 'ACT-123 (Supplementary Contract)',
+                            description: 'Formulario oficial de contrato suplementario para Ordenes de Cambio (Excel).',
+                            icon: <FileSpreadsheet size={18} className="text-green-700" />,
+                            action: async () => {
+                                try {
+                                    const choId = (window as any).selectedAct123Cho;
+                                    if (!choId) {
+                                        alert("Por favor seleccione un CHO para el reporte ACT-123.");
+                                        return;
+                                    }
+                                    await generateAct123ReportLogic(projectId || "", choId);
+                                    setStatus("Reporte ACT-123 generado.");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    >
+                        <div className="mt-2 text-left space-y-3">
+                            <select
+                                id="act123-cho-select"
+                                className="w-full bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-green-500 transition-all"
+                                onChange={(e) => (window as any).selectedAct123Cho = e.target.value}
+                            >
+                                <option value="">Elegir CHO para ACT-123...</option>
+                                {chos.map(c => (
+                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
+                                ))}
+                            </select>
+                        </div>
+                    </StandardReportItem>
+                    
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
                             id: 'time-ext-chart',
                             label: 'Grafica de Extension de Tiempo',
                             description: 'Grafica oficial de la linea de tiempo del proyecto y extensiones otorgadas.',
@@ -1019,23 +1061,30 @@ function ReportesContent() {
                             onGenerate: async (ids) => {
                                 try {
                                     for (const id of ids) {
-                                        const cert = certs.find(c => c.id === id);
-                                        if (cert) {
-                                            const { downloadBlob, generateReport, createExcelBlob } = await import("@/lib/reportLogic");
-                                            if (reportFormat === 'excel') {
-                                                const { data: certItems } = await supabase.from('payment_certifications').select('items').eq('id', cert.id).single();
-                                                const itemsList = Array.isArray(certItems?.items) ? certItems.items : (certItems?.items?.list || []);
-                                                const projectInfo = { name: projectName, num_act: projectNum };
-                                                const excelData = [
-                                                    ['Item No.', 'Spec. Code', 'Description', 'Unit', 'Quantity', 'Unit Price', 'Amount'],
-                                                    ...itemsList.map((it: any) => [it.item_num, it.specification, it.description, it.unit, it.quantity, it.unit_price, (it.quantity * it.unit_price)])
-                                                ];
-                                                await generateReport(`ACT-117C - Certificacion de Pago #${cert.cert_num}`, excelData, projectInfo, [60, 80, 200, 60, 60, 80, 80], 'portrait', 'excel', `ACT-117C_Cert_${cert.cert_num}.pdf`);
-                                            } else {
-                                                const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
-                                                downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}.pdf`);
-                                            }
-                                        }
+                                        await generateAct117CReportLogic(projectId, id, reportFormat);
+                                    }
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                    />
+                    <SelectiveReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'act117a-selective',
+                            label: 'ACT-117A (Item Sheets)',
+                            description: 'Hojas de certificación individuales por ítem en formato Excel (Plantilla Oficial).',
+                            icon: <FileSpreadsheet size={18} className="text-emerald-600" />,
+                            items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
+                            onGenerate: async (ids) => {
+                                try {
+                                    for (const id of ids) {
+                                        await generateAct117AReportLogic(projectId, id, reportFormat);
                                     }
                                     setStatus("Reporte(s) generado(s).");
                                 } catch (e: any) {
