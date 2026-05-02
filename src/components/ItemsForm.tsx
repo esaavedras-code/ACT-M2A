@@ -9,7 +9,7 @@ import type { FormRef } from "./ProjectForm";
 import mfgItemsData from "@/lib/mfgItems.json";
 
 import specsData from "@/data/specifications.json";
-import { parsePdfClient } from "@/lib/pdfClientParser";
+import { parsePdfClient, pdfToImages } from "@/lib/pdfClientParser";
 
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 
@@ -248,8 +248,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
         const file = e.target.files?.[0];
         if (!file) return;
         
-        if (file.type !== 'application/pdf') {
-            alert("El archivo debe ser un documento PDF.");
+        if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
+            alert("El archivo debe ser un documento PDF o imagen.");
             e.target.value = '';
             return;
         }
@@ -261,170 +261,215 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 const base64 = ev.target?.result as string;
                 
                 try {
-                    const data = await parsePdfClient(base64);
-                    
-                    if (data.success && data.text) {
-                        const cleanText = data.text.replace(/\|/g, ' ').toUpperCase();
-                        const extractedItems: any[] = [];
-                        const allSpecs = Object.keys(specs);
-                        const posMap = new Map<string, number>();
+                    let finalItems: any[] = [];
+                    let usedAI = false;
 
-                        for (const sCode of allSpecs) {
-                            const parts = sCode.split('-');
-                            if (parts.length < 2) continue;
-                            const prefixChars = parts[0].split('').join('\\s*');
-                            const suffixChars = parts[1].split('').join('\\s*');
-                            const patternStr = `(?:1\\s*)?${prefixChars}\\s*[-__.\\s]*\\s*${suffixChars}`;
-                            const regex = new RegExp(patternStr, 'g');
-                            
-                            let match;
-                            while ((match = regex.exec(cleanText)) !== null) {
-                                posMap.set(sCode + '-' + match.index, match.index);
+                    // 1. Intentar Fuerza Bruta Nuclear (Solo PDF Textual)
+                    if (file.type === 'application/pdf') {
+                        const data = await parsePdfClient(base64);
+                        if (data.success && data.text && data.text.trim().length > 50) {
+                            const cleanText = data.text.replace(/\|/g, ' ').toUpperCase();
+                            const extractedItems: any[] = [];
+                            const allSpecs = Object.keys(specs);
+                            const posMap = new Map<string, number>();
+
+                            for (const sCode of allSpecs) {
+                                const parts = sCode.split('-');
+                                if (parts.length < 2) continue;
+                                const prefixChars = parts[0].split('').join('\\s*');
+                                const suffixChars = parts[1].split('').join('\\s*');
+                                const patternStr = `(?:1\\s*)?${prefixChars}\\s*[-__.\\s]*\\s*${suffixChars}`;
+                                const regex = new RegExp(patternStr, 'g');
                                 
-                                let lookahead = cleanText.substring(match.index + match[0].length, match.index + match[0].length + 1200);
-                                let lookbehind = cleanText.substring(Math.max(0, match.index - 80), match.index);
-                                
-                                let score = 0;
-                                
-                                // 1. Buscar Unidad (Elastic) - Soporta fragmentación extrema como "H  O  U  R"
-                                const unitPatterns = [
-                                    /L\s*S/i, /E\s*A/i, /S\s*Q\s*M/i, /L\s*F/i, /L\s*M/i, /L\s*N\s*M/i,
-                                    /H\s*O\s*U\s*R\s*S?/i, /H\s*R\s*S?/i, /D\s*A\s*Y/i, 
-                                    /M\s*2/i, /M\s*3/i, /T\s*O\s*N/i, /K\s*G/i
-                                ];
-                                let foundUnit = false;
-                                let uIdx = -1;
-                                for (const up of unitPatterns) {
-                                    let um = lookahead.match(up);
-                                    if (um) { foundUnit = true; uIdx = um.index || 0; break; }
-                                }
-                                if (foundUnit) score += 40;
+                                let match;
+                                while ((match = regex.exec(cleanText)) !== null) {
+                                    posMap.set(sCode + '-' + match.index, match.index);
+                                    let lookahead = cleanText.substring(match.index + match[0].length, match.index + match[0].length + 1200);
+                                    let lookbehind = cleanText.substring(Math.max(0, match.index - 80), match.index);
+                                    let score = 0;
+                                    
+                                    const unitPatterns = [
+                                        /L\s*S/i, /E\s*A/i, /S\s*Q\s*M/i, /L\s*F/i, /L\s*M/i, /L\s*N\s*M/i,
+                                        /H\s*O\s*U\s*R\s*S?/i, /H\s*R\s*S?/i, /D\s*A\s*Y/i, 
+                                        /M\s*2/i, /M\s*3/i, /T\s*O\s*N/i, /K\s*G/i
+                                    ];
+                                    let foundUnit = false;
+                                    let uIdx = -1;
+                                    for (const up of unitPatterns) {
+                                        let um = lookahead.match(up);
+                                        if (um) { foundUnit = true; uIdx = um.index || 0; break; }
+                                    }
+                                    if (foundUnit) score += 40;
 
-                                // 4. EXCLUSIÓN DE ALUCINACIONES CONFIRMADAS
-                                if (['654-165', '625-001', '620-002', '800-001'].some(ghost => sCode.includes(ghost))) continue;
+                                    if (['654-165', '625-001', '620-002', '800-001'].some(ghost => sCode.includes(ghost))) continue;
 
-                                // 3. Buscar DINERO Y CANTIDAD (Fuerza Bruta)
-                                let price = 0;
-                                let amount = 0;
-                                let qty = 0;
+                                    let price = 0;
+                                    let amount = 0;
+                                    let qty = 0;
 
-                                // Capturar TODOS los números en la vecindad
-                                const allNums = [...lookahead.matchAll(/(\d[\d\s\.,]*)(\.\d{2})?/g)]
-                                    .map(m => m[0].replace(/[\s,]/g, ''))
-                                    .filter(s => s.length > 0 && !isNaN(Number(s)))
-                                    .map(Number);
+                                    const allNums = [...lookahead.matchAll(/(\d[\d\s\.,]*)(\.\d{2})?/g)]
+                                        .map(m => m[0].replace(/[\s,]/g, ''))
+                                        .filter(s => s.length > 0 && !isNaN(Number(s)))
+                                        .map(Number);
 
-                                // Intentar validación matemática con cualquier par de números
-                                if (allNums.length >= 2) {
-                                    for (let i = allNums.length - 1; i > 0; i--) {
-                                        let tot = allNums[i];
-                                        let pri = allNums[i-1];
-                                        if (pri > 0) {
-                                            let q = tot / pri;
-                                            if (Math.abs(q - Math.round(q)) < 0.01 && q > 0 && q < 10000) {
-                                                qty = Math.round(q);
-                                                price = pri;
-                                                amount = tot;
-                                                break;
+                                    if (allNums.length >= 2) {
+                                        for (let i = allNums.length - 1; i > 0; i--) {
+                                            let tot = allNums[i];
+                                            let pri = allNums[i-1];
+                                            if (pri > 0) {
+                                                let q = tot / pri;
+                                                if (Math.abs(q - Math.round(q)) < 0.01 && q > 0 && q < 10000) {
+                                                    qty = Math.round(q);
+                                                    price = pri;
+                                                    amount = tot;
+                                                    break;
+                                                }
                                             }
+                                        }
+                                    }
+
+                                    if (qty === 0 && foundUnit) {
+                                        let beforeUnit = lookahead.substring(0, uIdx);
+                                        let textNums = [...beforeUnit.matchAll(/(\d+)/g)].map(m => parseInt(m[0], 10));
+                                        if (textNums.length > 0) {
+                                            qty = textNums[textNums.length - 1];
+                                        } else {
+                                            qty = 1;
+                                        }
+                                    }
+
+                                    if (qty > 0) score += 30;
+                                    if (amount > 0) score += 40;
+
+                                    const prefix = sCode.split('-')[0];
+                                    const hasPrefixRepetition = new RegExp(`(?:\\s|^)${prefix}\\s+`, 'i').test(lookbehind);
+                                    if (hasPrefixRepetition) score += 40;
+
+                                    if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|LIKE|COMO\b)/i)) {
+                                        score -= 150;
+                                    }
+                                    if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT)/i)) {
+                                        score -= 60;
+                                    }
+
+                                    if (score < 35) continue; 
+                                    
+                                    const specInfo = specs[sCode];
+                                    let unitStr = (specInfo.unit || "LS").toUpperCase();
+                                    if (unitStr === 'EA') unitStr = 'EACH';
+                                    if (unitStr === 'SM') unitStr = 'SQM';
+                                    if (unitStr === 'LM' || unitStr === 'LF') unitStr = 'LNM';
+                                    if (unitStr === 'HR') unitStr = 'HOUR';
+                                    if (unitStr === 'LUMP SUM') unitStr = 'LS';
+
+                                    extractedItems.push({
+                                        specification: sCode,
+                                        description: specInfo.description || "",
+                                        quantity: qty,
+                                        unit: unitStr,
+                                        unit_price: price,
+                                        pos: match.index
+                                    });
+                                }
+                            }
+                            
+                            if (extractedItems.length > 0) {
+                                const seen = new Set();
+                                const uniqueAndValid = [];
+                                const sorted = extractedItems.sort((a, b) => a.pos - b.pos);
+
+                                for (const it of sorted) {
+                                    if (!seen.has(it.specification)) {
+                                        if (it.description && it.description.trim() !== "" && it.description.toUpperCase() !== "N/A") {
+                                            seen.add(it.specification);
+                                            uniqueAndValid.push(it);
                                         }
                                     }
                                 }
 
-                                // Si la matemática no dio frutos, buscar el número más probable (el último antes de la unidad)
-                                if (qty === 0 && foundUnit) {
-                                    let beforeUnit = lookahead.substring(0, uIdx);
-                                    let textNums = [...beforeUnit.matchAll(/(\d+)/g)].map(m => parseInt(m[0], 10));
-                                    if (textNums.length > 0) {
-                                        qty = textNums[textNums.length - 1];
-                                    } else {
-                                        qty = 1;
-                                    }
-                                }
-
-                                if (qty > 0) score += 30;
-                                if (amount > 0) score += 40;
-
-                                // 5. Firma de Tabla (Prefijo repetido)
-                                const prefix = sCode.split('-')[0];
-                                const hasPrefixRepetition = new RegExp(`(?:\\s|^)${prefix}\\s+`, 'i').test(lookbehind);
-                                if (hasPrefixRepetition) score += 40;
-
-                                // 6. PENALIZACIONES DE REFERENCIA
-                                if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|LIKE|COMO\b)/i)) {
-                                    score -= 150;
-                                }
-                                if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT)/i)) {
-                                    score -= 60;
-                                }
-
-                                // UMBRAL 20 (Sensibilidad Total para rescatar las 19 finales)
-                                if (score < 20) continue; 
-                                
-                                const specInfo = specs[sCode];
-                                let unitStr = (specInfo.unit || "LS").toUpperCase();
-                                if (unitStr === 'EA') unitStr = 'EACH';
-                                if (unitStr === 'SM') unitStr = 'SQM';
-                                if (unitStr === 'LM' || unitStr === 'LF') unitStr = 'LNM';
-                                if (unitStr === 'HR') unitStr = 'HOUR';
-                                if (unitStr === 'LUMP SUM') unitStr = 'LS';
-
-                                // UMBRAL 35 (Súper sensibilidad para rescatar las 19 finales)
-                                if (score < 35) continue; 
-
-                                extractedItems.push({
-                                    specification: sCode,
-                                    description: specInfo.description || "",
-                                    quantity: qty,
-                                    unit: unitStr,
-                                    unit_price: price, // Agregado el precio unitario analizado
-                                    pos: match.index
-                                });
+                                finalItems = uniqueAndValid;
                             }
                         }
+                    }
+
+                    // 2. Fallback a IA con Visión (Si es escaneo o imagen)
+                    if (finalItems.length === 0) {
+                        usedAI = true;
+                        let imagesArray: string[] = [];
                         
-                        if (extractedItems.length > 0) {
-                            // Deduplicar por código de especificación (solo una vez por código)
-                            // y filtrar los que NO tengan descripción
-                            const seen = new Set();
-                            const uniqueAndValid = [];
-                            
-                            // Ordenar por posición primero para mantener el orden de aparición
-                            const sorted = extractedItems.sort((a, b) => a.pos - b.pos);
+                        if (file.type === 'application/pdf') {
+                            const imgRes = await pdfToImages(base64);
+                            if (imgRes.success && imgRes.images) {
+                                imagesArray = imgRes.images;
+                            }
+                        } else {
+                            imagesArray = [base64];
+                        }
 
-                            for (const it of sorted) {
-                                if (!seen.has(it.specification)) {
-                                    if (it.description && it.description.trim() !== "" && it.description.toUpperCase() !== "N/A") {
-                                        seen.add(it.specification);
-                                        uniqueAndValid.push(it);
-                                    }
-                                }
+                        if (imagesArray.length > 0) {
+                            const prompt = "Analiza esta imagen de partidas/items de contrato de construcción. Extrae cada partida y devuelve EXACTAMENTE un JSON array puro con este formato: [{\"specification\": \"123-456\", \"quantity\": 500, \"unit\": \"LNM\", \"unit_price\": 10.50}]. NO incluyas markdown, no incluyas descripciones de texto, SOLO EL ARREGLO JSON. Ignora texto no relacionado a items. Revisa bien las cantidades y precios. Si no encuentras items, devuelve [].";
+                            
+                            const payload = { prompt, image: imagesArray };
+                            let aiResponse: any;
+
+                            const win = typeof window !== 'undefined' ? (window as any) : null;
+                            if (win?.electronAPI?.analyzeDocument) {
+                                aiResponse = await win.electronAPI.analyzeDocument(payload);
+                            } else {
+                                const req = await fetch('/api/analyze-document', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                                aiResponse = await req.json();
                             }
 
-                            const finalItems = uniqueAndValid.map((it, idx) => ({
-                                item_num: (idx + 1).toString().padStart(3, '0'),
-                                specification: it.specification,
-                                description: it.description,
-                                additional_description: "",
-                                quantity: it.quantity,
-                                unit: it.unit,
-                                unit_price: it.unit_price || 0,
-                                fund_source: FUND_SOURCES[0],
-                                requires_mfg_cert: (mfgItemsData as Record<string, boolean>)[it.specification] === true,
-                                mfg_cert_qty: 1
-                            }));
-
-                            setItems(finalItems);
-                            if (onDirty) onDirty();
-                            alert(`✓ ¡OPCIÓN NUCLEAR COMPLETADA!\n\nSe detectaron ${finalItems.length} partidas válidas (después de filtrar duplicados y vacías).\n\nCódigos:\n${finalItems.map(it => it.specification).join(', ')}`);
-                        } else {
-                            alert("No se detectaron códigos de partidas automáticamente. Es posible que el PDF sea una imagen escaneada o un formato no soportado.");
+                            if (aiResponse?.success && aiResponse.result) {
+                                try {
+                                    let jsonStr = aiResponse.result.replace(/```json/g, '').replace(/```/g, '').trim();
+                                    const parsedData = JSON.parse(jsonStr);
+                                    if (Array.isArray(parsedData)) {
+                                        finalItems = parsedData.map(it => {
+                                            const specInfo = specs[it.specification] || { description: "Item no listado en Especificaciones" };
+                                            return {
+                                                specification: it.specification,
+                                                description: specInfo.description,
+                                                quantity: Number(it.quantity) || 0,
+                                                unit: it.unit || "LS",
+                                                unit_price: Number(it.unit_price) || 0
+                                            };
+                                        }).filter(it => it.quantity > 0 || it.unit_price > 0);
+                                    }
+                                } catch (err) {
+                                    console.error("No se pudo parsear el JSON de la IA:", aiResponse.result);
+                                }
+                            }
                         }
+                    }
+
+                    // 3. Procesar resultados finales
+                    if (finalItems.length > 0) {
+                        const parsedItems = finalItems.map((it, idx) => ({
+                            item_num: (idx + 1).toString().padStart(3, '0'),
+                            specification: it.specification,
+                            description: it.description,
+                            additional_description: "",
+                            quantity: it.quantity,
+                            unit: it.unit,
+                            unit_price: it.unit_price || 0,
+                            fund_source: FUND_SOURCES[0],
+                            requires_mfg_cert: (mfgItemsData as Record<string, boolean>)[it.specification] === true,
+                            mfg_cert_qty: 1
+                        }));
+
+                        setItems(parsedItems);
+                        if (onDirty) onDirty();
+                        alert(`✓ ¡EXTRACCIÓN COMPLETADA!\n\nMétodo utilizado: ${usedAI ? 'Inteligencia Artificial (Visión)' : 'Extracción Nativa Rápida'}\nSe detectaron ${parsedItems.length} partidas válidas.\n\nRevisa los precios y cantidades para asegurar precisión.`);
                     } else {
-                        alert("No se pudo extraer el texto del PDF.");
+                        alert("No se detectaron partidas automáticamente. La IA no encontró la tabla correctamente o la imagen es ilegible.");
                     }
                 } catch (err: any) {
-                    alert("Error procesando PDF: " + err.message);
+                    alert("Error procesando documento: " + err.message);
                 } finally {
                     setLoading(false);
                 }
