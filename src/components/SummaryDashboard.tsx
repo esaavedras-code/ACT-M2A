@@ -113,10 +113,24 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         }
 
         const { data: items } = await supabase.from("contract_items").select("*").eq("project_id", projectId);
-        const totalItemsCount = items?.length || 0;
-        setInternalContractItems(items || []);
-
         const { data: chos } = await supabase.from("chos").select("proposed_change, doc_status, time_extension_days, items").eq("project_id", projectId);
+        
+        // Consolidar todos los ítems (Contrato + CHOs aprobadas) para referencia de precios y descripciones
+        const allReferenceItems: any[] = [...(items || [])];
+        const approvedCHOs = chos?.filter(c => c.doc_status === 'Aprobado') || [];
+        approvedCHOs.forEach(cho => {
+            if (Array.isArray(cho.items)) {
+                cho.items.forEach((it: any) => {
+                    // Evitar duplicados si el ítem ya existe (preferir el del contrato o la última CHO)
+                    const exists = allReferenceItems.find(r => r.item_num === it.item_num);
+                    if (!exists) allReferenceItems.push(it);
+                });
+            }
+        });
+        setInternalContractItems(allReferenceItems);
+
+        const totalItemsCount = items?.length || 0;
+        const pendingCHOs = chos?.filter(c => c.doc_status === 'En tramite') || [];
 
         const { data: certs } = await supabase
             .from("payment_certifications")
@@ -125,9 +139,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             .order("cert_num", { ascending: true });
 
         const originalCost = proj?.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
-
-        const approvedCHOs = chos?.filter(c => c.doc_status === 'Aprobado') || [];
-        const pendingCHOs = chos?.filter(c => c.doc_status === 'En tramite') || [];
 
         const approvedCHO = approvedCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
         const pendingCHO = pendingCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
