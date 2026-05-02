@@ -777,10 +777,11 @@ const PaymentCertForm = React.forwardRef(({
                         - (parseFloat(c.other_penalties) || 0);
 
                     return (
-                        <div key={certIdx} className="card border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 p-0">
-                            <div className="p-4 flex flex-col xl:flex-row justify-between bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800 gap-6">
-                                <div className="flex flex-col md:flex-row gap-6 lg:gap-8 flex-1">
-                                    <div className="flex flex-col gap-4 border-r-0 md:border-r border-slate-200 dark:border-slate-700/50 pr-0 md:pr-6 shrink-0">
+                        <div key={certIdx} className="card border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 p-0 mb-4">
+                            <div className="p-4 bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
+                                <div className="flex flex-col xl:flex-row gap-6">
+                                    {/* Información Básica de la Certificación */}
+                                    <div className="flex flex-row md:flex-col gap-4 border-r-0 xl:border-r border-slate-200 dark:border-slate-700/50 pr-0 xl:pr-6 shrink-0 justify-between md:justify-start">
                                         <div className="flex items-center gap-6">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Certificación #</label>
@@ -790,7 +791,7 @@ const PaymentCertForm = React.forwardRef(({
                                                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha Cert.</label>
                                                 <input
                                                     type="date"
-                                                    className="input-field text-sm font-bold bg-white dark:bg-slate-900 !w-[140px]"
+                                                    className="input-field text-sm font-bold bg-white dark:bg-slate-900 !w-[140px] h-8"
                                                     style={{ backgroundColor: '#66FF99' }}
                                                     value={c.cert_date || ""}
                                                     onChange={(e) => updateCert(certIdx, 'cert_date', e.target.value)}
@@ -798,23 +799,25 @@ const PaymentCertForm = React.forwardRef(({
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest text-[#d97706]">Work Performed up to</label>
+                                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest text-[#d97706]">Trabajo ejec. hasta</label>
                                             <input
                                                 type="date"
-                                                className="input-field text-sm font-bold border-amber-200 focus:ring-amber-500 !w-[140px] bg-white dark:bg-slate-900"
+                                                className="input-field text-sm font-bold border-amber-200 focus:ring-amber-500 !w-[140px] h-8 bg-white dark:bg-slate-900"
                                                 style={{ backgroundColor: '#66FF99' }}
                                                 value={c.wp_up_to || ""}
                                                 onChange={(e) => updateCert(certIdx, 'wp_up_to', e.target.value)}
                                             />
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 flex-1 items-start bg-white/50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+
+                                    {/* Totales Principales */}
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 flex-1 items-start bg-white dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">Trabajo ejec. (WP)</span>
                                             <span className="text-xl xl:text-2xl font-black text-emerald-600 font-geist tracking-tight">{formatCurrency(certWork)}</span>
                                         </div>
                                         <div className="space-y-1">
-                                            <div className="flex flex-col gap-1.5">
+                                            <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block">5% Retenido</span>
                                                     <label className="flex items-center gap-1.5 cursor-pointer group" title="No retener en esta certificación">
@@ -827,46 +830,42 @@ const PaymentCertForm = React.forwardRef(({
                                                         <span className="text-[9px] font-black text-slate-400 group-hover:text-amber-600 transition-colors leading-none uppercase tracking-wider">Sin Ret.</span>
                                                     </label>
                                                 </div>
-                                                <label className="flex items-center gap-1.5 cursor-pointer group w-fit" title="Devolución de retenido">
-                                                    <input
-                                                        type="checkbox"
-                                                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                                                        checked={!!c.show_retention_return}
-                                                        onChange={(e) => updateCert(certIdx, 'show_retention_return', e.target.checked)}
-                                                    />
-                                                    <span className="text-[9px] font-black text-slate-400 group-hover:text-blue-600 transition-colors leading-none uppercase tracking-wider">Devolución</span>
-                                                </label>
-                                            </div>
-                                            <div className="flex items-end gap-3 flex-wrap mt-1">
-                                                <span className={`text-xl xl:text-2xl font-black ${c.skip_retention ? 'text-slate-300 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
-                                                    {formatCurrency(c.skip_retention ? 0 : -certRetention)}
-                                                </span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-xl xl:text-2xl font-black ${c.skip_retention ? 'text-slate-300 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
+                                                        {formatCurrency(c.skip_retention ? 0 : -certRetention)}
+                                                    </span>
+                                                    <label className="flex items-center gap-1.5 cursor-pointer group" title="Devolución de retenido">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                                                            checked={!!c.show_retention_return}
+                                                            onChange={(e) => updateCert(certIdx, 'show_retention_return', e.target.checked)}
+                                                        />
+                                                        <span className="text-[9px] font-black text-slate-400 group-hover:text-blue-600 transition-colors leading-none uppercase tracking-wider">Devolución</span>
+                                                    </label>
+                                                </div>
                                                 {c.show_retention_return && (
-                                                    <div className="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-900/10 p-2 rounded-xl border border-blue-100 dark:border-blue-800/50 w-full mt-2">
-                                                        <div className="flex flex-col w-full">
-                                                            <span className="text-[8px] font-black text-blue-500 uppercase leading-none mb-1.5 tracking-widest">Monto a Devolver</span>
-                                                            <div className="flex items-center gap-1">
-                                                                <span className="text-blue-600 font-bold text-xs">$</span>
-                                                                <input
-                                                                    type="number"
-                                                                    className="w-full bg-transparent border-none p-0 text-sm font-black text-blue-700 outline-none focus:ring-0 h-5"
-                                                                    value={c.retention_return_amount ?? ""}
-                                                                    onChange={(e) => updateCert(certIdx, 'retention_return_amount', e.target.value)}
-                                                                    placeholder="0.00"
-                                                                />
-                                                            </div>
+                                                    <div className="mt-1 bg-blue-50/50 dark:bg-blue-900/10 p-1.5 rounded-lg border border-blue-100 dark:border-blue-800/50">
+                                                        <span className="text-[8px] font-black text-blue-500 uppercase leading-none block mb-1 tracking-widest">Monto a Devolver</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-blue-600 font-bold text-xs">$</span>
+                                                            <input
+                                                                type="number"
+                                                                className="w-full bg-transparent border-none p-0 text-sm font-black text-blue-700 outline-none focus:ring-0 h-4"
+                                                                value={c.retention_return_amount ?? ""}
+                                                                onChange={(e) => updateCert(certIdx, 'retention_return_amount', e.target.value)}
+                                                                placeholder="0.00"
+                                                            />
                                                         </div>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">MOS Neto (M)</span>
-                                                <span className={`text-xl xl:text-2xl font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
-                                                    {formatCurrency(certMOSNet)}
-                                                </span>
-                                            </div>
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">MOS Neto (M)</span>
+                                            <span className={`text-xl xl:text-2xl font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
+                                                {formatCurrency(certMOSNet)}
+                                            </span>
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-primary uppercase tracking-[0.15em] block mb-1">Neto Certificado</span>
@@ -878,80 +877,83 @@ const PaymentCertForm = React.forwardRef(({
                                 </div>
 
                                 {/* Nueva Sección de Deducciones y Ajustes */}
-                                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 md:grid-cols-5 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Daños Líquidos</label>
-                                        <input
-                                            type="number"
-                                            className="input-field text-xs font-bold text-red-600 bg-white dark:bg-slate-900 border-red-50 focus:border-red-200"
-                                            value={c.liquidated_damages ?? ""}
-                                            onChange={(e) => updateCert(certIdx, 'liquidated_damages', e.target.value)}
-                                            placeholder="0.00"
-                                        />
+                                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row gap-6 items-end">
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 flex-1 w-full">
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Daños Líquidos</label>
+                                            <input
+                                                type="number"
+                                                className="input-field text-xs font-bold text-red-600 bg-white dark:bg-slate-900 border-red-50 focus:border-red-200 h-8"
+                                                value={c.liquidated_damages ?? ""}
+                                                onChange={(e) => updateCert(certIdx, 'liquidated_damages', e.target.value)}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Retención Extra</label>
+                                            <input
+                                                type="number"
+                                                className="input-field text-xs font-bold text-amber-700 bg-white dark:bg-slate-900 border-amber-50 focus:border-amber-200 h-8"
+                                                value={c.extra_retention ?? ""}
+                                                onChange={(e) => updateCert(certIdx, 'extra_retention', e.target.value)}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Ajuste Precio (Clause)</label>
+                                            <input
+                                                type="number"
+                                                className="input-field text-xs font-bold text-blue-600 bg-white dark:bg-slate-900 border-blue-50 focus:border-blue-200 h-8"
+                                                value={c.price_adjustment ?? ""}
+                                                onChange={(e) => updateCert(certIdx, 'price_adjustment', e.target.value)}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Seguros / Multas</label>
+                                            <input
+                                                type="number"
+                                                className="input-field text-xs font-bold text-red-700 bg-white dark:bg-slate-900 border-red-50 focus:border-red-200 h-8"
+                                                value={c.insurance_fines ?? ""}
+                                                onChange={(e) => updateCert(certIdx, 'insurance_fines', e.target.value)}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Otras Penalidades</label>
+                                            <input
+                                                type="number"
+                                                className="input-field text-xs font-bold text-slate-700 bg-white dark:bg-slate-900 border-slate-100 focus:border-slate-200 h-8"
+                                                value={c.other_penalties ?? ""}
+                                                onChange={(e) => updateCert(certIdx, 'other_penalties', e.target.value)}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Retención Extra</label>
-                                        <input
-                                            type="number"
-                                            className="input-field text-xs font-bold text-amber-700 bg-white dark:bg-slate-900 border-amber-50 focus:border-amber-200"
-                                            value={c.extra_retention ?? ""}
-                                            onChange={(e) => updateCert(certIdx, 'extra_retention', e.target.value)}
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Ajuste Precio (Clause)</label>
-                                        <input
-                                            type="number"
-                                            className="input-field text-xs font-bold text-blue-600 bg-white dark:bg-slate-900 border-blue-50 focus:border-blue-200"
-                                            value={c.price_adjustment ?? ""}
-                                            onChange={(e) => updateCert(certIdx, 'price_adjustment', e.target.value)}
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Seguros / Multas</label>
-                                        <input
-                                            type="number"
-                                            className="input-field text-xs font-bold text-red-700 bg-white dark:bg-slate-900 border-red-50 focus:border-red-200"
-                                            value={c.insurance_fines ?? ""}
-                                            onChange={(e) => updateCert(certIdx, 'insurance_fines', e.target.value)}
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Otras Penalidades</label>
-                                        <input
-                                            type="number"
-                                            className="input-field text-xs font-bold text-slate-700 bg-white dark:bg-slate-900 border-slate-100 focus:border-slate-200"
-                                            value={c.other_penalties ?? ""}
-                                            onChange={(e) => updateCert(certIdx, 'other_penalties', e.target.value)}
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                </div>
 
-                                <div className="flex items-center gap-2 border-l-0 xl:border-l border-slate-200 dark:border-slate-700/50 pl-0 xl:pl-6 justify-end">
-                                    <button 
-                                        onClick={() => handlePrint(c)}
-                                        disabled={generating === c.cert_num}
-                                        className="btn-primary py-2 px-4 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all text-xs font-black"
-                                    >
-                                        {generating === c.cert_num ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
-                                        {generating === c.cert_num ? "Generando..." : "Imprimir Cert."}
-                                    </button>
-                                    <button 
-                                        onClick={() => toggleExpand(c.cert_num)}
-                                        className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-primary hover:border-primary transition-all active:scale-95 shadow-sm"
-                                    >
-                                        {expandedCert === c.cert_num ? <X size={18} /> : <PlusSquare size={18} />}
-                                    </button>
-                                    <button 
-                                        onClick={() => removeCert(certIdx)}
-                                        className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-red-600 hover:border-red-200 transition-all active:scale-95 shadow-sm"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
+                                    {/* Botones de Acción */}
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <button 
+                                            onClick={() => handlePrint(c)}
+                                            disabled={generating === c.cert_num}
+                                            className="btn-primary py-2 px-4 rounded-xl flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition-all text-xs font-black h-9"
+                                        >
+                                            {generating === c.cert_num ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+                                            {generating === c.cert_num ? "Generando..." : "Imprimir Cert."}
+                                        </button>
+                                        <button 
+                                            onClick={() => toggleExpand(c.cert_num)}
+                                            className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-primary hover:border-primary transition-all active:scale-95 shadow-sm h-9 w-9 flex items-center justify-center"
+                                        >
+                                            {expandedCert === c.cert_num ? <X size={18} /> : <PlusSquare size={18} />}
+                                        </button>
+                                        <button 
+                                            onClick={() => removeCert(certIdx)}
+                                            className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-red-600 hover:border-red-200 transition-all active:scale-95 shadow-sm h-9 w-9 flex items-center justify-center"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

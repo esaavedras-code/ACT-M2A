@@ -70,6 +70,10 @@ body {
   border-radius: 8px !important; /* Menos redondeado para evitar que se corten los números */
 }
 
+input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none !important;
+}
+
 .input-field::placeholder {
   color: rgba(0, 70, 0, 0.25) !important;
   font-weight: 500 !important;

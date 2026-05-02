@@ -456,7 +456,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 return (
                                                     <>
                                                         <div className="text-sm">{formatCurrency(total)}</div>
-                                                        <div className="text-[9px] text-slate-500 font-bold flex flex-col mt-0.5 space-y-0.5 uppercase tracking-wide">
+                                                        <div className="text-[13px] font-black flex flex-col mt-1.5 space-y-0.5 uppercase tracking-wide">
                                                             {act !== 0 && <span className="text-blue-600">ACT: {formatCurrency(act)}</span>}
                                                             {fed !== 0 && <span className="text-amber-600">FHWA: {formatCurrency(fed)}</span>}
                                                         </div>

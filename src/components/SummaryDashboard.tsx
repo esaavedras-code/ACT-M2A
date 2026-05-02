@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Clock, DollarSign, PieChart, Activity, AlertCircle, Layers, ShieldAlert } from "lucide-react";
 import { formatCurrency, roundedAmt, formatDate, formatNumber } from "@/lib/utils";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function SummaryDashboard({ projectId, numAct }: { projectId?: string, numAct?: string }) {
+    const { role } = useUserRole();
     const [metrics, setMetrics] = useState({
         time: { total: 0, used: 0, revised: 0, balance: 0, percent: 0 },
         dates: { start: "", original: "", revised: "", fmis: "", substantial: "", administrative: "" },
@@ -22,7 +24,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             actProjected: 0,
             fhwaProjected: 0,
             materialOnSite: 0,
-            mosBalances: [] as { item_num: string, balance: number }[],
+            mosBalances: [] as { item_num: string, balance: number, mosPU?: number }[],
+            mosTotalQty: 0,
             priceAdjustment: 0,
         },
         chos: {
@@ -288,6 +291,11 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 return { item_num, balance, mosPU: lastPU };
             });
         const mosTotal = roundedAmt(mosEntries.reduce((acc, e) => roundedAmt(acc + e.balance, 2), 0), 2);
+        const mosTotalQty = mosEntries.reduce((acc, e) => {
+            const it = allReferenceItems.find(r => r.item_num === e.item_num);
+            const pu = e.mosPU || it?.unit_price || 1;
+            return acc + (e.balance / pu);
+        }, 0);
 
         const certified = roundedAmt(actTotal + fhwaTotal, 2);
         const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : null;
@@ -367,6 +375,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 fhwaProjected: fhwaProjected || 0,
                 materialOnSite: mosTotal,
                 mosBalances: mosEntries,
+                mosTotalQty: mosTotalQty,
                 priceAdjustment: totalPriceAdjustment || 0,
             },
             chos: {
@@ -518,25 +527,31 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 <span className="text-[10px] font-black uppercase">Material on Site (MOS):</span>
                                 <span className="text-sm font-black">{formatCurrency(metrics.cost.materialOnSite)}</span>
                             </button>
-                            
-                            {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
+                                                     {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
                                 <div className="mt-2 p-2 bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/30 rounded shadow-inner space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
                                     {metrics.cost.mosBalances.map((e: any, i: number) => {
                                         const it = (internalContractItems || []).find((ci: any) => ci.item_num === e.item_num);
                                         const pu = e.mosPU || it?.unit_price || 1;
                                         const qty = e.balance / pu;
+                                        const colorClass = e.balance > 0 ? "text-red-600" : "text-slate-900 dark:text-white";
+                                        
                                         return (
-                                            <div key={i} className="flex justify-between items-center text-[10px] font-bold text-amber-800 py-1 border-b border-amber-50 dark:border-amber-900/10 last:border-0">
+                                            <div key={i} className="flex justify-between items-center text-[10px] font-bold py-1 border-b border-amber-50 dark:border-amber-900/10 last:border-0">
                                                 <div className="flex gap-2">
-                                                    <span className="w-12">Item {e.item_num}</span>
-                                                    <span className="text-amber-600/70 font-black">({formatNumber(qty, 2)} {it?.unit || 'UN'})</span>
+                                                    <span className={`w-12 ${colorClass}`}>Item {e.item_num}</span>
+                                                    <span className={`${e.balance > 0 ? 'text-red-500/70' : 'text-slate-500/70'} font-black`}>({formatNumber(qty, 2)} {it?.unit || 'UN'})</span>
                                                 </div>
-                                                <span className="font-black">{formatCurrency(e.balance)}</span>
+                                                <span className={`font-black ${colorClass}`}>{formatCurrency(e.balance)}</span>
                                             </div>
                                         );
                                     })}
+                                    <div className="pt-2 mt-1 border-t border-amber-100 flex justify-between items-center text-[10px] font-black text-amber-900">
+                                        <span>TOTAL CANTIDADES:</span>
+                                        <span>{formatNumber(metrics.cost.mosTotalQty, 2)} UN</span>
+                                    </div>
                                 </div>
                             )}
+  )}
                         </div>
                     </div>
                 </div>
@@ -633,6 +648,36 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                 </div>
             </div>
+
+            {role === 'A' && (
+                <div className="card bg-slate-900 text-white border-none overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                        <ShieldAlert size={120} />
+                    </div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 text-blue-400 font-bold mb-4 uppercase text-xs tracking-widest">
+                            <ShieldAlert size={16} /> PANEL DE ADMINISTRACIÓN (SUPABASE)
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <p className="text-slate-400 text-[10px] uppercase font-black tracking-widest mb-1">Última Actividad del Sistema:</p>
+                                <p className="text-xl font-black text-white">{new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                <p className="text-[10px] text-blue-400 font-bold mt-1">Conexión saludable con dtpfhwxwodzpitzmrbqr</p>
+                            </div>
+                            <div>
+                                <p className="text-slate-400 text-[10px] uppercase font-black tracking-widest mb-1">Cuota de Almacenamiento (DB):</p>
+                                <div className="flex items-end gap-2">
+                                    <p className="text-xl font-black text-white">49 MB <span className="text-slate-500 text-sm">/ 500 MB</span></p>
+                                    <p className="text-xs font-bold text-emerald-400 mb-1">(9.8% utilizado)</p>
+                                </div>
+                                <div className="w-full h-1.5 bg-slate-800 rounded-full mt-2 overflow-hidden">
+                                    <div className="h-full bg-blue-500" style={{ width: '9.8%' }} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

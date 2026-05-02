@@ -12,6 +12,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         project_id: projectId || "",
         name: "",
         representative: "",
+        rep_position: "",
         ss_patronal: "",
         phone_office: "",
         phone_mobile: "",
@@ -91,7 +92,7 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             )}
 
             <form suppressHydrationWarning className="card grid grid-cols-1 md:grid-cols-2 gap-3 border-none shadow-sm">
-                <div className="md:col-span-2 space-y-1">
+                <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nombre de la Empresa</label>
                     <input
                         type="text"
@@ -101,6 +102,20 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         value={formData.name || ""}
                         onChange={(e) => {
                             setFormData({ ...formData, name: e.target.value });
+                            if (onDirty) onDirty();
+                        }}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">SS Patronal</label>
+                    <input
+                        type="text"
+                        className="input-field"
+                        style={{ backgroundColor: '#66FF99' }}
+                        placeholder="000-000-000"
+                        value={formData.ss_patronal || ""}
+                        onChange={(e) => {
+                            setFormData({ ...formData, ss_patronal: e.target.value });
                             if (onDirty) onDirty();
                         }}
                     />
@@ -120,15 +135,15 @@ const ContractorForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     />
                 </div>
                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">SS Patronal</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Posición del/a Representante</label>
                     <input
                         type="text"
+                        maxLength={50}
                         className="input-field"
                         style={{ backgroundColor: '#66FF99' }}
-                        placeholder="000-000-000"
-                        value={formData.ss_patronal || ""}
+                        value={(formData as any).rep_position || ""}
                         onChange={(e) => {
-                            setFormData({ ...formData, ss_patronal: e.target.value });
+                            setFormData({ ...formData, rep_position: e.target.value } as any);
                             if (onDirty) onDirty();
                         }}
                     />
