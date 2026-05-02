@@ -197,13 +197,18 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
         })
         .map(group => {
         let runBal = 0;
+        let runQtyBal = 0;
         group.activities.forEach((act: any) => {
+            const actQty = parseFloat(act.qty) || 0;
             if (act.type === 'addition') {
                 runBal = roundedAmt(runBal + act.cost, 2);
+                runQtyBal += actQty;
             } else {
                 runBal = roundedAmt(runBal - act.cost, 2);
+                runQtyBal -= actQty;
             }
             act.runningBalance = Math.max(0, runBal);
+            act.runningQtyBalance = Math.max(0, runQtyBal);
         });
         return group;
     });
@@ -250,7 +255,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                 <th className="py-4 px-4 text-center border-b border-slate-200 dark:border-slate-700">Tipo</th>
                                 <th className="py-4 px-4 text-right w-40 border-b border-slate-200 dark:border-slate-700">Cant.</th>
                                 <th className="py-4 px-4 text-right w-40 border-b border-slate-200 dark:border-slate-700">Monto ($)</th>
-                                <th className="py-4 px-6 text-right w-48 text-emerald-600 bg-emerald-50/30 border-b border-slate-200 dark:border-slate-700">Balance ($)</th>
+                                <th className="py-4 px-6 text-right w-48 text-slate-600 bg-slate-50 border-b border-slate-200 dark:border-slate-700">Balance</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -326,10 +331,13 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                                     )}
                                                 </td>
 
-                                                <td className="py-3 px-6 text-right bg-emerald-50/20 dark:bg-emerald-900/10 align-middle">
-                                                    <span className={`text-sm font-black font-geist ${act.runningBalance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                                                <td className={`py-3 px-6 text-right align-middle ${act.runningBalance > 0.001 ? 'bg-red-50/20 dark:bg-red-900/10' : 'bg-slate-50/20 dark:bg-slate-800/10'}`}>
+                                                    <div className={`text-sm font-black font-geist ${act.runningBalance > 0.001 ? 'text-red-600' : 'text-slate-900 dark:text-slate-100'}`}>
                                                         {formatCurrency(act.runningBalance)}
-                                                    </span>
+                                                    </div>
+                                                    <div className={`text-[10px] font-bold mt-1 uppercase tracking-wider ${act.runningQtyBalance > 0.001 ? 'text-red-500' : 'text-slate-500'}`}>
+                                                        Cant: {act.runningQtyBalance.toFixed(2).replace(/\.00$/, '')}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
