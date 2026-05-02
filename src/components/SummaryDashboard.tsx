@@ -551,7 +551,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                     </div>
                                 </div>
                             )}
-  )}
                         </div>
                     </div>
                 </div>

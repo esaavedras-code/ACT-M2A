@@ -384,14 +384,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                 ]}
             />
 
-            {numAct && (
-                <div className="flex items-center gap-2 -mt-4 mb-6">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
-                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
-                        ACT-{numAct}
-                    </span>
-                </div>
-            )}
+
 
             {/* Cuadro de Resumen Financiero de CHOs */}
             {(() => {

@@ -359,14 +359,7 @@ const LiquidationForm = forwardRef<FormRef, { projectId?: string, numAct?: strin
                 </div>
             </div>
 
-            {numAct && (
-                <div className="flex items-center gap-2 -mt-4 mb-4">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
-                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
-                        ACT-{numAct}
-                    </span>
-                </div>
-            )}
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* ── Conteo de Partidas Firmadas ── */}

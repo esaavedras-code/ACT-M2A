@@ -1071,14 +1071,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
 
             {/* El botón de guardar ha sido eliminado por solicitud del usuario */}
 
-            {formData.num_act && (
-                <div className="flex items-center gap-2 -mt-4 mb-4">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proyecto:</span>
-                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-primary text-[10px] font-bold rounded border border-blue-100 dark:border-blue-800">
-                        {formatProjectNumber(formData.num_act, true)}
-                    </span>
-                </div>
-            )}
+
 
             {/* Sección de Documentación Crítica - WOW Glassmorphism */}
             <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-8 rounded-[2rem] border border-slate-200/50 dark:border-slate-800/50 mb-10 shadow-lg shadow-slate-200/20 dark:shadow-none transition-all hover:shadow-xl">
