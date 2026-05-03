@@ -614,10 +614,6 @@ function ReportesContent() {
                             onPdf: () => generateMfgReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false)),
-                            onExcel: () => generateMfgReportLogic(projectId, 'excel')
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -628,21 +624,8 @@ function ReportesContent() {
                             id: 'missing',
                             label: 'Certificaciones pendientes',
                             description: 'Materiales pagados sin certificado.',
-                           icon: <BadgeAlert size={18} className="text-red-500" />,
+                            icon: <BadgeAlert size={18} className="text-red-500" />,
                             onPdf: () => generateMissingMfgReportLogic(projectId, 'pdf')
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    if (e.message === "NO_FALTA_NINGUNO") {
-                                        setShowNoMissingMsg(true);
-                                        setTimeout(() => setShowNoMissingMsg(false), 8000);
-                                        setStatus(null);
-                                    } else {
-                                        console.error(e);
-                                        setStatus(`Error: ${e.message}`);
-                                    }
-                                })
-                                .finally(() => setLoading(false)),
-                            onExcel: () => generateMissingMfgReportLogic(projectId, 'excel')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
                                     if (e.message === "NO_FALTA_NINGUNO") {
