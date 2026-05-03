@@ -112,6 +112,10 @@ export async function generateAct32ExcelReport(projectId: string, choId: string)
         sheet.getCell('B57').value = admin;
         sheet.getCell('G57').value = supervisor;
         sheet.getCell('B59').value = dirReg;
+
+        // Nuevas firmas solicitadas
+        sheet.getCell('A74').value = findPerson("Director Área de Diseño");
+        sheet.getCell('F74').value = findPerson("Representante Asesor Legal");
         
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
