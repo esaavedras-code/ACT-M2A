@@ -9,7 +9,7 @@ import type { FormRef } from "./ProjectForm";
 import mfgItemsData from "@/lib/mfgItems.json";
 
 import specsData from "@/data/specifications.json";
-import { parsePdfClient, pdfToImages } from "@/lib/pdfClientParser";
+// import { parsePdfClient, pdfToImages } from "@/lib/pdfClientParser"; // Eliminado por solicitud del usuario
 
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
 
@@ -244,283 +244,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
     };
 
 
-    const handleImportPDF = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        
-        if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
-            alert("El archivo debe ser un documento PDF o imagen.");
-            e.target.value = '';
-            return;
-        }
-        
-        try {
-            setLoading(true);
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                const base64 = ev.target?.result as string;
-                
-                try {
-                    let finalItems: any[] = [];
-                    let usedAI = false;
 
-                    // 1. Intentar Fuerza Bruta Nuclear (Solo PDF Textual)
-                    if (file.type === 'application/pdf') {
-                        const data = await parsePdfClient(base64);
-                        if (data.success && data.text && data.text.trim().length > 50) {
-                            const cleanText = data.text.replace(/\|/g, ' ').toUpperCase();
-                            const extractedItems: any[] = [];
-                            const allSpecs = Object.keys(specs);
-                            const posMap = new Map<string, number>();
-
-                            for (const sCode of allSpecs) {
-                                const parts = sCode.split('-');
-                                if (parts.length < 2) continue;
-                                const prefixChars = parts[0].split('').join('\\s*');
-                                const suffixChars = parts[1].split('').join('\\s*');
-                                const patternStr = `(?:1\\s*)?${prefixChars}\\s*[-__.\\s]*\\s*${suffixChars}`;
-                                const regex = new RegExp(patternStr, 'g');
-                                
-                                let match;
-                                while ((match = regex.exec(cleanText)) !== null) {
-                                    posMap.set(sCode + '-' + match.index, match.index);
-                                    let lookahead = cleanText.substring(match.index + match[0].length, match.index + match[0].length + 1200);
-                                    let lookbehind = cleanText.substring(Math.max(0, match.index - 80), match.index);
-                                    let score = 0;
-                                    
-                                    const unitPatterns = [
-                                        /L\s*S/i, /E\s*A/i, /S\s*Q\s*M/i, /L\s*F/i, /L\s*M/i, /L\s*N\s*M/i,
-                                        /H\s*O\s*U\s*R\s*S?/i, /H\s*R\s*S?/i, /D\s*A\s*Y/i, 
-                                        /M\s*2/i, /M\s*3/i, /T\s*O\s*N/i, /K\s*G/i
-                                    ];
-                                    let foundUnit = false;
-                                    let uIdx = -1;
-                                    for (const up of unitPatterns) {
-                                        let um = lookahead.match(up);
-                                        if (um) { foundUnit = true; uIdx = um.index || 0; break; }
-                                    }
-                                    if (foundUnit) score += 40;
-
-                                    if (['654-165', '625-001', '620-002', '800-001'].some(ghost => sCode.includes(ghost))) continue;
-
-                                    let price = 0;
-                                    let amount = 0;
-                                    let qty = 0;
-
-                                    const allNums = [...lookahead.matchAll(/(\d[\d\s\.,]*)(\.\d{2})?/g)]
-                                        .map(m => m[0].replace(/[\s,]/g, ''))
-                                        .filter(s => s.length > 0 && !isNaN(Number(s)))
-                                        .map(Number);
-
-                                    if (allNums.length >= 2) {
-                                        for (let i = allNums.length - 1; i > 0; i--) {
-                                            let tot = allNums[i];
-                                            let pri = allNums[i-1];
-                                            if (pri > 0) {
-                                                let q = tot / pri;
-                                                if (Math.abs(q - Math.round(q)) < 0.01 && q > 0 && q < 10000) {
-                                                    qty = Math.round(q);
-                                                    price = pri;
-                                                    amount = tot;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    if (qty === 0 && foundUnit) {
-                                        let beforeUnit = lookahead.substring(0, uIdx);
-                                        let textNums = [...beforeUnit.matchAll(/(\d+)/g)].map(m => parseInt(m[0], 10));
-                                        if (textNums.length > 0) {
-                                            qty = textNums[textNums.length - 1];
-                                        } else {
-                                            qty = 1;
-                                        }
-                                    }
-
-                                    if (qty > 0) score += 30;
-                                    if (amount > 0) score += 40;
-
-                                    const prefix = sCode.split('-')[0];
-                                    const hasPrefixRepetition = new RegExp(`(?:\\s|^)${prefix}\\s+`, 'i').test(lookbehind);
-                                    if (hasPrefixRepetition) score += 40;
-
-                                    if (lookbehind.match(/(?:SEE|VER|SPEC|SECCION|SECTION|INCLUDES|INCLUYE|REF|ACCORDING|SEG\b|FOR\b|PARA\b|LIKE|COMO\b)/i)) {
-                                        score -= 150;
-                                    }
-                                    if ((lookahead + lookbehind).match(/(?:SUPPORT|SOPORTE|POST\b|POSTE|MOUNT)/i)) {
-                                        score -= 60;
-                                    }
-
-                                    if (score < 35) continue; 
-                                    
-                                    const specInfo = specs[sCode];
-                                    let unitStr = (specInfo.unit || "LS").toUpperCase();
-                                    if (unitStr === 'EA') unitStr = 'EACH';
-                                    if (unitStr === 'SM') unitStr = 'SQM';
-                                    if (unitStr === 'LM' || unitStr === 'LF') unitStr = 'LNM';
-                                    if (unitStr === 'HR') unitStr = 'HOUR';
-                                    if (unitStr === 'LUMP SUM') unitStr = 'LS';
-
-                                    extractedItems.push({
-                                        specification: sCode,
-                                        description: specInfo.description || "",
-                                        quantity: qty,
-                                        unit: unitStr,
-                                        unit_price: price,
-                                        pos: match.index
-                                    });
-                                }
-                            }
-                            
-                            if (extractedItems.length > 0) {
-                                const seen = new Set();
-                                const uniqueAndValid = [];
-                                const sorted = extractedItems.sort((a, b) => a.pos - b.pos);
-
-                                for (const it of sorted) {
-                                    if (!seen.has(it.specification)) {
-                                        if (it.description && it.description.trim() !== "" && it.description.toUpperCase() !== "N/A") {
-                                            seen.add(it.specification);
-                                            uniqueAndValid.push(it);
-                                        }
-                                    }
-                                }
-
-                                finalItems = uniqueAndValid;
-                            }
-                        }
-                    }
-
-                    // 2. Fallback a IA con Visión (Si es escaneo o imagen)
-                    if (finalItems.length === 0) {
-                        console.log("Iniciando fallback de IA con Visión...");
-                        usedAI = true;
-                        let imagesArray: string[] = [];
-                        
-                        if (file.type === 'application/pdf') {
-                            // Notificar al usuario que esto tomará un momento
-                            console.log("Convirtiendo PDF a imágenes para análisis visual...");
-                            const imgRes = await pdfToImages(base64);
-                            if (imgRes.success && imgRes.images) {
-                                imagesArray = imgRes.images;
-                            } else {
-                                console.error("Error convirtiendo PDF a imágenes:", imgRes.error);
-                            }
-                        } else {
-                            imagesArray = [base64];
-                        }
-
-                        if (imagesArray.length > 0) {
-                            console.log(`Enviando ${imagesArray.length} imágenes a la IA...`);
-                            const prompt = `Analiza estas imágenes de un contrato de construcción. 
-                            Tu objetivo es extraer la TABLA DE PARTIDAS (PROPOSAL SCHEDULE).
-                            Para cada fila de la tabla, identifica:
-                            1. El código de especificación (ej: "151-001", "638-005").
-                            2. La cantidad (un número).
-                            3. La unidad (ej: "LS", "SqM", "LnM", "Each").
-                            4. El precio unitario (un número).
-
-                            Responde ÚNICAMENTE con un arreglo JSON con este formato:
-                            [
-                              {"specification": "638-001", "quantity": 50, "unit": "SqM", "unit_price": 390.00},
-                              ...
-                            ]
-                            
-                            Si el código tiene letras, inclúyelas. Si ves el símbolo de $, ignóralo y solo pon el número.
-                            SI NO ENCUENTRAS NADA, responde con un arreglo vacío [].`;
-                            
-                            const payload = { prompt, image: imagesArray };
-                            let aiResponse: any;
-
-                            const win = typeof window !== 'undefined' ? (window as any) : null;
-                            try {
-                                if (win?.electronAPI?.analyzeDocument) {
-                                    aiResponse = await win.electronAPI.analyzeDocument(payload);
-                                } else {
-                                    const req = await fetch('/api/analyze-document', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(payload)
-                                    });
-                                    aiResponse = await req.json();
-                                }
-                            } catch (apiErr: any) {
-                                console.error("Error de conexión con la IA:", apiErr);
-                                alert("No se pudo conectar con el servicio de IA. Revisa tu conexión a internet.");
-                            }
-
-                            if (aiResponse?.success && aiResponse.result) {
-                                console.log("Respuesta de IA recibida:", aiResponse.result);
-                                try {
-                                    // Limpieza agresiva de JSON en caso de que la IA responda con texto extra
-                                    let resultText = aiResponse.result;
-                                    let jsonStartIndex = resultText.indexOf('[');
-                                    let jsonEndIndex = resultText.lastIndexOf(']');
-                                    
-                                    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-                                        let jsonStr = resultText.substring(jsonStartIndex, jsonEndIndex + 1);
-                                        const parsedData = JSON.parse(jsonStr);
-                                        if (Array.isArray(parsedData)) {
-                                            finalItems = parsedData.map(it => {
-                                                const specInfo = specs[it.specification] || { description: "Item no listado en Especificaciones" };
-                                                return {
-                                                    specification: it.specification,
-                                                    description: specInfo.description,
-                                                    quantity: Number(it.quantity) || 0,
-                                                    unit: (it.unit || "LS").toUpperCase(),
-                                                    unit_price: Number(it.unit_price) || 0
-                                                };
-                                            }).filter(it => it.quantity > 0 || it.unit_price > 0);
-                                        }
-                                    } else {
-                                        console.warn("La IA no devolvió un formato JSON válido (no se encontró '[' o ']')");
-                                    }
-                                } catch (err) {
-                                    console.error("Error parseando JSON de la IA:", err, aiResponse.result);
-                                }
-                            } else if (aiResponse?.error) {
-                                alert("Error de la IA: " + (aiResponse.error.message || aiResponse.error));
-                            }
-                        } else {
-                            console.error("No se pudieron generar imágenes del documento.");
-                        }
-                    }
-
-                    // 3. Procesar resultados finales
-                    if (finalItems.length > 0) {
-                        const parsedItems = finalItems.map((it, idx) => ({
-                            item_num: (idx + 1).toString().padStart(3, '0'),
-                            specification: it.specification,
-                            description: it.description,
-                            additional_description: "",
-                            quantity: it.quantity,
-                            unit: it.unit,
-                            unit_price: it.unit_price || 0,
-                            fund_source: FUND_SOURCES[0],
-                            requires_mfg_cert: (mfgItemsData as Record<string, boolean>)[it.specification] === true,
-                            mfg_cert_qty: 1
-                        }));
-
-                        setItems(parsedItems);
-                        if (onDirty) onDirty();
-                        alert(`✓ ¡EXTRACCIÓN COMPLETADA!\n\nMétodo: ${usedAI ? 'Inteligencia Artificial (Visión)' : 'Extracción Nativa Rápida'}\nPartidas detectadas: ${parsedItems.length}\n\nPor favor, verifica que las cantidades y precios coincidan con el original.`);
-                    } else {
-                        alert("No pudimos extraer las partidas. \n\nPosibles causas:\n1. El documento es ilegible.\n2. No se detectó la tabla de partidas.\n3. Error en la conexión con la IA.");
-                    }
-                } catch (err: any) {
-                    console.error("Error en flujo de importación:", err);
-                    alert("Error procesando documento: " + err.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-            reader.readAsDataURL(file);
-        } catch (e: any) {
-            setLoading(false);
-            alert("Error de lectura: " + e.message);
-        }
-    };
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
@@ -579,13 +303,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                         variant: 'secondary' as const,
                         size: 'small' as const
                     },
-                    !readOnly ? {
-                        label: "Extraer de PDF (IA)",
-                        icon: <FileText />,
-                        onClick: () => document.getElementById('import-items-pdf')?.click(),
-                        description: "Leer un PDF o escaneo para extraer automáticamente las partidas",
-                        variant: 'secondary' as const
-                    } : null,
+
                     !readOnly ? {
                         label: "Añadir Item",
                         icon: <Plus />,
@@ -604,15 +322,10 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 ].filter(Boolean) as any}
             />
 
-            <input id="import-items-pdf" type="file" accept="application/pdf,image/*" className="hidden" onChange={handleImportPDF} />
-
             {loading && (
-                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm">
-                    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 animate-pulse">
-                        Procesando Documento con IA...
-                    </p>
-                    <p className="text-[10px] mt-2 text-slate-400 uppercase tracking-widest">Esto puede tardar unos segundos</p>
+                <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 dark:bg-slate-950/60 backdrop-blur-sm">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Guardando partidas...</span>
                 </div>
             )}
 

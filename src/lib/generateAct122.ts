@@ -386,7 +386,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
             drawSigRight("Construction Office Director", y + 114);
 
             drawText(p, "34. Approved by:", lX, y + 152, fontBold, 8.2);
-            drawSigGroup("", "Edwin Gonzalez Montalvo, P.E.", "Executive Director", y + 152);
+            drawSigGroup("", "Ing. Edwin Gonzalez Montalvo, P.E.", "Executive Director", y + 152);
             drawSigRight("Federal Highway Administration", y + 152);
         };
 

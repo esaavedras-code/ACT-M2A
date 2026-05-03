@@ -78,7 +78,8 @@ interface ReportOption {
     label: string;
     description: string;
     icon: React.ReactNode;
-    action: () => Promise<void> | void;
+    onPdf?: () => Promise<void> | void;
+    onExcel?: () => Promise<void> | void;
 }
 
 interface SelectiveReportOption {
@@ -88,7 +89,8 @@ interface SelectiveReportOption {
     icon: React.ReactNode;
     items: { id: string, label: string }[];
     selectLabel?: string;
-    onGenerate: (selectedIds: string[]) => Promise<void> | void;
+    onPdf?: (selectedIds: string[]) => Promise<void> | void;
+    onExcel?: (selectedIds: string[]) => Promise<void> | void;
 }
 
 // --- Componentes ---
@@ -157,19 +159,29 @@ function StandardReportItem({ option, loading, onAction, children, isLiquidation
                     {children}
                 </div>
                 
-                <div className="px-6 pb-6">
-                    <button
-                        onClick={() => { onAction(); option.action(); }}
-                        disabled={loading}
-                        className="btn-print"
-                    >
-                        {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" />} 
-                        {loading ? 'Generando...' : (
-                            <span className="flex items-center gap-1">
-                                GENERAR REPORTE
-                            </span>
+                <div className="px-6 pb-6 mt-auto">
+                    <div className="flex gap-2">
+                        {option.onPdf && (
+                            <button
+                                onClick={() => { onAction(); option.onPdf?.(); }}
+                                disabled={loading}
+                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-blue-100 active:scale-95 group/btn"
+                            >
+                                {loading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
+                                PDF
+                            </button>
                         )}
-                    </button>
+                        {option.onExcel && (
+                            <button
+                                onClick={() => { onAction(); option.onExcel?.(); }}
+                                disabled={loading}
+                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-emerald-100 active:scale-95 group/btn"
+                            >
+                                {loading ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
+                                EXCEL
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -250,19 +262,29 @@ function SelectiveReportItem({ option, loading, onAction, isLiquidation }: { opt
                     </div>
                 </div>
                 
-                <div className="px-6 pb-6">
-                    <button
-                        onClick={() => { onAction(); option.onGenerate(selectedIds); }}
-                        disabled={loading || (option.items.length > 0 && selectedIds.length === 0)}
-                        className="btn-print"
-                    >
-                        {loading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" />} 
-                        {loading ? 'Generando...' : (
-                            <span className="flex items-center gap-1">
-                                {selectedIds.length > 0 ? 'GENERAR REPORTES' : 'GENERAR REPORTE'}
-                            </span>
+                <div className="px-6 pb-6 mt-auto">
+                    <div className="flex gap-2">
+                        {option.onPdf && (
+                            <button
+                                onClick={() => { onAction(); option.onPdf?.(selectedIds); }}
+                                disabled={loading || (option.items.length > 0 && selectedIds.length === 0)}
+                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-blue-100 active:scale-95 group/btn"
+                            >
+                                {loading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
+                                PDF
+                            </button>
                         )}
-                    </button>
+                        {option.onExcel && (
+                            <button
+                                onClick={() => { onAction(); option.onExcel?.(selectedIds); }}
+                                disabled={loading || (option.items.length > 0 && selectedIds.length === 0)}
+                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-emerald-100 active:scale-95 group/btn"
+                            >
+                                {loading ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
+                                EXCEL
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -281,7 +303,7 @@ function ReportesContent() {
     const [mounted, setMounted] = useState(false);
     const [showNoMissingMsg, setShowNoMissingMsg] = useState(false);
     const [reminderMsg, setReminderMsg] = useState<string | null>(null);
-    const [reportFormat, setReportFormat] = useState<'pdf' | 'excel'>('pdf');
+
     const [endDate, setEndDate] = useState<string>("");
     const [reportFolderPath, setReportFolderPath] = useState<string | null>(null);
 
@@ -447,24 +469,7 @@ function ReportesContent() {
                 )}
                 <div className="h-1 w-20 bg-primary/20 rounded-full mt-6 mb-8"></div>
 
-                {/* --- Selector de Formato --- */}
-                <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mb-4">
-                    <button 
-                        onClick={() => setReportFormat('pdf')}
-                        className={`px-6 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 ${reportFormat === 'pdf' ? 'bg-primary text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                    >
-                         <FileText size={16} /> PDF
-                    </button>
-                    <button 
-                        onClick={() => setReportFormat('excel')}
-                        className={`px-6 py-2.5 rounded-xl font-black text-xs transition-all flex flex-col items-center justify-center leading-none ${reportFormat === 'excel' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                    >
-                         <div className="flex items-center gap-2">
-                            <FileDigit size={16} /> EXCEL
-                         </div>
-                         <span className="text-[8px] mt-1 opacity-80">(Algunos)</span>
-                    </button>
-                </div>
+
                 <div className="flex flex-col items-center gap-2 mb-6 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-sm relative">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-full">
                         Fecha de Corte (Opcional)
@@ -544,16 +549,14 @@ function ReportesContent() {
                             label: 'Dashboard Ejecutivo',
                             description: 'Resumen gerencial de costos y tiempo.',
                             icon: <Activity size={18} className="text-indigo-500" />,
-                            action: () => {
-                                // Excel habilitado
-                                generateDashboardReportLogic(projectId, reportFormat, endDate)
-                                    .then(() => setStatus("Reporte generado."))
-                                    .catch(e => {
-                                        console.error(e);
-                                        setStatus(`Error: ${e.message}`);
-                                    })
-                                    .finally(() => setLoading(false))
-                            }
+                            onPdf: () => generateDashboardReportLogic(projectId, 'pdf', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateDashboardReportLogic(projectId, 'excel', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
                         }}
                     />
                 </DropdownGroup>
@@ -568,12 +571,13 @@ function ReportesContent() {
                             label: 'Balances Actuales',
                             description: 'Cantidades originales vs ejecutadas.',
                             icon: <ListChecks size={18} className="text-emerald-500" />,
-                            action: () => generateBalanceReportLogic(projectId, reportFormat, endDate)
+                            onPdf: () => generateBalanceReportLogic(projectId, 'pdf', endDate)
                                 .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    console.error(e);
-                                    setStatus(`Error: ${e.message}`);
-                                })
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateBalanceReportLogic(projectId, 'excel', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -585,12 +589,13 @@ function ReportesContent() {
                             label: 'Detalle de cada partida',
                             description: 'Historial completo por cada partida.',
                             icon: <Files size={18} className="text-teal-500" />,
-                            action: () => generateDetailReportLogic(projectId, reportFormat, endDate)
+                            onPdf: () => generateDetailReportLogic(projectId, 'pdf', endDate)
                                 .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    console.error(e);
-                                    setStatus(`Error: ${e.message}`);
-                                })
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateDetailReportLogic(projectId, 'excel', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -606,12 +611,13 @@ function ReportesContent() {
                             label: 'Listado de Certificados',
                             description: 'Resumen de aprobaciones de fabrica.',
                             icon: <Package size={18} className="text-orange-500" />,
-                            action: () => generateMfgReportLogic(projectId, reportFormat)
+                            onPdf: () => generateMfgReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    console.error(e);
-                                    setStatus(`Error: ${e.message}`);
-                                })
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateMfgReportLogic(projectId, 'excel')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -623,7 +629,20 @@ function ReportesContent() {
                             label: 'Certificaciones pendientes',
                             description: 'Materiales pagados sin certificado.',
                            icon: <BadgeAlert size={18} className="text-red-500" />,
-                            action: () => generateMissingMfgReportLogic(projectId, reportFormat)
+                            onPdf: () => generateMissingMfgReportLogic(projectId, 'pdf')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => {
+                                    if (e.message === "NO_FALTA_NINGUNO") {
+                                        setShowNoMissingMsg(true);
+                                        setTimeout(() => setShowNoMissingMsg(false), 8000);
+                                        setStatus(null);
+                                    } else {
+                                        console.error(e);
+                                        setStatus(`Error: ${e.message}`);
+                                    }
+                                })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateMissingMfgReportLogic(projectId, 'excel')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => {
                                     if (e.message === "NO_FALTA_NINGUNO") {
@@ -650,12 +669,13 @@ function ReportesContent() {
                             label: 'Resumen de ICC',
                             description: 'Vigencia de 60 dias de certificaciones.',
                             icon: <ShieldCheckIcon size={18} className="text-blue-500" />,
-                            action: () => generateIccReportLogic(projectId, reportFormat)
+                            onPdf: () => generateIccReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    console.error(e);
-                                    setStatus(`Error: ${e.message}`);
-                                })
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateIccReportLogic(projectId, 'excel')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -671,12 +691,13 @@ function ReportesContent() {
                             label: 'Inventario de MOS',
                             description: 'Reporte de facturas y deducciones.',
                             icon: <Package size={18} className="text-amber-500" />,
-                            action: () => generateMosReportLogic(projectId, reportFormat, endDate)
+                            onPdf: () => generateMosReportLogic(projectId, 'pdf', endDate)
                                 .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    console.error(e);
-                                    setStatus(`Error: ${e.message}`);
-                                })
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateMosReportLogic(projectId, 'excel', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -688,22 +709,23 @@ function ReportesContent() {
                             label: 'ACT-117B',
                             description: 'Balance de Material on Site por partida.',
                             icon: <FileCheck size={18} className="text-amber-600" />,
-                            action: async () => {
+                            onPdf: async () => {
                                 try {
                                     const certId = (window as any).selectedMosCert;
                                     const itemNum = (window as any).selectedMosItem;
-                                    if (!certId || !itemNum) {
-                                        alert("Por favor seleccione certificacion y partida.");
-                                        throw new Error("Selection required");
-                                    }
-                                    // Excel habilitado
-                                    await generateAct117BReportLogic(projectId, certId, itemNum, reportFormat);
+                                    if (!certId || !itemNum) { alert("Por favor seleccione certificacion y partida."); throw new Error("Selection required"); }
+                                    await generateAct117BReportLogic(projectId, certId, itemNum, 'pdf');
                                     setStatus("Reporte generado.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async () => {
+                                try {
+                                    const certId = (window as any).selectedMosCert;
+                                    const itemNum = (window as any).selectedMosItem;
+                                    if (!certId || !itemNum) { alert("Por favor seleccione certificacion y partida."); throw new Error("Selection required"); }
+                                    await generateAct117BReportLogic(projectId, certId, itemNum, 'excel');
+                                    setStatus("Reporte generado.");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     >
@@ -744,45 +766,22 @@ function ReportesContent() {
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
-                            onGenerate: async (ids) => {
+                            onPdf: async (ids) => {
                                 try {
-                                    for(const id of ids) {
-                                        await generateAct122ReportLogic(projectId, id, reportFormat);
-                                    }
+                                    for(const id of ids) { await generateAct122ReportLogic(projectId, id, 'pdf'); }
                                     setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async (ids) => {
+                                try {
+                                    for(const id of ids) { await generateAct122ReportLogic(projectId, id, 'excel'); }
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
 
-                    <SelectiveReportItem
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
-                            id: 'act122b-selective',
-                            label: 'ACT-122B (Revised Dec-2024)',
-                            description: 'Formulario oficial revisado de Órdenes de Cambio utilizando la plantilla de diciembre 2024.',
-                            icon: <FileCheck size={18} className="text-purple-600" />,
-                            selectLabel: "Elegir CHO",
-                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
-                            onGenerate: async (ids) => {
-                                try {
-                                    for(const id of ids) {
-                                        await generateAct122BReportLogic(projectId, id);
-                                    }
-                                    setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }
-                        }}
-                    />
+
 
 
                     <SelectiveReportItem
@@ -790,22 +789,22 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act123b-selective',
-                            label: 'ACT-123B (Supplementary Form B)',
-                            description: 'Seleccione las ordenes de cambio para generar el formulario suplementario ACT-123B.',
+                            label: 'ACT-123',
+                            description: 'Seleccione las ordenes de cambio para generar el formulario suplementario ACT-123.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
-                            onGenerate: async (ids) => {
+                            onPdf: async (ids) => {
                                 try {
-                                    for(const id of ids) {
-                                        await generateAct123BReportLogic(projectId, id, reportFormat);
-                                    }
+                                    for(const id of ids) { await generateAct123ReportLogic(projectId, id, 'pdf'); }
                                     setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async (ids) => {
+                                try {
+                                    for(const id of ids) { await generateAct123ReportLogic(projectId, id, 'excel'); }
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -819,21 +818,13 @@ function ReportesContent() {
                             label: 'ACT-124 (Checklist)',
                             description: 'Checklist para ordenes de cambio. Los campos son editables en el PDF.',
                             icon: <FileCheck size={18} className="text-purple-800" />,
-                            action: async () => {
+                            onPdf: async () => {
                                 try {
                                     const choId = (window as any).selectedAct124Cho;
-                                    if (!choId) {
-                                        alert("Por favor seleccione una Orden de Cambio (CHO).");
-                                        throw new Error("Selection required");
-                                    }
-                                    // Excel habilitado
-                                    await generateAct124ReportLogic(projectId, choId, [], reportFormat);
+                                    if (!choId) { alert("Por favor seleccione una Orden de Cambio (CHO)."); throw new Error("Selection required"); }
+                                    await generateAct124ReportLogic(projectId, choId, [], 'pdf');
                                     setStatus("Reporte generado.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     >
@@ -861,17 +852,11 @@ function ReportesContent() {
                             icon: <FileDigit size={18} className="text-purple-700" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
-                            onGenerate: async (ids) => {
+                            onExcel: async (ids) => {
                                 try {
-                                    for(const id of ids) {
-                                        await generateDOFAEIReportLogic(projectId, id, reportFormat);
-                                    }
+                                    for(const id of ids) { await generateDOFAEIReportLogic(projectId, id, 'excel'); }
                                     setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -885,25 +870,13 @@ function ReportesContent() {
                             label: 'ROA (Authorization)',
                             description: 'Record of Authorization to Proceed with Contract Revision.',
                             icon: <FileDigit size={18} className="text-purple-800" />,
-                            action: async () => {
+                            onPdf: async () => {
                                 try {
                                     const choId = (window as any).selectedRoaCho;
-                                    if (!choId) {
-                                        alert("Por favor seleccione una Orden de Cambio (CHO).");
-                                        throw new Error("Selection required");
-                                    }
-                                    if (reportFormat === 'excel') {
-                                        alert("El reporte ROA no esta disponible en formato Excel por requerimiento.");
-                                        setLoading(false);
-                                        return;
-                                    }
-                                    await generateRoaReportLogic(projectId, choId, reportFormat);
+                                    if (!choId) { alert("Por favor seleccione una Orden de Cambio (CHO)."); throw new Error("Selection required"); }
+                                    await generateRoaReportLogic(projectId, choId, 'pdf');
                                     setStatus("Reporte ROA generado.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     >
@@ -931,17 +904,12 @@ function ReportesContent() {
                             label: 'CCML (Contract Mod. Log)',
                             description: 'Contract Modification Log usando la plantilla oficial con formulas integradas. Genera un Excel listo para abrir.',
                             icon: <Files size={18} className="text-green-600" />,
-                            action: async () => {
+                            onExcel: async () => {
                                 try {
                                     const choId = (window as any).selectedCmlCho;
-                                    // choId is optional — if empty, generates for ALL CHOs
                                     await generateCCMLReportLogic(projectId || '', choId || undefined);
                                     setStatus("Reporte CCML generado.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     >
@@ -969,20 +937,13 @@ function ReportesContent() {
                             label: 'ACT-123 (Supplementary Contract)',
                             description: 'Formulario oficial de contrato suplementario para Ordenes de Cambio (Excel).',
                             icon: <FileSpreadsheet size={18} className="text-green-700" />,
-                            action: async () => {
+                            onExcel: async () => {
                                 try {
                                     const choId = (window as any).selectedAct123Cho;
-                                    if (!choId) {
-                                        alert("Por favor seleccione un CHO para el reporte ACT-123.");
-                                        return;
-                                    }
+                                    if (!choId) { alert("Por favor seleccione un CHO para el reporte ACT-123."); return; }
                                     await generateAct123ReportLogic(projectId || "", choId);
                                     setStatus("Reporte ACT-123 generado.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     >
@@ -1008,26 +969,14 @@ function ReportesContent() {
                             label: 'Grafica de Extension de Tiempo',
                             description: 'Grafica oficial de la linea de tiempo del proyecto y extensiones otorgadas.',
                             icon: <BarChart size={18} className="text-orange-500" />,
-                            action: async () => {
+                            onPdf: async () => {
                                 try {
                                     const choId = (window as any).selectedTimeExtCho;
-                                    if (!choId) {
-                                        alert("Por favor seleccione una CHO para la Grafica.");
-                                        return;
-                                    }
-                                    if (reportFormat === 'excel') {
-                                        alert("La grafica de extension de tiempo no esta disponible en formato Excel por requerimiento.");
-                                        setLoading(false);
-                                        return;
-                                    }
+                                    if (!choId) { alert("Por favor seleccione una CHO para la Grafica."); return; }
                                     const { generateTimeExtensionChartLogic } = await import("@/lib/reportLogic");
                                     await generateTimeExtensionChartLogic(projectId || "", choId);
                                     setStatus("Grafica generada.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     >
@@ -1058,17 +1007,17 @@ function ReportesContent() {
                             description: 'Seleccione las certificaciones para generar el formulario oficial de pago (Anverso/Reverso).',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
-                            onGenerate: async (ids) => {
+                            onPdf: async (ids) => {
                                 try {
-                                    for (const id of ids) {
-                                        await generateAct117CReportLogic(projectId, id, reportFormat);
-                                    }
+                                    for (const id of ids) { await generateAct117CReportLogic(projectId, id, 'pdf'); }
                                     setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async (ids) => {
+                                try {
+                                    for (const id of ids) { await generateAct117CReportLogic(projectId, id, 'excel'); }
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -1081,17 +1030,11 @@ function ReportesContent() {
                             description: 'Hojas de certificación individuales por ítem en formato Excel (Plantilla Oficial).',
                             icon: <FileSpreadsheet size={18} className="text-emerald-600" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
-                            onGenerate: async (ids) => {
+                            onExcel: async (ids) => {
                                 try {
-                                    for (const id of ids) {
-                                        await generateAct117AReportLogic(projectId, id, reportFormat);
-                                    }
+                                    for (const id of ids) { await generateAct117AReportLogic(projectId, id, 'excel'); }
                                     setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -1104,15 +1047,17 @@ function ReportesContent() {
                             description: 'Reporte detallado con todos los valores positivos y negativos de la certificacion seleccionada.',
                             icon: <Calculator size={18} className="text-cyan-700" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
-                            onGenerate: async (ids) => {
+                            onPdf: async (ids) => {
                                 try {
-                                    await generateCertReportLogic(projectId, ids, reportFormat);
+                                    await generateCertReportLogic(projectId, ids, 'pdf');
                                     setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async (ids) => {
+                                try {
+                                    await generateCertReportLogic(projectId, ids, 'excel');
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -1130,7 +1075,7 @@ function ReportesContent() {
                             label: 'Final Acceptance Checklist (Liquidacion)',
                             description: 'Formulario oficial de cotejo para aceptacion final (Federal-Aid projects).',
                             icon: <FileCheck size={18} className="text-blue-600" />,
-                            action: () => generateFinalAcceptanceChecklistReportLogic(projectId, reportFormat)
+                            onPdf: () => generateFinalAcceptanceChecklistReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1145,7 +1090,7 @@ function ReportesContent() {
                             label: 'Hojas de Liquidacion por Partida',
                             description: 'Una hoja por partida con CHOs, certificaciones y balance. Estructura basada en la forma oficial de liquidacion.',
                             icon: <FileCheck size={18} className="text-rose-600" />,
-                            action: () => generateLiquidacionItemsReportLogic(projectId, reportFormat)
+                            onPdf: () => generateLiquidacionItemsReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1160,7 +1105,7 @@ function ReportesContent() {
                             label: 'CHO Final',
                             description: 'Forma ACT-122 marcada como FINAL. Requiere que todas las hojas de liquidacion esten firmadas.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
-                            action: async () => {
+                            onPdf: async () => {
                                 try {
                                     const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
                                     const { data: ci } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
@@ -1170,24 +1115,29 @@ function ReportesContent() {
                                         const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
                                         return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
                                     });
-                                    if (!allSigned) {
-                                        alert("Faltan firmas en las hojas de liquidacion. No se puede generar el reporte CHO Final.");
-                                        setLoading(false);
-                                        return;
-                                    }
+                                    if (!allSigned) { alert("Faltan firmas en las hojas de liquidacion. No se puede generar el reporte CHO Final."); setLoading(false); return; }
                                     const { data: lastCho } = await supabase.from('chos').select('id').eq('project_id', projectId).order('cho_num', { ascending: false }).limit(1);
-                                    if (!lastCho || lastCho.length === 0) {
-                                        alert("No se encontro ningun Change Order.");
-                                        setLoading(false);
-                                        return;
-                                    }
-                                    await generateAct122ReportLogic(projectId, lastCho[0].id, reportFormat, true);
+                                    if (!lastCho || lastCho.length === 0) { alert("No se encontro ningun Change Order."); setLoading(false); return; }
+                                    await generateAct122ReportLogic(projectId, lastCho[0].id, 'pdf', true);
                                     setStatus("Reporte generado.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async () => {
+                                try {
+                                    const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
+                                    const { data: ci } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
+                                    const liqData = proj?.liquidation_data || {};
+                                    const liquidatedItems = liqData.liquidated_items || [];
+                                    const allSigned = ci?.every(it => {
+                                        const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
+                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
+                                    });
+                                    if (!allSigned) { alert("Faltan firmas en las hojas de liquidacion. No se puede generar el reporte CHO Final."); setLoading(false); return; }
+                                    const { data: lastCho } = await supabase.from('chos').select('id').eq('project_id', projectId).order('cho_num', { ascending: false }).limit(1);
+                                    if (!lastCho || lastCho.length === 0) { alert("No se encontro ningun Change Order."); setLoading(false); return; }
+                                    await generateAct122ReportLogic(projectId, lastCho[0].id, 'excel', true);
+                                    setStatus("Reporte generado.");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -1200,7 +1150,7 @@ function ReportesContent() {
                             label: 'Certificacion Final',
                             description: 'Forma ACT-117C marcada como FINAL. Requiere que todas las hojas de liquidacion esten firmadas.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
-                            action: async () => {
+                            onPdf: async () => {
                                 try {
                                     const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
                                     const { data: ci } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
@@ -1210,18 +1160,25 @@ function ReportesContent() {
                                         const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
                                         return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
                                     });
-                                    if (!allSigned) {
-                                        alert("Faltan firmas en las hojas de liquidacion. No se puede generar la Certificacion Final.");
-                                        setLoading(false);
-                                        return;
-                                    }
-                                    await generateAct117CReportLogic(projectId, undefined, reportFormat, true);
+                                    if (!allSigned) { alert("Faltan firmas en las hojas de liquidacion. No se puede generar la Certificacion Final."); setLoading(false); return; }
+                                    await generateAct117CReportLogic(projectId, undefined, 'pdf', true);
                                     setStatus("Reporte generado.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async () => {
+                                try {
+                                    const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
+                                    const { data: ci } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
+                                    const liqData = proj?.liquidation_data || {};
+                                    const liquidatedItems = liqData.liquidated_items || [];
+                                    const allSigned = ci?.every(it => {
+                                        const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
+                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
+                                    });
+                                    if (!allSigned) { alert("Faltan firmas en las hojas de liquidacion. No se puede generar la Certificacion Final."); setLoading(false); return; }
+                                    await generateAct117CReportLogic(projectId, undefined, 'excel', true);
+                                    setStatus("Reporte generado.");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -1234,7 +1191,7 @@ function ReportesContent() {
                             label: 'Final Acceptance Report (Oficial)',
                             description: 'Formulario oficial de aceptacion final (FHWA). Replica exacta del formato impreso.',
                             icon: <FileCheck size={18} className="text-indigo-600" />,
-                            action: () => generateFinalAcceptanceReportOfficialLogic(projectId, reportFormat)
+                            onPdf: () => generateFinalAcceptanceReportOfficialLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1249,7 +1206,7 @@ function ReportesContent() {
                             label: 'Payroll Certification',
                             description: 'Certificacion oficial de cumplimiento con leyes laborales federales y estatales.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
-                            action: () => generatePayrollCertificationReportLogic(projectId, reportFormat)
+                            onPdf: () => generatePayrollCertificationReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1264,14 +1221,11 @@ function ReportesContent() {
                             label: 'Material Certification (sin firmas)',
                             description: 'Certificacion oficial de materiales, muestreo y pruebas de aceptacion.',
                             icon: <FileCheck size={18} className="text-orange-600" />,
-                            action: () => {
+                            onPdf: () => {
                                 setReminderMsg("Este documento de certificacion de materiales es para solicitar las firmas correspondientes del administrador y de la Oficina de Materiales");
-                                return generateMaterialCertificationReportLogic(projectId, reportFormat)
+                                return generateMaterialCertificationReportLogic(projectId, 'pdf')
                                     .then(() => setStatus("Reporte generado."))
-                                    .catch(e => {
-                                        console.error(e);
-                                        setStatus(`Error: ${e.message}`);
-                                    })
+                                    .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                     .finally(() => setLoading(false));
                             }
                         }}
@@ -1285,14 +1239,11 @@ function ReportesContent() {
                             label: 'Certification of DBE Participation',
                             description: 'Certificacion oficial de participacion y esfuerzos de buena fe de empresas DBE.',
                             icon: <FileCheck size={18} className="text-blue-600" />,
-                            action: () => {
+                            onPdf: () => {
                                 setReminderMsg("Junto con este reporte, se debe adjuntar la certificacion DBA del contratista.");
-                                return generateDbeCertificationReportLogic(projectId, reportFormat)
+                                return generateDbeCertificationReportLogic(projectId, 'pdf')
                                     .then(() => setStatus("Reporte generado."))
-                                    .catch(e => {
-                                        console.error(e);
-                                        setStatus(`Error: ${e.message}`);
-                                    })
+                                    .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                     .finally(() => setLoading(false));
                             }
                         }}
@@ -1306,7 +1257,7 @@ function ReportesContent() {
                             label: 'Final Construction Report',
                             description: 'Informe final de construccion con resumen de partidas ejecutadas y pagos mensuales.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
-                            action: () => generateFinalConstructionReportLogic(projectId, reportFormat)
+                            onPdf: () => generateFinalConstructionReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch((e: any) => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1321,7 +1272,7 @@ function ReportesContent() {
                             label: 'Final Estimate',
                             description: 'Desglose y resumen financiero oficial del proyecto (Final Estimate).',
                             icon: <FileCheck size={18} className="text-teal-600" />,
-                            action: () => generateFinalEstimateReportLogic(projectId, reportFormat)
+                            onPdf: () => generateFinalEstimateReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch((e: any) => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1336,7 +1287,7 @@ function ReportesContent() {
                             label: 'Contract Final Report',
                             description: 'Informe final de contrato con resumen de fechas, ordenes de cambio y costos finales.',
                             icon: <FileCheck size={18} className="text-indigo-600" />,
-                            action: () => generateContractFinalReportLogic(projectId, reportFormat)
+                            onPdf: () => generateContractFinalReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch((e: any) => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1351,7 +1302,7 @@ function ReportesContent() {
                             label: 'Time Analysis (AC-457b)',
                             description: 'Evaluacion de overruns, dias autorizados y calculo de danos liquidos.',
                             icon: <FileCheck size={18} className="text-amber-600" />,
-                            action: () => generateTimeAnalysisReportLogic(projectId, reportFormat)
+                            onPdf: () => generateTimeAnalysisReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch((e: any) => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1366,7 +1317,11 @@ function ReportesContent() {
                             label: 'Reporte de Firmas por Partidas',
                             description: 'Informe con el estado de las firmas (Admin, Contratista, Liquidador) para cada partida en liquidacion.',
                             icon: <FileCheck size={18} className="text-pink-600" />,
-                            action: () => generateSignedItemsReportLogic(projectId, reportFormat)
+                            onPdf: () => generateSignedItemsReportLogic(projectId, 'pdf')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch((e: any) => setStatus(`Error: ${e.message}`))
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateSignedItemsReportLogic(projectId, 'excel')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch((e: any) => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1413,7 +1368,7 @@ function ReportesContent() {
                             label: 'Environmental Review Certification',
                             description: 'Certificacion de cumplimiento con las revisiones ambientales y compromisos de construccion.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
-                            action: () => generateEnvironmentalReviewReportLogic(projectId, reportFormat)
+                            onPdf: () => generateEnvironmentalReviewReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch((e: any) => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
@@ -1524,12 +1479,13 @@ function ReportesContent() {
                             label: 'Presupuesto Proyectado — ACT vs FHWA',
                             description: 'Distribucion de todo el presupuesto del contrato original mas las ordenes de Cambio, aunque no se hayan pagado.',
                             icon: <Package size={18} className="text-blue-600" />,
-                            action: () => generateProjectedFundDistributionReportLogic(projectId, reportFormat)
+                            onPdf: () => generateProjectedFundDistributionReportLogic(projectId, 'pdf', endDate)
                                 .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    console.error(e);
-                                    setStatus(`Error: ${e.message}`);
-                                })
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateProjectedFundDistributionReportLogic(projectId, 'excel', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -1541,12 +1497,13 @@ function ReportesContent() {
                             label: 'Distribucion Real — ACT vs FHWA (Pagos)',
                             description: 'Distribucion basada unicamente en las partidas certificadas y pagadas hasta la fecha de corte.',
                             icon: <Activity size={18} className="text-green-600" />,
-                            action: () => generateFundSourceReportLogic(projectId, reportFormat, endDate)
+                            onPdf: () => generateFundSourceReportLogic(projectId, 'pdf', endDate)
                                 .then(() => setStatus("Reporte generado."))
-                                .catch(e => {
-                                    console.error(e);
-                                    setStatus(`Error: ${e.message}`);
-                                })
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onExcel: () => generateFundSourceReportLogic(projectId, 'excel', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -1564,9 +1521,19 @@ function ReportesContent() {
                             icon: <FileText size={18} className="text-amber-700" />,
                             selectLabel: "Elegir Fecha",
                             items: minutes.map(m => ({ id: m.id, label: `${m.meeting_number || 'Reunion'} (${formatDate(m.meeting_date)})` })),
-                            onGenerate: async (ids) => {
+                            onPdf: async (ids) => {
                                 try {
-                                    await generateMinuteReportLogic(projectId, ids[0], reportFormat);
+                                    await generateMinuteReportLogic(projectId, ids[0], 'pdf');
+                                    setStatus("Minuta generada.");
+                                } catch (e: any) {
+                                    setStatus(`Error: ${e.message}`);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            },
+                            onExcel: async (ids) => {
+                                try {
+                                    await generateMinuteReportLogic(projectId, ids[0], 'excel');
                                     setStatus("Minuta generada.");
                                 } catch (e: any) {
                                     setStatus(`Error: ${e.message}`);
@@ -1607,21 +1574,19 @@ function ReportesContent() {
                             icon: <FileDigit size={18} className="text-emerald-600" />,
                             selectLabel: "Elegir Fecha",
                             items: dailyLogs.map(m => ({ id: m.id, label: `Informe del ${formatDate(m.log_date)}` })),
-                            onGenerate: async (ids) => {
+                            onPdf: async (ids) => {
                                 try {
-                                    if (reportFormat === 'excel') {
-                                        const { generateAct45ExcelReport } = await import("@/lib/generateAct45ExcelReport");
-                                        for (let id of ids) await generateAct45ExcelReport(projectId || "", id);
-                                    } else {
-                                        const { generateAct45PdfReport } = await import("@/lib/generateAct45PdfReport");
-                                        for (let id of ids) await generateAct45PdfReport(projectId || "", id);
-                                    }
+                                    const { generateAct45PdfReport } = await import("@/lib/generateAct45PdfReport");
+                                    for (let id of ids) await generateAct45PdfReport(projectId || "", id);
                                     setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async (ids) => {
+                                try {
+                                    const { generateAct45ExcelReport } = await import("@/lib/generateAct45ExcelReport");
+                                    for (let id of ids) await generateAct45ExcelReport(projectId || "", id);
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -1635,21 +1600,19 @@ function ReportesContent() {
                             icon: <FileCheck size={18} className="text-emerald-600" />,
                             selectLabel: "Elegir Fecha",
                             items: dailyLogs.map(m => ({ id: m.id, label: `Inspeccion del ${formatDate(m.log_date)}` })),
-                            onGenerate: async (ids) => {
+                            onPdf: async (ids) => {
                                 try {
-                                    if (reportFormat === 'excel') {
-                                        const { generateAct96ExcelReport } = await import("@/lib/generateAct96ExcelReport");
-                                        for (let id of ids) await generateAct96ExcelReport(projectId || "", id);
-                                    } else {
-                                        const { generateAct96PdfReport } = await import("@/lib/generateAct96PdfReport");
-                                        for (let id of ids) await generateAct96PdfReport(projectId || "", id);
-                                    }
+                                    const { generateAct96PdfReport } = await import("@/lib/generateAct96PdfReport");
+                                    for (let id of ids) await generateAct96PdfReport(projectId || "", id);
                                     setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            },
+                            onExcel: async (ids) => {
+                                try {
+                                    const { generateAct96ExcelReport } = await import("@/lib/generateAct96ExcelReport");
+                                    for (let id of ids) await generateAct96ExcelReport(projectId || "", id);
+                                    setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
@@ -1680,10 +1643,7 @@ function ReportesContent() {
                         <div className="p-8 md:p-12">
                             <ACT45Form 
                                 projectId={projectId} 
-                                numAct={projectNum} 
-                                onSaved={() => {
-                                    fetchProjectInfo();
-                                }}
+                                onClose={() => setShowACT45Form(false)} 
                             />
                         </div>
                     </div>
@@ -1708,6 +1668,39 @@ function ReportesContent() {
                                     fetchProjectInfo();
                                 }}
                             />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- About Section --- */}
+            <footer className="mt-20 pb-12 text-center border-t border-slate-100 dark:border-slate-800 pt-8 opacity-60 hover:opacity-100 transition-opacity">
+                <div className="inline-flex items-center gap-3 bg-white dark:bg-slate-900 px-6 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Diseñado por</span>
+                        <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">
+                            Ing. Enrique Saavedra Sada, PE
+                        </p>
+                    </div>
+                </div>
+            </footer>
+
+            {/* --- Full Screen Loader --- */}
+            {loading && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl flex items-center justify-center z-[1000] animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-slate-900 p-12 rounded-[48px] shadow-2xl flex flex-col items-center gap-6 border border-white/20 animate-in zoom-in-95 duration-300">
+                        <div className="relative">
+                            <div className="absolute inset-0 animate-ping bg-primary/20 rounded-full" />
+                            <Loader2 className="animate-spin text-primary relative" size={64} />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-black text-2xl text-slate-900 dark:text-white mb-2 uppercase tracking-tighter">PROCESANDO REPORTE</p>
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                            </div>
+                            <p className="text-sm font-bold text-slate-400 mt-4 uppercase tracking-widest">Esto tomará solo unos segundos...</p>
                         </div>
                     </div>
                 </div>

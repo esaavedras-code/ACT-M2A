@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber, formatCurrency } from './utils';
+import { formatDate, formatProjectNumber } from './utils';
 import { ACT123_TEMPLATE_BASE64 } from './act123Template';
 
 /**
@@ -15,120 +15,106 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         const { data: contr } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
         const { data: allChos } = await supabase.from('chos').select('*').eq('project_id', projectId).order('cho_num', { ascending: true });
         const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
-        const { data: items } = await supabase.from('contract_items').select('*').eq('project_id', projectId);
+        const { data: items = [] } = await supabase.from('contract_items').select('*').eq('project_id', projectId);
 
-        const currentCho = allChos?.find(c => c.id === choId);
-        if (!currentCho) throw new Error("CHO no encontrado");
+        const cho = allChos?.find(c => c.id === choId);
+        if (!cho) throw new Error("CHO no encontrado");
 
-        // Approved CHOs before this one
-        const prevChos = allChos?.filter(c => c.cho_num < currentCho.cho_num && c.doc_status === 'Aprobado') || [];
-        
-        // 2. Calculations
-        const proposedChange = parseFloat(currentCho.proposed_change as any) || 0;
-        const timeExtDays = parseInt(currentCho.time_extension_days as any) || 0;
-
-        // Date calculations
-        const origCompletion = proj.date_orig_completion ? new Date(proj.date_orig_completion) : null;
-        let currentCompletion = origCompletion ? new Date(origCompletion) : null;
-        
-        prevChos.forEach(c => {
-            if (currentCompletion) {
-                currentCompletion.setDate(currentCompletion.getDate() + (parseInt(c.time_extension_days as any) || 0));
-            }
-        });
-
-        const newCompletion = currentCompletion ? new Date(currentCompletion) : null;
-        if (newCompletion) {
-            newCompletion.setDate(newCompletion.getDate() + timeExtDays);
-        }
-
-        const currentComptroller = currentCompletion ? new Date(currentCompletion) : null;
-        if (currentComptroller) currentComptroller.setDate(currentComptroller.getDate() + 730);
-
-        const newComptroller = newCompletion ? new Date(newCompletion) : null;
-        if (newComptroller) newComptroller.setDate(newComptroller.getDate() + 730);
-
-        // Checkbox logic
-        const choItems = Array.isArray(currentCho.items) ? currentCho.items : [];
-        const hasContractItems = choItems.some((it: any) => items?.some(ci => ci.item_num === it.item_num && !ci.is_extra_work));
-        const hasNewItems = choItems.some((it: any) => !items?.some(ci => ci.item_num === it.item_num) || items?.some(ci => ci.item_num === it.item_num && ci.is_extra_work));
-        const hasTimeExt = timeExtDays > 0;
-
-        // Signature Delegation logic
-        const costOrig = parseFloat(proj.cost_original as any) || 0;
-        const cumulativeIncrease = prevChos.reduce((acc, c) => acc + (parseFloat(c.proposed_change as any) || 0), 0) + proposedChange;
-        const pctIncrease = costOrig > 0 ? (cumulativeIncrease / costOrig) : 0;
-        
-        let approverRole = "Director Ejecutivo";
-        if (proposedChange <= 50000 && pctIncrease <= 0.10 && !hasTimeExt) {
-            approverRole = "Director Área de Construcción";
-        } else if (proposedChange <= 250000 && pctIncrease <= 0.25 && !hasTimeExt) {
-            approverRole = "Subdirector Ejecutivo";
-        }
-
-        const approver = personnel?.find(p => p.role === approverRole);
-
-        // 3. Load Template
+        // 2. Load Template
         const workbook = new ExcelJS.Workbook();
         const bufferTemplate = Buffer.from(ACT123_TEMPLATE_BASE64, 'base64');
         await workbook.xlsx.load(bufferTemplate);
 
-        const sheet = workbook.getWorksheet('SUPP-ACT-123') || workbook.getWorksheet(2);
-        if (!sheet) throw new Error("No se encontró la hoja SUPP-ACT-123");
+        const sheet = workbook.getWorksheet('SUPP-ACT-123') || workbook.worksheets[0];
+        if (!sheet) throw new Error("No se encontró la hoja de trabajo en el template");
 
-        // 4. Fill Data
-        // Header
-        sheet.getCell('E6').value = formatProjectNumber(proj.num_act);
-        sheet.getCell('E7').value = proj.num_oracle || '';
-        sheet.getCell('E8').value = proj.num_federal || 'N/A';
-        sheet.getCell('H9').value = proj.num_po || 'N/A';
-        sheet.getCell('H10').value = proj.num_contrato || '';
-        sheet.getCell('H11').value = proj.account_number_federal || '';
-        sheet.getCell('H12').value = proj.account_number_state || '';
-        
-        sheet.getCell('AG13').value = currentCho.amendment_letter || '';
+        // 3. Prepare Items Data
+        const choItemsRaw = Array.isArray(cho.items) ? cho.items : [];
+        const contractItems = choItemsRaw.filter((it: any) => items?.some(ci => ci.item_num === it.item_num && !ci.is_extra_work));
+        const extraItems = choItemsRaw.filter((it: any) => !items?.some(ci => ci.item_num === it.item_num) || items?.some(ci => ci.item_num === it.item_num && ci.is_extra_work));
+        const choTotal = choItemsRaw.reduce((sum: number, it: any) => sum + (parseFloat(it.quantity) * parseFloat(it.unit_price)), 0);
 
-        // Checkboxes (T15, T17, etc.) - The user provided T15/T17
-        if (hasContractItems) sheet.getCell('T15').value = 'X';
-        if (hasNewItems) sheet.getCell('T17').value = 'X';
-        // If there is a T for time extension, I'll check the template. Analysis showed V19 is the label.
-        // Usually there is a checkbox nearby. I'll check T19 or S19.
-        if (hasTimeExt) {
-            try { sheet.getCell('T19').value = 'X'; } catch(e){}
-        }
+        // 4. Fill Header (Based on Image Grid: Label at B5, Value at J5/J6)
+        // Adjusting based on A6 label scan: J6 seems to be the first value row.
+        sheet.getCell('J6').value = proj.contractor_name || '';
+        sheet.getCell('J7').value = proj.num_act || '';
+        sheet.getCell('J8').value = proj.num_federal || '';
+        sheet.getCell('J9').value = proj.num_contrato || '';
+        sheet.getCell('J10').value = cho.amendment_letter || '';
+        sheet.getCell('J11').value = proj.num_cuenta_federal || '';
+        sheet.getCell('J12').value = proj.num_cuenta_estatal || '';
 
-        // Dates and Info
-        sheet.getCell('Q29').value = ''; // Approval Date (leave blank)
-        sheet.getCell('AA24').value = approver?.name || '';
-        sheet.getCell('C26').value = approver?.role || approverRole;
+        // 5. Supplementary Contract Info
+        const choLabel = `${cho.cho_num}${cho.amendment_letter || ''}`;
+        sheet.getCell('AK13').value = choLabel;
         
-        sheet.getCell('P26').value = contr?.name || '';
-        sheet.getCell('I28').value = contr?.representative || '';
-        sheet.getCell('Z28').value = contr?.position || '';
+        // Checkboxes (Field 8)
+        if (contractItems.length > 0) sheet.getCell('V15').value = 'X';
+        if (extraItems.length > 0) sheet.getCell('V17').value = 'X';
+        if (cho.time_extension_days && parseInt(cho.time_extension_days) > 0) sheet.getCell('V19').value = 'X';
+
+        // 6. Contract Text Fields
+        sheet.getCell('Y22').value = new Date().toLocaleDateString();
         
+        const findPerson = (role: string) => personnel?.find(p => p.role === role);
+        const execDir = findPerson("Director Ejecutivo");
+        
+        sheet.getCell('AQ24').value = execDir?.name || '';
+        sheet.getCell('M26').value = execDir?.role || '';
+        sheet.getCell('AH26').value = proj.contractor_name || '';
+        sheet.getCell('Y28').value = proj.contractor_representative || '';
+        sheet.getCell('AK28').value = "Representative";
+
+        // Award and Project Name
         sheet.getCell('H33').value = proj.date_award ? formatDate(proj.date_award) : '';
         sheet.getCell('C35').value = proj.name || '';
-        
-        sheet.getCell('AI43').value = proposedChange;
-        sheet.getCell('C45').value = timeExtDays;
-        
-        sheet.getCell('AN45').value = currentCompletion ? formatDate(currentCompletion) : '';
-        sheet.getCell('C47').value = newCompletion ? formatDate(newCompletion) : '';
-        
-        sheet.getCell('AF47').value = currentComptroller ? formatDate(currentComptroller) : '';
-        sheet.getCell('AO47').value = newComptroller ? formatDate(newComptroller) : '';
 
-        // Footer / Signatures
-        sheet.getCell('C55').value = approver?.name || '';
-        sheet.getCell('AE55').value = contr?.representative || '';
-        sheet.getCell('AE59').value = contr?.employer_id || '';
-        sheet.getCell('AE60').value = contr?.email || '';
+        // 7. Items Table (Starting at Row 32)
+        // Columns from instructions: B(Num), E(Code), H(Desc), AJ(Unit), AN(Qty), AT(Price), AZ(Amount), BF(%Fed)
+        let currentRow = 32;
+        const allItems = [...contractItems, ...extraItems];
+        
+        for (const item of allItems) {
+            sheet.getCell(`B${currentRow}`).value = item.item_num;
+            sheet.getCell(`E${currentRow}`).value = item.spec_code || '';
+            sheet.getCell(`H${currentRow}`).value = item.description || '';
+            sheet.getCell(`AJ${currentRow}`).value = item.unit || '';
+            sheet.getCell(`AN${currentRow}`).value = parseFloat(item.quantity) || 0;
+            sheet.getCell(`AT${currentRow}`).value = parseFloat(item.unit_price) || 0;
+            sheet.getCell(`AZ${currentRow}`).value = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+            sheet.getCell(`BF${currentRow}`).value = item.fed_pct || 0;
+            currentRow++;
+            if (currentRow > 42) break; // Limit to fit layout
+        }
 
-        const outBuffer = await workbook.xlsx.writeBuffer();
-        return new Blob([outBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        // 8. Totals and Agreement (Row 43-47)
+        sheet.getCell('AS43').value = choTotal;
+        sheet.getCell('G45').value = cho.time_extension_days || 0;
+        sheet.getCell('AV45').value = proj.date_completion ? formatDate(proj.date_completion) : '';
+        
+        // Dates logic
+        const completionDate = proj.date_completion ? new Date(proj.date_completion) : new Date();
+        const newCompletionDate = new Date(completionDate);
+        newCompletionDate.setDate(newCompletionDate.getDate() + (parseInt(cho.time_extension_days) || 0));
+        
+        sheet.getCell('J47').value = formatDate(newCompletionDate);
+        
+        // Admin Term (example: +2 years)
+        const adminTermDate = new Date(newCompletionDate);
+        adminTermDate.setFullYear(adminTermDate.getFullYear() + 2);
+        sheet.getCell('AV47').value = formatDate(adminTermDate);
 
-    } catch (err: any) {
-        console.error("Error generating ACT-123 Excel:", err);
-        throw err;
+        // 9. Signatures
+        sheet.getCell('U54').value = execDir?.name || '';
+        sheet.getCell('AW54').value = proj.contractor_representative || '';
+        sheet.getCell('AW59').value = contr?.employer_id || '';
+
+        // 10. Finalize
+        const buffer = await workbook.xlsx.writeBuffer();
+        return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    } catch (error: any) {
+        console.error("Error generating ACT-123 Excel:", error);
+        throw error;
     }
 }

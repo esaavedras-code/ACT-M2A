@@ -1,21 +1,35 @@
 /**
- * Procesa un PDF en base64 y extrae su texto directamente en el cliente.
- * Esto evita el uso de API Routes y permite la exportación estática para Electron.
+ * Carga la librería PDF.js desde un CDN de forma segura
  */
+async function loadPdfJs() {
+    if (typeof window === 'undefined') return null;
+    
+    // @ts-ignore
+    if (window.pdfjsLib) return window.pdfjsLib;
+
+    try {
+        // Engañamos a Webpack usando eval para que no intente procesar la URL de internet
+        const url = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.min.mjs';
+        const pdfjsLib = await eval(`import("${url}")`);
+        // @ts-ignore
+        window.pdfjsLib = pdfjsLib;
+        return pdfjsLib;
+    } catch (e) {
+        console.error("Error cargando PDF.js desde CDN:", e);
+        throw new Error('No se pudo cargar el motor de PDF desde la nube. Revisa tu conexión.');
+    }
+}
+
 export async function parsePdfClient(base64: string): Promise<{ success: boolean; text?: string; error?: string }> {
     try {
         if (!base64) return { success: false, error: "No data provided" };
         
-        // Importación dinámica para evitar errores de carga global en Next.js/Webpack
-        // Usamos la ruta completa al archivo .mjs
-        const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
-        
-        // Configurar el worker de PDF.js (necesario para que funcione en el navegador)
-        if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-        }
+        // Carga dinámica ultra-robusta
+        const pdfjsLib: any = await loadPdfJs();
+        if (!pdfjsLib) throw new Error("Entorno no compatible");
 
-        // Limpiar base64
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs`;
+
         const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
         const binaryData = atob(base64Data);
         const uint8Array = new Uint8Array(binaryData.length);
@@ -43,18 +57,14 @@ export async function parsePdfClient(base64: string): Promise<{ success: boolean
     }
 }
 
-/**
- * Convierte un PDF en base64 a un arreglo de imágenes JPEG en base64 para enviarlas a modelos de IA con Visión.
- */
 export async function pdfToImages(base64: string): Promise<{ success: boolean; images?: string[]; error?: string }> {
     try {
         if (!base64) return { success: false, error: "No data provided" };
         
-        const pdfjsLib = await import('pdfjs-dist/build/pdf.mjs');
-        
-        if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-        }
+        const pdfjsLib: any = await loadPdfJs();
+        if (!pdfjsLib) throw new Error("Entorno no compatible");
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs`;
 
         const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
         const binaryData = atob(base64Data);
@@ -67,12 +77,11 @@ export async function pdfToImages(base64: string): Promise<{ success: boolean; i
         const pdf = await loadingTask.promise;
         const images: string[] = [];
 
-        // Limitar a las primeras 5 páginas para no saturar la memoria y el payload de la API
         const maxPages = Math.min(pdf.numPages, 5);
 
         for (let i = 1; i <= maxPages; i++) {
             const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 2.5 });
+            const viewport = page.getViewport({ scale: 1.2 });
             
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -87,7 +96,7 @@ export async function pdfToImages(base64: string): Promise<{ success: boolean; i
             };
             
             await page.render(renderContext).promise;
-            const base64Img = canvas.toDataURL('image/jpeg', 0.95);
+            const base64Img = canvas.toDataURL('image/jpeg', 0.5);
             images.push(base64Img);
         }
 

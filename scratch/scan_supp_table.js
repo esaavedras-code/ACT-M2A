@@ -1,16 +1,17 @@
 const XLSX = require('xlsx');
 try {
     const workbook = XLSX.readFile('C:\\Users\\Enrique Saavedra\\Documents\\PROGRAMAS AI\\Programa ACT\\Documentos\\ACT-123 Supplementary Contract Form rev 12-2024.xlsx');
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const range = XLSX.utils.decode_range(sheet['!ref']);
-    for (let r = range.s.r; r <= 30; r++) { // Revisamos las primeras 30 filas
-        for (let c = range.s.c; c <= 50; c++) {
+    const sheet = workbook.Sheets['SUPP-ACT-123'];
+    for (let r = 20; r <= 80; r++) {
+        let rowContent = [];
+        for (let c = 0; c <= 70; c++) {
             const cellRef = XLSX.utils.encode_cell({r, c});
             const cell = sheet[cellRef];
             if (cell && cell.v) {
-                console.log(`${cellRef}: ${cell.v}`);
+                rowContent.push(`${cellRef}: ${cell.v}`);
             }
         }
+        if (rowContent.length > 0) console.log(rowContent.join(' | '));
     }
 } catch (err) {
     console.error("Error:", err.message);

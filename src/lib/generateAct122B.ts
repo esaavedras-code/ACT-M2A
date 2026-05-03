@@ -93,30 +93,29 @@ export async function generateAct122B(
             return cell;
         };
 
-        // Función para clonar el formato de la hoja maestra (incluyendo celdas combinadas y dimensiones)
+        // Función para clonar el formato de la hoja maestra de forma segura
         const cloneSheetFormat = (source: ExcelJS.Worksheet, target: ExcelJS.Worksheet) => {
             // Copiar dimensiones de columnas
             source.columns.forEach((col, i) => {
                 if (col.width) target.getColumn(i + 1).width = col.width;
             });
 
-            // Copiar filas y estilos (limitado por ExcelJS, pero intentaremos lo esencial)
+            // Copiar filas y estilos
             source.eachRow({ includeEmpty: true }, (row, rowNum) => {
                 const newRow = target.getRow(rowNum);
                 newRow.height = row.height;
                 row.eachCell({ includeEmpty: true }, (cell, colNum) => {
                     const newCell = newRow.getCell(colNum);
-                    newCell.style = JSON.parse(JSON.stringify(cell.style));
+                    newCell.style = cell.style;
                     newCell.value = cell.value;
                 });
             });
 
-            // Copiar celdas combinadas
-            // @ts-ignore
-            if (source._merges) {
-                // @ts-ignore
-                Object.values(source._merges).forEach((m: any) => {
-                    try { target.mergeCells(m.model.top, m.model.left, m.model.bottom, m.model.right); } catch(e) {}
+            // Copiar celdas combinadas usando el modelo oficial
+            const sourceModel = (source as any).model;
+            if (sourceModel && sourceModel.merges) {
+                sourceModel.merges.forEach((mergeRange: string) => {
+                    try { target.mergeCells(mergeRange); } catch(e) {}
                 });
             }
         };
@@ -138,13 +137,15 @@ export async function generateAct122B(
             setVal(ws, 'B16', projData.description || '', { shrink: true });
 
             // 2. Tiempo
-            setVal(ws, 'BA7', projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null);
-            setVal(ws, 'BA8', dateRevisedBox10);
-            setVal(ws, 'BA9', timeExt);
+            const safeDate = (d: any) => (d instanceof Date && !isNaN(d.getTime())) ? d : null;
+
+            setVal(ws, 'BA7', safeDate(projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null));
+            setVal(ws, 'BA8', safeDate(dateRevisedBox10));
+            setVal(ws, 'BA9', timeExt || 0);
             setVal(ws, 'BA10', 0);
-            setVal(ws, 'BA11', dateNewBox12);
-            setVal(ws, 'BA12', adminEnd);
-            setVal(ws, 'BA13', projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null);
+            setVal(ws, 'BA11', safeDate(dateNewBox12));
+            setVal(ws, 'BA12', safeDate(adminEnd));
+            setVal(ws, 'BA13', safeDate(projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null));
 
             // 3. Checkboxes de Tipo (Sección 15)
             if (contractChoItems.length > 0) setVal(ws, 'B18', 'X', { center: true });
@@ -199,18 +200,18 @@ export async function generateAct122B(
                 let totalExtra = 0;
                 extraWorkItems.forEach((it: any) => totalExtra += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
 
-                setVal(ws, 'AZ37', totalContract);
-                setVal(ws, 'AZ42', totalExtra);
-                setVal(ws, 'BA44', totalContract + totalExtra);
-                setVal(ws, 'BA45', actualContractAmount);
-                setVal(ws, 'BA46', newContractAmount);
+                setVal(ws, 'AZ37', totalContract || 0);
+                setVal(ws, 'AZ42', totalExtra || 0);
+                setVal(ws, 'BA44', (totalContract + totalExtra) || 0);
+                setVal(ws, 'BA45', actualContractAmount || 0);
+                setVal(ws, 'BA46', newContractAmount || 0);
             } else {
-                // Dejar vacíos si no es la última
-                setVal(ws, 'AZ37', '');
-                setVal(ws, 'AZ42', '');
-                setVal(ws, 'BA44', '');
-                setVal(ws, 'BA45', '');
-                setVal(ws, 'BA46', '');
+                // Dejar nulos si no es la última (Excel prefiere null a '' en celdas de número)
+                setVal(ws, 'AZ37', null);
+                setVal(ws, 'AZ42', null);
+                setVal(ws, 'BA44', null);
+                setVal(ws, 'BA45', null);
+                setVal(ws, 'BA46', null);
             }
 
             // 7. FIRMAS (En todas las páginas para consistencia)
@@ -218,7 +219,7 @@ export async function generateAct122B(
             setVal(ws, 'M46', contrData?.representative || contrData?.name || projData.contractor_name || '', { shrink: true });
             setVal(ws, 'M48', personnelMap["Supervisor de Área"] || projData.project_manager_name || '', { shrink: true });
             setVal(ws, 'M50', personnelMap["Director Regional"] || '', { shrink: true });
-            setVal(ws, 'M52', 'Edwin González Montalvo, P.E.', { shrink: true }); 
+            setVal(ws, 'M52', 'Ing. Edwin González Montalvo, P.E.', { shrink: true }); 
             setVal(ws, 'BA50', personnelMap["Director Oficina Construccion"] || '');
             setVal(ws, 'BA52', 'N/A');
 

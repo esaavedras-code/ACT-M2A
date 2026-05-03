@@ -1632,16 +1632,22 @@ export const generateAct117AReportLogic = async (projectId: string, certId?: str
     downloadBlob(blob, `ACT-117A_Cert_${cert.cert_num}_${project.num_act}.xlsx`);
 };
 
-export const generateAct123ReportLogic = async (projectId: string, choId: string) => {
+export const generateAct123ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'excel') => {
     const { project, chos } = await fetchAllReportData(projectId);
     if (!project) return;
     const cho = chos?.find(c => c.id === choId);
-    if (!cho) {
-        alert("No se encontró el CHO.");
-        return;
+    if (!cho) { alert("No se encontró el CHO."); return; }
+    
+    const choLabel = `${cho.cho_num}${cho.amendment_letter || ''}`;
+    
+    if (format === 'excel') {
+        const blob = await generateAct123Excel(projectId, choId);
+        downloadBlob(blob, `ACT-123_CHO_${choLabel}_${project.num_act}.xlsx`);
+    } else {
+        const { generateAct123B } = await import("./generateAct123B");
+        const blob = await generateAct123B(projectId, choId);
+        if (blob) downloadBlob(blob, `ACT-123_CHO_${choLabel}_${project.num_act}.pdf`);
     }
-    const blob = await generateAct123Excel(projectId, choId);
-    downloadBlob(blob, `ACT-123_CHO_${cho.cho_num}${cho.amendment_letter || ''}_${project.num_act}.xlsx`);
 };
 
 export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -1679,12 +1685,8 @@ export const generateMaterialCertificationReportLogic = async (projectId: string
 };
 
 export const generateAct122BReportLogic = async (projectId: string, choId: string) => {
-    const { project, chos } = await fetchAllReportData(projectId);
-    if (!project) return;
-    const cho = chos?.find(c => c.id === choId);
-    if (!cho) return;
-    const blob = await generateAct122B(projectId, choId);
-    downloadBlob(blob, `ACT-122B_CHO_${cho.cho_num}_${project.num_act}.xlsx`);
+    // Redirigimos al flujo unificado de ACT-122
+    return generateAct122ReportLogic(projectId, choId, 'excel');
 };
 
 export const generateDbeCertificationReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
@@ -1706,12 +1708,16 @@ export const generateAct122ReportLogic = async (projectId: string, choId: string
     const cho = chos?.find(c => c.id === choId);
     if (!project || !cho) return;
 
+    const choLabel = cho.cho_num ? `${cho.cho_num}${cho.amendment_letter || ''}` : choId;
+
     if (format === 'excel') {
-        const blob = await generateAct122Excel(projectId, choId);
-        downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}${isFinal ? '_FINAL' : ''}.xlsx`);
+        // Unificación: Usamos el motor de ACT-122B (que es el formato Excel oficial más reciente)
+        // pero lo guardamos con el nombre ACT-122 por requerimiento de Enrique.
+        const blob = await generateAct122B(projectId, choId);
+        downloadBlob(blob, `ACT-122_CHO_${choLabel}_${project.num_act}${isFinal ? '_FINAL' : ''}.xlsx`);
     } else {
         const blob = await generateAct122(projectId, choId, isFinal);
-        if (blob) downloadBlob(blob, `ACT-122_CHO_${cho.cho_num || choId}_${project.num_act}${isFinal ? '_FINAL' : ''}.pdf`);
+        if (blob) downloadBlob(blob, `ACT-122_CHO_${choLabel}_${project.num_act}${isFinal ? '_FINAL' : ''}.pdf`);
     }
 };
 

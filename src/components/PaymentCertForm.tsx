@@ -129,7 +129,7 @@ const PaymentCertForm = React.forwardRef(({
             // 4. Cargar certificados de manufactura
             const { data: mfg, error: mError } = await supabase
                 .from('manufacturing_certificates')
-                .select('*')
+                .select('*, items:manufacturing_certificate_items(*)')
                 .eq('project_id', projectId);
             
             if (!mError) setInternalMfgCerts(mfg || []);
@@ -169,6 +169,38 @@ const PaymentCertForm = React.forwardRef(({
             if (match) return parseFloat(match.mos_unit_price);
         }
         return 0;
+    };
+
+    const getItemMfgStatus = (itemNum: string, currentCertIdx: number) => {
+        const itemNumStr = (itemNum || "").toString().trim();
+        if (!itemNumStr) return { status: 'NOT_REQUIRED', qty: 0 };
+        
+        const baseItem = contractItems.find(it => (it.item_num || "").toString().trim() === itemNumStr);
+        if (!baseItem || !baseItem.requires_mfg_cert) return { status: 'NOT_REQUIRED', qty: 0 };
+
+        // 1. Calcular total certificado en PACT (historial completo hasta esta certificación incluida)
+        let totalCertified = 0;
+        for (let i = currentCertIdx; i < certs.length; i++) {
+            const items = certs[i]?.items || [];
+            const match = items.find((it: any) => (it.item_num || "").toString().trim() === itemNumStr);
+            if (match) totalCertified += parseFloat(match.quantity) || 0;
+        }
+
+        // 2. Calcular total en Certificados de Manufactura (válidos)
+        let totalMfgQty = 0;
+        mfgCerts.forEach(cert => {
+            if (cert.validation_status === 'CUMPLE') {
+                const certItems = cert.items || [];
+                const match = certItems.find((it: any) => (it.item_num || "").toString().trim() === itemNumStr);
+                if (match) totalMfgQty += parseFloat(match.quantity) || 0;
+            }
+        });
+
+        const diff = totalMfgQty - totalCertified;
+        if (diff < -0.001) { // Pequeño margen para errores de punto flotante
+            return { status: 'INSUFFICIENT', available: totalMfgQty, required: totalCertified, diff };
+        }
+        return { status: 'OK', available: totalMfgQty, required: totalCertified };
     };
 
     const { liveExecuted, livePaid, liveRetention, liveMOS, liveLiquidated, timeExtension } = useMemo(() => {
@@ -594,6 +626,17 @@ const PaymentCertForm = React.forwardRef(({
     };
 
     const handlePrint = async (cert: any) => {
+        // Validar certificados de manufactura
+        const certIdx = certs.findIndex(c => c.id === cert.id);
+        const insufficientItems = (cert.items || []).filter((it: any) => getItemMfgStatus(it.item_num, certIdx).status === 'INSUFFICIENT');
+
+        if (insufficientItems.length > 0) {
+            const itemNums = insufficientItems.map((it: any) => it.item_num).join(', ');
+            if (!confirm(`¡ADVERTENCIA: Certificados de Manufactura Pendientes!\n\nLas siguientes partidas no cuentan con suficientes certificados válidos para cubrir la cantidad certificada: ${itemNums}\n\n¿Deseas continuar con la impresión de todos modos?`)) {
+                return;
+            }
+        }
+
         setGenerating(cert.cert_num);
         try {
             const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
@@ -959,6 +1002,18 @@ const PaymentCertForm = React.forwardRef(({
 
                             {expandedCert === c.cert_num && (
                                 <div className="p-4 border-t border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 animate-in slide-in-from-top-2 duration-300">
+                                    {(() => {
+                                        const hasInsufficientCerts = (c.items || []).some((it: any) => getItemMfgStatus(it.item_num, certIdx).status === 'INSUFFICIENT');
+                                        return hasInsufficientCerts ? (
+                                            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-500">
+                                                <AlertTriangle className="text-red-600 animate-pulse" size={20} />
+                                                <div className="flex-1">
+                                                    <p className="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-tight">¡Atención: Certificados de Manufactura Pendientes!</p>
+                                                    <p className="text-[10px] font-bold text-red-600 dark:text-red-500 opacity-80">Hay partidas en esta certificación que exceden la cantidad aprobada por certificados de manufactura.</p>
+                                                </div>
+                                            </div>
+                                        ) : null;
+                                    })()}
                                     <div className="flex items-center justify-between mb-4">
                                         <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2">
                                             <Plus size={14} className="text-primary" />
@@ -994,7 +1049,8 @@ const PaymentCertForm = React.forwardRef(({
                                                     <th className="py-1 px-0.5 w-[50px] text-center"># Item</th>
                                                     <th className="py-1 px-0.5 w-[80px] text-center">Espec.</th>
                                                     <th className="py-1 px-0.5">Descripción</th>
-                                                    <th className="py-1 px-0.5 w-[50px] text-center">Un.</th>
+                                                    <th className="py-1 px-0.5 w-[40px] text-center">Un.</th>
+                                                    <th className="py-1 px-0.5 w-[40px] text-center" title="Certificado de Manufactura">CM</th>
                                                     <th className="py-1 px-0.5 w-[80px] text-right">Cant. WP</th>
                                                     <th className="py-1 px-0.5 w-[90px] text-right">P. Unitario</th>
                                                     <th className="py-1 px-0.5 w-[90px] text-right">Total WP</th>
@@ -1064,6 +1120,7 @@ const PaymentCertForm = React.forwardRef(({
                                                     const workAmount = workQty * (parseFloat(item.unit_price) || 0);
                                                     const autoDeductionAmount = finalQtyFromMOS * currentDeductionPU;
                                                     const netTotal = workAmount - autoDeductionAmount;
+                                                    const mfgStatus = getItemMfgStatus(item.item_num, certIdx);
 
                                                     return (
                                                         <React.Fragment key={itIdx}>
@@ -1116,6 +1173,23 @@ const PaymentCertForm = React.forwardRef(({
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'unit', e.target.value)}
                                                                         placeholder="U"
                                                                     />
+                                                                </td>
+                                                                <td className="py-1 px-0.5 text-center">
+                                                                    {mfgStatus.status === 'OK' && (
+                                                                        <div className="flex justify-center" title={`Certificado OK: ${formatNumber(mfgStatus.available)} ${item.unit} cubiertos`}>
+                                                                            <CheckCircle size={14} className="text-emerald-500" />
+                                                                        </div>
+                                                                    )}
+                                                                    {mfgStatus.status === 'INSUFFICIENT' && (
+                                                                        <div className="flex justify-center" title={`Certificado INSUFICIENTE: ${formatNumber(mfgStatus.available)} ${item.unit} cubiertos, faltan ${formatNumber(Math.abs(mfgStatus.diff || 0))}`}>
+                                                                            <AlertTriangle size={14} className="text-red-500 animate-pulse" />
+                                                                        </div>
+                                                                    )}
+                                                                    {mfgStatus.status === 'NOT_REQUIRED' && (
+                                                                        <div className="flex justify-center opacity-20" title="No requiere certificado de manufactura">
+                                                                            <CheckCircle size={14} className="text-slate-400" />
+                                                                        </div>
+                                                                    )}
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <input
