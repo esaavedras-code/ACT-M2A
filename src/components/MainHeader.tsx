@@ -27,7 +27,7 @@ export default function MainHeader() {
                         <MobileMenu />
                     </Suspense>
                     <Link href="/" className="flex items-center font-black text-xs md:text-sm tracking-tighter hover:opacity-80 transition-opacity">
-                        <div className="h-4 w-4 md:h-5 md:w-5 relative overflow-hidden bg-white rounded-lg p-0.5 mr-2 shrink-0">
+                        <div className="h-8 w-8 md:h-10 md:w-10 relative overflow-hidden bg-white rounded-lg p-0.5 mr-2 shrink-0">
                             <Image src="/icon.png" alt="Logo" fill className="object-contain" />
                         </div>
                         <BrandName />
