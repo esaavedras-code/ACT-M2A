@@ -221,6 +221,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
             photos_v2_data: log.photos_v2_data || [],
             na_settings: log.na_settings || {},
         };
+
         setCurrentLog(initializedLog);
         setActiveSubTab("edit");
         setEditTab("partidas");
