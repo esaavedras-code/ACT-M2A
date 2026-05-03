@@ -4,12 +4,12 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
     FileDigit, Camera, Files, ClipboardList, Package, Printer,
-    ClipboardCheck, Save, Plus, Trash2, AlertCircle, Loader2
+    ClipboardCheck, Save, Plus, Trash2, AlertCircle, Loader2,
+    ChevronRight, ChevronLeft, Calendar, X
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import ACT96Form from "./ACT96Form";
-import { X } from "lucide-react";
 
 const INSPECTION_ENTITIES = ["EPA", "ACT", "DNER", "OSHA", "Federal Hwy", "Otros"];
 

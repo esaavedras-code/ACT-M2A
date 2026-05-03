@@ -7,7 +7,8 @@ import {
     FileText, ChevronRight, ChevronLeft,
     CloudSun, MessageSquare, ListChecks,
     Clock, Shield, AlertTriangle, Trash, Check,
-    Camera, Image as ImageIcon, Search, Upload, Printer, FileSpreadsheet, Info, Mic, Loader2, Download, X
+    Camera, Image as ImageIcon, Search, Upload, Printer, FileSpreadsheet, Info, Mic, Loader2, Download, X,
+    FolderOpen, Files, Calendar, ClipboardList, FileDigit
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
