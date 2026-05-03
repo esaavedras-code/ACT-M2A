@@ -140,6 +140,18 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
         setLoading(false);
     };
 
+    const handleDeleteLog = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!window.confirm("¿Está seguro de que desea eliminar este informe? Esta acción no se puede deshacer.")) return;
+        
+        const { error } = await supabase.from("daily_logs").delete().eq("id", id);
+        if (error) {
+            alert("Error al eliminar el informe: " + error.message);
+        } else {
+            fetchDailyLogs();
+        }
+    };
+
     const makeNewLog = () => ({
         project_id: projectId,
         log_date: new Date().toISOString().split("T")[0],
@@ -377,6 +389,15 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
     };
 
     if (activeSubTab === "list") {
+        const groupedLogs = dailyLogs.reduce((acc: any, log) => {
+            const [y, m] = log.log_date.split('-');
+            const monthName = new Date(parseInt(y), parseInt(m) - 1).toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            const monthKey = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+            if (!acc[monthKey]) acc[monthKey] = [];
+            acc[monthKey].push(log);
+            return acc;
+        }, {});
+
         return (
             <>
                 <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
@@ -391,22 +412,77 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         </button>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {dailyLogs.map(log => (
-                        <div key={log.id} className="card p-6 cursor-pointer border-l-8 border-primary hover:shadow-lg transition-all" onClick={() => handleEdit(log)}>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <span className="text-xs font-black bg-primary text-white px-2 py-1 rounded-full">{log.log_date}</span>
-                                    <h3 className="font-bold text-lg mt-2">{log.inspector_name || "Sin inspector"}</h3>
-                                    <p className="text-xs text-slate-400 mt-1">{log.location}</p>
-                                    {log.partidas_data?.length > 0 && (
-                                        <p className="text-[10px] font-bold text-blue-500 mt-2">{log.partidas_data.length} partida(s) trabajada(s)</p>
-                                    )}
-                                </div>
-                                <ChevronRight size={20} className="text-primary" />
-                            </div>
+
+                <div className="space-y-10">
+                    {Object.keys(groupedLogs).length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-4">
+                            <FolderOpen size={48} className="opacity-20" />
+                            <p className="font-bold uppercase tracking-widest text-[10px]">No hay informes guardados aún</p>
                         </div>
-                    ))}
+                    ) : (
+                        Object.keys(groupedLogs).map(month => (
+                            <div key={month} className="space-y-4">
+                                <div className="flex items-center gap-3 px-2">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                        <FolderOpen size={16} className="text-primary" />
+                                    </div>
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{month}</h3>
+                                    <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800 ml-2" />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {groupedLogs[month].map((log: any) => (
+                                        <div 
+                                            key={log.id} 
+                                            className="group card p-6 cursor-pointer border-l-8 border-primary hover:shadow-xl hover:scale-[1.02] transition-all relative overflow-hidden" 
+                                            onClick={() => handleEdit(log)}
+                                        >
+                                            <div className="flex justify-between items-start relative z-10">
+                                                <div>
+                                                    <span className="text-[10px] font-black bg-primary/10 text-primary px-3 py-1 rounded-full uppercase tracking-tighter">
+                                                        {log.log_date.split('-').reverse().join('/')}
+                                                    </span>
+                                                    <h3 className="font-black text-slate-800 dark:text-white text-lg mt-3 line-clamp-1">
+                                                        {log.inspector_name || "Sin inspector"}
+                                                    </h3>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 line-clamp-1">{log.location}</p>
+                                                    <div className="flex items-center gap-4 mt-4">
+                                                        {log.partidas_data?.length > 0 && (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <ListChecks size={12} className="text-blue-500" />
+                                                                <span className="text-[10px] font-black text-blue-600 uppercase">
+                                                                    {log.partidas_data.length} partidas
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {log.photos_v2_data?.length > 0 && (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Camera size={12} className="text-emerald-500" />
+                                                                <span className="text-[10px] font-black text-emerald-600 uppercase">
+                                                                    {log.photos_v2_data.length} fotos
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-4">
+                                                    <ChevronRight size={20} className="text-slate-300 group-hover:text-primary transition-colors" />
+                                                    <button 
+                                                        onClick={(e) => handleDeleteLog(log.id, e)}
+                                                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                                        title="Eliminar Informe"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {/* Decoración de fondo */}
+                                            <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
                 {/* --- Modal ACT-45 --- */}
                 {showACT45Form && (

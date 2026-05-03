@@ -46,8 +46,20 @@ const ACT96Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
     useEffect(() => { if (projectId) load(); }, [projectId]);
 
     const load = async () => {
-      const { data } = await supabase.from("projects").select("name, contract_number, municipality, act96_last_report").eq("id", projectId!).single();
-      if (data) setD(p => ({ ...p, ...(data.act96_last_report || {}), numProyecto: numAct || p.numProyecto, nombreProyecto: data.name || p.nombreProyecto, municipio: data.municipality || p.municipio, fecha: new Date().toISOString().split("T")[0] }));
+      const { data } = await supabase.from("projects").select("name, num_act, municipios, contractor_name, admin_name, act96_last_report").eq("id", projectId!).single();
+      if (data) {
+        const municipioStr = Array.isArray(data.municipios) ? data.municipios.join(", ") : "";
+        setD(p => ({ 
+          ...p, 
+          ...(data.act96_last_report || {}), 
+          numProyecto: data.num_act || p.numProyecto, 
+          nombreProyecto: data.name || p.nombreProyecto, 
+          municipio: municipioStr || p.municipio,
+          contratista: data.contractor_name || p.contratista,
+          nombreAdministrador: data.admin_name || p.nombreAdministrador,
+          fecha: new Date().toISOString().split("T")[0] 
+        }));
+      }
     };
 
     const save = async (silent = false) => {
