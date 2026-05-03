@@ -389,7 +389,6 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                             <Plus size={16} />
                             Crear Nuevo Informe Diario ACT-45
                         </button>
-                        <button onClick={handleCreateNew} className="btn-primary w-full sm:w-auto flex items-center gap-2 text-[10px] py-3 rounded-2xl"><Plus size={16} /> Nuevo Registro (ACT-PACT)</button>
                     </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -409,6 +408,25 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                         </div>
                     ))}
                 </div>
+                {/* --- Modal ACT-45 --- */}
+                {showACT45Form && (
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                        <div className="bg-[#F8FAFC] dark:bg-[#020617] rounded-[48px] shadow-2xl w-full max-w-6xl my-8 relative animate-in zoom-in-95 duration-300 border border-white/20">
+                            <button 
+                                onClick={() => setShowACT45Form(false)}
+                                className="absolute top-8 right-8 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 z-[110]"
+                            >
+                                <X size={24} />
+                            </button>
+                            <div className="p-8 md:p-12 overflow-y-auto max-h-[80vh] custom-scrollbar">
+                                <ACT45Form 
+                                    projectId={projectId} 
+                                    numAct={numAct}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
             </>
         );
     }
@@ -512,26 +530,6 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                     </div>
                 </div>
             </div>
-
-            {/* --- Modal ACT-45 --- */}
-            {showACT45Form && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="bg-[#F8FAFC] dark:bg-[#020617] rounded-[48px] shadow-2xl w-full max-w-6xl my-8 relative animate-in zoom-in-95 duration-300 border border-white/20">
-                        <button 
-                            onClick={() => setShowACT45Form(false)}
-                            className="absolute top-8 right-8 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 z-[110]"
-                        >
-                            <X size={24} />
-                        </button>
-                        <div className="p-8 md:p-12 overflow-y-auto max-h-[80vh] custom-scrollbar">
-                            <ACT45Form 
-                                projectId={projectId} 
-                                numAct={numAct}
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 });

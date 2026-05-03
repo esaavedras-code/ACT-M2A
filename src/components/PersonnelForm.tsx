@@ -274,6 +274,18 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                        <tr>
+                            <td colSpan={8} className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                                <button
+                                    type="button"
+                                    onClick={addItem}
+                                    className="text-xs font-black text-blue-600 hover:text-blue-700 flex items-center gap-2 transition-all active:scale-95"
+                                >
+                                    <Plus size={16} />
+                                    Añadir Persona
+                                </button>
+                            </td>
+                        </tr>
                         {personnel.map((p, idx) => {
                             const isNoContact = ROLES_WITHOUT_CONTACT_INFO.includes(p.role || STAFF_ROLES[0]);
                             const isHistorico = !!p.active_to;
@@ -450,18 +462,6 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                 </Fragment>
                             );
                         })}
-                        <tr>
-                            <td colSpan={8} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
-                                <button
-                                    type="button"
-                                    onClick={addItem}
-                                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                                >
-                                    <Plus size={14} />
-                                    Añadir Persona
-                                </button>
-                            </td>
-                        </tr>
                     </tbody>
                 </table>
                 {personnel.length === 0 && (

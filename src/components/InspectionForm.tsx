@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
+import ACT96Form from "./ACT96Form";
+import { X } from "lucide-react";
 
 const INSPECTION_ENTITIES = ["EPA", "ACT", "DNER", "OSHA", "Federal Hwy", "Otros"];
 
@@ -17,6 +19,7 @@ function InspectionForm({ projectId, onDirty, onSaved }, ref) {
     const [currentLog, setCurrentLog] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [showACT96Form, setShowACT96Form] = useState(false);
 
     useEffect(() => {
         if (projectId) fetchDailyLog();
@@ -102,6 +105,13 @@ function InspectionForm({ projectId, onDirty, onSaved }, ref) {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowACT96Form(true)}
+                        className="flex items-center justify-center gap-3 px-6 py-2.5 bg-blue-600 text-white hover:bg-blue-700 rounded-2xl font-black text-[10px] transition-all shadow-lg shadow-blue-200 uppercase tracking-widest"
+                    >
+                        <Plus size={16} />
+                        Crear Nuevo Informe de Inspección ACT-96
+                    </button>
                     <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                         <Calendar className="text-slate-400" size={16} />
                         <input 
@@ -259,6 +269,29 @@ function InspectionForm({ projectId, onDirty, onSaved }, ref) {
                     },
                 ]}
             />
+
+            {/* --- Modal ACT-96 --- */}
+            {showACT96Form && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-[#F8FAFC] dark:bg-[#020617] rounded-[48px] shadow-2xl w-full max-w-6xl my-8 relative animate-in zoom-in-95 duration-300 border border-white/20">
+                        <button 
+                            onClick={() => setShowACT96Form(false)}
+                            className="absolute top-8 right-8 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 z-[110]"
+                        >
+                            <X size={24} />
+                        </button>
+                        <div className="p-8 md:p-12 overflow-y-auto max-h-[80vh] custom-scrollbar">
+                            <ACT96Form 
+                                projectId={projectId} 
+                                onSaved={() => {
+                                    setShowACT96Form(false);
+                                    fetchDailyLog();
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 });
