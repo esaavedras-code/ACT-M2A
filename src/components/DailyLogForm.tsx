@@ -7,13 +7,14 @@ import {
     FileText, ChevronRight, ChevronLeft,
     CloudSun, MessageSquare, ListChecks,
     Clock, Shield, AlertTriangle, Trash, Check,
-    Camera, Image as ImageIcon, Search, Upload, Printer, FileSpreadsheet, Info, Mic, Loader2, Download
+    Camera, Image as ImageIcon, Search, Upload, Printer, FileSpreadsheet, Info, Mic, Loader2, Download, X
 } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { generateDailyLogReport } from "@/lib/generateDailyLogReport";
 import { downloadBlob } from "@/lib/reportLogic";
 import { sortItemsNaturally } from "@/lib/utils";
+import ACT45Form from "./ACT45Form";
 const DELAY_TYPES = ["Condiciones existentes", "Material", "Falla en la especificación", "Decisión de ACT", "Calidad", "Evento de seguridad", "Clima"];
 const EQUIPMENT_TYPES = ["Bob Cat", "Pickup F-150", "Pickup Ram 2500", "Pickup F-450", "Truck Tumba 320", "Grúa de canasto", "Miniexcavadora"];
 
@@ -55,6 +56,7 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
     const [isDirty, setIsDirty] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
     const [editTab, setEditTab] = useState("partidas");
+    const [showACT45Form, setShowACT45Form] = useState(false);
     const [contractItems, setContractItems] = useState<any[]>([]);
     const [projectDefaults, setProjectDefaults] = useState({
         personnel: [],
@@ -379,7 +381,16 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
             <>
                 <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                     <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">Informe de Actividades (Daily Log)</h2>
-                    <button onClick={handleCreateNew} className="btn-primary w-full sm:w-auto flex items-center gap-2"><Plus size={18} /> Nuevo Registro</button>
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <button
+                            onClick={() => setShowACT45Form(true)}
+                            className="flex items-center justify-center gap-3 px-6 py-3 bg-emerald-600 text-white hover:bg-emerald-700 rounded-2xl font-black text-[10px] transition-all shadow-lg shadow-emerald-200 uppercase tracking-widest"
+                        >
+                            <Plus size={16} />
+                            Crear Nuevo Informe Diario ACT-45
+                        </button>
+                        <button onClick={handleCreateNew} className="btn-primary w-full sm:w-auto flex items-center gap-2 text-[10px] py-3 rounded-2xl"><Plus size={16} /> Nuevo Registro (ACT-PACT)</button>
+                    </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {dailyLogs.map(log => (
@@ -501,6 +512,26 @@ const DailyLogForm = forwardRef<FormRef, { projectId?: string, numAct?: string, 
                     </div>
                 </div>
             </div>
+
+            {/* --- Modal ACT-45 --- */}
+            {showACT45Form && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-[#F8FAFC] dark:bg-[#020617] rounded-[48px] shadow-2xl w-full max-w-6xl my-8 relative animate-in zoom-in-95 duration-300 border border-white/20">
+                        <button 
+                            onClick={() => setShowACT45Form(false)}
+                            className="absolute top-8 right-8 p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 z-[110]"
+                        >
+                            <X size={24} />
+                        </button>
+                        <div className="p-8 md:p-12 overflow-y-auto max-h-[80vh] custom-scrollbar">
+                            <ACT45Form 
+                                projectId={projectId} 
+                                numAct={numAct}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 });

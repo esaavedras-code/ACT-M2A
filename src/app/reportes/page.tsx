@@ -1566,20 +1566,9 @@ function ReportesContent() {
                 {!isContratista && (
                     <DropdownGroup title="Informes de Campo" icon={<FileText size={18} className="text-emerald-500" />}>
                     <div className="px-6 py-4 flex flex-col gap-3">
-                        <button
-                            onClick={() => setShowACT45Form(true)}
-                            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-emerald-600 text-white hover:bg-emerald-700 rounded-[24px] font-black text-xs transition-all shadow-lg shadow-emerald-200 uppercase tracking-widest"
-                        >
-                            <Plus size={18} />
-                            Crear Nuevo Informe Diario ACT-45
-                        </button>
-                        <button
-                            onClick={() => setShowACT96Form(true)}
-                            className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white hover:bg-blue-700 rounded-[24px] font-black text-xs transition-all shadow-lg shadow-blue-200 uppercase tracking-widest"
-                        >
-                            <Plus size={18} />
-                            Crear Nuevo Informe de Inspeccion ACT-96
-                        </button>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center px-4">
+                            Para crear nuevos informes de campo, diríjase a la sección de "Actividades" en el detalle del proyecto.
+                        </p>
                     </div>
                     <SelectiveReportItem
                         onAction={handleAction}

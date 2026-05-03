@@ -11,13 +11,13 @@ const STAFF_ROLES = [
     "Director Ejecutivo", "Subdirector Ejecutivo", "Dir. Ejec. Infraestructura",
     "Dir. Área Construcción", "Director Finanzas", "Director Regional",
     "Supervisor de Área", "Administrador del Proyecto", "Oficial de Liquidación",
-    "Dir. Oficina Control de Proyectos"
+    "Dir. Oficina Control de Proyectos", "Director Área de Diseño", "Representante Asesor Legal"
 ];
 
 const ROLES_WITHOUT_CONTACT_INFO = [
     "Director Ejecutivo", "Subdirector Ejecutivo", "Dir. Ejec. Infraestructura",
     "Dir. Área Construcción", "Director Finanzas", "Oficial de Liquidación",
-    "Dir. Oficina Control de Proyectos"
+    "Dir. Oficina Control de Proyectos", "Director Área de Diseño", "Representante Asesor Legal"
 ];
 
 const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function PersonnelForm({ projectId, numAct, onDirty, onSaved }, ref) {
