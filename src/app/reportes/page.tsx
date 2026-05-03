@@ -306,6 +306,8 @@ function ReportesContent() {
     const [reminderMsg, setReminderMsg] = useState<string | null>(null);
 
     const [endDate, setEndDate] = useState<string>("");
+    const [rangeStart, setRangeStart] = useState<string>("");
+    const [rangeEnd, setRangeEnd] = useState<string>("");
     const [reportFolderPath, setReportFolderPath] = useState<string | null>(null);
 
     useEffect(() => {
@@ -1622,6 +1624,87 @@ function ReportesContent() {
                             }
                         }}
                     />
+
+                    {/* Generación por Periodo (ACT-45 y ACT-96) */}
+                    <div className="mx-1.5 mb-1.5 p-6 rounded-[32px] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+                                <Calendar className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Impresión por Periodo</h4>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase">Generar múltiples informes de un rango de fechas</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Fecha Inicio</label>
+                                <input 
+                                    type="date" 
+                                    value={rangeStart}
+                                    onChange={(e) => setRangeStart(e.target.value)}
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:ring-1 focus:ring-primary transition-all"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Fecha Fin</label>
+                                <input 
+                                    type="date" 
+                                    value={rangeEnd}
+                                    onChange={(e) => setRangeEnd(e.target.value)}
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:ring-1 focus:ring-primary transition-all"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={async () => {
+                                    if (!rangeStart || !rangeEnd) return alert("Seleccione un rango de fechas");
+                                    handleAction();
+                                    try {
+                                        const logsInRange = dailyLogs.filter(l => l.log_date >= rangeStart && l.log_date <= rangeEnd);
+                                        if (logsInRange.length === 0) throw new Error("No hay informes en este rango");
+                                        const { generateAct45ExcelReport } = await import("@/lib/generateAct45ExcelReport");
+                                        for (const log of logsInRange) {
+                                            await generateAct45ExcelReport(projectId || "", log.id);
+                                            // Pequeña pausa para no saturar el sistema de archivos
+                                            await new Promise(r => setTimeout(r, 500));
+                                        }
+                                        setStatus(`Se generaron ${logsInRange.length} informes ACT-45.`);
+                                    } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                                }}
+                                disabled={loading}
+                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all shadow-md shadow-emerald-100 disabled:opacity-50"
+                            >
+                                ACT-45 (Excel)
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!rangeStart || !rangeEnd) return alert("Seleccione un rango de fechas");
+                                    handleAction();
+                                    try {
+                                        const logsInRange = dailyLogs.filter(l => l.log_date >= rangeStart && l.log_date <= rangeEnd);
+                                        if (logsInRange.length === 0) throw new Error("No hay informes en este rango");
+                                        const { generateAct96ExcelReport } = await import("@/lib/generateAct96ExcelReport");
+                                        for (const log of logsInRange) {
+                                            await generateAct96ExcelReport(projectId || "", log.id);
+                                            await new Promise(r => setTimeout(r, 500));
+                                        }
+                                        setStatus(`Se generaron ${logsInRange.length} informes ACT-96.`);
+                                    } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                                }}
+                                disabled={loading}
+                                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all shadow-md shadow-blue-100 disabled:opacity-50"
+                            >
+                                ACT-96 (Excel)
+                            </button>
+                        </div>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight text-center mt-3">
+                            Nota: Se generarán archivos individuales para cada día con datos.
+                        </p>
+                    </div>
                 </DropdownGroup>
                 )}
 
