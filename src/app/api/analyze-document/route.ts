@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-export const maxDuration = 60; // 60 segundos máximo para Vercel
-export const dynamic = 'force-dynamic';
+// export const maxDuration = 60; // 60 segundos máximo para Vercel
+// export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
     try {
