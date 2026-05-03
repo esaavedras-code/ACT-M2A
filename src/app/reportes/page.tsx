@@ -39,6 +39,7 @@ import {
     generateAct122ReportLogic,
     generateAct122BReportLogic,
     generateAct123BReportLogic,
+    generateAct32ReportLogic,
     generateAct124ReportLogic,
     generateDOFAEIReportLogic,
     generateRoaReportLogic,
@@ -943,6 +944,39 @@ function ReportesContent() {
                             </select>
                         </div>
                     </StandardReportItem>
+                    
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'act32-excel',
+                            label: 'ACT-32 (Comité CHO)',
+                            description: 'Evaluación de Órdenes de Cambio para presentación al Comité (Excel).',
+                            icon: <FileSpreadsheet size={18} className="text-blue-700" />,
+                            onExcel: async () => {
+                                try {
+                                    const choId = (window as any).selectedAct32Cho;
+                                    if (!choId) { alert("Por favor seleccione un CHO para el reporte ACT-32."); return; }
+                                    await generateAct32ReportLogic(projectId || "", choId);
+                                    setStatus("Reporte ACT-32 generado.");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            }
+                        }}
+                    >
+                        <div className="mt-2 text-left space-y-3">
+                            <select
+                                id="act32-cho-select"
+                                className="w-full bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-blue-500 transition-all"
+                                onChange={(e) => (window as any).selectedAct32Cho = e.target.value}
+                            >
+                                <option value="">Elegir CHO para ACT-32...</option>
+                                {chos.map(c => (
+                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
+                                ))}
+                            </select>
+                        </div>
+                    </StandardReportItem>
+
                     
                     <StandardReportItem
                         onAction={handleAction}

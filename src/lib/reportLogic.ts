@@ -1587,6 +1587,7 @@ import { generateAct117B } from "./generateAct117B";
 import { generateAct122 } from "./generateAct122";
 import { generateAct122Excel } from "./generateAct122Excel";
 import { generateAct122B } from "./generateAct122B";
+import { generateAct32ExcelReport } from "./generateAct32ExcelReport";
 import { generateDOFAEI } from "./generateDOFAEI";
 
 import { generateAct124 } from "./generateAct124";
@@ -1647,6 +1648,20 @@ export const generateAct123ReportLogic = async (projectId: string, choId: string
         const { generateAct123B } = await import("./generateAct123B");
         const blob = await generateAct123B(projectId, choId);
         if (blob) downloadBlob(blob, `ACT-123_CHO_${choLabel}_${project.num_act}.pdf`);
+    }
+};
+
+export const generateAct32ReportLogic = async (projectId: string, choId: string, format: 'pdf' | 'excel' = 'excel') => {
+    const { project, chos } = await fetchAllReportData(projectId);
+    if (!project) return;
+    const cho = chos?.find(c => c.id === choId);
+    if (!cho) { alert("No se encontró el CHO."); return; }
+    
+    if (format === 'excel') {
+        const blob = await generateAct32ExcelReport(projectId, choId);
+        // El nombre del archivo se maneja dentro de generateAct32ExcelReport o podemos delegarlo aquí
+    } else {
+        alert("Reporte ACT-32 solo disponible en formato Excel actualmente.");
     }
 };
 
