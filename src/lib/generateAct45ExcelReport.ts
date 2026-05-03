@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { formatDate as utilsFormatDate } from './utils';
 import { downloadBlob } from './reportLogic';
+import { ACT45_TEMPLATE_BASE64 } from './act45Template';
 
 export const generateAct45ExcelReport = async (projectId: string, logId: string) => {
     try {
@@ -12,12 +13,14 @@ export const generateAct45ExcelReport = async (projectId: string, logId: string)
 
         const { data: contractor } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
 
-        // Leer la plantilla desde la carpeta /public
-        const response = await fetch('/ACT-45 Actividades.xlsx');
-        if (!response.ok) {
-            throw new Error(`No se pudo leer la plantilla desde public/ACT-45 Actividades.xlsx. Error HTTP: ${response.status}`);
+        // Convertir la base64 embebida a un ArrayBuffer
+        const binaryString = window.atob(ACT45_TEMPLATE_BASE64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
         }
-        const arrayBuffer = await response.arrayBuffer();
+        const arrayBuffer = bytes.buffer;
 
         const ExcelJS = await import('exceljs');
         const workbook = new ExcelJS.Workbook();
@@ -25,34 +28,33 @@ export const generateAct45ExcelReport = async (projectId: string, logId: string)
 
         const sheet = workbook.worksheets[0];
 
-        // Mapeo según ACT-45 Instrucciones
-        sheet.getCell("P6").value = project.num_act || ''; 
-        sheet.getCell("T8").value = project.name || ''; 
-        sheet.getCell("L12").value = Array.isArray(project.municipios) ? project.municipios.join(', ') : project.municipio || '';
-        sheet.getCell("J14").value = contractor?.name || '';
+        // Mapeo según ACT-45 Instrucciones (rev 12-2024 con celdas)
+        sheet.getCell("H6").value = project.num_act || ''; 
+        sheet.getCell("H8").value = project.name || ''; 
+        sheet.getCell("H12").value = Array.isArray(project.municipios) ? project.municipios.join(', ') : project.municipio || '';
+        sheet.getCell("H14").value = contractor?.name || '';
         sheet.getCell("Y5").value = utilsFormatDate(log.log_date) || '';
         
         // Día semana
         const dateObj = new Date(log.log_date + "T12:00:00Z");
         const dayIdx = dateObj.getDay(); 
+        // 0=Sun(AF), 1=Mon(Z), 2=Tue(AA), 3=Wed(AB), 4=Thu(AC), 5=Fri(AD), 6=Sat(AE)
         const dayCols = ["AF7", "Z7", "AA7", "AB7", "AC7", "AD7", "AE7"]; 
         sheet.getCell(dayCols[dayIdx]).value = "X";
         
-        sheet.getCell("Y9").value = log.inspector_name || '';
-        sheet.getCell("Z11").value = 1;
-        sheet.getCell("AC11").value = 1;
+        sheet.getCell("Z9").value = log.inspector_name || '';
+        // sheet.getCell("Z11").value = 1; // Pagina no especificada dinámicamente
+        // sheet.getCell("AC11").value = 1;
 
         const w = log.weather_data || {};
-        sheet.getCell("W14").value = w.condition || '';
-        sheet.getCell("AL14").value = `${w.temp_max || ''}°F / ${w.temp_min || ''}°F`;
-        sheet.getCell("AC14").value = " "; // AM 
-        sheet.getCell("AH14").value = " "; // PM
+        sheet.getCell("X14").value = w.condition || '';
+        sheet.getCell("AB14").value = `${w.temp_max || ''}°F / ${w.temp_min || ''}°F`;
 
-        // Personal
+        // Personal (A48 a A57)
         const personnel = log.personnel_v2_data || [];
-        let rP = 47;
+        let rP = 48;
         for (const p of personnel) {
-            if (rP > 56) break;
+            if (rP > 57) break;
             sheet.getCell(`A${rP}`).value = p.nombres || '';
             sheet.getCell(`M${rP}`).value = p.clasificacion || '';
             sheet.getCell(`R${rP}`).value = p.horas || '';
@@ -60,23 +62,23 @@ export const generateAct45ExcelReport = async (projectId: string, logId: string)
             rP++;
         }
 
-        // Equipo
+        // Equipo (A67 a A76)
         const equipment = log.equipment_v2_data || [];
         let rE = 67;
         for (const e of equipment) {
-            if (rE > 71) break;
+            if (rE > 76) break;
             sheet.getCell(`A${rE}`).value = e.tipo || '';
             sheet.getCell(`J${rE}`).value = e.descripcion || '';
             sheet.getCell(`AA${rE}`).value = e.horas_op || '';
-            sheet.getCell(`AA${rE + 1}`).value = "X"; // Activo por default
-            rE += 2;
+            sheet.getCell(`AD${rE}`).value = "X"; // Activo por default
+            rE++;
         }
 
-        // Trabajo ejecutado (Partidas)
+        // Trabajo ejecutado (Partidas, A24 a A27)
         const partidas = log.partidas_data || [];
-        let rT = 23;
+        let rT = 24;
         for (const pt of partidas) {
-            if (rT > 28) break; // Excel template space limits
+            if (rT > 27) break;
             sheet.getCell(`A${rT}`).value = pt.item_num || '';
             sheet.getCell(`H${rT}`).value = pt.description || '';
             sheet.getCell(`R${rT}`).value = pt.qty_worked || '';
@@ -85,12 +87,13 @@ export const generateAct45ExcelReport = async (projectId: string, logId: string)
             rT++;
         }
 
-        // Notas 
+        // Notas (A30)
         const notes = log.notes_data?.comments || '';
         sheet.getCell("A30").value = notes;
 
-        sheet.getCell("A114").value = log.inspector_name || '';
-        sheet.getCell("Z114").value = utilsFormatDate(log.log_date);
+        // Firmas y Fechas
+        sheet.getCell("A112").value = log.inspector_name || '';
+        sheet.getCell("Y112").value = utilsFormatDate(log.log_date);
 
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
