@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { formatDate, getFederalSharePct, sortItemsNaturally } from '@/lib/utils';
+import { formatDate, getFederalSharePct, sortItemsNaturally, uniqueSortItems } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -65,7 +65,7 @@ export async function generateAct122B(
         }
 
         const allItemsRaw = Array.isArray(choData.items) ? choData.items : [];
-        const allItems = sortItemsNaturally([...allItemsRaw]);
+        const allItems = uniqueSortItems([...allItemsRaw]);
         const contractChoItems = allItems.filter((it: any) => !it.is_new);
         const extraWorkItems = allItems.filter((it: any) => it.is_new);
 

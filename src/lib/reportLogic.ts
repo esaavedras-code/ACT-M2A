@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName, sortItemsNaturally } from "./utils";
+import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName, sortItemsNaturally, uniqueSortItems } from "./utils";
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
 
@@ -455,6 +455,7 @@ export const createExcelBlob = async (
     projectInfo?: any | null,
     cutOffDate?: string | Date
 ) => {
+    // @ts-ignore
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Reporte');
 
@@ -462,12 +463,14 @@ export const createExcelBlob = async (
     const todayStr = utilsFormatDate(new Date());
 
     // --- ESTILOS ---
+    // @ts-ignore
     const titleStyle: Partial<ExcelJS.Style> = {
         font: { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }, // Slate-800
         alignment: { horizontal: 'center', vertical: 'middle' }
     };
 
+    // @ts-ignore
     const headerStyle: Partial<ExcelJS.Style> = {
         font: { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } }, // Slate-700
@@ -480,6 +483,7 @@ export const createExcelBlob = async (
         alignment: { horizontal: 'center', vertical: 'middle' }
     };
 
+    // @ts-ignore
     const infoStyle: Partial<ExcelJS.Style> = {
         font: { name: 'Arial', size: 10, bold: true },
         alignment: { horizontal: 'left' }
@@ -557,9 +561,9 @@ export const createExcelBlob = async (
     }
 
     // Auto-ajustar anchos de columna (aproximado)
-    worksheet.columns.forEach((column, i) => {
+    worksheet.columns.forEach((column: any, i: any) => {
         let maxLen = 10;
-        column.eachCell!({ includeEmpty: true }, (cell) => {
+        column.eachCell!({ includeEmpty: true }, (cell: any) => {
             const len = cell.value ? cell.value.toString().length : 0;
             if (len > maxLen) maxLen = len;
         });
@@ -1176,10 +1180,11 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
     const reportData: any[][] = [['Ítem', 'Descripción', 'Cantidad', 'Unidad', 'Precio Unit.', 'Subtotal']];
     selectedCerts.forEach(cert => {
         reportData.push([`CERTIFICACIÓN DE PAGO #${cert.cert_num}`, `Fecha: ${formatDate(cert.cert_date)}`, '', '', '', '']);
-        const items = sortItemsNaturally(Array.isArray(cert.items) ? cert.items : (cert.items?.list || []));
+        const currentCertItemsRaw = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
+        const sortedItems = uniqueSortItems([...currentCertItemsRaw]);
         let subtotal = 0;
         let mosDelta = 0;
-        items.forEach((it: any) => {
+        sortedItems.forEach((it: any) => {
             const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
             const desc = it.description || matchCi?.description || "";
             const addDesc = it.additional_description || matchCi?.additional_description || "";

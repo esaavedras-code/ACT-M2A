@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, formatCurrency, getFederalSharePct, sortItemsNaturally } from './utils';
+import { formatDate, formatCurrency, getFederalSharePct, sortItemsNaturally, uniqueSortItems } from './utils';
 
 const PW = 612; // 8.5"
 const PH = 792; // 11"
@@ -78,10 +78,10 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
         personnel?.forEach(p => { personnelMap[p.role] = p.name; });
 
         // Identificar Items de Contrato vs Items Nuevos basándose en el checkbox is_new de cada item
-        const allChoItems = Array.isArray(choData.items) ? choData.items : [];
+        const allChoItemsRaw = Array.isArray(choData.items) ? choData.items : [];
         
-        // Ordenar items de menor a mayor por item_num usando orden natural
-        const sortedAllChoItems = sortItemsNaturally([...allChoItems]);
+        // Ordenar items de menor a mayor por item_num usando orden natural y eliminando duplicados
+        const sortedAllChoItems = uniqueSortItems([...allChoItemsRaw]);
 
         const contractChoItems = sortedAllChoItems.filter((it: any) => !it.is_new);
         const newChoItems = sortedAllChoItems.filter((it: any) => it.is_new);

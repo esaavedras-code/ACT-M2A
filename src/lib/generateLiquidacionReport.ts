@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { formatDate as utilsFormatDate, sortItemsNaturally } from './utils';
+import { formatDate as utilsFormatDate, sortItemsNaturally, uniqueSortItems } from './utils';
 
 
 const roundedAmt = (val: number, dec: number) =>
@@ -25,7 +25,7 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
     const { data: itemsRaw } = await supabase
         .from('contract_items').select('*').eq('project_id', projectId);
 
-    const items = sortItemsNaturally([...(itemsRaw || [])]);
+    const items = uniqueSortItems([...(itemsRaw || [])]);
 
     if (!items || items.length === 0) {
         alert('No hay partidas registradas para este proyecto.');

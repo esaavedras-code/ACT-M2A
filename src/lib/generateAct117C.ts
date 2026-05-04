@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally } from './utils';
+import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally, uniqueSortItems } from './utils';
 
 export async function generateAct117C(projectId: string, certId: string, certNum: number, certDate: string, isFinal?: boolean) {
     try {
@@ -24,7 +24,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
         const { data: agreementFunds } = await supabase.from('project_agreement_funds').select('*').eq('project_id', projectId);
 
         const currentCertItemsRaw = Array.isArray(currentCert?.items) ? currentCert.items : (currentCert?.items?.list || []);
-        const currentCertItems = sortItemsNaturally([...currentCertItemsRaw]);
+        const currentCertItems = uniqueSortItems([...currentCertItemsRaw]);
 
         const { data: chos } = await supabase.from("chos")
             .select("proposed_change, cho_date")

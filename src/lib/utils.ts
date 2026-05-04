@@ -191,6 +191,36 @@ export function sortItemsNaturally(items: any[]): any[] {
 }
 
 /**
+ * Elimina duplicados por item_num y ordena de forma natural.
+ * Si se encuentran duplicados, se suman las cantidades y montos si existen.
+ */
+export function uniqueSortItems(items: any[]): any[] {
+    const map = new Map<string, any>();
+    items.forEach(it => {
+        const key = (it.item_num || "").toString().trim();
+        if (!key) return;
+        if (map.has(key)) {
+            const existing = map.get(key);
+            // Consolidar cantidades si son numéricas
+            if (it.quantity != null) {
+                const q1 = parseFloat(existing.quantity) || 0;
+                const q2 = parseFloat(it.quantity) || 0;
+                existing.quantity = q1 + q2;
+            }
+            // Consolidar montos (amount) si existen
+            if (it.amount != null) {
+                const a1 = parseFloat(existing.amount) || 0;
+                const a2 = parseFloat(it.amount) || 0;
+                existing.amount = a1 + a2;
+            }
+        } else {
+            map.set(key, { ...it });
+        }
+    });
+    return sortItemsNaturally(Array.from(map.values()));
+}
+
+/**
  * Obtiene el porcentaje de participación federal para un proyecto o item específico.
  * Prioriza la configuración individual del proyecto.
  */
