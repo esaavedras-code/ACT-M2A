@@ -207,6 +207,12 @@ export function uniqueSortItems(items: any[]): any[] {
                 const q2 = parseFloat(it.quantity) || 0;
                 existing.quantity = q1 + q2;
             }
+            // Consolidar cambios propuestos (específico de CHOs)
+            if (it.proposed_change != null) {
+                const p1 = parseFloat(existing.proposed_change) || 0;
+                const p2 = parseFloat(it.proposed_change) || 0;
+                existing.proposed_change = p1 + p2;
+            }
             // Consolidar montos (amount) si existen
             if (it.amount != null) {
                 const a1 = parseFloat(existing.amount) || 0;

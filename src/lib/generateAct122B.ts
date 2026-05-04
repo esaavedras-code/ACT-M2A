@@ -162,37 +162,50 @@ export async function generateAct122B(
             
             // Items de Contrato (Filas 32-36)
             let row = 32;
-            contractChoItems.slice(cStart, cStart + 5).forEach((it: any) => {
-                const qty = parseFloat(it.quantity) || 0;
-                const up = parseFloat(it.unit_price) || 0;
-                setVal(ws, `B${row}`, it.item_num);
-                setVal(ws, `G${row}`, it.specification);
-                setVal(ws, `H${row}`, it.description, { shrink: true });
-                setVal(ws, `AJ${row}`, it.unit);
-                setVal(ws, `AN${row}`, qty);
-                setVal(ws, `AT${row}`, up);
-                setVal(ws, `AZ${row}`, qty * up);
-                setVal(ws, `BF${row}`, (getFederalSharePct(projData, it) / 100));
-                setVal(ws, `E${row}`, 'X', { center: true }); // Marcamos como item de contrato
-                row++;
-            });
+            const pageContractItems = contractChoItems.slice(cStart, cStart + 5);
+            for (let i = 0; i < 5; i++) {
+                const it = pageContractItems[i];
+                const currentRow = 32 + i;
+                if (it) {
+                    const qty = parseFloat(it.proposed_change || it.quantity) || 0;
+                    const up = parseFloat(it.unit_price) || 0;
+                    setVal(ws, `B${currentRow}`, it.item_num);
+                    setVal(ws, `G${currentRow}`, it.specification);
+                    setVal(ws, `H${currentRow}`, it.description, { shrink: true });
+                    setVal(ws, `AJ${currentRow}`, it.unit);
+                    setVal(ws, `AN${currentRow}`, qty);
+                    setVal(ws, `AT${currentRow}`, up);
+                    setVal(ws, `AZ${currentRow}`, qty * up);
+                    setVal(ws, `BF${currentRow}`, (getFederalSharePct(projData, it) / 100));
+                    setVal(ws, `E${currentRow}`, 'X', { center: true });
+                } else {
+                    // Limpiar fila si no hay item (evita repetición de página 1)
+                    ['B','G','H','AJ','AN','AT','AZ','BF','E'].forEach(col => setVal(ws, `${col}${currentRow}`, null));
+                }
+            }
 
             // Items Extra (Filas 39-41)
-            row = 39;
-            extraWorkItems.slice(eStart, eStart + 3).forEach((it: any) => {
-                const qty = parseFloat(it.quantity) || 0;
-                const up = parseFloat(it.unit_price) || 0;
-                setVal(ws, `B${row}`, it.item_num);
-                setVal(ws, `G${row}`, it.specification);
-                setVal(ws, `H${row}`, it.description, { shrink: true });
-                setVal(ws, `AJ${row}`, it.unit);
-                setVal(ws, `AN${row}`, qty);
-                setVal(ws, `AT${row}`, up);
-                setVal(ws, `AZ${row}`, qty * up);
-                setVal(ws, `BF${row}`, (getFederalSharePct(projData, it) / 100));
-                setVal(ws, `V${row}`, 'X', { center: true }); // Marcamos como ítem nuevo
-                row++;
-            });
+            const pageExtraItems = extraWorkItems.slice(eStart, eStart + 3);
+            for (let i = 0; i < 3; i++) {
+                const it = pageExtraItems[i];
+                const currentRow = 39 + i;
+                if (it) {
+                    const qty = parseFloat(it.proposed_change || it.quantity) || 0;
+                    const up = parseFloat(it.unit_price) || 0;
+                    setVal(ws, `B${currentRow}`, it.item_num);
+                    setVal(ws, `G${currentRow}`, it.specification);
+                    setVal(ws, `H${currentRow}`, it.description, { shrink: true });
+                    setVal(ws, `AJ${currentRow}`, it.unit);
+                    setVal(ws, `AN${currentRow}`, qty);
+                    setVal(ws, `AT${currentRow}`, up);
+                    setVal(ws, `AZ${currentRow}`, qty * up);
+                    setVal(ws, `BF${currentRow}`, (getFederalSharePct(projData, it) / 100));
+                    setVal(ws, `V${currentRow}`, 'X', { center: true });
+                } else {
+                    // Limpiar fila si no hay item (evita repetición de página 1)
+                    ['B','G','H','AJ','AN','AT','AZ','BF','V'].forEach(col => setVal(ws, `${col}${currentRow}`, null));
+                }
+            }
 
             // 6. RESUMEN FINANCIERO (Solo en la última página)
             if (isLast) {
