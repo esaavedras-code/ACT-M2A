@@ -1778,18 +1778,6 @@ function ReportesContent() {
                 </div>
             )}
 
-            {/* --- About Section --- */}
-            <footer className="mt-20 pb-12 text-center border-t border-slate-100 dark:border-slate-800 pt-8 opacity-60 hover:opacity-100 transition-opacity">
-                <div className="inline-flex items-center gap-3 bg-white dark:bg-slate-900 px-6 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                    <div className="flex flex-col items-center">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Diseñado por</span>
-                        <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">
-                            Ing. Enrique Saavedra Sada, PE
-                        </p>
-                    </div>
-                </div>
-            </footer>
-
             {/* --- Full Screen Loader --- */}
             {loading && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl flex items-center justify-center z-[1000] animate-in fade-in duration-300">
