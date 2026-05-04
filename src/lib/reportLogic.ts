@@ -835,7 +835,11 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
         reportData.push(['', '', '', '', '', '', '', '']); // Espacio entre partidas
     });
 
-    // El formato Excel ahora está habilitado a través de createExcelBlob mejorado
+    if (format === 'excel') {
+        const blob = await generateBalancesExcel(projectId);
+        downloadBlob(blob, `Balances_Actuales_${project.num_act}.xlsx`, project.num_act);
+        return;
+    }
 
     await generateReport('REPORTE DE BALANCES DE PARTIDAS', reportData, project, [40, 220, 60, 80, 80, 80, 80, 80], 'landscape', format, 'Reporte_Balances_Partidas.pdf', endDate);
 };
@@ -914,6 +918,12 @@ export const generateDetailReportLogic = async (projectId: string, format: 'pdf'
         });
         reportData.push(['', '', '', '', '', '', '', '', '']);
     });
+
+    if (format === 'excel') {
+        const blob = await generateDetailExcel(projectId);
+        downloadBlob(blob, `Detalle_de_Partidas_${project?.num_act}.xlsx`, project?.num_act);
+        return;
+    }
 
     await generateReport('REPORTE DETALLADO DE PARTIDAS (CHO Y CERTIFICACIONES)', reportData, project, [45, 55, 230, 70, 50, 70, 70, 70, 70], 'landscape', format, `Reporte_Detalle_Partidas_${project?.num_act || projectId}.pdf`, endDate);
 };
@@ -1235,9 +1245,11 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
 
 export const generateDashboardReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
     const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
-    if (!proj) return;
-
-    // El formato Excel ahora está habilitado a través de createExcelBlob mejorado
+    if (format === 'excel') {
+        const blob = await generateDashboardExcel(projectId);
+        downloadBlob(blob, `Dashboard_Ejecutivo_${proj.num_act}.xlsx`, proj.num_act);
+        return;
+    }
 
     const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
 
@@ -1610,6 +1622,10 @@ import { generateMaterialCertificationReport } from "./generateMaterialCertifica
 import { generateDbeCertificationReport } from "./generateDbeCertificationReport";
 import { generateFinalConstructionReport } from "./generateFinalConstructionReport";
 import { generateLiquidacionItemsReportLogic as generateLiquidacionGenerator } from "./generateLiquidacionReport";
+import { generateDashboardExcel } from "./generateDashboardExcel";
+import { generateBalancesExcel } from "./generateBalancesExcel";
+import { generateDetailExcel } from "./generateDetailExcel";
+import { generateMobilizationReport } from "./generateMobilizationReport";
 
 export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'pdf', isFinal?: boolean) => {
     const { project, certs } = await fetchAllReportData(projectId);
@@ -2093,4 +2109,10 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
     );
     
     downloadBlob(blob, `ICC_Resumen_${project?.num_act || projectId}.pdf`);
+};
+
+export const generateMobilizationReportLogic = async (projectId: string) => {
+    const blob = await generateMobilizationReport(projectId);
+    const { data: project } = await supabase.from('projects').select('num_act').eq('id', projectId).single();
+    await downloadBlob(blob, `Liquidacion_Mobilizacion_${project?.num_act || projectId}.xlsx`);
 };
