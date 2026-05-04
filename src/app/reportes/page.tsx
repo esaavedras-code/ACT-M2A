@@ -17,7 +17,7 @@ import {
     Activity, Info, Files, BadgeAlert, FileDigit,
     ChevronDown, Search, FileCheck, BarChart, Calculator, 
     ShieldCheck as ShieldCheckIcon, Plus, MessageSquare,
-    FileSpreadsheet
+    FileSpreadsheet, Calendar
 } from "lucide-react";
 
 import {
