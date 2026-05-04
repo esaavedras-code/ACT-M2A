@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber } from './utils';
+import { formatDate, formatProjectNumber, sortItemsNaturally } from './utils';
 import { ACT123_TEMPLATE_BASE64 } from './act123Template';
 
 /**
@@ -72,7 +72,8 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         // 7. Items Table (Starting at Row 32)
         // Columns from instructions: B(Num), E(Code), H(Desc), AJ(Unit), AN(Qty), AT(Price), AZ(Amount), BF(%Fed)
         let currentRow = 32;
-        const allItems = [...contractItems, ...extraItems];
+        const allItemsRaw = [...contractItems, ...extraItems];
+        const allItems = sortItemsNaturally([...allItemsRaw]);
         
         for (const item of allItems) {
             sheet.getCell(`B${currentRow}`).value = item.item_num;

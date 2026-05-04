@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { formatDate, getFederalSharePct } from '@/lib/utils';
+import { formatDate, getFederalSharePct, sortItemsNaturally } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -64,7 +64,8 @@ export async function generateAct122B(
             adminEnd = new Date(adminEnd.getTime() + 730 * 86400000); 
         }
 
-        const allItems = Array.isArray(choData.items) ? choData.items : [];
+        const allItemsRaw = Array.isArray(choData.items) ? choData.items : [];
+        const allItems = sortItemsNaturally([...allItemsRaw]);
         const contractChoItems = allItems.filter((it: any) => !it.is_new);
         const extraWorkItems = allItems.filter((it: any) => it.is_new);
 

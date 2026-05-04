@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { getFederalSharePct } from './utils';
+import { getFederalSharePct, sortItemsNaturally } from './utils';
 import { DOFAEI_TEMPLATE_BASE64 } from './dofaeiTemplate';
 
 export async function generateDOFAEI(projectId: string, choId: string) {
@@ -13,7 +13,8 @@ export async function generateDOFAEI(projectId: string, choId: string) {
         const dofaei = choData.dofaei_data || {};
         const determinations = dofaei.determination_conditions || {};
         const evaluations = dofaei.evaluations || {};
-        const items = Array.isArray(choData.items) ? choData.items : [];
+        const itemsRaw = Array.isArray(choData.items) ? choData.items : [];
+        const items = sortItemsNaturally([...itemsRaw]);
 
         const workbook = new ExcelJS.Workbook();
         const bufferTemplate = Buffer.from(DOFAEI_TEMPLATE_BASE64, 'base64');

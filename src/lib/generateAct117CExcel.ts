@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber, getFederalSharePct } from './utils';
+import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally } from './utils';
 import { ACT117C_TEMPLATE_BASE64 } from './act117cTemplate';
 
 /**
@@ -31,14 +31,13 @@ export async function generateAct117CExcel(
 
         const { data: items } = await supabase.from('contract_items')
             .select('*')
-            .eq('project_id', projectId)
-            .order('item_num', { ascending: true });
+            .eq('project_id', projectId);
 
         const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
         const { data: agreementFunds } = await supabase.from('project_agreement_funds').select('*').eq('project_id', projectId);
 
         const currentCertItemsRaw = Array.isArray(currentCert?.items) ? currentCert.items : (currentCert?.items?.list || []);
-        const currentCertItems = [...currentCertItemsRaw].sort((a: any, b: any) => (parseInt(a.item_num) || 0) - (parseInt(b.item_num) || 0));
+        const currentCertItems = sortItemsNaturally([...currentCertItemsRaw]);
 
         const { data: chos } = await supabase.from("chos")
             .select("proposed_change, cho_date")

@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName } from "./utils";
+import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName, sortItemsNaturally } from "./utils";
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
 
@@ -969,6 +969,8 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
         return { item_num: b.item_num, spec: b.specification || '', desc: fullDescription || '', unit: b.unit || '', certQty, mfgQty, missing, date: dateMissing };
     }).filter((m: any) => m.missing >= 0.0001);
 
+    missingCerts.sort((a: any, b: any) => a.item_num.toString().localeCompare(b.item_num.toString(), undefined, { numeric: true }));
+
     if (missingCerts.length === 0) throw new Error("NO_FALTA_NINGUNO");
 
     const data = [
@@ -1144,7 +1146,7 @@ export const generateChoReportLogic = async (projectId: string, choIds: string[]
     const reportData: any[][] = [['Ítem', 'Descripción', 'Cambio Propuesto', 'Unidad', 'Costo Unitario', 'Monto Total']];
     selectedChos.forEach(cho => {
         reportData.push([`ORDEN DE CAMBIO (CHO) #${cho.cho_num}`, `Fecha: ${formatDate(cho.cho_date)}`, '', '', '', '']);
-        const items = Array.isArray(cho.items) ? cho.items : [];
+        const items = sortItemsNaturally(Array.isArray(cho.items) ? cho.items : []);
         let choTotal = 0;
         items.forEach((it: any) => {
             const matchCi = itemsRepo?.find((i: any) => i.item_num === it.item_num);
@@ -1174,7 +1176,7 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
     const reportData: any[][] = [['Ítem', 'Descripción', 'Cantidad', 'Unidad', 'Precio Unit.', 'Subtotal']];
     selectedCerts.forEach(cert => {
         reportData.push([`CERTIFICACIÓN DE PAGO #${cert.cert_num}`, `Fecha: ${formatDate(cert.cert_date)}`, '', '', '', '']);
-        const items = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
+        const items = sortItemsNaturally(Array.isArray(cert.items) ? cert.items : (cert.items?.list || []));
         let subtotal = 0;
         let mosDelta = 0;
         items.forEach((it: any) => {
