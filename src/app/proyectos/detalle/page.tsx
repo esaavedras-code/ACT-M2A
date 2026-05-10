@@ -139,9 +139,9 @@ function ProjectDetailContent() {
     // Filtrar pestañas basadas en roles
     const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "inspection", "logs", "presentations", "personnel"];
     const filteredTabs = tabs.filter(t => {
-        // Reglas para Inspector ('E') - Únicamente Actividades y Fotos (Explorer)
+        // Reglas para Inspector ('E') - Únicamente Actividades Diarias
         if (role === 'E') {
-            return t.id === 'logs' || t.id === 'files' || t.id === 'force2';
+            return t.id === 'logs';
         }
 
         // Reglas generales para No Administradores
