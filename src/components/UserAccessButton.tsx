@@ -13,7 +13,9 @@ export default function UserAccessButton() {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { role, roleGlobal } = useUserRole();
-    const isAdmin = role === 'A' || role === 'B';
+    // isAdmin = solo el Administrador Global del Programa (Rol A)
+    // El Rol B (Admin de Proyecto) NO tiene acceso a funciones del sistema
+    const isAdmin = roleGlobal === 'A';
     const [maintenanceMode, setMaintenanceMode] = useState<boolean | null>(null);
     const [loadingToggle, setLoadingToggle] = useState(false);
     const { requestExitWithBackupCheck } = useBackupGuardContext();

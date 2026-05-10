@@ -24,7 +24,9 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
     const [linkLoading, setLinkLoading] = useState(false);
     const [tempPassword, setTempPassword] = useState("");
     
-    // Only A or B can manage members; A and B can toggle active status
+    // Solo Rol A (Admin Global) y Rol B (Admin de Proyecto) pueden crear/invitar usuarios
+    const canCreate = ['A', 'B'].includes(currentUserRole);
+    // Solo Rol A y B pueden activar/desactivar y revocar membresías
     const canManage = ['A', 'B'].includes(currentUserRole);
     const canToggleActive = ['A', 'B'].includes(currentUserRole);
 
@@ -89,9 +91,14 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
             const actualPassword = tempPassword && tempPassword.startsWith('PACT-') ? tempPassword : `PACT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
             
             // 2. Crear y asignar usuario usando API
+            // Incluir el JWT del usuario en el header para que el servidor
+            // pueda verificar su identidad y rol en este proyecto específico
             const reqRes = await fetch('/api/create-project-user', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
                 body: JSON.stringify({
                     email,
                     role,
@@ -277,7 +284,7 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                 Control de Acceso (Miembros)
             </h2>
             
-            {canManage && (
+            {canCreate && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                     <form onSubmit={handleInviteEmail} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3">
                         <label className="text-xs font-bold uppercase text-slate-500 flex items-center gap-1">
@@ -357,6 +364,15 @@ export default function ProjectMemberships({ projectId, currentUserRole }: { pro
                 </div>
             )}
             
+            {/* Aviso para Rol C: pueden ver los miembros pero no crear usuarios */}
+            {!canCreate && currentUserRole === 'C' && (
+                <div className="mb-6 flex items-center gap-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-xl px-5 py-4">
+                    <Shield size={18} className="text-amber-500 shrink-0" />
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                        Tu rol (Nivel C — Data Entry) tiene acceso de solo lectura a la lista de colaboradores. Para agregar o revocar usuarios, contacta al Administrador del Proyecto (Nivel B) o al Administrador del Programa.
+                    </p>
+                </div>
+            )}
             <div className="overflow-x-auto">
                 <table className="w-full text-left">
                     <thead>

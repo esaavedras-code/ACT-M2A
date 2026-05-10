@@ -137,22 +137,40 @@ function ProjectDetailContent() {
     ];
 
     // Filtrar pestañas basadas en roles
-    const hiddenForContratista = ["update-tables", "ccml", "liquidation", "force", "inspection", "logs", "presentations", "personnel"];
+    // Secciones exclusivas del Administrador del Programa (Rol A)
+    const exclusiveToA = ['minutes', 'logs', 'inspection', 'force', 'presentations'];
+    // Secciones ocultas adicionales para el Contratista (Rol F)
+    const hiddenForContratista = ['update-tables', 'ccml', 'liquidation', 'force', 'inspection', 'logs', 'presentations', 'personnel'];
+
     const filteredTabs = tabs.filter(t => {
-        // Reglas para Inspector ('E') - Únicamente Actividades Diarias
+        // ── Rol E (Inspector): solo ve Actividades y Fotos ──────────────
         if (role === 'E') {
-            return t.id === 'logs';
+            return t.id === 'logs' || t.id === 'files';
         }
 
-        // Reglas generales para No Administradores
-        if (role !== 'A') {
+        // ── Roles B y C (Administrador de Proyecto / Data Entry) ────────
+        // Acceso a todo excepto secciones exclusivas del Rol A
+        if (role === 'B' || role === 'C') {
             if (t.wip) return false;
-            if (t.id === 'force' || t.id === 'minutes' || t.id === 'logs' || t.id === 'inspection') return false;
+            if (exclusiveToA.includes(t.id)) return false;
+            return true;
         }
-        // Reglas específicas adicionales para Contratista ('F')
-        if (role === 'F' && hiddenForContratista.includes(t.id)) {
-            return false;
+
+        // ── Rol D (Lector): igual que B/C pero en modo solo lectura ─────
+        if (role === 'D') {
+            if (t.wip) return false;
+            if (exclusiveToA.includes(t.id)) return false;
+            return true;
         }
+
+        // ── Rol F (Contratista): secciones restringidas ─────────────────
+        if (role === 'F') {
+            if (t.wip) return false;
+            if (hiddenForContratista.includes(t.id)) return false;
+            return true;
+        }
+
+        // ── Rol A (Admin del Programa): ve todo ─────────────────────────
         return true;
     });
 
@@ -526,7 +544,7 @@ function ProjectDetailContent() {
                                                     />
                                                 </div>
                                             )}
-                                            {selectedSection === "firmas" && <PersonnelForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                            {selectedSection === "firmas" && <PersonnelForm ref={activeRef} projectId={id} userRole={role} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                             {selectedSection === "partidas" && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} onlyOriginals={true} />}
                                             {selectedSection === "ccml" && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                         </div>
