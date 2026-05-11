@@ -11,7 +11,7 @@ import mfgItemsData from "@/lib/mfgItems.json";
 import specsData from "@/data/specifications.json";
 // import { parsePdfClient, pdfToImages } from "@/lib/pdfClientParser"; // Eliminado por solicitud del usuario
 
-const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
+const FUND_SOURCES = ["FHWA 0%", "FHWA 80.25%", "FHWA 100%", "ACT 100%"];
 
 interface SpecInfo {
     unit: string;

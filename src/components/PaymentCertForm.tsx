@@ -33,7 +33,7 @@ import AboutModal from './AboutModal';
 import { generateAct117C } from '@/lib/generateAct117C';
 
 
-const FUND_SOURCES = ['Federal', 'Estatal', 'Combinado'];
+const FUND_SOURCES = ["FHWA 0%", "FHWA 80.25%", "FHWA 100%", "ACT 100%"];
 
 interface PaymentCertFormProps {
     projectId?: string;

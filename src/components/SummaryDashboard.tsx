@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Clock, DollarSign, PieChart, Activity, AlertCircle, Layers, ShieldAlert } from "lucide-react";
-import { formatCurrency, roundedAmt, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, roundedAmt, formatDate, formatNumber, getFederalSharePct } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
 
 export default function SummaryDashboard({ projectId, numAct }: { projectId?: string, numAct?: string }) {
@@ -210,16 +210,12 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 const amount = roundedAmt(qty * up, 2);
                 const source = (item.fund_source || "").trim();
 
-                if (source === "FHWA:100%") {
-                    fhwaTotal = roundedAmt(fhwaTotal + amount, 2);
-                } else if (source === "FHWA:80.25") {
-                    const fhwaShare = roundedAmt(amount * 0.8025, 2);
-                    const actShare = roundedAmt(amount - fhwaShare, 2);
-                    fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
-                    actTotal = roundedAmt(actTotal + actShare, 2);
-                } else {
-                    actTotal = roundedAmt(actTotal + amount, 2);
-                }
+                const fedPct = getFederalSharePct(proj, item);
+                const fhwaShare = roundedAmt(amount * (fedPct / 100), 2);
+                const actShare = roundedAmt(amount - fhwaShare, 2);
+                
+                fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
+                actTotal = roundedAmt(actTotal + actShare, 2);
                 certAmount = roundedAmt(certAmount + amount, 2);
 
                 const manualDeductionQty = parseFloat(item.qty_from_mos) || 0;

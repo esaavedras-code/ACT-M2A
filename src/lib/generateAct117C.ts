@@ -413,7 +413,8 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 
                 // Column 20: % Federal participation
                 const fedPct = getFederalSharePct(projData, it);
-                const fedP = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
+                const isAct = (it.fund_source || "").toUpperCase().includes("ACT");
+                const fedP = isAct ? "0%" : `${fedPct.toFixed(2)}%`;
                 drawText(fedP, 157.5, rowY, 7, false, true);
                 
                 const matchCi = items?.find((i: any) => i.item_num === it.item_num);

@@ -246,8 +246,8 @@ export function getFederalSharePct(project: any, item?: any): number {
             return 0;
         }
 
-        // Buscar un porcentaje explícito en el string (ej: "80%", "100%")
-        const match = source.match(/(\d+)\s*%/);
+        // Buscar un porcentaje explícito en el string (ej: "80%", "80.25%", "100%")
+        const match = source.match(/(\d+(\.\d+)?)\s*%/);
         if (match) {
             return parseFloat(match[1]);
         }
