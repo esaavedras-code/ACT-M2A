@@ -303,13 +303,13 @@ if (!mounted) return null;
         <div className="w-full px-4 flex flex-col space-y-6">
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <ShieldCheck className="text-primary" /> 14. Initial Certification
+                    <ShieldCheck className="text-primary" /> Initial Certification
                 </h2>
                 <div className="flex-1 max-w-md mx-6 hidden md:block">
                     <div className="relative group">
                         <input 
                             type="text"
-                            placeholder="Buscar por desc., ítem o cert. de pago..."
+                            placeholder="Buscar por ítem..."
                             className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -347,7 +347,7 @@ if (!mounted) return null;
                 <div className="md:hidden px-4 mb-2">
                     <input 
                         type="text"
-                        placeholder="Buscar por desc., ítem o cert. de pago..."
+                        placeholder="Buscar por ítem..."
                         className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
