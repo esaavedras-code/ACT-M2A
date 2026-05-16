@@ -82,15 +82,34 @@ export async function generateAct122B(
             const cell = ws.getCell(addr);
             cell.value = val;
             
+            let newFont = cell.font ? { ...cell.font } : {};
             if (options.fontSize) {
-                cell.font = { ...cell.font, size: options.fontSize };
+                newFont.size = options.fontSize;
             } else if (options.shrink && typeof val === 'string' && val.length > 25) {
-                cell.font = { ...cell.font, size: val.length > 45 ? 6 : 8 };
+                newFont.size = val.length > 45 ? 6 : 8;
             }
             
-            if (options.center) {
-                cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            if (typeof val === 'number' && val < 0) {
+                newFont.color = { argb: 'FFFF0000' };
             }
+
+            if (options.bold) {
+                newFont.bold = true;
+            }
+
+            cell.font = newFont;
+            
+            let newAlignment = cell.alignment ? { ...cell.alignment } : {};
+            if (options.center) {
+                newAlignment.vertical = 'middle';
+                newAlignment.horizontal = 'center';
+                newAlignment.wrapText = true;
+            } else if (options.shrink) {
+                newAlignment.wrapText = true;
+                newAlignment.vertical = 'middle';
+            }
+            if(Object.keys(newAlignment).length > 0) cell.alignment = newAlignment;
+
             return cell;
         };
 
@@ -107,7 +126,8 @@ export async function generateAct122B(
                 newRow.height = row.height;
                 row.eachCell({ includeEmpty: true }, (cell, colNum) => {
                     const newCell = newRow.getCell(colNum);
-                    newCell.style = cell.style;
+                    // Copia profunda del estilo para asegurar que se traslada sin referencias mutables
+                    newCell.style = JSON.parse(JSON.stringify(cell.style));
                     newCell.value = cell.value;
                 });
             });
@@ -245,10 +265,11 @@ export async function generateAct122B(
             setVal(ws, 'BA52', 'N/A');
 
             // 8. PÁGINA 2 (BACK)
-            setVal(ws, 'J61', projData.name || '', { shrink: true });
             setVal(ws, 'J63', projData.num_act || '');
-            // Campo 8: CHO Number con enmienda
-            setVal(ws, 'BA63', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
+            
+            // Campo AZ60: info de J13 (Amendment) y J14 (CHO Num)
+            setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
+
             
             const reason = (choData.reason || '');
             if (reason === 'Design') setVal(ws, 'I69', 'X', { center: true });
