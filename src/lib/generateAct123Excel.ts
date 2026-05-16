@@ -65,27 +65,41 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         sheet.getCell('Y28').value = proj.contractor_representative || '';
         sheet.getCell('AK28').value = "Representative";
 
-        // Award and Project Name
-        sheet.getCell('H33').value = proj.date_award ? formatDate(proj.date_award) : '';
-        sheet.getCell('C35').value = proj.name || '';
+        // 7. Items Table (Mover a la hoja Table for ROA, no en la principal)
+        const roaSheet = workbook.getWorksheet('Table for ROA') || workbook.worksheets[3];
+        if (roaSheet) {
+            let contractRow = 6;
+            for (const item of contractItems) {
+                roaSheet.getCell(`B${contractRow}`).value = item.spec_code || item.item_num || '';
+                roaSheet.getCell(`C${contractRow}`).value = item.description || '';
+                roaSheet.getCell(`D${contractRow}`).value = '';
+                roaSheet.getCell(`E${contractRow}`).value = item.unit || '';
+                roaSheet.getCell(`F${contractRow}`).value = parseFloat(item.quantity) || 0;
+                roaSheet.getCell(`G${contractRow}`).value = parseFloat(item.unit_price) || 0;
+                roaSheet.getCell(`H${contractRow}`).value = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+                roaSheet.getCell(`I${contractRow}`).value = item.fed_pct || 0;
+                contractRow++;
+            }
 
-        // 7. Items Table (Starting at Row 32)
-        // Columns from instructions: B(Num), E(Code), H(Desc), AJ(Unit), AN(Qty), AT(Price), AZ(Amount), BF(%Fed)
-        let currentRow = 32;
-        const allItemsRaw = [...contractItems, ...extraItems];
-        const allItems = uniqueSortItems([...allItemsRaw]);
-        
-        for (const item of allItems) {
-            sheet.getCell(`B${currentRow}`).value = item.item_num;
-            sheet.getCell(`E${currentRow}`).value = item.spec_code || '';
-            sheet.getCell(`H${currentRow}`).value = item.description || '';
-            sheet.getCell(`AJ${currentRow}`).value = item.unit || '';
-            sheet.getCell(`AN${currentRow}`).value = parseFloat(item.quantity) || 0;
-            sheet.getCell(`AT${currentRow}`).value = parseFloat(item.unit_price) || 0;
-            sheet.getCell(`AZ${currentRow}`).value = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
-            sheet.getCell(`BF${currentRow}`).value = item.fed_pct || 0;
-            currentRow++;
-            if (currentRow > 42) break; // Limit to fit layout
+            // Buscar la fila de "New Items"
+            let extraRow = 11;
+            roaSheet.eachRow((row, rowNumber) => {
+                if (row.getCell(2).value && row.getCell(2).value.toString().includes('New Items')) {
+                    extraRow = rowNumber + 1;
+                }
+            });
+
+            for (const item of extraItems) {
+                roaSheet.getCell(`B${extraRow}`).value = item.spec_code || item.item_num || '';
+                roaSheet.getCell(`C${extraRow}`).value = item.description || '';
+                roaSheet.getCell(`D${extraRow}`).value = '';
+                roaSheet.getCell(`E${extraRow}`).value = item.unit || '';
+                roaSheet.getCell(`F${extraRow}`).value = parseFloat(item.quantity) || 0;
+                roaSheet.getCell(`G${extraRow}`).value = parseFloat(item.unit_price) || 0;
+                roaSheet.getCell(`H${extraRow}`).value = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+                roaSheet.getCell(`I${extraRow}`).value = item.fed_pct || 0;
+                extraRow++;
+            }
         }
 
         // 8. Totals and Agreement (Row 43-47)
