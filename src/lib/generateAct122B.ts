@@ -207,26 +207,33 @@ export async function generateAct122B(
                 }
             }
 
-            // 6. RESUMEN FINANCIERO (Solo en la última página)
-            if (isLast) {
-                let totalContract = 0;
-                contractChoItems.forEach((it: any) => totalContract += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
-                let totalExtra = 0;
-                extraWorkItems.forEach((it: any) => totalExtra += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
+            // 6. RESUMEN FINANCIERO
+            // #26: Subtotales por página — suma solo de los ítems de ESTA página
+            let pageContractSubtotal = 0;
+            pageContractItems.forEach((it: any) => {
+                const qty = parseFloat(it.proposed_change || it.quantity) || 0;
+                const up = parseFloat(it.unit_price) || 0;
+                pageContractSubtotal += qty * up;
+            });
+            let pageExtraSubtotal = 0;
+            pageExtraItems.forEach((it: any) => {
+                const qty = parseFloat(it.proposed_change || it.quantity) || 0;
+                const up = parseFloat(it.unit_price) || 0;
+                pageExtraSubtotal += qty * up;
+            });
 
-                setVal(ws, 'AZ37', totalContract || 0);
-                setVal(ws, 'AZ42', totalExtra || 0);
-                setVal(ws, 'BA44', (totalContract + totalExtra) || 0);
-                setVal(ws, 'BA45', actualContractAmount || 0);
-                setVal(ws, 'BA46', newContractAmount || 0);
-            } else {
-                // Dejar nulos si no es la última (Excel prefiere null a '' en celdas de número)
-                setVal(ws, 'AZ37', null);
-                setVal(ws, 'AZ42', null);
-                setVal(ws, 'BA44', null);
-                setVal(ws, 'BA45', null);
-                setVal(ws, 'BA46', null);
-            }
+            setVal(ws, 'AZ37', pageContractSubtotal || 0);
+            setVal(ws, 'AZ42', pageExtraSubtotal || 0);
+
+            // #28, #29, #30: Totales finales del DOCUMENTO — en TODAS las páginas
+            let grandTotalContract = 0;
+            contractChoItems.forEach((it: any) => grandTotalContract += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
+            let grandTotalExtra = 0;
+            extraWorkItems.forEach((it: any) => grandTotalExtra += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
+
+            setVal(ws, 'BA44', (grandTotalContract + grandTotalExtra) || 0);
+            setVal(ws, 'BA45', actualContractAmount || 0);
+            setVal(ws, 'BA46', newContractAmount || 0);
 
             // 7. FIRMAS (En todas las páginas para consistencia)
             setVal(ws, 'M44', personnelMap["Administrador del Proyecto"] || projData.resident_engineer_name || '', { shrink: true });
