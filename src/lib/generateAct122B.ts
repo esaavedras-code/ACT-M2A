@@ -275,6 +275,13 @@ export async function generateAct122B(
             // Campo AZ60: info de J13 (Amendment) y J14 (CHO Num)
             setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
 
+            // Restaurar visualmente los Radio Buttons de la fila 65 (que exceljs pierde)
+            setVal(ws, 'H65', '○ Design');
+            setVal(ws, 'R65', '○ Construction');
+            setVal(ws, 'AB65', '○ Contract');
+            setVal(ws, 'AL65', '○ Utilities');
+            setVal(ws, 'AV65', '○ Other');
+
             // Numeración de página (55 y 113) en las celdas originales del template
             setVal(ws, 'Z55', ''); // Limpiar si es que habíamos escrito en la Z
             setVal(ws, 'Z113', '');

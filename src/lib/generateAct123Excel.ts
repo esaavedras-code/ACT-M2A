@@ -22,7 +22,8 @@ export async function generateAct123Excel(projectId: string, choId: string) {
 
         // 2. Load Template
         const workbook = new ExcelJS.Workbook();
-        const bufferTemplate = Buffer.from(ACT123_TEMPLATE_BASE64, 'base64');
+        const response = await fetch(`data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${ACT123_TEMPLATE_BASE64}`);
+        const bufferTemplate = await response.arrayBuffer();
         await workbook.xlsx.load(bufferTemplate);
 
         const sheet = workbook.getWorksheet('SUPP-ACT-123') || workbook.worksheets[0];
@@ -134,28 +135,8 @@ export async function generateAct123Excel(projectId: string, choId: string) {
             }
         }
 
-        // 8. Totals and Agreement (Row 43-47)
-        sheet.getCell('AS43').value = choTotal;
-        sheet.getCell('G45').value = cho.time_extension_days || 0;
-        sheet.getCell('AV45').value = proj.date_completion ? formatDate(proj.date_completion) : '';
+        // Las firmas y totales ya fueron calculados en el bloque superior según el nuevo template.
         
-        // Dates logic
-        const completionDate = proj.date_completion ? new Date(proj.date_completion) : new Date();
-        const newCompletionDate = new Date(completionDate);
-        newCompletionDate.setDate(newCompletionDate.getDate() + (parseInt(cho.time_extension_days) || 0));
-        
-        sheet.getCell('J47').value = formatDate(newCompletionDate);
-        
-        // Admin Term (example: +2 years)
-        const adminTermDate = new Date(newCompletionDate);
-        adminTermDate.setFullYear(adminTermDate.getFullYear() + 2);
-        sheet.getCell('AV47').value = formatDate(adminTermDate);
-
-        // 9. Signatures
-        sheet.getCell('U54').value = execDir?.name || '';
-        sheet.getCell('AW54').value = proj.contractor_representative || '';
-        sheet.getCell('AW59').value = contr?.employer_id || '';
-
         // 10. Finalize
         const buffer = await workbook.xlsx.writeBuffer();
         return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
