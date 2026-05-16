@@ -174,7 +174,11 @@ export async function generateAct122B(
             if (timeExt > 0) setVal(ws, 'AN18', 'X', { center: true });
 
             // 4. Descripción / Scope del CHO
-            setVal(ws, 'B21', choData.description || '', { shrink: true });
+            if (pageIndex === 0) {
+                setVal(ws, 'B21', choData.description || '', { shrink: true });
+            } else {
+                setVal(ws, 'B21', '');
+            }
 
             // 5. ÍTEMS
             const cStart = pageIndex * 5;
@@ -260,12 +264,13 @@ export async function generateAct122B(
             setVal(ws, 'M46', contrData?.representative || contrData?.name || projData.contractor_name || '', { shrink: true });
             setVal(ws, 'M48', personnelMap["Supervisor de Área"] || projData.project_manager_name || '', { shrink: true });
             setVal(ws, 'M50', personnelMap["Director Regional"] || '', { shrink: true });
-            setVal(ws, 'M52', 'Ing. Edwin González Montalvo, P.E.', { shrink: true }); 
+            setVal(ws, 'M52', 'Ing. Edwin González Montalvo', { shrink: true }); 
             setVal(ws, 'BA50', personnelMap["Director Oficina Construccion"] || '');
             setVal(ws, 'BA52', 'N/A');
 
             // 8. PÁGINA 2 (BACK)
-            setVal(ws, 'J63', projData.num_act || '');
+            setVal(ws, 'K59', projData.name || '', { shrink: true });
+            setVal(ws, 'K60', projData.num_act || '');
             
             // Campo AZ60: info de J13 (Amendment) y J14 (CHO Num)
             setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
@@ -283,6 +288,8 @@ export async function generateAct122B(
 
             // Numeración de página
             setVal(ws, 'Z1', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
+            // Corrección: asegurar que la página trasera tiene el número de página oficial si aplica
+            // Si hay un espacio designado, por ejemplo, lo pondríamos ahí, pero usaremos Z1.
         };
 
         // Llenar página 1 (ya existe en el workbook como 'ACT-122')
