@@ -275,14 +275,21 @@ export async function generateAct122B(
             // Campo AZ60: info de J13 (Amendment) y J14 (CHO Num)
             setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
 
-            // Numeración de página (55 y 113)
-            // Limpiar las celdas viejas donde estaba la numeración
-            ['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI'].forEach(col => {
-                setVal(ws, `${col}55`, '');
-                setVal(ws, `${col}113`, '');
-            });
-            setVal(ws, 'Z55', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
-            setVal(ws, 'Z113', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
+            // Numeración de página (55 y 113) en las celdas originales del template
+            setVal(ws, 'Z55', ''); // Limpiar si es que habíamos escrito en la Z
+            setVal(ws, 'Z113', '');
+            
+            // Fila 55
+            setVal(ws, 'AA55', 'Page');
+            setVal(ws, 'AE55', pageIndex + 1);
+            setVal(ws, 'AG55', 'of');
+            setVal(ws, 'AI55', totalPages);
+            
+            // Fila 113
+            setVal(ws, 'AA113', 'Page');
+            setVal(ws, 'AE113', pageIndex + 1);
+            setVal(ws, 'AG113', 'of');
+            setVal(ws, 'AI113', totalPages);
         };
 
         // Llenar página 1 (ya existe en el workbook como 'ACT-122')
