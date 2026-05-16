@@ -275,21 +275,9 @@ export async function generateAct122B(
             // Campo AZ60: info de J13 (Amendment) y J14 (CHO Num)
             setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
 
-            
-            const reason = (choData.reason || '');
-            if (reason === 'Design') setVal(ws, 'I69', 'X', { center: true });
-            if (reason === 'Construction') setVal(ws, 'O69', 'X', { center: true });
-            if (reason === 'Contract') setVal(ws, 'U69', 'X', { center: true });
-            if (reason === 'Utilities') setVal(ws, 'AA69', 'X', { center: true });
-            if (reason === 'Other') setVal(ws, 'AG69', 'X', { center: true });
-
-            // Justificación con letra el doble de grande (aprox 16-18pt)
-            setVal(ws, 'C76', choData.justification || '', { fontSize: 16 });
-
-            // Numeración de página
-            setVal(ws, 'Z1', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
-            // Corrección: asegurar que la página trasera tiene el número de página oficial si aplica
-            // Si hay un espacio designado, por ejemplo, lo pondríamos ahí, pero usaremos Z1.
+            // Numeración de página (55 y 113)
+            setVal(ws, 'Z55', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
+            setVal(ws, 'Z113', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
         };
 
         // Llenar página 1 (ya existe en el workbook como 'ACT-122')
