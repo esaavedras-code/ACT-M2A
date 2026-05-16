@@ -35,35 +35,67 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         const choTotal = choItemsRaw.reduce((sum: number, it: any) => sum + (parseFloat(it.quantity) * parseFloat(it.unit_price)), 0);
 
         // 4. Fill Header (Based on Image Grid: Label at B5, Value at J5/J6)
-        // Adjusting based on A6 label scan: J6 seems to be the first value row.
-        sheet.getCell('J6').value = proj.contractor_name || '';
-        sheet.getCell('J7').value = proj.num_act || '';
-        sheet.getCell('J8').value = proj.num_federal || '';
-        sheet.getCell('J9').value = proj.num_contrato || '';
-        sheet.getCell('J10').value = cho.amendment_letter || '';
-        sheet.getCell('J11').value = proj.num_cuenta_federal || '';
-        sheet.getCell('J12').value = proj.num_cuenta_estatal || '';
+        // 4. Fill Header (Based on Instructions Excel)
+        sheet.getCell('E6').value = proj.num_act || '';
+        sheet.getCell('E7').value = proj.num_oracle || '';
+        sheet.getCell('E8').value = proj.num_federal || 'N/A';
+        sheet.getCell('H9').value = proj.num_contrato || '';
+        sheet.getCell('H10').value = ''; // OCPR Contract no mapeado en base de datos
+        sheet.getCell('H11').value = proj.num_cuenta_federal || '';
+        sheet.getCell('H12').value = proj.num_cuenta_estatal || '';
+        sheet.getCell('AG13').value = cho.amendment_letter || '';
 
-        // 5. Supplementary Contract Info
-        const choLabel = `${cho.cho_num}${cho.amendment_letter || ''}`;
-        sheet.getCell('AK13').value = choLabel;
-        
         // Checkboxes (Field 8)
-        if (contractItems.length > 0) sheet.getCell('V15').value = 'X';
-        if (extraItems.length > 0) sheet.getCell('V17').value = 'X';
-        if (cho.time_extension_days && parseInt(cho.time_extension_days) > 0) sheet.getCell('V19').value = 'X';
+        if (contractItems.length > 0) sheet.getCell('T15').value = 'X';
+        if (extraItems.length > 0) sheet.getCell('T17').value = 'X';
+        if (cho.time_extension_days && parseInt(cho.time_extension_days) > 0) sheet.getCell('T19').value = 'X';
 
         // 6. Contract Text Fields
-        sheet.getCell('Y22').value = new Date().toLocaleDateString();
+        const absCho = Math.abs(parseFloat(cho.proposed_change) || 0);
+        let signRole = "Director de Área de Construcción";
+        if (absCho > 250000 || (parseInt(cho.time_extension_days) || 0) > 0) {
+            signRole = "Director Ejecutivo";
+        } else if (absCho > 50000) {
+            signRole = "Subdirector Ejecutivo";
+        }
+        let signPerson = personnel?.find(p => p.role === signRole);
+        if (!signPerson) {
+            signRole = "Director Ejecutivo"; // Default fallback
+            signPerson = personnel?.find(p => p.role === signRole);
+        }
+
+        sheet.getCell('AA24').value = signPerson?.name || '';
+        sheet.getCell('C26').value = signPerson?.role || signRole;
         
-        const findPerson = (role: string) => personnel?.find(p => p.role === role);
-        const execDir = findPerson("Director Ejecutivo");
+        sheet.getCell('P26').value = proj.contractor_name || '';
+        sheet.getCell('I28').value = proj.contractor_representative || '';
+        sheet.getCell('Z28').value = 'President';
         
-        sheet.getCell('AQ24').value = execDir?.name || '';
-        sheet.getCell('M26').value = execDir?.role || '';
-        sheet.getCell('AH26').value = proj.contractor_name || '';
-        sheet.getCell('Y28').value = proj.contractor_representative || '';
-        sheet.getCell('AK28').value = "Representative";
+        sheet.getCell('H33').value = proj.date_contract_signed || '';
+        sheet.getCell('C35').value = proj.name || '';
+        sheet.getCell('AI43').value = parseFloat(cho.proposed_change) || 0;
+        sheet.getCell('C45').value = parseInt(cho.time_extension_days) || 0;
+
+        // Calcular fecha terminacion
+        let prevExtDays = 0;
+        const currentChoNum = parseFloat(cho.cho_num);
+        if (allChos) {
+            for (const c of allChos) {
+                if (parseFloat(c.cho_num) <= currentChoNum) {
+                    prevExtDays += (parseInt(c.time_extension_days) || 0);
+                }
+            }
+        }
+        const origEnd = proj.date_orig_completion ? new Date(proj.date_orig_completion + "T00:00:00") : null;
+        if (origEnd) {
+            const finalDate = new Date(origEnd.getTime() + prevExtDays * 86400000);
+            const mm = String(finalDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(finalDate.getDate()).padStart(2, '0');
+            const yy = finalDate.getFullYear();
+            sheet.getCell('AN45').value = `${mm}/${dd}/${yy}`;
+        } else {
+            sheet.getCell('AN45').value = '';
+        }
 
         // 7. Items Table (Mover a la hoja Table for ROA, no en la principal)
         const roaSheet = workbook.getWorksheet('Table for ROA') || workbook.worksheets[3];
