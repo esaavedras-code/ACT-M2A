@@ -741,12 +741,6 @@ function ReportesContent() {
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
-                            onPdf: async (ids) => {
-                                try {
-                                    for(const id of ids) { await generateAct122ReportLogic(projectId, id, 'pdf'); }
-                                    setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
-                            },
                             onExcel: async (ids) => {
                                 try {
                                     for(const id of ids) { await generateAct122ReportLogic(projectId, id, 'excel'); }
@@ -769,12 +763,6 @@ function ReportesContent() {
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
-                            onPdf: async (ids) => {
-                                try {
-                                    for(const id of ids) { await generateAct123ReportLogic(projectId, id, 'pdf'); }
-                                    setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
-                            },
                             onExcel: async (ids) => {
                                 try {
                                     for(const id of ids) { await generateAct123ReportLogic(projectId, id, 'excel'); }
