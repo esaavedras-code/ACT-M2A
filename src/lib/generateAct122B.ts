@@ -276,6 +276,11 @@ export async function generateAct122B(
             setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
 
             // Numeración de página (55 y 113)
+            // Limpiar las celdas viejas donde estaba la numeración
+            ['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'AI'].forEach(col => {
+                setVal(ws, `${col}55`, '');
+                setVal(ws, `${col}113`, '');
+            });
             setVal(ws, 'Z55', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
             setVal(ws, 'Z113', `Page ${pageIndex + 1} of ${totalPages}`, { bold: true, center: true });
         };
