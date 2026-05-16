@@ -90,14 +90,30 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         const origEnd = proj.date_orig_completion ? new Date(proj.date_orig_completion + "T00:00:00") : null;
         if (origEnd) {
             const finalDate = new Date(origEnd.getTime() + prevExtDays * 86400000);
-            const mm = String(finalDate.getMonth() + 1).padStart(2, '0');
-            const dd = String(finalDate.getDate()).padStart(2, '0');
-            const yy = finalDate.getFullYear();
-            sheet.getCell('AN45').value = `${mm}/${dd}/${yy}`;
+            sheet.getCell('AN45').value = formatDate(finalDate);
+            
+            // Nueva fecha de terminación (C47)
+            const newCompletionDate = new Date(finalDate.getTime() + (parseInt(cho.time_extension_days) || 0) * 86400000);
+            sheet.getCell('C47').value = formatDate(newCompletionDate);
+            
+            // Fecha Vigencia en Contralor (AF47) -> Original + 730 días (estimado estándar)
+            const vigenciaOriginal = new Date(origEnd.getTime() + 730 * 86400000);
+            sheet.getCell('AF47').value = formatDate(vigenciaOriginal);
+
+            // Fecha Vigencia Revisada (AO47) -> Nueva terminación + 730 días
+            const vigenciaRevisada = new Date(newCompletionDate.getTime() + 730 * 86400000);
+            sheet.getCell('AO47').value = formatDate(vigenciaRevisada);
         } else {
             sheet.getCell('AN45').value = '';
+            sheet.getCell('C47').value = '';
+            sheet.getCell('AF47').value = '';
+            sheet.getCell('AO47').value = '';
         }
 
+        // Datos del contratista
+        sheet.getCell('AE59').value = contr?.employer_id || '';
+        sheet.getCell('AE60').value = contr?.email || '';
+        
         // 7. Items Table (Mover a la hoja Table for ROA, no en la principal)
         const roaSheet = workbook.getWorksheet('Table for ROA') || workbook.worksheets[3];
         if (roaSheet) {
