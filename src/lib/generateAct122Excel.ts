@@ -60,27 +60,24 @@ export async function generateAct122Excel(
         };
 
         // Header (Left)
-        setVal('H7', projData.name || '');
-        setVal('H8', contrData?.name || projData.contractor_name || '');
-        setVal('H9', projData.num_act || '');
-        setVal('H10', projData.num_federal || '');
-        setVal('H11', projData.num_oracle || '');
-        setVal('H12', projData.num_contrato || '');
-        setVal('H13', choData.amendment_letter || '0');
-        setVal('H14', choData.cho_num || '');
+        setVal('J7', projData.name || '');
+        setVal('J8', contrData?.name || projData.contractor_name || '');
+        setVal('J9', projData.num_act || '');
+        setVal('J10', projData.num_federal || '');
+        setVal('J11', projData.num_oracle || '');
+        setVal('J12', projData.num_contrato || '');
+        setVal('J13', choData.amendment_letter || '0');
+        setVal('J14', choData.cho_num || '');
 
         // Header (Right)
-        setVal('AZ7', projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null);
-        setVal('AZ8', dateRevisedBox10);
-        setVal('AZ9', timeExt);
-        setVal('AZ10', 0); // 11a Compensables
-        setVal('AZ11', dateNewBox12);
-        setVal('AN12', '13. New Administrative Term Date (Contralor):');
-        setVal('AZ12', adminEnd);
-        setVal('AZ13', projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null);
+        setVal('BA7', projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null);
+        setVal('BA8', dateRevisedBox10);
+        setVal('BA9', timeExt);
+        setVal('BA10', 0); // 11a Compensables
+        setVal('BA13', projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null);
 
         // Scope
-        setVal('H16', choData.description || '');
+        setVal('B21', choData.description || '');
 
         // Items
         const allItems = Array.isArray(choData.items) ? choData.items : [];
@@ -119,14 +116,17 @@ export async function generateAct122Excel(
         });
 
         // Financial Summary
-        setVal('AZ44', currentChoAmount);
-        setVal('AZ45', actualContractAmount);
-        setVal('AZ46', newContractAmount);
+        setVal('BA44', currentChoAmount);
+        setVal('BA45', actualContractAmount);
+        setVal('BA46', newContractAmount);
 
         // Footer Section (Personnel)
-        setVal('B45', projData.resident_engineer_name || '');
-        setVal('B47', projData.contractor_name || '');
-        setVal('B49', projData.project_manager_name || '');
+        setVal('M44', projData.resident_engineer_name || '');
+        setVal('M46', projData.contractor_name || '');
+        setVal('M48', projData.project_manager_name || '');
+        
+        // Justification
+        setVal('C68', choData.justification || '');
 
         const buffer = await wb.xlsx.writeBuffer();
         return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
