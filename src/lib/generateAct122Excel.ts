@@ -98,31 +98,41 @@ export async function generateAct122Excel(
 
         // Rows 32+ for contract items
         let row = 32;
+        let subtotalContract = 0;
         contractChoItems.slice(0, 5).forEach((it: any) => {
             setVal(`B${row}`, it.item_num);
+            setVal(`E${row}`, it.specification || '');
             setVal(`H${row}`, it.description);
             setVal(`AJ${row}`, it.unit);
             setVal(`AN${row}`, parseFloat(it.proposed_change) || 0);
             setVal(`AT${row}`, parseFloat(it.unit_price) || 0);
-            setVal(`AZ${row}`, (parseFloat(it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0));
+            const amt = (parseFloat(it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0);
+            setVal(`AZ${row}`, amt);
+            subtotalContract += amt;
             const fedPct = getFederalSharePct(projData, it);
             setVal(`BF${row}`, fedPct / 100);
             row++;
         });
+        setVal('AZ37', subtotalContract);
 
         // Rows 39+ for extra work items
         row = 39;
+        let subtotalExtra = 0;
         extraWorkItems.slice(0, 3).forEach((it: any) => {
             setVal(`B${row}`, it.item_num);
+            setVal(`E${row}`, it.specification || '');
             setVal(`H${row}`, it.description);
             setVal(`AJ${row}`, it.unit);
             setVal(`AN${row}`, parseFloat(it.proposed_change) || 0);
             setVal(`AT${row}`, parseFloat(it.unit_price) || 0);
-            setVal(`AZ${row}`, (parseFloat(it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0));
+            const amt = (parseFloat(it.proposed_change) || 0) * (parseFloat(it.unit_price) || 0);
+            setVal(`AZ${row}`, amt);
+            subtotalExtra += amt;
             const fedPct = getFederalSharePct(projData, it);
             setVal(`BF${row}`, fedPct / 100);
             row++;
         });
+        setVal('AZ42', subtotalExtra);
 
         // Financial Summary
         setVal('BA44', currentChoAmount);
@@ -133,6 +143,7 @@ export async function generateAct122Excel(
         setVal('M44', projData.resident_engineer_name || '');
         setVal('M46', projData.contractor_name || '');
         setVal('M48', projData.project_manager_name || '');
+        setVal('M52', 'Ing. Edwin Gonzalez Montalvo, P.E.');
         
         // Justification
         setVal('C68', choData.justification || '');
