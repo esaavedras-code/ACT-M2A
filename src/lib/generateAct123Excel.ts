@@ -65,12 +65,23 @@ export async function generateAct123Excel(projectId: string, choId: string) {
             signPerson = personnel?.find(p => p.role === signRole);
         }
 
-        sheet.getCell('AA24').value = signPerson?.name || '';
-        sheet.getCell('C26').value = signPerson?.role || signRole;
+        const repActName = signPerson?.name || '';
+        const repActRole = signPerson?.role || signRole;
+        sheet.getCell('AA24').value = repActName;
+        sheet.getCell('C55').value = repActName;
+        sheet.getCell('C26').value = repActRole;
+        sheet.getCell('D57').value = repActRole;
         
-        sheet.getCell('P26').value = contr?.name || proj.contractor_name || '';
-        sheet.getCell('I28').value = contr?.representative || proj.contractor_representative || '';
-        sheet.getCell('Z28').value = 'President';
+        const contrName = contr?.name || proj.contractor_name || '';
+        const contrRep = contr?.representative || proj.contractor_representative || '';
+        const contrRole = 'President';
+
+        sheet.getCell('P26').value = contrName;
+        sheet.getCell('AE58').value = contrName;
+        sheet.getCell('I28').value = contrRep;
+        sheet.getCell('AE56').value = contrRep;
+        sheet.getCell('Z28').value = contrRole;
+        sheet.getCell('AE57').value = contrRole;
         
         sheet.getCell('H33').value = proj.date_contract_signed || '';
         sheet.getCell('C35').value = proj.name || '';
