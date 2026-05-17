@@ -68,7 +68,7 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         const repActName = signPerson?.name || '';
         const repActRole = signPerson?.role || signRole;
         sheet.getCell('AA24').value = repActName;
-        sheet.getCell('C55').value = repActName;
+        sheet.getCell('C56').value = repActName;
         sheet.getCell('C26').value = repActRole;
         sheet.getCell('D57').value = repActRole;
         
