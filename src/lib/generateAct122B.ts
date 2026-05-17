@@ -78,7 +78,7 @@ export async function generateAct122B(
         );
 
         // --- FUNCIONES DE AYUDA ---
-        const setVal = (ws: ExcelJS.Worksheet, addr: string, val: any, options: { bold?: boolean, center?: boolean, shrink?: boolean, fontSize?: number } = {}) => {
+        const setVal = (ws: ExcelJS.Worksheet, addr: string, val: any, options: { bold?: boolean, center?: boolean, shrink?: boolean, fontSize?: number, color?: string } = {}) => {
             const cell = ws.getCell(addr);
             cell.value = val;
             
@@ -95,6 +95,10 @@ export async function generateAct122B(
 
             if (options.bold) {
                 newFont.bold = true;
+            }
+
+            if (options.color) {
+                newFont.color = { argb: options.color };
             }
 
             cell.font = newFont;
@@ -151,8 +155,8 @@ export async function generateAct122B(
             setVal(ws, 'J10', projData.num_federal || 'N/A');
             setVal(ws, 'J11', projData.num_oracle || '');
             setVal(ws, 'J12', projData.num_contrato || '');
-            setVal(ws, 'J13', choData.amendment_letter || '0');
-            setVal(ws, 'J14', choData.cho_num || '');
+            setVal(ws, 'J13', choData.amendment_letter || '0', { color: 'FF000000' });
+            setVal(ws, 'J14', choData.cho_num || '', { color: 'FF000000' });
 
             // Descripción del proyecto (bajo el nombre)
             setVal(ws, 'B16', projData.description || '', { shrink: true });
@@ -175,7 +179,7 @@ export async function generateAct122B(
 
             // 4. Descripción / Scope del CHO
             if (pageIndex === 0) {
-                setVal(ws, 'B21', projData.scope || '', { shrink: true });
+                setVal(ws, 'B21', projData.scope || '', { shrink: true, color: 'FF000000' });
             } else {
                 setVal(ws, 'B21', '');
             }
@@ -271,7 +275,7 @@ export async function generateAct122B(
             setVal(ws, 'K60', projData.num_act || '');
             
             // Campo AZ60: info de J13 (Amendment) y J14 (CHO Num)
-            setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true });
+            setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true, color: 'FF000000' });
 
             // Restaurar visualmente los Radio Buttons de la fila 65 (que exceljs pierde)
             setVal(ws, 'H65', '○ Design');
