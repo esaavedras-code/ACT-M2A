@@ -122,7 +122,7 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         }
 
         // Datos del contratista
-        sheet.getCell('AE59').value = contr?.employer_id || '';
+        sheet.getCell('AE59').value = contr?.ss_patronal || '';
         sheet.getCell('AE60').value = contr?.email || '';
         
         // 7. Items Table (Mover a la hoja Table for ROA, no en la principal)
