@@ -175,7 +175,7 @@ export async function generateAct122B(
 
             // 4. Descripción / Scope del CHO
             if (pageIndex === 0) {
-                setVal(ws, 'B21', choData.description || '', { shrink: true });
+                setVal(ws, 'B21', projData.scope || '', { shrink: true });
             } else {
                 setVal(ws, 'B21', '');
             }
@@ -194,17 +194,16 @@ export async function generateAct122B(
                     const qty = parseFloat(it.proposed_change || it.quantity) || 0;
                     const up = parseFloat(it.unit_price) || 0;
                     setVal(ws, `B${currentRow}`, it.item_num);
-                    setVal(ws, `G${currentRow}`, it.specification);
+                    setVal(ws, `E${currentRow}`, it.specification);
                     setVal(ws, `H${currentRow}`, it.description, { shrink: true });
                     setVal(ws, `AJ${currentRow}`, it.unit);
                     setVal(ws, `AN${currentRow}`, qty);
                     setVal(ws, `AT${currentRow}`, up);
                     setVal(ws, `AZ${currentRow}`, qty * up);
                     setVal(ws, `BF${currentRow}`, (getFederalSharePct(projData, it) / 100));
-                    setVal(ws, `E${currentRow}`, 'X', { center: true });
                 } else {
                     // Limpiar fila si no hay item (evita repetición de página 1)
-                    ['B','G','H','AJ','AN','AT','AZ','BF','E'].forEach(col => setVal(ws, `${col}${currentRow}`, null));
+                    ['B','E','H','AJ','AN','AT','AZ','BF'].forEach(col => setVal(ws, `${col}${currentRow}`, null));
                 }
             }
 
@@ -217,17 +216,16 @@ export async function generateAct122B(
                     const qty = parseFloat(it.proposed_change || it.quantity) || 0;
                     const up = parseFloat(it.unit_price) || 0;
                     setVal(ws, `B${currentRow}`, it.item_num);
-                    setVal(ws, `G${currentRow}`, it.specification);
+                    setVal(ws, `E${currentRow}`, it.specification);
                     setVal(ws, `H${currentRow}`, it.description, { shrink: true });
                     setVal(ws, `AJ${currentRow}`, it.unit);
                     setVal(ws, `AN${currentRow}`, qty);
                     setVal(ws, `AT${currentRow}`, up);
                     setVal(ws, `AZ${currentRow}`, qty * up);
                     setVal(ws, `BF${currentRow}`, (getFederalSharePct(projData, it) / 100));
-                    setVal(ws, `V${currentRow}`, 'X', { center: true });
                 } else {
                     // Limpiar fila si no hay item (evita repetición de página 1)
-                    ['B','G','H','AJ','AN','AT','AZ','BF','V'].forEach(col => setVal(ws, `${col}${currentRow}`, null));
+                    ['B','E','H','AJ','AN','AT','AZ','BF'].forEach(col => setVal(ws, `${col}${currentRow}`, null));
                 }
             }
 
