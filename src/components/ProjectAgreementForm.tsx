@@ -127,8 +127,16 @@ const ProjectAgreementForm = forwardRef(function ProjectAgreementForm({ projectI
             .order('created_at', { ascending: true });
         
         if (data && data.length > 0) {
-            setFunds(data);
-            fundsRef.current = data;
+            const sortedData = data.sort((a, b) => {
+                const matchA = a.unit_name.match(/\d+/);
+                const matchB = b.unit_name.match(/\d+/);
+                const numA = matchA ? parseInt(matchA[0], 10) : 0;
+                const numB = matchB ? parseInt(matchB[0], 10) : 0;
+                if (numA !== numB) return numA - numB;
+                return a.unit_name.localeCompare(b.unit_name);
+            });
+            setFunds(sortedData);
+            fundsRef.current = sortedData;
         } else {
             const initialFunds = [
                 { unit_name: "Unit 1", federal_share_pct: 100, participating: 0, contingencies_participating: 0, payroll_mileage_diets: 0, fa_funds_requested: 0, contingencies_federal: 0, calc_toll_credits: 0, contingencies_toll: 0, state_share_federal: 0, contingencies_state_share: 0, not_participating_state: 0, contingencies_not_participating: 0, payroll_mileage_diets_state: 0 },

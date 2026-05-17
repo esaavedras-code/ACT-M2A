@@ -94,7 +94,7 @@ export async function generateAct122Excel(
         setVal('AN18', hasTimeExt ? 'X' : '');
 
         // Scope
-        setVal('B21', choData.description || '');
+        setVal('B21', projData.scope || '');
 
         // Rows 32+ for contract items
         let row = 32;
