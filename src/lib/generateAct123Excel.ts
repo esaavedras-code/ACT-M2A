@@ -41,9 +41,9 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         sheet.getCell('E7').value = proj.num_oracle || '';
         sheet.getCell('E8').value = proj.num_federal || 'N/A';
         sheet.getCell('H9').value = proj.num_contrato || '';
-        sheet.getCell('H10').value = ''; // OCPR Contract no mapeado en base de datos
-        sheet.getCell('H11').value = proj.num_cuenta_federal || '';
-        sheet.getCell('H12').value = proj.num_cuenta_estatal || '';
+        sheet.getCell('H10').value = proj.num_ocpr || ''; 
+        sheet.getCell('H11').value = proj.num_cuenta_federal || proj.acc_federal || '';
+        sheet.getCell('H12').value = proj.num_cuenta_estatal || proj.acc_estatal || '';
         sheet.getCell('AG13').value = cho.amendment_letter || '';
 
         // Checkboxes (Field 8)
@@ -68,8 +68,8 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         sheet.getCell('AA24').value = signPerson?.name || '';
         sheet.getCell('C26').value = signPerson?.role || signRole;
         
-        sheet.getCell('P26').value = proj.contractor_name || '';
-        sheet.getCell('I28').value = proj.contractor_representative || '';
+        sheet.getCell('P26').value = contr?.name || proj.contractor_name || '';
+        sheet.getCell('I28').value = contr?.representative || proj.contractor_representative || '';
         sheet.getCell('Z28').value = 'President';
         
         sheet.getCell('H33').value = proj.date_contract_signed || '';
