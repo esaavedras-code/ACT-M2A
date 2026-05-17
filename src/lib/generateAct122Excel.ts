@@ -76,9 +76,6 @@ export async function generateAct122Excel(
         setVal('BA10', 0); // 11a Compensables
         setVal('BA13', projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null);
 
-        // Scope
-        setVal('B21', choData.description || '');
-
         // Items
         const allItems = Array.isArray(choData.items) ? choData.items : [];
         const { data: contractItemsList } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
@@ -86,6 +83,18 @@ export async function generateAct122Excel(
 
         const contractChoItems = allItems.filter((it: any) => contractItemNums.has(it.item_num));
         const extraWorkItems = allItems.filter((it: any) => !contractItemNums.has(it.item_num));
+
+        // Checkboxes (15)
+        const hasContractItems = choData.is_change_of_contract || contractChoItems.length > 0;
+        const hasNewItems = choData.is_new_item || extraWorkItems.length > 0;
+        const hasTimeExt = choData.is_time_extension || timeExt > 0;
+        
+        setVal('B18', hasContractItems ? 'X' : '');
+        setVal('V18', hasNewItems ? 'X' : '');
+        setVal('AN18', hasTimeExt ? 'X' : '');
+
+        // Scope
+        setVal('B21', choData.description || '');
 
         // Rows 32+ for contract items
         let row = 32;
