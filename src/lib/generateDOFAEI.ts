@@ -97,6 +97,7 @@ function fillSheetConservatively(sheet: ExcelJS.Worksheet, projData: any, choDat
     pageItems.forEach((it, idx) => {
         const row = sheet.getRow(startRow + idx);
         const fedPct = getFederalSharePct(projData, it);
+        const isFed = fedPct > 0;
         const ratio = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
         
         row.getCell(2).value = it.item_num;
