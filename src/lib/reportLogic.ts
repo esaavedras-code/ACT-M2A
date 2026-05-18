@@ -1603,6 +1603,7 @@ import { generateAct117CExcel } from "./generateAct117CExcel";
 import { generateAct117AExcel } from "./generateAct117AExcel";
 import { generateAct123Excel } from "./generateAct123Excel";
 import { generateAct117B } from "./generateAct117B";
+import { generateAct117BExcel } from "./generateAct117BExcel";
 import { generateAct122 } from "./generateAct122";
 import { generateAct122Excel } from "./generateAct122Excel";
 import { generateAct122B } from "./generateAct122B";
@@ -1689,9 +1690,13 @@ export const generateAct32ReportLogic = async (projectId: string, choId: string,
 };
 
 export const generateAct117BReportLogic = async (projectId: string, certId: string, itemNum: string, format: 'pdf' | 'excel' = 'pdf') => {
-    // El formato Excel ahora está habilitado a través de createExcelBlob mejorado
-    const blob = await generateAct117B(projectId, certId, itemNum);
-    downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.pdf`);
+    if (format === 'excel') {
+        const blob = await generateAct117BExcel(projectId, certId, itemNum);
+        downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.xlsx`);
+    } else {
+        const blob = await generateAct117B(projectId, certId, itemNum);
+        downloadBlob(blob, `ACT-117B_Item_${itemNum}_Balance_Sheet.pdf`);
+    }
 };
 
 export const generateFinalAcceptanceChecklistReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf') => {
