@@ -11,9 +11,6 @@ $json = Get-Content "package.json" | ConvertFrom-Json
 $json.version = $version
 $json | ConvertTo-Json -Depth 20 | Set-Content "package.json"
 
-Write-Host "Generando nuevo icono..." -ForegroundColor Yellow
-node scripts/generate-icon.js
-
 Write-Host "Compilando aplicación Electron (.exe)..." -ForegroundColor Green
 npm run electron:build
 
