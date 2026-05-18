@@ -680,15 +680,6 @@ function ReportesContent() {
                             label: 'ACT-117B',
                             description: 'Balance de Material on Site por partida.',
                             icon: <FileCheck size={18} className="text-amber-600" />,
-                            onPdf: async () => {
-                                try {
-                                    const certId = (window as any).selectedMosCert;
-                                    const itemNum = (window as any).selectedMosItem;
-                                    if (!certId || !itemNum) { alert("Por favor seleccione certificacion y partida."); throw new Error("Selection required"); }
-                                    await generateAct117BReportLogic(projectId, certId, itemNum, 'pdf');
-                                    setStatus("Reporte generado.");
-                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
-                            },
                             onExcel: async () => {
                                 try {
                                     const certId = (window as any).selectedMosCert;
