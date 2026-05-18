@@ -474,7 +474,7 @@ function ReportesContent() {
                 <div className="h-1 w-20 bg-primary/20 rounded-full mt-6 mb-8"></div>
 
 
-                <div className="flex flex-col items-center gap-2 mb-6 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-sm relative">
+                <div className="flex flex-col items-center gap-2 mb-6 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-[192px] relative">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-full">
                         Fecha de Corte (Opcional)
                     </label>
