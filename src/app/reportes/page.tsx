@@ -665,10 +665,6 @@ function ReportesContent() {
                             onPdf: () => generateMosReportLogic(projectId, 'pdf', endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false)),
-                            onExcel: () => generateMosReportLogic(projectId, 'excel', endDate)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />
@@ -879,38 +875,7 @@ function ReportesContent() {
                     </StandardReportItem>
                     )}
                     
-                    <StandardReportItem
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
-                            id: 'act123-excel',
-                            label: 'ACT-123 (Supplementary Contract)',
-                            description: 'Formulario oficial de contrato suplementario para Ordenes de Cambio (Excel).',
-                            icon: <FileSpreadsheet size={18} className="text-green-700" />,
-                            onExcel: async () => {
-                                try {
-                                    const choId = (window as any).selectedAct123Cho;
-                                    if (!choId) { alert("Por favor seleccione un CHO para el reporte ACT-123."); return; }
-                                    await generateAct123ReportLogic(projectId || "", choId);
-                                    setStatus("Reporte ACT-123 generado.");
-                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
-                            }
-                        }}
-                    >
-                        <div className="mt-2 text-left space-y-3">
-                            <select
-                                id="act123-cho-select"
-                                className="w-full bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800 rounded-xl px-3 py-2.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-green-500 transition-all"
-                                onChange={(e) => (window as any).selectedAct123Cho = e.target.value}
-                            >
-                                <option value="">Elegir CHO para ACT-123...</option>
-                                {chos.map(c => (
-                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
-                                ))}
-                            </select>
-                        </div>
-                    </StandardReportItem>
-                    
+
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
