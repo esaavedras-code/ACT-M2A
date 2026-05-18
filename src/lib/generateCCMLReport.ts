@@ -83,7 +83,7 @@ export async function generateCCMLReport(
 
         const ewoList = chosToInclude.filter((c: any) => c.cho_num === null || c.amendment_letter?.includes('EWO'));
         const trueChoList = chosToInclude.filter((c: any) => c.cho_num !== null && !c.amendment_letter?.includes('EWO'));
-        const manager = personnel?.find((p: any) => p.role === 'Project Manager')?.name || '';
+        const manager = personnel?.find((p: any) => p.role === 'Project Manager')?.name || personnel?.find((p: any) => p.role === 'Supervisor de Área')?.name || personnel?.find((p: any) => p.role === 'Supervisor de Area')?.name || '';
         const defaultFedPct = getFederalSharePct(project);
 
         // --- Helpers ---

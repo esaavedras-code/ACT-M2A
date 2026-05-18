@@ -39,9 +39,9 @@ export async function generateAct32ExcelReport(projectId: string, choId: string)
         // Mapeo según instrucciones
         sheet.getCell('B9').value = proj.name || '';
         sheet.getCell('B10').value = proj.num_act || '';
-        sheet.getCell('B13').value = findPerson("Director Regional");
-        sheet.getCell('B14').value = findPerson("Supervisor del Proyecto") || findPerson("Supervisor");
-        sheet.getCell('B15').value = findPerson("Administrador de Proyecto") || proj.inspector_name || ''; // Administrador
+        sheet.getCell('B13').value = findPerson("Director Regional") || findPerson("Regional Director") || '';
+        sheet.getCell('B14').value = findPerson("Supervisor de Área") || findPerson("Supervisor de Area") || findPerson("Supervisor del Proyecto") || findPerson("Supervisor") || '';
+        sheet.getCell('B15').value = findPerson("Administrador del Proyecto") || findPerson("Administrador de Proyecto") || proj.admin_name || proj.inspector_name || ''; // Administrador
         
         sheet.getCell('B17').value = proj.date_award ? formatDate(proj.date_award) : ''; // Fecha Comienzo
         sheet.getCell('B18').value = proj.date_completion ? formatDate(proj.date_completion) : ''; // Fecha Terminacion
