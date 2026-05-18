@@ -1515,8 +1515,8 @@ const ForceAccount2Form = forwardRef<any, { projectId?: string, onDirty?: () => 
 
       {/* Identificación de Autoría Flotante */}
       <div className="fixed bottom-4 left-4 z-[60] flex flex-col items-start gap-1 p-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl animate-in slide-in-from-left duration-700">
-        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Diseñado por:</span>
-        <span className="text-[11px] font-black text-blue-600 uppercase tracking-tighter">Ing. Enrique Saavedra Sada, PE</span>
+        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Diseñado y Desarrollado por:</span>
+        <span className="text-[11px] font-black text-blue-600 uppercase tracking-tighter">Ing. Enrique Saavedra Sada, PE.</span>
       </div>
     </>
   );

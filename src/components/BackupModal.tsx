@@ -268,7 +268,7 @@ export function BackupGuardProvider({ children }: { children: React.ReactNode })
                         {/* Footer */}
                         <div className="px-6 pb-4">
                             <p className="text-[10px] text-slate-400 text-center font-medium">
-                                Diseñado por Ing. Enrique Saavedra Sada, PE · PACT v2026
+                                Diseñado y Desarrollado por: Ing. Enrique Saavedra Sada, PE. · PACT v2026
                             </p>
                         </div>
                     </div>

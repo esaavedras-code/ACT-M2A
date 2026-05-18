@@ -63,7 +63,7 @@ export default function RootLayout({
                         <footer className="bg-slate-900 text-slate-500 py-10 px-4 text-center text-[10px] font-bold uppercase tracking-[0.2em] border-t border-slate-800 mb-20 lg:mb-0" suppressHydrationWarning>
                             <div className="max-w-7xl mx-auto space-y-4">
                                 <p>Control de Proyectos Carreteras</p>
-                                <p className="text-white font-black text-xs">Diseñado por Ing. Enrique Saavedra Sada, PE</p>
+                                <p className="text-white font-black text-xs">Diseñado y Desarrollado por: Ing. Enrique Saavedra Sada, PE.</p>
                             </div>
                         </footer>
                         <Suspense fallback={null}>
