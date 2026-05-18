@@ -363,6 +363,11 @@ export async function generateAct117CExcel(
             }
         }
 
+        // Apply red formatting to negative numbers across all sheets in the workbook
+        workbook.worksheets.forEach((sheet) => {
+            applyNegativeRedFormatting(sheet);
+        });
+
         const outBuffer = await workbook.xlsx.writeBuffer();
         return new Blob([outBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
@@ -401,3 +406,34 @@ async function cloneSheetPerfectly(source: ExcelJS.Worksheet, target: ExcelJS.Wo
         } catch (e) { /* ignore merge conflicts */ }
     });
 }
+
+/**
+ * Busca todos los números negativos en la hoja y les aplica el color rojo a la fuente.
+ */
+function applyNegativeRedFormatting(sheet: ExcelJS.Worksheet) {
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+        row.eachCell({ includeEmpty: false }, (cell) => {
+            const val = cell.value;
+            // Caso de valor numérico negativo directo
+            if (typeof val === 'number' && val < 0) {
+                const existingFont = cell.font || {};
+                cell.font = {
+                    ...existingFont,
+                    color: { argb: 'FFFF0000' } // Rojo ARGB
+                };
+            }
+            // Caso de que sea una fórmula cuyo resultado sea negativo
+            if (val && typeof val === 'object' && 'result' in val) {
+                const res = (val as any).result;
+                if (typeof res === 'number' && res < 0) {
+                    const existingFont = cell.font || {};
+                    cell.font = {
+                        ...existingFont,
+                        color: { argb: 'FFFF0000' }
+                    };
+                }
+            }
+        });
+    });
+}
+
