@@ -594,7 +594,7 @@ function ReportesContent() {
                 </DropdownGroup>
 
                 {/* Manufactura */}
-                <DropdownGroup title="Certificados de Manufactura" icon={<Package size={18} className="text-orange-500" />}>
+                <DropdownGroup title="Certificados de Manufactura e ICC" icon={<Package size={18} className="text-orange-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
@@ -632,10 +632,6 @@ function ReportesContent() {
                                 .finally(() => setLoading(false))
                         }}
                     />
-                </DropdownGroup>
-
-                {/* ICC */}
-                <DropdownGroup title="Initial Certification" icon={<ShieldCheckIcon size={18} className="text-blue-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
