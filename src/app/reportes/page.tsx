@@ -1000,12 +1000,6 @@ function ReportesContent() {
                                     await generateCertReportLogic(projectId, ids, 'pdf');
                                     setStatus("Reporte(s) generado(s).");
                                 } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
-                            },
-                            onExcel: async (ids) => {
-                                try {
-                                    await generateCertReportLogic(projectId, ids, 'excel');
-                                    setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}
                     />
