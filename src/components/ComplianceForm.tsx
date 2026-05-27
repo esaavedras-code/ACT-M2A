@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ShieldCheck, Plus, Trash2, Download, Upload, Printer } from "lucide-react";
+import { Save, ShieldCheck, Plus, Trash2, Download, Upload, Printer, FileText, X } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatDate, getLocalStorageItem } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
