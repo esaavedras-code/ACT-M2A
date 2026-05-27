@@ -48,7 +48,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         }
     });
 
-    const [expiredDocs, setExpiredDocs] = useState<{ doc_type: string; date_expiry: string }[]>([]);
+    const [expiredDocs, setExpiredDocs] = useState<any[]>([]);
     const [fmisAlert, setFmisAlert] = useState<{ status: 'warning' | 'expired'; daysLeft: number } | null>(null);
     const [mounted, setMounted] = useState(false);
     const [liveIndicator, setLiveIndicator] = useState(false);
@@ -93,11 +93,20 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         
         const { data: complianceData } = await supabase
             .from("labor_compliance")
-            .select("doc_type, date_expiry")
-            .eq("project_id", projectId)
-            .not("date_expiry", "is", null)
-            .lt("date_expiry", todayStr);
-        setExpiredDocs(complianceData || []);
+            .select("doc_type, date_expiry, subcontractor_name, custom_doc_name, status")
+            .eq("project_id", projectId);
+
+        const expired = (complianceData || []).filter((doc: any) => {
+            if (!doc.date_expiry || doc.date_expiry === "N/A" || doc.date_expiry.toUpperCase() === "N/A") return false;
+            if (doc.status === "No requerido") return false;
+            
+            const expiry = new Date(doc.date_expiry + "T00:00:00");
+            if (isNaN(expiry.getTime())) return false;
+            
+            const todayLimit = new Date(todayStr + "T00:00:00");
+            return expiry < todayLimit;
+        });
+        setExpiredDocs(expired);
 
         const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
 
@@ -442,6 +451,35 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 ? `¡ALERTA FMIS! La fecha limite del FMIS ha expirado hace ${Math.abs(fmisAlert.daysLeft)} dias.` 
                                 : `¡AVISO FMIS! Quedan solo ${fmisAlert.daysLeft} dias para la fecha limite del FMIS.`}
                         </p>
+                    </div>
+                </div>
+            )}
+
+            {expiredDocs.length > 0 && (
+                <div className="flex flex-col gap-3 p-4 rounded-xl border bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <ShieldAlert className="text-red-600 dark:text-red-400 shrink-0 animate-pulse" size={22} />
+                        <div className="flex-1">
+                            <p className="text-sm font-black text-red-900 dark:text-red-200">
+                                🚨 ¡CUMPLIMIENTO LABORAL! Se detectaron {expiredDocs.length} {expiredDocs.length === 1 ? 'documento vencido' : 'documentos vencidos'}.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="pl-9 space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+                        {expiredDocs.map((doc, idx) => {
+                            const docNameDetail = doc.doc_type === "Otros" ? (doc.custom_doc_name || "Otros") : doc.doc_type;
+                            const displayName = doc.subcontractor_name 
+                                ? `${docNameDetail} (${doc.subcontractor_name})` 
+                                : docNameDetail;
+                            return (
+                                <div key={idx} className="flex flex-col sm:flex-row sm:justify-between text-xs font-bold gap-1 sm:gap-4 border-b border-red-100 dark:border-red-900/10 pb-1 last:border-0 last:pb-0">
+                                    <span className="text-slate-800 dark:text-slate-200">• {displayName}</span>
+                                    <span className="text-red-700 dark:text-red-400 font-extrabold whitespace-nowrap">
+                                        (Venció el {formatDate(doc.date_expiry)})
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
