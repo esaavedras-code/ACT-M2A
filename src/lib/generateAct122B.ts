@@ -149,53 +149,49 @@ export async function generateAct122B(
             try { ws.unprotect(); } catch(e) {}
 
             // 1. Identificación y Proyecto
-            setVal(ws, 'J7', projData.name || '', { shrink: true });
-            setVal(ws, 'J8', contrData?.name || projData.contractor_name || '', { shrink: true });
-            setVal(ws, 'J9', projData.num_act || '');
-            setVal(ws, 'J10', projData.num_federal || 'N/A');
-            setVal(ws, 'J11', projData.num_oracle || '');
-            setVal(ws, 'J12', projData.num_contrato || '');
-            setVal(ws, 'J13', choData.amendment_letter || '0', { color: 'FF000000' });
-            setVal(ws, 'J14', choData.cho_num || '', { color: 'FF000000' });
-
-            // Descripción del proyecto (bajo el nombre)
-            setVal(ws, 'B16', projData.description || '', { shrink: true });
+            setVal(ws, 'J8', projData.name || '', { shrink: true });
+            setVal(ws, 'J9', contrData?.name || projData.contractor_name || '', { shrink: true });
+            setVal(ws, 'J10', projData.num_act || '');
+            setVal(ws, 'J11', projData.num_federal || 'N/A');
+            setVal(ws, 'J12', projData.num_oracle || '');
+            setVal(ws, 'J13', projData.num_contrato || '');
+            setVal(ws, 'J14', choData.amendment_letter || '0', { color: 'FF000000' });
+            setVal(ws, 'J15', choData.cho_num || '', { color: 'FF000000' });
 
             // 2. Tiempo
             const safeDate = (d: any) => (d instanceof Date && !isNaN(d.getTime())) ? d : null;
 
-            setVal(ws, 'BA7', safeDate(projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null));
-            setVal(ws, 'BA8', safeDate(dateRevisedBox10));
-            setVal(ws, 'BA9', timeExt || 0);
-            setVal(ws, 'BA10', 0);
-            setVal(ws, 'BA11', safeDate(dateNewBox12));
-            setVal(ws, 'BA12', safeDate(adminEnd));
-            setVal(ws, 'BA13', safeDate(projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null));
+            setVal(ws, 'BA7', safeDate(choData.cho_date ? new Date(choData.cho_date + "T00:00:00") : null));
+            setVal(ws, 'BA8', safeDate(projData.date_project_start ? new Date(projData.date_project_start + "T00:00:00") : null));
+            setVal(ws, 'BA9', safeDate(dateRevisedBox10));
+            setVal(ws, 'BA10', timeExt || 0);
+            setVal(ws, 'BA11', choData.compensable_days !== undefined ? choData.compensable_days : 'N/A');
+            // Encasillados 12 y 13 son fórmulas automáticas en Excel, por lo que NO escribimos en BA12 ni BA13.
+            setVal(ws, 'BA14', safeDate(projData.fmis_end_date ? new Date(projData.fmis_end_date + "T00:00:00") : null));
 
             // 3. Checkboxes de Tipo (Sección 15)
-            if (contractChoItems.length > 0) setVal(ws, 'B18', 'X', { center: true });
-            if (extraWorkItems.length > 0) setVal(ws, 'V18', 'X', { center: true });
-            if (timeExt > 0) setVal(ws, 'AN18', 'X', { center: true });
+            if (contractChoItems.length > 0) setVal(ws, 'B19', 'X', { center: true });
+            if (extraWorkItems.length > 0) setVal(ws, 'V19', 'X', { center: true });
+            if (timeExt > 0) setVal(ws, 'AN19', 'X', { center: true });
 
-            // 4. Descripción / Scope del CHO
+            // 4. Descripción / Scope del CHO (Sección 16)
             if (pageIndex === 0) {
-                setVal(ws, 'B21', projData.scope || '', { shrink: true, color: 'FF000000' });
+                setVal(ws, 'B22', choData.description || projData.scope || '', { shrink: true, color: 'FF000000' });
             } else {
-                setVal(ws, 'B21', '');
+                setVal(ws, 'B22', '');
             }
 
             // 5. ÍTEMS
             const cStart = pageIndex * 5;
             const eStart = pageIndex * 3;
             
-            // Items de Contrato (Filas 32-36)
-            let row = 32;
+            // Items de Contrato (Filas 35-39)
             const pageContractItems = contractChoItems.slice(cStart, cStart + 5);
             for (let i = 0; i < 5; i++) {
                 const it = pageContractItems[i];
-                const currentRow = 32 + i;
+                const currentRow = 35 + i;
                 if (it) {
-                    const qty = parseFloat(it.proposed_change || it.quantity) || 0;
+                    const qty = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
                     const up = parseFloat(it.unit_price) || 0;
                     setVal(ws, `B${currentRow}`, it.item_num);
                     setVal(ws, `E${currentRow}`, it.specification);
@@ -206,18 +202,17 @@ export async function generateAct122B(
                     setVal(ws, `AZ${currentRow}`, qty * up);
                     setVal(ws, `BF${currentRow}`, (getFederalSharePct(projData, it) / 100));
                 } else {
-                    // Limpiar fila si no hay item (evita repetición de página 1)
                     ['B','E','H','AJ','AN','AT','AZ','BF'].forEach(col => setVal(ws, `${col}${currentRow}`, null));
                 }
             }
 
-            // Items Extra (Filas 39-41)
+            // Items Extra (Filas 42-44)
             const pageExtraItems = extraWorkItems.slice(eStart, eStart + 3);
             for (let i = 0; i < 3; i++) {
                 const it = pageExtraItems[i];
-                const currentRow = 39 + i;
+                const currentRow = 42 + i;
                 if (it) {
-                    const qty = parseFloat(it.proposed_change || it.quantity) || 0;
+                    const qty = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
                     const up = parseFloat(it.unit_price) || 0;
                     setVal(ws, `B${currentRow}`, it.item_num);
                     setVal(ws, `E${currentRow}`, it.specification);
@@ -228,7 +223,6 @@ export async function generateAct122B(
                     setVal(ws, `AZ${currentRow}`, qty * up);
                     setVal(ws, `BF${currentRow}`, (getFederalSharePct(projData, it) / 100));
                 } else {
-                    // Limpiar fila si no hay item (evita repetición de página 1)
                     ['B','E','H','AJ','AN','AT','AZ','BF'].forEach(col => setVal(ws, `${col}${currentRow}`, null));
                 }
             }
@@ -237,45 +231,54 @@ export async function generateAct122B(
             // #26: Subtotales por página — suma solo de los ítems de ESTA página
             let pageContractSubtotal = 0;
             pageContractItems.forEach((it: any) => {
-                const qty = parseFloat(it.proposed_change || it.quantity) || 0;
+                const qty = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
                 const up = parseFloat(it.unit_price) || 0;
                 pageContractSubtotal += qty * up;
             });
             let pageExtraSubtotal = 0;
             pageExtraItems.forEach((it: any) => {
-                const qty = parseFloat(it.proposed_change || it.quantity) || 0;
+                const qty = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
                 const up = parseFloat(it.unit_price) || 0;
                 pageExtraSubtotal += qty * up;
             });
 
-            setVal(ws, 'AZ37', pageContractSubtotal || 0);
-            setVal(ws, 'AZ42', pageExtraSubtotal || 0);
+            setVal(ws, 'AZ40', pageContractSubtotal || 0);
+            setVal(ws, 'AZ46', pageExtraSubtotal || 0);
 
             // #28, #29, #30: Totales finales del DOCUMENTO — en TODAS las páginas
             let grandTotalContract = 0;
-            contractChoItems.forEach((it: any) => grandTotalContract += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
+            contractChoItems.forEach((it: any) => {
+                const qty = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
+                const up = parseFloat(it.unit_price) || 0;
+                grandTotalContract += qty * up;
+            });
             let grandTotalExtra = 0;
-            extraWorkItems.forEach((it: any) => grandTotalExtra += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0));
+            extraWorkItems.forEach((it: any) => {
+                const qty = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
+                const up = parseFloat(it.unit_price) || 0;
+                grandTotalExtra += qty * up;
+            });
 
-            setVal(ws, 'BA44', (grandTotalContract + grandTotalExtra) || 0);
-            setVal(ws, 'BA45', actualContractAmount || 0);
-            setVal(ws, 'BA46', newContractAmount || 0);
+            setVal(ws, 'BA48', (grandTotalContract + grandTotalExtra) || 0);
+            setVal(ws, 'BA49', actualContractAmount || 0);
+            setVal(ws, 'BA50', newContractAmount || 0);
 
             // 7. FIRMAS (En todas las páginas para consistencia)
-            setVal(ws, 'M44', personnelMap["Administrador del Proyecto"] || projData.resident_engineer_name || '', { shrink: true });
-            setVal(ws, 'M46', contrData?.representative || contrData?.name || projData.contractor_name || '', { shrink: true });
-            setVal(ws, 'M48', personnelMap["Supervisor de Área"] || projData.project_manager_name || '', { shrink: true });
-            setVal(ws, 'M50', personnelMap["Director Regional"] || '', { shrink: true });
-            setVal(ws, 'M52', 'Ing. Edwin González Montalvo', { shrink: true }); 
-            setVal(ws, 'BA50', personnelMap["Director Oficina Construccion"] || '');
-            setVal(ws, 'BA52', 'N/A');
+            setVal(ws, 'M48', personnelMap["Administrador del Proyecto"] || projData.resident_engineer_name || '', { shrink: true });
+            setVal(ws, 'M50', contrData?.representative || contrData?.name || projData.contractor_name || '', { shrink: true });
+            setVal(ws, 'M52', personnelMap["Supervisor de Área"] || projData.project_manager_name || '', { shrink: true });
+            setVal(ws, 'M54', personnelMap["Director Regional"] || '', { shrink: true });
+            setVal(ws, 'AL52', personnelMap["Director Oficina Construccion"] || '', { shrink: true });
+            setVal(ws, 'M56', 'Ing. Edwin González Montalvo', { shrink: true }); // Director Ejecutivo o FHWA
+
+            // 36. Justificación Texto
+            setVal(ws, 'C72', choData.justification || '', { shrink: true });
 
             // 8. PÁGINA 2 (BACK)
-            setVal(ws, 'K59', projData.name || '', { shrink: true });
-            setVal(ws, 'K60', projData.num_act || '');
-            
-            // Campo AZ60: info de J13 (Amendment) y J14 (CHO Num)
-            setVal(ws, 'AZ60', `${choData.cho_num}${choData.amendment_letter ? ` (Amdt. ${choData.amendment_letter})` : ''}`, { center: true, color: 'FF000000' });
+            setVal(ws, 'K63', projData.name || '', { shrink: true });
+            setVal(ws, 'K64', projData.num_act || '');
+            setVal(ws, 'BC64', choData.amendment_letter || '0', { center: true });
+            setVal(ws, 'AZ64', choData.cho_num || '', { center: true });
 
             // Restaurar visualmente los Radio Buttons de la fila 65 (que exceljs pierde)
             setVal(ws, 'H65', '○ Design');

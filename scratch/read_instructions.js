@@ -1,12 +1,16 @@
 const XLSX = require('xlsx');
-try {
-    const workbook = XLSX.readFile('C:\\Users\\Enrique Saavedra\\Documents\\PROGRAMAS AI\\Programa ACT\\Documentos\\ACT-123 Instructions.xlsx');
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(sheet, {header: 1});
-    data.slice(0, 100).forEach((row, i) => {
-        const line = row.join(' | ').trim();
-        if (line) console.log(`${i}: ${line}`);
+const filePath = 'C:\\Users\\Enrique Saavedra\\Documents\\PROGRAMAS AI\\Programa ACT\\Documentos\\ACT-122 CHO Instrucciones CELDAS EXCEL.xlsx';
+const workbook = XLSX.readFile(filePath);
+
+console.log("Hojas del libro:", workbook.SheetNames);
+
+workbook.SheetNames.forEach(sheetName => {
+    console.log(`\n--- Contenido de la hoja: ${sheetName} ---`);
+    const sheet = workbook.Sheets[sheetName];
+    const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    
+    // Imprimir las primeras 50 filas de la hoja para entender su estructura
+    rawData.slice(0, 50).forEach((row, idx) => {
+        console.log(`Fila ${idx + 1}:`, row);
     });
-} catch (err) {
-    console.error("Error:", err.message);
-}
+});
