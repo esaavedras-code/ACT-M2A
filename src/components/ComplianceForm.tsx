@@ -17,6 +17,7 @@ const COMPLIANCE_DOCS = [
     "Permiso Único Incidental",
     "Registro Único de Licitadores",
     "Intervencion de Cumplimiento Laboral",
+    "CERTIFICATION OF DBE PARTICIPATION",
     "Subcontratos",
     "Otros",
 ];
