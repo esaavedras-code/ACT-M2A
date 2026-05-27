@@ -988,20 +988,19 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
     if (missingCerts.length === 0) throw new Error("NO_FALTA_NINGUNO");
 
     const data = [
-        ['Item', 'Especificación', 'Descripción', 'Cant. Certificada', 'Unidad', 'Cant. en CM', 'Faltante', 'Fecha de Certificado'],
+        ['Item', 'Especificación', 'Descripción', 'Unidad', 'Cantidad Pagada', 'Cantidad sin CM', 'Fecha del CM'],
         ...missingCerts.map((m: any) => [
             m.item_num, 
             m.spec, 
             m.desc, 
-            formatNum(m.certQty), 
             m.unit,
-            formatNum(m.mfgQty), 
+            formatNum(m.certQty), 
             formatNum(m.missing), 
             m.date
         ])
     ];
 
-    await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM) QUE FALTAN', data, project, [40, 70, 180, 80, 50, 80, 80, 100], 'landscape', format, 'Certificados_CM_Faltantes.pdf');
+    await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM) QUE FALTAN', data, project, [40, 70, 220, 50, 90, 90, 110], 'landscape', format, 'Certificados_CM_Faltantes.pdf');
 };
 
 export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
