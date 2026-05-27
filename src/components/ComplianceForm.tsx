@@ -211,6 +211,15 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
             
             updateRecord(uploadTargetIdx, 'file_url', urlData.publicUrl);
             updateRecord(uploadTargetIdx, 'file_name', file.name);
+
+            // Registrar en project_documents para que aparezca en el explorador de archivos
+            await supabase.from("project_documents").insert({
+                project_id: projectId,
+                file_name: file.name,
+                doc_type: "compliance",
+                section: "compliance",
+                storage_path: storagePath,
+            });
             
         } catch (err) {
             console.error(err);
