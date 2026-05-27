@@ -16,6 +16,7 @@ const COMPLIANCE_DOCS = [
     "Carteles en la Oficina",
     "Permiso Único Incidental",
     "Registro Único de Licitadores",
+    "Intervencion de Cumplimiento Laboral",
     "Subcontratos",
     "Otros",
 ];
