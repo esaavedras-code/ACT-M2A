@@ -35,13 +35,16 @@ type ComplianceRecord = {
     is_general?: boolean;
     custom_doc_name?: string;
     email_sent_14d?: boolean;
+    file_url?: string;
+    file_name?: string;
 };
 
 function isExpired(date_expiry: string): boolean {
-    if (!date_expiry) return false;
+    if (!date_expiry || date_expiry === "N/A" || date_expiry.toUpperCase() === "N/A") return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const expiry = new Date(date_expiry + "T00:00:00");
+    if (isNaN(expiry.getTime())) return false;
     return expiry < today;
 }
 
@@ -50,6 +53,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     const [loading, setLoading] = useState(false);
     const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
     const lastRowRef = useRef<HTMLTableRowElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadTargetIdx, setUploadTargetIdx] = useState<number | null>(null);
 
     const checkUpcomingExpiries = async (docs: any[]) => {
         const registrationStr = getLocalStorageItem("pact_registration");
@@ -183,7 +188,37 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         is_general: false,
         custom_doc_name: "",
         email_sent_14d: false,
+        file_url: "",
+        file_name: "",
     });
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || uploadTargetIdx === null || !projectId) return;
+        
+        setLoading(true);
+        try {
+            const timestamp = Date.now();
+            const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `${projectId}/compliance/${timestamp}_${safeName}`;
+
+            const { error: storageErr } = await supabase.storage.from("project-documents").upload(storagePath, file);
+            if (storageErr) throw storageErr;
+            
+            const { data: urlData } = supabase.storage.from("project-documents").getPublicUrl(storagePath);
+            
+            updateRecord(uploadTargetIdx, 'file_url', urlData.publicUrl);
+            updateRecord(uploadTargetIdx, 'file_name', file.name);
+            
+        } catch (err) {
+            console.error(err);
+            alert("Error al subir archivo");
+        } finally {
+            setLoading(false);
+            setUploadTargetIdx(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
 
     const addRecord = (current?: ComplianceRecord[], silent?: boolean) => {
         const base = current ?? records;
@@ -245,9 +280,11 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     status: r.status,
                     subcontractor_name: r.subcontractor_name,
                     is_sub_doc: r.is_sub_doc,
-                    is_general: r.is_general || false,
+                    is_general: false,
                     custom_doc_name: r.custom_doc_name || null,
                     email_sent_14d: r.email_sent_14d || false,
+                    file_url: r.file_url || null,
+                    file_name: r.file_name || null,
                 };
 
                 if (id) {
@@ -322,7 +359,13 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                 </div>
             </div>
 
-
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleFileUpload} 
+                accept=".pdf,.jpg,.jpeg,.png"
+            />
 
             <div className="card border-none shadow-sm bg-white dark:bg-slate-900 p-0 overflow-hidden">
                 <div className="overflow-x-auto">
@@ -330,27 +373,13 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-8">#</th>
-                                <th className="text-center px-1 py-3 text-[9px] font-extrabold text-slate-400 uppercase tracking-tighter w-10" title="General (Ocultar Nombre)">
-                                    <div className="flex flex-col items-center leading-[0.8] py-1">
-                                        <span>C</span>
-                                        <span>O</span>
-                                        <span>N</span>
-                                        <span>T</span>
-                                        <span>R</span>
-                                        <span>A</span>
-                                        <span>T</span>
-                                        <span>I</span>
-                                        <span>S</span>
-                                        <span>T</span>
-                                        <span>A</span>
-                                    </div>
-                                </th>
-                                <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-48">Subcontratista</th>
+                                <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-48">Contrat/sub</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Tipo de Documento</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-40">Fecha Recibido</th>
-                                <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-40">Fecha Vencimiento</th>
+                                <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-44">Fecha Vencimiento</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-36">Estatus</th>
                                 <th className="text-center px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-16">Estado</th>
+                                <th className="text-center px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-16">Documento</th>
                                 <th className="w-10 px-2 py-3"></th>
                             </tr>
                         </thead>
@@ -372,32 +401,17 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                         >
                                             {/* Index */}
                                             <td className="px-4 py-2 text-slate-400 font-mono text-xs">{idx + 1}</td>
-                                            
-                                            {/* G Checkbox */}
-                                            <td className="px-4 py-2 text-center text-primary font-bold">
-                                                <input
-                                                    type="checkbox"
-                                                    className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
-                                                    checked={r.is_general || false}
-                                                    onChange={(e) => updateRecord(idx, 'is_general', e.target.checked)}
-                                                />
-                                            </td>
 
                                             {/* Subcontratista */}
                                             <td className="px-4 py-2 text-primary font-bold">
-                                                {!r.is_general && (
-                                                    <input
-                                                        type="text"
-                                                        placeholder={isSubcontracts ? "General / Subcontratos" : "Subcontratista"}
-                                                        className={`input-field text-xs w-full text-black ${isSubcontracts ? 'font-black border-primary/20' : ''}`}
-                                                        style={{ backgroundColor: '#66FF99' }}
-                                                        value={r.subcontractor_name || ""}
-                                                        onChange={(e) => updateRecord(idx, 'subcontractor_name', e.target.value)}
-                                                    />
-                                                )}
-                                                {r.is_general && (
-                                                    <span className="text-[10px] text-slate-400 italic">Documento General</span>
-                                                )}
+                                                <input
+                                                    type="text"
+                                                    placeholder={isSubcontracts ? "General / Subcontratos" : "Contrat/sub"}
+                                                    className={`input-field text-xs w-full text-black ${isSubcontracts ? 'font-black border-primary/20' : ''}`}
+                                                    style={{ backgroundColor: '#66FF99' }}
+                                                    value={r.subcontractor_name || ""}
+                                                    onChange={(e) => updateRecord(idx, 'subcontractor_name', e.target.value)}
+                                                />
                                             </td>
 
                                             {/* Tipo de Documento */}
@@ -460,14 +474,26 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                             {/* Fecha Vencimiento */}
                                             <td className="px-4 py-2">
                                                 {!isSubcontracts && (
-                                                    <input
-                                                        type="date"
-                                                        className="input-field text-xs w-full text-black"
-                                                        style={{ backgroundColor: '#66FF99' }}
-                                                        value={r.date_expiry || ""}
-                                                        onChange={(e) => updateRecord(idx, 'date_expiry', e.target.value)}
-                                                        onKeyDown={(e) => handleLastCellTab(e, idx)}
-                                                    />
+                                                    <div className="flex gap-1 items-center">
+                                                        <input
+                                                            type={r.date_expiry === 'N/A' ? 'text' : 'date'}
+                                                            disabled={r.date_expiry === 'N/A'}
+                                                            className={`input-field text-xs w-full text-black ${r.date_expiry === 'N/A' ? 'opacity-50' : ''}`}
+                                                            style={{ backgroundColor: '#66FF99' }}
+                                                            value={r.date_expiry || ""}
+                                                            onChange={(e) => updateRecord(idx, 'date_expiry', e.target.value)}
+                                                            onKeyDown={(e) => handleLastCellTab(e, idx)}
+                                                        />
+                                                        <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={r.date_expiry === 'N/A'} 
+                                                                onChange={(e) => updateRecord(idx, 'date_expiry', e.target.checked ? 'N/A' : '')}
+                                                                className="w-3 h-3 rounded text-primary focus:ring-primary"
+                                                            />
+                                                            N/A
+                                                        </label>
+                                                    </div>
                                                 )}
                                             </td>
 
@@ -516,6 +542,36 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                 )}
                                             </td>
 
+                                            {/* Documento */}
+                                            <td className="px-2 py-2 text-center">
+                                                {!isSubcontracts && (
+                                                    <div className="flex justify-center items-center h-full">
+                                                        {r.file_url ? (
+                                                            <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-100 dark:border-blue-800">
+                                                                <a href={r.file_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700" title="Ver documento">
+                                                                    <FileText size={16}/>
+                                                                </a>
+                                                                <button type="button" onClick={() => updateRecord(idx, 'file_url', null)} className="text-slate-300 hover:text-red-500 ml-1" title="Quitar adjunto">
+                                                                    <X size={14}/>
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => {
+                                                                    setUploadTargetIdx(idx);
+                                                                    if (fileInputRef.current) fileInputRef.current.click();
+                                                                }} 
+                                                                className="text-slate-400 hover:text-blue-500 transition-colors p-1" 
+                                                                title="Adjuntar documento"
+                                                            >
+                                                                <Upload size={16} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </td>
+
                                             {/* Eliminar */}
                                             <td className="px-2 py-2 text-center">
                                                 <button
@@ -541,7 +597,6 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
                                             return (
                                                 <tr key={`sub-${sidx}`} className="bg-slate-50/30 dark:bg-slate-800/20 animate-in slide-in-from-top-1 duration-200">
-                                                    <td className="px-4 py-2"></td>
                                                     <td className="px-4 py-2"></td>
                                                     {/* Nombre del Contratista */}
                                                     <td className="px-4 py-2">
@@ -585,13 +640,25 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                         />
                                                     </td>
                                                     <td className="px-4 py-2">
-                                                        <input
-                                                            type="date"
-                                                            className="input-field text-xs w-full text-black"
-                                                            style={{ backgroundColor: '#66FF99' }}
-                                                            value={sub.date_expiry || ""}
-                                                            onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.value)}
-                                                        />
+                                                        <div className="flex gap-1 items-center">
+                                                            <input
+                                                                type={sub.date_expiry === 'N/A' ? 'text' : 'date'}
+                                                                disabled={sub.date_expiry === 'N/A'}
+                                                                className={`input-field text-xs w-full text-black ${sub.date_expiry === 'N/A' ? 'opacity-50' : ''}`}
+                                                                style={{ backgroundColor: '#66FF99' }}
+                                                                value={sub.date_expiry || ""}
+                                                                onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.value)}
+                                                            />
+                                                            <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={sub.date_expiry === 'N/A'} 
+                                                                    onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.checked ? 'N/A' : '')}
+                                                                    className="w-3 h-3 rounded text-primary focus:ring-primary"
+                                                                />
+                                                                N/A
+                                                            </label>
+                                                        </div>
                                                     </td>
                                                     <td className="px-4 py-2">
                                                         <select
@@ -616,6 +683,32 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                                     boxShadow: subExpired ? "0 0 4px 1px rgba(239,68,68,0.4)" : "none"
                                                                 }}
                                                             />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-2 py-2 text-center">
+                                                        <div className="flex justify-center items-center h-full">
+                                                            {sub.file_url ? (
+                                                                <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-1 py-1 rounded border border-blue-100 dark:border-blue-800">
+                                                                    <a href={sub.file_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700" title="Ver documento">
+                                                                        <FileText size={14}/>
+                                                                    </a>
+                                                                    <button type="button" onClick={() => updateRecord(sidx, 'file_url', null)} className="text-slate-300 hover:text-red-500" title="Quitar adjunto">
+                                                                        <X size={12}/>
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => {
+                                                                        setUploadTargetIdx(sidx);
+                                                                        if (fileInputRef.current) fileInputRef.current.click();
+                                                                    }} 
+                                                                    className="text-slate-400 hover:text-blue-500 transition-colors p-1" 
+                                                                    title="Adjuntar documento"
+                                                                >
+                                                                    <Upload size={14} />
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="px-2 py-2 text-center">
