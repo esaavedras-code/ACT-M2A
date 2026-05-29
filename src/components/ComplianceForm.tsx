@@ -204,7 +204,20 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         try {
             const timestamp = Date.now();
             const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
-            const storagePath = `${projectId}/compliance/${timestamp}_${safeName}`;
+            
+            // Obtener el registro correspondiente al archivo que se está subiendo
+            const record = records[uploadTargetIdx];
+            let storagePath = "";
+            
+            if (record?.is_sub_doc || record?.subcontractor_name) {
+                // Si es un documento de subcontratista, guardarlo en su folder correspondiente
+                const subName = record.subcontractor_name || "Sin_Nombre";
+                const safeSubName = subName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+                storagePath = `${projectId}/compliance/subcontractors/${safeSubName}/${timestamp}_${safeName}`;
+            } else {
+                // Si es un documento del contratista general, guardarlo en el folder de contratista
+                storagePath = `${projectId}/compliance/contratista/${timestamp}_${safeName}`;
+            }
 
             const { error: storageErr } = await supabase.storage.from("project-documents").upload(storagePath, file);
             if (storageErr) throw storageErr;
