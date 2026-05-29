@@ -32,6 +32,94 @@ export const formatDate = (dateStr: string) => {
     return utilsFormatDate(dateStr);
 };
 
+export const generateSubcontractsReportLogic = async (projectId: string) => {
+    try {
+        const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
+        if (!project) throw new Error("Proyecto no encontrado");
+        
+        const { data: items } = await supabase.from('contract_items').select('*').eq('project_id', projectId);
+        
+        let montoProyecto = 0;
+        if (items) {
+            montoProyecto = items.reduce((acc, it) => acc + (parseFloat(it.quantity || 0) * parseFloat(it.unit_price || 0)), 0);
+        }
+        
+        const { data: compliance } = await supabase.from('labor_compliance').select('*').eq('project_id', projectId);
+        
+        const subcontractors = new Set<string>();
+        if (compliance) {
+            compliance.forEach(c => {
+                if (c.subcontractor_name && c.subcontractor_name.trim() !== "") {
+                    subcontractors.add(c.subcontractor_name.trim());
+                }
+            });
+        }
+        
+        const subList = Array.from(subcontractors).sort();
+        
+        const response = await fetch('/templates/Desglose_de_Subcontratos.xlsx');
+        if (!response.ok) throw new Error("No se pudo cargar el template de subcontratos. Asegúrese de que el archivo existe en public/templates.");
+        const arrayBuffer = await response.arrayBuffer();
+        
+        // @ts-ignore
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+        
+        const worksheet = workbook.worksheets[0];
+        if (!worksheet) throw new Error("El template no tiene hojas");
+        
+        let rowIdx = 4; // Fila donde inician los datos (0-indexed 3, Excel 4)
+        
+        if (subList.length === 0) {
+            // Si no hay subcontratos, poner uno vacio para no dejar la plantilla rota
+            const row = worksheet.getRow(rowIdx);
+            row.getCell(2).value = project.region || ""; 
+            row.getCell(3).value = project.num_act ? formatProjectNumber(project.num_act) : ""; 
+            row.getCell(4).value = project.name || ""; 
+            row.getCell(5).value = montoProyecto; 
+            row.getCell(6).value = project.admin_name || ""; 
+            row.getCell(7).value = ""; 
+            row.getCell(8).value = "NO HAY SUBCONTRATOS"; 
+            row.getCell(9).value = ""; 
+            row.getCell(10).value = ""; 
+            row.commit();
+        } else {
+            for (let i = 0; i < subList.length; i++) {
+                const subName = subList[i];
+                const row = worksheet.getRow(rowIdx);
+                
+                row.getCell(2).value = project.region || ""; 
+                row.getCell(3).value = project.num_act ? formatProjectNumber(project.num_act) : ""; 
+                row.getCell(4).value = project.name || ""; 
+                row.getCell(5).value = montoProyecto; 
+                row.getCell(6).value = project.admin_name || ""; 
+                row.getCell(7).value = i + 1; 
+                row.getCell(8).value = subName; 
+                row.getCell(9).value = ""; 
+                row.getCell(10).value = ""; 
+                
+                // Aplicar estilo de la fila 4 a las demas
+                if (rowIdx > 4) {
+                    const templateRow = worksheet.getRow(4);
+                    for (let col = 2; col <= 10; col++) {
+                        row.getCell(col).style = templateRow.getCell(col).style;
+                    }
+                }
+                row.commit();
+                rowIdx++;
+            }
+        }
+        
+        const buf = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        
+        await downloadBlob(blob, `Desglose_Subcontratos_${project.num_act || projectId}.xlsx`, project.num_act);
+    } catch (e: any) {
+        console.error(e);
+        throw e;
+    }
+};
+
 export const fetchAllReportData = async (projectId: string) => {
     try {
         const { data: project, error: pErr } = await supabase.from('projects').select('*').eq('id', projectId).single();

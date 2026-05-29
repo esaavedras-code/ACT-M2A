@@ -57,6 +57,7 @@ import {
     generatePayrollCertificationReportLogic,
     generateMaterialCertificationReportLogic,
     generateDbeCertificationReportLogic,
+    generateSubcontractsReportLogic,
     generateSignedItemsReportLogic,
     generateMissingSignaturesReportLogic,
     generateFaResumenAnualLogic,
@@ -586,6 +587,20 @@ function ReportesContent() {
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false)),
                             onExcel: () => generateDetailReportLogic(projectId, 'excel', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'subcontratos',
+                            label: 'Desglose de Subcontratos',
+                            description: 'Reporte basado en el template de Excel de subcontratos.',
+                            icon: <Files size={18} className="text-teal-500" />,
+                            onExcel: () => generateSubcontractsReportLogic(projectId)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))

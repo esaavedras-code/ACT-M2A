@@ -155,6 +155,10 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                 const subA = (a.subcontractor_name || "").toLowerCase();
                 const subB = (b.subcontractor_name || "").toLowerCase();
                 if (subA !== subB) return subA.localeCompare(subB);
+                
+                if (!a.is_sub_doc && b.is_sub_doc) return -1;
+                if (a.is_sub_doc && !b.is_sub_doc) return 1;
+                
                 return (a.doc_type || "").localeCompare(b.doc_type || "");
             }));
             setTimeout(() => checkUpcomingExpiries(data), 2000); // Check shortly after loading
