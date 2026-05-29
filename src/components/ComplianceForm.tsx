@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, ShieldCheck, Plus, Trash2, Download, Upload, Printer, FileText, X } from "lucide-react";
+import { Save, ShieldCheck, Plus, Trash2, Download, Upload, Printer, FileText, X, ListChecks } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import { formatDate, getLocalStorageItem } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
+import SubcontractItemsModal from "./SubcontractItemsModal";
 
 const COMPLIANCE_DOCS = [
     "Póliza del Fondo del Seguro del Estado",
@@ -40,6 +41,7 @@ type ComplianceRecord = {
     email_sent_14d?: boolean;
     file_url?: string;
     file_name?: string;
+    assigned_items?: any[];
 };
 
 function isExpired(date_expiry: string): boolean {
@@ -58,6 +60,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     const lastRowRef = useRef<HTMLTableRowElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadTargetIdx, setUploadTargetIdx] = useState<number | null>(null);
+    const [activeSubcontractModal, setActiveSubcontractModal] = useState<number | null>(null);
 
     const checkUpcomingExpiries = async (docs: any[]) => {
         const registrationStr = getLocalStorageItem("pact_registration");
@@ -331,6 +334,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     email_sent_14d: r.email_sent_14d || false,
                     file_url: r.file_url || null,
                     file_name: r.file_name || null,
+                    assigned_items: r.assigned_items || null,
                 };
 
                 if (id) {
@@ -490,16 +494,26 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                     </button>
                                                 </td>
 
-                                                {/* Botón Añadir Documento - Fecha Recibido (5) */}
+                                                {/* Botón Añadir Documento y Partidas - Fecha Recibido (5) */}
                                                 <td className="px-4 py-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => addSubDoc(idx)}
-                                                        className="text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 px-2 py-1.5 rounded flex items-center gap-1 whitespace-nowrap transition-colors"
-                                                        title="Añadir documento del subcontratista"
-                                                    >
-                                                        <Plus size={12} /> Añadir Documento
-                                                    </button>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => addSubDoc(idx)}
+                                                            className="text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 px-2 py-1.5 rounded flex items-center gap-1 whitespace-nowrap transition-colors"
+                                                            title="Añadir documento del subcontratista"
+                                                        >
+                                                            <Plus size={12} /> Añadir Documento
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setActiveSubcontractModal(idx)}
+                                                            className="text-[10px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 px-2 py-1.5 rounded flex items-center gap-1 whitespace-nowrap transition-colors"
+                                                            title="Añadir partidas al subcontrato"
+                                                        >
+                                                            <ListChecks size={12} /> Añadir Partidas
+                                                        </button>
+                                                    </div>
                                                 </td>
 
                                                 {/* Celdas vacías para mantener alineada la estructura (6, 7, 8, 9) */}
@@ -871,7 +885,21 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     }
                 ]}
             />
-
+        <SubcontractItemsModal
+            isOpen={activeSubcontractModal !== null}
+            onClose={() => setActiveSubcontractModal(null)}
+            projectId={projectId || ""}
+            subcontractorName={activeSubcontractModal !== null ? records[activeSubcontractModal]?.subcontractor_name || "" : ""}
+            assignedItems={activeSubcontractModal !== null ? records[activeSubcontractModal]?.assigned_items || [] : []}
+            onSave={(items) => {
+                if (activeSubcontractModal !== null) {
+                    const newRecords = [...records];
+                    newRecords[activeSubcontractModal].assigned_items = items;
+                    setRecords(newRecords);
+                    if (onDirty) onDirty();
+                }
+            }}
+        />
 
         </div>
     );
