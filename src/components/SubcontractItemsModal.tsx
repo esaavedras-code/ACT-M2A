@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { X, Search, Loader2 } from "lucide-react";
+import { X, Loader2, Plus, Trash2 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 export interface AssignedItem {
     item_num: string;
@@ -23,82 +24,119 @@ export default function SubcontractItemsModal({
     assignedItems: AssignedItem[], 
     onSave: (items: AssignedItem[]) => void 
 }) {
-    const [items, setItems] = useState<any[]>([]);
+    const [projectItems, setProjectItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState("");
     
-    // local state mapping item_num to { quantity, type }
-    const [selection, setSelection] = useState<Record<string, { quantity: number, type: string }>>({});
+    // Instead of a dictionary of selections, we use an array of rows
+    const [rows, setRows] = useState<Array<{
+        id: string; // unique row id
+        item_num: string;
+        spec_num: string;
+        description: string;
+        unit: string;
+        quantity: number;
+        unit_price: number;
+        type: "Especializada" | "NO Especializada";
+    }>>([]);
 
     useEffect(() => {
         if (!isOpen || !projectId) return;
         fetchItems();
-        
-        // initialize selection
-        const initial: Record<string, { quantity: number, type: string }> = {};
-        (assignedItems || []).forEach(i => {
-            initial[i.item_num] = { quantity: i.quantity, type: i.type || "NO Especializada" };
-        });
-        setSelection(initial);
-    }, [isOpen, projectId, assignedItems]);
+    }, [isOpen, projectId]);
 
     const fetchItems = async () => {
         setLoading(true);
         const { data } = await supabase.from('contract_items').select('*').eq('project_id', projectId);
         if (data) {
-            // natural sort
             const sorted = data.sort((a, b) => a.item_num.localeCompare(b.item_num, undefined, { numeric: true }));
-            setItems(sorted);
+            setProjectItems(sorted);
+            
+            // Reconstruct rows from assignedItems based on fetched data
+            const initialRows = (assignedItems || []).map(ai => {
+                const projectItem = sorted.find(pi => pi.item_num === ai.item_num);
+                return {
+                    id: Math.random().toString(36).substr(2, 9),
+                    item_num: ai.item_num,
+                    spec_num: projectItem ? projectItem.spec_num || "" : "",
+                    description: projectItem ? projectItem.description || "" : "",
+                    unit: projectItem ? projectItem.unit || "" : "",
+                    quantity: ai.quantity,
+                    unit_price: projectItem ? parseFloat(projectItem.unit_price || 0) : 0,
+                    type: ai.type || "NO Especializada"
+                };
+            });
+            // If empty, add one empty row
+            if (initialRows.length === 0) {
+                initialRows.push(createEmptyRow());
+            }
+            setRows(initialRows as any);
         }
         setLoading(false);
     };
 
-    const handleCheck = (itemNum: string, defaultQty: number) => {
-        setSelection(prev => {
-            const next = { ...prev };
-            if (next[itemNum]) {
-                delete next[itemNum];
-            } else {
-                next[itemNum] = { quantity: defaultQty, type: "NO Especializada" };
+    const createEmptyRow = () => ({
+        id: Math.random().toString(36).substr(2, 9),
+        item_num: "",
+        spec_num: "",
+        description: "",
+        unit: "",
+        quantity: 0,
+        unit_price: 0,
+        type: "NO Especializada" as const
+    });
+
+    const handleAddRow = () => {
+        setRows([...rows, createEmptyRow()]);
+    };
+
+    const handleRemoveRow = (id: string) => {
+        setRows(rows.filter(r => r.id !== id));
+    };
+
+    const handleItemChange = (id: string, newItemNum: string) => {
+        const pItem = projectItems.find(p => p.item_num === newItemNum);
+        setRows(rows.map(r => {
+            if (r.id === id) {
+                if (pItem) {
+                    return {
+                        ...r,
+                        item_num: newItemNum,
+                        spec_num: pItem.spec_num || "",
+                        description: pItem.description || "",
+                        unit: pItem.unit || "",
+                        quantity: parseFloat(pItem.quantity || 0),
+                        unit_price: parseFloat(pItem.unit_price || 0)
+                    };
+                }
+                return { ...r, item_num: newItemNum }; // just update number if not found
             }
-            return next;
-        });
+            return r;
+        }));
     };
 
-    const handleQtyChange = (itemNum: string, qty: number) => {
-        setSelection(prev => {
-            if (!prev[itemNum]) return prev;
-            return { ...prev, [itemNum]: { ...prev[itemNum], quantity: qty } };
-        });
-    };
-
-    const handleTypeChange = (itemNum: string, type: string) => {
-        setSelection(prev => {
-            if (!prev[itemNum]) return prev;
-            return { ...prev, [itemNum]: { ...prev[itemNum], type } };
-        });
+    const handleRowChange = (id: string, field: string, value: any) => {
+        setRows(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
     };
 
     const handleSave = () => {
-        const finalItems: AssignedItem[] = Object.keys(selection).map(item_num => ({
-            item_num,
-            quantity: selection[item_num].quantity,
-            type: selection[item_num].type as "Especializada" | "NO Especializada"
-        }));
+        const finalItems: AssignedItem[] = rows
+            .filter(r => r.item_num.trim() !== "")
+            .map(r => ({
+                item_num: r.item_num,
+                quantity: r.quantity,
+                type: r.type
+            }));
         onSave(finalItems);
         onClose();
     };
 
-    if (!isOpen) return null;
+    const totalAmount = rows.reduce((acc, r) => acc + (r.quantity * r.unit_price), 0);
 
-    const filtered = items.filter(i => 
-        i.item_num.toLowerCase().includes(search.toLowerCase()) || 
-        (i.description && i.description.toLowerCase().includes(search.toLowerCase()))
-    );
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[200] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-200">
                 
                 <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <div>
@@ -110,80 +148,105 @@ export default function SubcontractItemsModal({
                     </button>
                 </div>
 
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-3 text-slate-400" size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Buscar partida..." 
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                        />
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                     {loading ? (
                         <div className="flex items-center justify-center h-32"><Loader2 size={24} className="animate-spin text-primary" /></div>
                     ) : (
-                        <div className="space-y-2">
-                            {filtered.map(item => {
-                                const isSelected = !!selection[item.item_num];
-                                const selData = selection[item.item_num];
-                                const origQty = parseFloat(item.quantity || 0);
+                        <div className="space-y-4">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] uppercase font-black text-slate-400">
+                                        <th className="pb-2 pl-2 w-32">Partida</th>
+                                        <th className="pb-2">Spec</th>
+                                        <th className="pb-2">Descripción</th>
+                                        <th className="pb-2 text-right">Cantidad</th>
+                                        <th className="pb-2 text-center">Unidad</th>
+                                        <th className="pb-2 text-right">Unit Price</th>
+                                        <th className="pb-2 text-right">Amount</th>
+                                        <th className="pb-2 pl-4">Tipo</th>
+                                        <th className="pb-2 text-center w-10"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rows.map((row) => (
+                                        <tr key={row.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 group">
+                                            <td className="py-2 pl-2 pr-2">
+                                                <input 
+                                                    type="text" 
+                                                    list={`items-list-${row.id}`}
+                                                    value={row.item_num}
+                                                    onChange={(e) => handleItemChange(row.id, e.target.value)}
+                                                    placeholder="Ej. 100-1"
+                                                    className="w-full px-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-primary uppercase"
+                                                />
+                                                <datalist id={`items-list-${row.id}`}>
+                                                    {projectItems.map(p => <option key={p.id} value={p.item_num}>{p.description}</option>)}
+                                                </datalist>
+                                            </td>
+                                            <td className="py-2 pr-2">
+                                                <span className="text-xs text-slate-500 font-medium">{row.spec_num || "-"}</span>
+                                            </td>
+                                            <td className="py-2 pr-2">
+                                                <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold line-clamp-1" title={row.description}>{row.description || "-"}</span>
+                                            </td>
+                                            <td className="py-2 text-right pr-2">
+                                                <input 
+                                                    type="number" 
+                                                    value={row.quantity || ""}
+                                                    onChange={(e) => handleRowChange(row.id, 'quantity', parseFloat(e.target.value) || 0)}
+                                                    className="w-24 text-right px-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-primary"
+                                                />
+                                            </td>
+                                            <td className="py-2 text-center pr-2">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase">{row.unit || "-"}</span>
+                                            </td>
+                                            <td className="py-2 text-right pr-2 text-xs font-bold text-slate-600 dark:text-slate-400">
+                                                {formatCurrency(row.unit_price)}
+                                            </td>
+                                            <td className="py-2 text-right pr-2 text-xs font-black text-primary">
+                                                {formatCurrency(row.quantity * row.unit_price)}
+                                            </td>
+                                            <td className="py-2 pl-4">
+                                                <select 
+                                                    value={row.type}
+                                                    onChange={(e) => handleRowChange(row.id, 'type', e.target.value)}
+                                                    className="w-full px-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-primary"
+                                                >
+                                                    <option value="NO Especializada">NO Especializada</option>
+                                                    <option value="Especializada">Especializada</option>
+                                                </select>
+                                            </td>
+                                            <td className="py-2 pr-2 text-center">
+                                                <button 
+                                                    onClick={() => handleRemoveRow(row.id)}
+                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="Eliminar fila"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
 
-                                return (
-                                    <div key={item.id} className={`flex items-center gap-4 p-3 rounded-2xl border transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-slate-100 dark:border-slate-800 hover:border-slate-300'}`}>
-                                        <input 
-                                            type="checkbox" 
-                                            checked={isSelected}
-                                            onChange={() => handleCheck(item.item_num, origQty)}
-                                            className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer shrink-0"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-black text-slate-900 dark:text-white truncate">
-                                                {item.item_num} <span className="text-xs text-slate-400 ml-2 font-semibold">{item.description}</span>
-                                            </p>
-                                            <p className="text-[10px] font-bold text-slate-500 uppercase">
-                                                Original: {origQty} {item.unit} @ ${parseFloat(item.unit_price||0).toFixed(2)}
-                                            </p>
-                                        </div>
-                                        
-                                        {isSelected && (
-                                            <div className="flex items-center gap-3 shrink-0">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase">Cantidad</span>
-                                                    <input 
-                                                        type="number" 
-                                                        value={selData.quantity}
-                                                        onChange={(e) => handleQtyChange(item.item_num, parseFloat(e.target.value) || 0)}
-                                                        className="w-24 px-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-primary"
-                                                    />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase">Tipo</span>
-                                                    <select 
-                                                        value={selData.type}
-                                                        onChange={(e) => handleTypeChange(item.item_num, e.target.value)}
-                                                        className="w-36 px-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-primary"
-                                                    >
-                                                        <option value="NO Especializada">NO Especializada</option>
-                                                        <option value="Especializada">Especializada</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                            {filtered.length === 0 && <p className="text-center text-slate-500 py-8 text-sm">No se encontraron partidas</p>}
+                            <button 
+                                onClick={handleAddRow}
+                                className="mt-4 flex items-center gap-2 text-xs font-bold text-primary hover:text-primary/80 bg-primary/5 hover:bg-primary/10 px-4 py-2 rounded-xl transition-colors"
+                            >
+                                <Plus size={14} /> Añadir otra partida
+                            </button>
                         </div>
                     )}
                 </div>
 
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
-                    <span className="text-xs font-bold text-slate-500">{Object.keys(selection).length} partidas seleccionadas</span>
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 rounded-b-3xl">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total del Subcontrato</span>
+                        <span className="text-xl font-black text-slate-900 dark:text-white">
+                            {formatCurrency(totalAmount)}
+                        </span>
+                    </div>
                     <div className="flex gap-3">
                         <button onClick={onClose} className="px-6 py-2 rounded-xl text-xs font-black text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors uppercase tracking-widest">
                             Cancelar
