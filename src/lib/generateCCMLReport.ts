@@ -29,8 +29,9 @@ export async function generateCCMLReport(
     selectedChoId?: string
 ): Promise<Blob> {
     try {
-        const response = await fetch('/New Contract Modification Log amarillo.xlsx');
-        if (!response.ok) throw new Error(`No se encontró la plantilla CCML.`);
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        const response = await fetch(`${baseUrl}/New Contract Modification Log amarillo.xlsx`);
+        if (!response.ok) throw new Error("No se pudo cargar el template del CCML");
         const templateBuf = await response.arrayBuffer();
 
         const wb = new ExcelJS.Workbook();

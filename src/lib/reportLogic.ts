@@ -57,7 +57,8 @@ export const generateSubcontractsReportLogic = async (projectId: string) => {
         
         const subList = Array.from(subcontractors).sort();
         
-        const response = await fetch('/templates/Desglose_de_Subcontratos.xlsx');
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        const response = await fetch(`${baseUrl}/templates/Desglose_de_Subcontratos.xlsx`);
         if (!response.ok) throw new Error("No se pudo cargar el template de subcontratos. Asegúrese de que el archivo existe en public/templates.");
         const arrayBuffer = await response.arrayBuffer();
         
