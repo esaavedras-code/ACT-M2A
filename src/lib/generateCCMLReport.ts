@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { ccmlTemplateB64 } from './ccmlTemplate';
 import { formatDate, getFederalSharePct } from './utils';
 
 const translateDescription = (text: string) => {
@@ -29,10 +30,18 @@ export async function generateCCMLReport(
     selectedChoId?: string
 ): Promise<Blob> {
     try {
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        const response = await fetch(`${baseUrl}/New Contract Modification Log amarillo.xlsx`);
-        if (!response.ok) throw new Error("No se pudo cargar el template del CCML");
-        const templateBuf = await response.arrayBuffer();
+        let templateBuf: ArrayBuffer;
+        try {
+            const binaryString = typeof window !== 'undefined' ? window.atob(ccmlTemplateB64) : atob(ccmlTemplateB64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            templateBuf = bytes.buffer;
+        } catch (err) {
+            throw new Error("No se pudo cargar el template del CCML desde Base64.");
+        }
 
         const wb = new ExcelJS.Workbook();
         await wb.xlsx.load(templateBuf);

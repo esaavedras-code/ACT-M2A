@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName, sortItemsNaturally, uniqueSortItems } from "./utils";
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
+import { subcontratosTemplateB64 } from "./subcontratosTemplate";
 
 export const formatCurrency = (val: number, label?: string) => {
     if (val === null || val === undefined || isNaN(val)) return "$0.00";
@@ -57,10 +58,18 @@ export const generateSubcontractsReportLogic = async (projectId: string) => {
         
         const subList = Array.from(subcontractors).sort();
         
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        const response = await fetch(`${baseUrl}/templates/Desglose_de_Subcontratos.xlsx`);
-        if (!response.ok) throw new Error("No se pudo cargar el template de subcontratos. Asegúrese de que el archivo existe en public/templates.");
-        const arrayBuffer = await response.arrayBuffer();
+        let arrayBuffer: ArrayBuffer;
+        try {
+            const binaryString = typeof window !== 'undefined' ? window.atob(subcontratosTemplateB64) : atob(subcontratosTemplateB64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            arrayBuffer = bytes.buffer;
+        } catch (err) {
+            throw new Error("No se pudo cargar el template de subcontratos desde Base64.");
+        }
         
         // @ts-ignore
         const workbook = new ExcelJS.Workbook();
