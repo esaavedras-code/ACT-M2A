@@ -34,6 +34,7 @@ type ComplianceRecord = {
     status: string;
     subcontractor_name?: string;
     is_sub_doc?: boolean; // New flag for hierarchical logic
+    is_subcontractor?: boolean; // Indicar si es subcontratista principal
     is_general?: boolean;
     custom_doc_name?: string;
     email_sent_14d?: boolean;
@@ -178,7 +179,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         }
     }, [projectId]);
 
-    const buildNewRecord = (docType?: string, subName?: string, isSub?: boolean): ComplianceRecord => ({
+    const buildNewRecord = (docType?: string, subName?: string, isSub?: boolean, isSubcontractor?: boolean): ComplianceRecord => ({
         project_id: projectId,
         doc_type: docType || COMPLIANCE_DOCS[0],
         date_received: "",
@@ -187,6 +188,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         status: COMPLIANCE_STATUSES[0],
         subcontractor_name: subName || "",
         is_sub_doc: isSub || false,
+        is_subcontractor: isSubcontractor || false,
         is_general: false,
         custom_doc_name: "",
         email_sent_14d: false,
@@ -260,6 +262,21 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         if (onDirty) onDirty();
     };
 
+    const addSubDoc = (parentIdx: number) => {
+        const newList = [...records];
+        const parent = newList[parentIdx];
+        // Insertar subregistro justo después del padre o de sus hijos existentes
+        let insertPos = parentIdx + 1;
+        while (insertPos < newList.length && newList[insertPos].is_sub_doc) {
+            insertPos++;
+        }
+        // El subregistro se vincula usando el mismo nombre de subcontratista que el padre
+        newList.splice(insertPos, 0, buildNewRecord(COMPLIANCE_DOCS[0], parent.subcontractor_name || "", true, false));
+        setRecords(newList);
+        setExpandedRows(prev => ({ ...prev, [parentIdx]: true }));
+        if (onDirty) onDirty();
+    };
+
     const updateRecord = (idx: number, field: string, value: any) => {
         const newList = [...records];
         (newList[idx] as any)[field] = value;
@@ -291,6 +308,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     status: r.status,
                     subcontractor_name: r.subcontractor_name,
                     is_sub_doc: r.is_sub_doc,
+                    is_subcontractor: r.is_subcontractor || false,
                     is_general: false,
                     custom_doc_name: r.custom_doc_name || null,
                     email_sent_14d: r.email_sent_14d || false,
@@ -384,6 +402,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-8">#</th>
+                                <th className="text-center px-2 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-24">Subcontratista</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-48">Contrat/sub</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Tipo de Documento</th>
                                 <th className="text-left px-4 py-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider w-40">Fecha Recibido</th>
@@ -408,17 +427,36 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                     <Fragment key={idx}>
                                         <tr
                                             ref={isLast ? lastRowRef : undefined}
-                                            className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group ${isSubcontracts ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}`}
+                                            className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group ${(isSubcontracts || r.is_subcontractor) ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}`}
                                         >
                                             {/* Index */}
                                             <td className="px-4 py-2 text-slate-400 font-mono text-xs">{idx + 1}</td>
 
-                                            {/* Subcontratista */}
+                                            {/* Checkbox de Subcontratista */}
+                                            <td className="px-2 py-2 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={r.is_subcontractor || false}
+                                                    onChange={(e) => {
+                                                        const val = e.target.checked;
+                                                        updateRecord(idx, 'is_subcontractor', val);
+                                                        if (!val) {
+                                                            setExpandedRows(prev => ({ ...prev, [idx]: false }));
+                                                        } else {
+                                                            setExpandedRows(prev => ({ ...prev, [idx]: true }));
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                                                    title="Marcar si es subcontratista principal"
+                                                />
+                                            </td>
+
+                                            {/* Subcontratista / Contratista */}
                                             <td className="px-4 py-2 text-primary font-bold">
                                                 <input
                                                     type="text"
-                                                    placeholder={isSubcontracts ? "General / Subcontratos" : "Contrat/sub"}
-                                                    className={`input-field text-xs w-full text-black ${isSubcontracts ? 'font-black border-primary/20' : ''}`}
+                                                    placeholder={(isSubcontracts || r.is_subcontractor) ? "General / Subcontratos" : "Contrat/sub"}
+                                                    className={`input-field text-xs w-full text-black ${(isSubcontracts || r.is_subcontractor) ? 'font-black border-primary/20' : ''}`}
                                                     style={{ backgroundColor: '#66FF99' }}
                                                     value={r.subcontractor_name || ""}
                                                     onChange={(e) => updateRecord(idx, 'subcontractor_name', e.target.value)}
@@ -429,17 +467,18 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                             <td className="px-4 py-2">
                                                 <div className="flex flex-col gap-1.5">
                                                     <div className="flex items-center gap-2">
-                                                        {isSubcontracts && (
+                                                        {(isSubcontracts || r.is_subcontractor) && (
                                                             <button
+                                                                type="button"
                                                                 onClick={() => toggleExpand(idx)}
                                                                 className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
-                                                                title={isExpanded ? "Contraer" : "Expandir subcontratos"}
+                                                                title={isExpanded ? "Contraer" : "Expandir subregistros"}
                                                             >
                                                                 <Plus size={14} className={`transform transition-transform ${isExpanded ? 'rotate-45' : ''}`} />
                                                             </button>
                                                         )}
                                                         <select
-                                                            className={`input-field text-sm font-semibold w-full text-black ${isSubcontracts ? 'text-primary' : ''}`}
+                                                            className={`input-field text-sm font-semibold w-full text-black ${(isSubcontracts || r.is_subcontractor) ? 'text-primary' : ''}`}
                                                             style={{ backgroundColor: '#66FF99' }}
                                                             value={r.doc_type || ""}
                                                             onChange={(e) => updateRecord(idx, 'doc_type', e.target.value)}
@@ -461,9 +500,9 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                 </div>
                                             </td>
 
-                                            {/* Fecha Recibido */}
+                                            {/* Fecha Recibido / Botón Agregar Hijo */}
                                             <td className="px-4 py-2">
-                                                {!isSubcontracts && (
+                                                {!isSubcontracts && !r.is_subcontractor && (
                                                     <input
                                                         type="date"
                                                         className="input-field text-xs w-full text-black"
@@ -474,17 +513,28 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                 )}
                                                 {isSubcontracts && (
                                                     <button
+                                                        type="button"
                                                         onClick={() => addSubcontractor(idx)}
                                                         className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
                                                     >
                                                         <Plus size={12} /> Añadir Subcontratista
                                                     </button>
                                                 )}
+                                                {!isSubcontracts && r.is_subcontractor && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => addSubDoc(idx)}
+                                                        className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
+                                                        title="Añadir subregistro de documento"
+                                                    >
+                                                        <Plus size={12} /> Añadir Subregistro
+                                                    </button>
+                                                )}
                                             </td>
 
                                             {/* Fecha Vencimiento */}
                                             <td className="px-4 py-2">
-                                                {!isSubcontracts && (
+                                                {!isSubcontracts && !r.is_subcontractor && (
                                                     <div className="flex gap-1 items-center">
                                                         <input
                                                             type={r.date_expiry === 'N/A' ? 'text' : 'date'}
@@ -510,7 +560,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
                                             {/* Estatus */}
                                             <td className="px-4 py-2">
-                                                {!isSubcontracts && (
+                                                {!isSubcontracts && !r.is_subcontractor && (
                                                     <select
                                                         className="input-field text-xs w-full text-black"
                                                         style={{ backgroundColor: '#66FF99' }}
@@ -527,7 +577,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
                                             {/* Indicador de vencimiento */}
                                             <td className="px-4 py-2 text-center">
-                                                {!isSubcontracts && (
+                                                {!isSubcontracts && !r.is_subcontractor && (
                                                     <div className="flex items-center justify-center">
                                                         <div
                                                             title={expired ? "Documento vencido" : r.date_expiry ? "Vigente" : "Sin fecha de vencimiento"}
@@ -555,7 +605,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
                                             {/* Documento */}
                                             <td className="px-2 py-2 text-center">
-                                                {!isSubcontracts && (
+                                                {!isSubcontracts && !r.is_subcontractor && (
                                                     <div className="flex justify-center items-center h-full">
                                                         {r.file_url ? (
                                                             <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-100 dark:border-blue-800">
@@ -597,7 +647,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                         </tr>
 
                                         {/* Render children if expanded */}
-                                        {isSubcontracts && isExpanded && records.map((sub, sidx) => {
+                                        {(isSubcontracts || r.is_subcontractor) && isExpanded && records.map((sub, sidx) => {
                                             const isActualChild = sidx > idx && sub.is_sub_doc &&
                                                 !records.slice(idx + 1, sidx).some(m => !m.is_sub_doc);
 
@@ -608,7 +658,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
                                             return (
                                                 <tr key={`sub-${sidx}`} className="bg-slate-50/30 dark:bg-slate-800/20 animate-in slide-in-from-top-1 duration-200">
-                                                    <td className="px-4 py-2"></td>
+                                                    <td colSpan={2} className="px-4 py-2"></td>
                                                     {/* Nombre del Contratista */}
                                                     <td className="px-4 py-2">
                                                         <input
@@ -738,7 +788,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                 );
                             })}
                             <tr>
-                                <td colSpan={9} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                                <td colSpan={10} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
                                     <button
                                         type="button"
                                         onClick={() => addRecord()}
