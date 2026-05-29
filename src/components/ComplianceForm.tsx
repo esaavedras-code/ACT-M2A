@@ -425,255 +425,286 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
                                 return (
                                     <Fragment key={idx}>
-                                        <tr
-                                            ref={isLast ? lastRowRef : undefined}
-                                            className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group ${(isSubcontracts || r.is_subcontractor) ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}`}
-                                        >
-                                            {/* Index */}
-                                            <td className="px-4 py-2 text-slate-400 font-mono text-xs">{idx + 1}</td>
+                                        {r.is_subcontractor ? (
+                                            /* ── Fila compacta: sólo índice · checkbox · nombre en Contrat/sub · expandir en Tipo · añadir doc en Recibido ── */
+                                            <tr
+                                                ref={isLast ? lastRowRef : undefined}
+                                                className="hover:bg-emerald-50/40 dark:hover:bg-emerald-900/10 transition-colors bg-emerald-50/20 dark:bg-emerald-900/5 border-l-4 border-l-emerald-400"
+                                            >
+                                                {/* Index (1) */}
+                                                <td className="px-4 py-2 text-slate-400 font-mono text-xs">{idx + 1}</td>
 
-                                            {/* Checkbox de Subcontratista */}
-                                            <td className="px-2 py-2 text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={r.is_subcontractor || false}
-                                                    onChange={(e) => {
-                                                        const val = e.target.checked;
-                                                        updateRecord(idx, 'is_subcontractor', val);
-                                                        if (!val) {
-                                                            setExpandedRows(prev => ({ ...prev, [idx]: false }));
-                                                        } else {
-                                                            setExpandedRows(prev => ({ ...prev, [idx]: true }));
-                                                        }
-                                                    }}
-                                                    className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
-                                                    title="Marcar si es subcontratista principal"
-                                                />
-                                            </td>
-
-                                            {/* Subcontratista / Contratista */}
-                                            <td className="px-4 py-2 text-primary font-bold">
-                                                <input
-                                                    type="text"
-                                                    placeholder={(isSubcontracts || r.is_subcontractor) ? "General / Subcontratos" : "Contrat/sub"}
-                                                    className={`input-field text-xs w-full text-black ${(isSubcontracts || r.is_subcontractor) ? 'font-black border-primary/20' : ''}`}
-                                                    style={{ backgroundColor: '#66FF99' }}
-                                                    value={r.subcontractor_name || ""}
-                                                    onChange={(e) => updateRecord(idx, 'subcontractor_name', e.target.value)}
-                                                />
-                                            </td>
-
-                                            {/* Tipo de Documento */}
-                                            <td className="px-4 py-2">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <div className="flex items-center gap-2">
-                                                        {(isSubcontracts || r.is_subcontractor) && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleExpand(idx)}
-                                                                className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
-                                                                title={isExpanded ? "Contraer" : "Expandir subregistros"}
-                                                            >
-                                                                <Plus size={14} className={`transform transition-transform ${isExpanded ? 'rotate-45' : ''}`} />
-                                                            </button>
-                                                        )}
-                                                        <select
-                                                            className={`input-field text-sm font-semibold w-full text-black ${(isSubcontracts || r.is_subcontractor) ? 'text-primary' : ''}`}
-                                                            style={{ backgroundColor: '#66FF99' }}
-                                                            value={r.doc_type || ""}
-                                                            onChange={(e) => updateRecord(idx, 'doc_type', e.target.value)}
-                                                        >
-                                                            {COMPLIANCE_DOCS.map(doc => (
-                                                                <option key={doc} value={doc}>{doc}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                    {isOtros && (
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Especifique el nombre del documento"
-                                                            className="input-field text-[11px] w-full bg-blue-50 border-blue-200"
-                                                            value={r.custom_doc_name || ""}
-                                                            onChange={(e) => updateRecord(idx, 'custom_doc_name', e.target.value)}
-                                                        />
-                                                    )}
-                                                </div>
-                                            </td>
-
-                                            {/* Fecha Recibido / Botón Agregar Hijo */}
-                                            <td className="px-4 py-2">
-                                                {!isSubcontracts && !r.is_subcontractor && (
+                                                {/* Checkbox marcado (2) */}
+                                                <td className="px-2 py-2 text-center">
                                                     <input
-                                                        type="date"
-                                                        className="input-field text-xs w-full text-black"
-                                                        style={{ backgroundColor: '#66FF99' }}
-                                                        value={r.date_received || ""}
-                                                        onChange={(e) => updateRecord(idx, 'date_received', e.target.value)}
+                                                        type="checkbox"
+                                                        checked={true}
+                                                        onChange={() => {
+                                                            updateRecord(idx, 'is_subcontractor', false);
+                                                            setExpandedRows(prev => ({ ...prev, [idx]: false }));
+                                                        }}
+                                                        className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                                                        title="Desmarcar subcontratista"
                                                     />
-                                                )}
-                                                {isSubcontracts && (
+                                                </td>
+
+                                                {/* Celda del Nombre - Contrat/sub (3) */}
+                                                <td className="px-4 py-2">
+                                                     <input
+                                                         type="text"
+                                                         placeholder="Nombre del subcontratista"
+                                                         className="input-field text-sm font-bold w-full text-black border-emerald-300"
+                                                         style={{ backgroundColor: '#66FF99' }}
+                                                         value={r.subcontractor_name || ""}
+                                                         onChange={(e) => updateRecord(idx, 'subcontractor_name', e.target.value)}
+                                                     />
+                                                </td>
+
+                                                {/* Botón de expandir/contraer - Tipo de Documento (4) */}
+                                                <td className="px-4 py-2">
                                                     <button
                                                         type="button"
-                                                        onClick={() => addSubcontractor(idx)}
-                                                        className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
+                                                        onClick={() => toggleExpand(idx)}
+                                                        className="flex items-center gap-1.5 text-xs text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 px-2 py-1 rounded transition-colors font-semibold"
+                                                        title={isExpanded ? "Contraer documentos" : "Expandir documentos"}
                                                     >
-                                                        <Plus size={12} /> Añadir Subcontratista
+                                                        <Plus size={14} className={`transform transition-transform ${isExpanded ? 'rotate-45' : ''}`} />
+                                                        {isExpanded ? "Contraer" : "Ver Documentos"}
                                                     </button>
-                                                )}
-                                                {!isSubcontracts && r.is_subcontractor && (
+                                                </td>
+
+                                                {/* Botón Añadir Documento - Fecha Recibido (5) */}
+                                                <td className="px-4 py-2">
                                                     <button
                                                         type="button"
                                                         onClick={() => addSubDoc(idx)}
-                                                        className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
-                                                        title="Añadir subregistro de documento"
+                                                        className="text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 px-2 py-1.5 rounded flex items-center gap-1 whitespace-nowrap transition-colors"
+                                                        title="Añadir documento del subcontratista"
                                                     >
-                                                        <Plus size={12} /> Añadir Subregistro
+                                                        <Plus size={12} /> Añadir Documento
                                                     </button>
-                                                )}
-                                            </td>
+                                                </td>
 
-                                            {/* Fecha Vencimiento */}
-                                            <td className="px-4 py-2">
-                                                {!isSubcontracts && !r.is_subcontractor && (
-                                                    <div className="flex gap-1 items-center">
-                                                        <input
-                                                            type={r.date_expiry === 'N/A' ? 'text' : 'date'}
-                                                            disabled={r.date_expiry === 'N/A'}
-                                                            className={`input-field text-xs w-full text-black ${r.date_expiry === 'N/A' ? 'opacity-50' : ''}`}
-                                                            style={{ backgroundColor: '#66FF99' }}
-                                                            value={r.date_expiry || ""}
-                                                            onChange={(e) => updateRecord(idx, 'date_expiry', e.target.value)}
-                                                            onKeyDown={(e) => handleLastCellTab(e, idx)}
-                                                        />
-                                                        <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={r.date_expiry === 'N/A'} 
-                                                                onChange={(e) => updateRecord(idx, 'date_expiry', e.target.checked ? 'N/A' : '')}
-                                                                className="w-3 h-3 rounded text-primary focus:ring-primary"
-                                                            />
-                                                            N/A
-                                                        </label>
-                                                    </div>
-                                                )}
-                                            </td>
+                                                {/* Celdas vacías para mantener alineada la estructura (6, 7, 8, 9) */}
+                                                <td className="px-4 py-2"></td>
+                                                <td className="px-4 py-2"></td>
+                                                <td className="px-4 py-2"></td>
+                                                <td className="px-4 py-2"></td>
 
-                                            {/* Estatus */}
-                                            <td className="px-4 py-2">
-                                                {!isSubcontracts && !r.is_subcontractor && (
-                                                    <select
-                                                        className="input-field text-xs w-full text-black"
-                                                        style={{ backgroundColor: '#66FF99' }}
-                                                        value={r.status || ""}
-                                                        onChange={(e) => updateRecord(idx, 'status', e.target.value)}
-                                                        onKeyDown={(e) => handleLastCellTab(e, idx)}
+                                                {/* Eliminar (10) */}
+                                                <td className="px-2 py-2 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeRecord(idx)}
+                                                        className="text-slate-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
+                                                        title="Eliminar subcontratista"
                                                     >
-                                                        {COMPLIANCE_STATUSES.map(s => (
-                                                            <option key={s} value={s}>{s}</option>
-                                                        ))}
-                                                    </select>
-                                                )}
-                                            </td>
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            /* ── Fila normal ── */
+                                            <tr
+                                                ref={isLast ? lastRowRef : undefined}
+                                                className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group ${isSubcontracts ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}`}
+                                            >
+                                                {/* Index */}
+                                                <td className="px-4 py-2 text-slate-400 font-mono text-xs">{idx + 1}</td>
 
-                                            {/* Indicador de vencimiento */}
-                                            <td className="px-4 py-2 text-center">
-                                                {!isSubcontracts && !r.is_subcontractor && (
-                                                    <div className="flex items-center justify-center">
-                                                        <div
-                                                            title={expired ? "Documento vencido" : r.date_expiry ? "Vigente" : "Sin fecha de vencimiento"}
-                                                            style={{
-                                                                width: 18,
-                                                                height: 18,
-                                                                borderRadius: "50%",
-                                                                backgroundColor: expired
-                                                                    ? "#ef4444"
-                                                                    : r.date_expiry
-                                                                        ? "#22c55e"
-                                                                        : "#d1d5db",
-                                                                boxShadow: expired
-                                                                    ? "0 0 6px 2px rgba(239,68,68,0.45)"
-                                                                    : r.date_expiry
-                                                                        ? "0 0 6px 2px rgba(34,197,94,0.35)"
-                                                                        : "none",
-                                                                transition: "background-color 0.3s, box-shadow 0.3s",
-                                                                flexShrink: 0,
-                                                            }}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </td>
+                                                {/* Checkbox desmarcado */}
+                                                <td className="px-2 py-2 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={false}
+                                                        onChange={() => {
+                                                            updateRecord(idx, 'is_subcontractor', true);
+                                                            setExpandedRows(prev => ({ ...prev, [idx]: true }));
+                                                        }}
+                                                        className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                                                        title="Marcar como subcontratista"
+                                                    />
+                                                </td>
 
-                                            {/* Documento */}
-                                            <td className="px-2 py-2 text-center">
-                                                {!isSubcontracts && !r.is_subcontractor && (
-                                                    <div className="flex justify-center items-center h-full">
-                                                        {r.file_url ? (
-                                                            <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-100 dark:border-blue-800">
-                                                                <a href={r.file_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700" title="Ver documento">
-                                                                    <FileText size={16}/>
-                                                                </a>
-                                                                <button type="button" onClick={() => updateRecord(idx, 'file_url', null)} className="text-slate-300 hover:text-red-500 ml-1" title="Quitar adjunto">
-                                                                    <X size={14}/>
+                                                {/* Contrat/sub */}
+                                                <td className="px-4 py-2 text-primary font-bold">
+                                                    <input
+                                                        type="text"
+                                                        placeholder={isSubcontracts ? "General / Subcontratos" : "Contrat/sub"}
+                                                        className={`input-field text-xs w-full text-black ${isSubcontracts ? 'font-black border-primary/20' : ''}`}
+                                                        style={{ backgroundColor: '#66FF99' }}
+                                                        value={r.subcontractor_name || ""}
+                                                        onChange={(e) => updateRecord(idx, 'subcontractor_name', e.target.value)}
+                                                    />
+                                                </td>
+
+                                                {/* Tipo de Documento */}
+                                                <td className="px-4 py-2">
+                                                    <div className="flex flex-col gap-1.5">
+                                                        <div className="flex items-center gap-2">
+                                                            {isSubcontracts && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleExpand(idx)}
+                                                                    className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
+                                                                    title={isExpanded ? "Contraer" : "Expandir subcontratos"}
+                                                                >
+                                                                    <Plus size={14} className={`transform transition-transform ${isExpanded ? 'rotate-45' : ''}`} />
                                                                 </button>
-                                                            </div>
-                                                        ) : (
-                                                            <button 
-                                                                type="button" 
-                                                                onClick={() => {
-                                                                    setUploadTargetIdx(idx);
-                                                                    if (fileInputRef.current) fileInputRef.current.click();
-                                                                }} 
-                                                                className="text-slate-400 hover:text-blue-500 transition-colors p-1" 
-                                                                title="Adjuntar documento"
+                                                            )}
+                                                            <select
+                                                                className={`input-field text-sm font-semibold w-full text-black ${isSubcontracts ? 'text-primary' : ''}`}
+                                                                style={{ backgroundColor: '#66FF99' }}
+                                                                value={r.doc_type || ""}
+                                                                onChange={(e) => updateRecord(idx, 'doc_type', e.target.value)}
                                                             >
-                                                                <Upload size={16} />
-                                                            </button>
+                                                                {COMPLIANCE_DOCS.map(doc => (
+                                                                    <option key={doc} value={doc}>{doc}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        {isOtros && (
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Especifique el nombre del documento"
+                                                                className="input-field text-[11px] w-full bg-blue-50 border-blue-200"
+                                                                value={r.custom_doc_name || ""}
+                                                                onChange={(e) => updateRecord(idx, 'custom_doc_name', e.target.value)}
+                                                            />
                                                         )}
                                                     </div>
-                                                )}
-                                            </td>
+                                                </td>
 
-                                            {/* Eliminar */}
-                                            <td className="px-2 py-2 text-center">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeRecord(idx)}
-                                                    className="text-slate-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50"
-                                                    title="Eliminar fila"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
+                                                {/* Fecha Recibido */}
+                                                <td className="px-4 py-2">
+                                                    {!isSubcontracts && (
+                                                        <input
+                                                            type="date"
+                                                            className="input-field text-xs w-full text-black"
+                                                            style={{ backgroundColor: '#66FF99' }}
+                                                            value={r.date_received || ""}
+                                                            onChange={(e) => updateRecord(idx, 'date_received', e.target.value)}
+                                                        />
+                                                    )}
+                                                    {isSubcontracts && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => addSubcontractor(idx)}
+                                                            className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
+                                                        >
+                                                            <Plus size={12} /> Añadir Subcontratista
+                                                        </button>
+                                                    )}
+                                                </td>
 
-                                        {/* Render children if expanded */}
+                                                {/* Fecha Vencimiento */}
+                                                <td className="px-4 py-2">
+                                                    {!isSubcontracts && (
+                                                        <div className="flex gap-1 items-center">
+                                                            <input
+                                                                type={r.date_expiry === 'N/A' ? 'text' : 'date'}
+                                                                disabled={r.date_expiry === 'N/A'}
+                                                                className={`input-field text-xs w-full text-black ${r.date_expiry === 'N/A' ? 'opacity-50' : ''}`}
+                                                                style={{ backgroundColor: '#66FF99' }}
+                                                                value={r.date_expiry || ""}
+                                                                onChange={(e) => updateRecord(idx, 'date_expiry', e.target.value)}
+                                                                onKeyDown={(e) => handleLastCellTab(e, idx)}
+                                                            />
+                                                            <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={r.date_expiry === 'N/A'}
+                                                                    onChange={(e) => updateRecord(idx, 'date_expiry', e.target.checked ? 'N/A' : '')}
+                                                                    className="w-3 h-3 rounded text-primary focus:ring-primary"
+                                                                />
+                                                                N/A
+                                                            </label>
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Estatus */}
+                                                <td className="px-4 py-2">
+                                                    {!isSubcontracts && (
+                                                        <select
+                                                            className="input-field text-xs w-full text-black"
+                                                            style={{ backgroundColor: '#66FF99' }}
+                                                            value={r.status || ""}
+                                                            onChange={(e) => updateRecord(idx, 'status', e.target.value)}
+                                                            onKeyDown={(e) => handleLastCellTab(e, idx)}
+                                                        >
+                                                            {COMPLIANCE_STATUSES.map(s => (
+                                                                <option key={s} value={s}>{s}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+                                                </td>
+
+                                                {/* Indicador de vencimiento */}
+                                                <td className="px-4 py-2 text-center">
+                                                    {!isSubcontracts && (
+                                                        <div className="flex items-center justify-center">
+                                                            <div
+                                                                title={expired ? "Documento vencido" : r.date_expiry ? "Vigente" : "Sin fecha de vencimiento"}
+                                                                style={{
+                                                                    width: 18, height: 18, borderRadius: "50%",
+                                                                    backgroundColor: expired ? "#ef4444" : r.date_expiry ? "#22c55e" : "#d1d5db",
+                                                                    boxShadow: expired ? "0 0 6px 2px rgba(239,68,68,0.45)" : r.date_expiry ? "0 0 6px 2px rgba(34,197,94,0.35)" : "none",
+                                                                    transition: "background-color 0.3s, box-shadow 0.3s", flexShrink: 0,
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Documento */}
+                                                <td className="px-2 py-2 text-center">
+                                                    {!isSubcontracts && (
+                                                        <div className="flex justify-center items-center h-full">
+                                                            {r.file_url ? (
+                                                                <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-100 dark:border-blue-800">
+                                                                    <a href={r.file_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700" title="Ver documento"><FileText size={16} /></a>
+                                                                    <button type="button" onClick={() => updateRecord(idx, 'file_url', null)} className="text-slate-300 hover:text-red-500 ml-1" title="Quitar adjunto"><X size={14} /></button>
+                                                                </div>
+                                                            ) : (
+                                                                <button type="button" onClick={() => { setUploadTargetIdx(idx); if (fileInputRef.current) fileInputRef.current.click(); }} className="text-slate-400 hover:text-blue-500 transition-colors p-1" title="Adjuntar documento">
+                                                                    <Upload size={16} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Eliminar */}
+                                                <td className="px-2 py-2 text-center">
+                                                    <button type="button" onClick={() => removeRecord(idx)} className="text-slate-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50" title="Eliminar fila">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        )}
+
+                                        {/* Subregistros (documentos del subcontratista) si está expandido */}
                                         {(isSubcontracts || r.is_subcontractor) && isExpanded && records.map((sub, sidx) => {
                                             const isActualChild = sidx > idx && sub.is_sub_doc &&
                                                 !records.slice(idx + 1, sidx).some(m => !m.is_sub_doc);
-
                                             if (!isActualChild) return null;
 
                                             const subExpired = isExpired(sub.date_expiry);
                                             const subIsOtros = sub.doc_type === "Otros";
 
                                             return (
-                                                <tr key={`sub-${sidx}`} className="bg-slate-50/30 dark:bg-slate-800/20 animate-in slide-in-from-top-1 duration-200">
-                                                    <td colSpan={2} className="px-4 py-2"></td>
-                                                    {/* Nombre del Contratista */}
-                                                    <td className="px-4 py-2">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Empresa / Contratista"
-                                                            className="input-field text-sm font-bold border-primary/20 bg-white"
-                                                            value={sub.subcontractor_name || ""}
-                                                            onChange={(e) => updateRecord(sidx, 'subcontractor_name', e.target.value)}
-                                                        />
+                                                <tr key={`sub-${sidx}`} className="bg-emerald-50/20 dark:bg-emerald-900/5 border-l-4 border-l-emerald-200 animate-in slide-in-from-top-1 duration-200">
+                                                    {/* Sangría (2 celdas vacías = índice + checkbox) */}
+                                                    <td colSpan={2} className="px-2 py-2 text-center">
+                                                        <span className="text-emerald-400 text-xs pl-4">↳</span>
                                                     </td>
-                                                    {/* Tipo de Documento */}
-                                                    <td className="px-4 py-2">
-                                                        <div className="flex flex-col gap-1.5">
+
+                                                    {/* Tipo de Documento — ocupa el espacio del nombre (1 col) */}
+                                                    <td className="px-4 py-2" colSpan={2}>
+                                                        <div className="flex flex-col gap-1">
                                                             <select
-                                                                className="input-field text-xs font-semibold w-full bg-white border-slate-200"
+                                                                className="input-field text-xs font-semibold w-full bg-white border-emerald-200"
                                                                 value={sub.doc_type || ""}
                                                                 onChange={(e) => updateRecord(sidx, 'doc_type', e.target.value)}
                                                             >
@@ -692,6 +723,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                             )}
                                                         </div>
                                                     </td>
+
+                                                    {/* Fecha Recibido */}
                                                     <td className="px-4 py-2">
                                                         <input
                                                             type="date"
@@ -700,6 +733,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                             onChange={(e) => updateRecord(sidx, 'date_received', e.target.value)}
                                                         />
                                                     </td>
+
+                                                    {/* Fecha Vencimiento */}
                                                     <td className="px-4 py-2">
                                                         <div className="flex gap-1 items-center">
                                                             <input
@@ -711,9 +746,9 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                                 onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.value)}
                                                             />
                                                             <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
-                                                                <input 
-                                                                    type="checkbox" 
-                                                                    checked={sub.date_expiry === 'N/A'} 
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={sub.date_expiry === 'N/A'}
                                                                     onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.checked ? 'N/A' : '')}
                                                                     className="w-3 h-3 rounded text-primary focus:ring-primary"
                                                                 />
@@ -721,6 +756,8 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                             </label>
                                                         </div>
                                                     </td>
+
+                                                    {/* Estatus */}
                                                     <td className="px-4 py-2">
                                                         <select
                                                             className="input-field text-xs w-full text-black"
@@ -733,51 +770,37 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                             ))}
                                                         </select>
                                                     </td>
+
+                                                    {/* Indicador de expiración */}
                                                     <td className="px-4 py-2 text-center">
                                                         <div className="flex items-center justify-center">
-                                                            <div
-                                                                style={{
-                                                                    width: 14,
-                                                                    height: 14,
-                                                                    borderRadius: "50%",
-                                                                    backgroundColor: subExpired ? "#ef4444" : sub.date_expiry ? "#22c55e" : "#d1d5db",
-                                                                    boxShadow: subExpired ? "0 0 4px 1px rgba(239,68,68,0.4)" : "none"
-                                                                }}
-                                                            />
+                                                            <div style={{
+                                                                width: 14, height: 14, borderRadius: "50%",
+                                                                backgroundColor: subExpired ? "#ef4444" : sub.date_expiry ? "#22c55e" : "#d1d5db",
+                                                                boxShadow: subExpired ? "0 0 4px 1px rgba(239,68,68,0.4)" : sub.date_expiry ? "0 0 4px 1px rgba(34,197,94,0.35)" : "none"
+                                                            }} />
                                                         </div>
                                                     </td>
+
+                                                    {/* Archivo */}
                                                     <td className="px-2 py-2 text-center">
                                                         <div className="flex justify-center items-center h-full">
                                                             {sub.file_url ? (
                                                                 <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-1 py-1 rounded border border-blue-100 dark:border-blue-800">
-                                                                    <a href={sub.file_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700" title="Ver documento">
-                                                                        <FileText size={14}/>
-                                                                    </a>
-                                                                    <button type="button" onClick={() => updateRecord(sidx, 'file_url', null)} className="text-slate-300 hover:text-red-500" title="Quitar adjunto">
-                                                                        <X size={12}/>
-                                                                    </button>
+                                                                    <a href={sub.file_url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700" title="Ver documento"><FileText size={14} /></a>
+                                                                    <button type="button" onClick={() => updateRecord(sidx, 'file_url', null)} className="text-slate-300 hover:text-red-500" title="Quitar adjunto"><X size={12} /></button>
                                                                 </div>
                                                             ) : (
-                                                                <button 
-                                                                    type="button" 
-                                                                    onClick={() => {
-                                                                        setUploadTargetIdx(sidx);
-                                                                        if (fileInputRef.current) fileInputRef.current.click();
-                                                                    }} 
-                                                                    className="text-slate-400 hover:text-blue-500 transition-colors p-1" 
-                                                                    title="Adjuntar documento"
-                                                                >
+                                                                <button type="button" onClick={() => { setUploadTargetIdx(sidx); if (fileInputRef.current) fileInputRef.current.click(); }} className="text-slate-400 hover:text-blue-500 transition-colors p-1" title="Adjuntar documento">
                                                                     <Upload size={14} />
                                                                 </button>
                                                             )}
                                                         </div>
                                                     </td>
+
+                                                    {/* Eliminar subregistro */}
                                                     <td className="px-2 py-2 text-center">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeRecord(sidx)}
-                                                            className="text-slate-300 hover:text-red-500 transition-colors"
-                                                        >
+                                                        <button type="button" onClick={() => removeRecord(sidx)} className="text-slate-300 hover:text-red-500 transition-colors">
                                                             <Trash2 size={14} />
                                                         </button>
                                                     </td>
