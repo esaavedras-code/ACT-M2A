@@ -38,6 +38,7 @@ const ProjectFilesExplorer = dynamic(() => import("@/components/ProjectFilesExpl
 const MonthlyPresentations = dynamic(() => import("@/components/MonthlyPresentations"), { ssr: false });
 const UpdateTablesForm = dynamic(() => import("@/components/UpdateTablesForm"), { ssr: false });
 const SummaryDashboard = dynamic(() => import("@/components/SummaryDashboard"), { ssr: false });
+const ProjectTasks = dynamic(() => import("@/components/ProjectTasks"), { ssr: false });
 
 function ProjectDetailContent() {
     const searchParams = useSearchParams();
@@ -134,6 +135,7 @@ function ProjectDetailContent() {
         { id: "presentations", label: "Presentaciones",          icon: <Presentation size={12} /> },
         { id: "update-tables", label: "Actualizar tablas",       icon: <RefreshCcw size={12} /> },
         { id: "files",       label: role === 'E' ? "📸 Fotos" : "Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
+        { id: "tasks",       label: "Pendientes",                 icon: <ListChecks size={12} /> },
     ];
 
     // Filtrar pestañas basadas en roles
@@ -145,7 +147,7 @@ function ProjectDetailContent() {
     const filteredTabs = tabs.filter(t => {
         // ── Rol E (Inspector): solo ve Actividades y Fotos ──────────────
         if (role === 'E') {
-            return t.id === 'logs' || t.id === 'files';
+            return t.id === 'logs' || t.id === 'files' || t.id === 'tasks';
         }
 
         // ── Roles B y C (Administrador de Proyecto / Data Entry) ────────
@@ -591,6 +593,7 @@ function ProjectDetailContent() {
                                 {activeTab === "liquidation" && <LiquidationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "ccml"        && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                 {activeTab === "files"       && <ProjectFilesExplorer projectId={id} userRole={role} />}
+                                {activeTab === "tasks"       && <ProjectTasks projectId={id} userRole={role} />}
                                 {activeTab === "update-tables" && <UpdateTablesForm projectId={id || ""} numAct={numAct} />}
                                 {activeTab === "negotiation" && (
                                     <div className="space-y-6">
