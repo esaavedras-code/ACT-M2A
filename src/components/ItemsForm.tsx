@@ -48,7 +48,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 supabase.removeChannel(channel);
             };
         } else {
-            setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1 }]);
+            setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1, mfg_cert_description: "" }]);
         }
     }, [projectId]);
 
@@ -71,7 +71,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
     const fetchItems = async () => {
         const { data } = await supabase.from("contract_items").select("*").eq("project_id", projectId).order('item_num', { ascending: true });
         if (data && data.length > 0) setItems(sortItemsNaturally(data));
-        else setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1 }]);
+        else setItems([{ item_num: "", specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1, mfg_cert_description: "" }]);
     };
 
     const fetchCHOs = async () => {
@@ -104,7 +104,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
             return isNaN(num) ? max : Math.max(max, num);
         }, 0);
         const nextNum = (maxNum + 1).toString().padStart(3, '0');
-        setItems([...items, { item_num: nextNum, specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1 }]);
+        setItems([...items, { item_num: nextNum, specification: "", description: "", additional_description: "", quantity: 0, unit: "", unit_price: 0, fund_source: FUND_SOURCES[0], requires_mfg_cert: false, mfg_cert_qty: 1, mfg_cert_description: "" }]);
         if (onDirty) onDirty();
     };
 
@@ -128,7 +128,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
             unit_price: 0,
             fund_source: FUND_SOURCES[0],
             requires_mfg_cert: false,
-            mfg_cert_qty: 1
+            mfg_cert_qty: 1,
+            mfg_cert_description: ""
         });
         setItems(newItems);
         if (onDirty) onDirty();
@@ -510,13 +511,24 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                 )}
                                             </label>
                                             {item.requires_mfg_cert && (item.unit === 'LS' || item.unit === 'LUMP SUM') && (
-                                                <input
-                                                    type="number"
-                                                    title="Cantidad de Certificados de Manufactura Requeridos"
-                                                    className="w-10 h-5 mt-1 text-[10px] text-center font-bold border border-amber-300 rounded mx-auto block"
-                                                    value={item.mfg_cert_qty || 1}
-                                                    onChange={(e) => updateItem(idx, 'mfg_cert_qty', parseInt(e.target.value) || 1)}
-                                                />
+                                                <div className="mt-1 flex flex-col gap-1 items-center">
+                                                    <input
+                                                        type="number"
+                                                        title="Cantidad de CMs Requeridos"
+                                                        className="w-10 h-5 text-[10px] text-center font-bold border border-amber-300 rounded block"
+                                                        value={item.mfg_cert_qty || 1}
+                                                        min={1}
+                                                        onChange={(e) => updateItem(idx, 'mfg_cert_qty', parseInt(e.target.value) || 1)}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        title="Descripción del material que requiere CM"
+                                                        placeholder="Descripción material CM..."
+                                                        className="w-20 h-5 text-[9px] text-center border border-amber-200 rounded block px-1"
+                                                        value={item.mfg_cert_description || ''}
+                                                        onChange={(e) => updateItem(idx, 'mfg_cert_description', e.target.value)}
+                                                    />
+                                                </div>
                                             )}
                                         </td>
                                         <td className="px-1 py-1.5 text-center">
