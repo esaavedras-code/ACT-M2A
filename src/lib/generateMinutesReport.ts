@@ -168,7 +168,7 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
     };
 
     // --- Header ---
-    drawText('M2A Group - Engineers, LLP - WSP Puerto Rico PC', margin, y, 9, false, 'center');
+    drawText('Engineers, LLP - WSP Puerto Rico PC', margin, y, 9, false, 'center');
     y -= 25;
 
     // Meeting Details Section

@@ -33,6 +33,15 @@ import AboutModal from './AboutModal';
 import { generateAct117C } from '@/lib/generateAct117C';
 
 
+export const normalizeItemNum = (num: any): string => {
+    if (num === undefined || num === null) return "";
+    const str = num.toString().trim();
+    if (/^\d+$/.test(str)) {
+        return str.padStart(3, '0');
+    }
+    return str;
+};
+
 const FUND_SOURCES = ["FHWA 0%", "FHWA 80.25%", "FHWA 100%", "ACT 100%"];
 
 interface PaymentCertFormProps {
@@ -167,17 +176,17 @@ const PaymentCertForm = React.forwardRef(({
         for (let i = currentCertIdx; i < allCerts.length; i++) {
             const cert = allCerts[i];
             const items = cert?.items || [];
-            const match = items.find((it: any) => it.item_num === itemNum && it.has_material_on_site && (parseFloat(it.mos_unit_price) > 0));
+            const match = items.find((it: any) => normalizeItemNum(it.item_num) === normalizeItemNum(itemNum) && it.has_material_on_site && (parseFloat(it.mos_unit_price) > 0));
             if (match) return parseFloat(match.mos_unit_price);
         }
         return 0;
     };
 
     const getItemMfgStatus = (itemNum: string, certIdx: number, currentQty?: number) => {
-        const itemNumStr = (itemNum || "").toString().trim();
+        const itemNumStr = normalizeItemNum(itemNum);
         if (!itemNumStr) return { status: 'NOT_REQUIRED', available: 0, used: 0, missing: 0 };
         
-        const baseItem = contractItems.find(it => (it.item_num || "").toString().trim() === itemNumStr);
+        const baseItem = contractItems.find(it => normalizeItemNum(it.item_num) === itemNumStr);
         if (!baseItem || !baseItem.requires_mfg_cert) return { status: 'NOT_REQUIRED', available: 0, used: 0, missing: 0 };
 
         // 1. Total aprobado en Certificados de Manufactura (TODOS, sin filtro de estatus)
@@ -186,7 +195,7 @@ const PaymentCertForm = React.forwardRef(({
         mfgCerts.forEach(cert => {
             // Buscar por item_id (UUID) cruzando con contractItems
             const matchedItem = contractItems.find(it => it.id === cert.item_id);
-            if (matchedItem && (matchedItem.item_num || "").toString().trim() === itemNumStr) {
+            if (matchedItem && normalizeItemNum(matchedItem.item_num) === itemNumStr) {
                 totalMfgApproved += parseFloat(cert.quantity) || 0;
             }
         });
@@ -196,7 +205,7 @@ const PaymentCertForm = React.forwardRef(({
         let paidInPrevious = 0;
         for (let i = certIdx + 1; i < certs.length; i++) {
             const items = certs[i]?.items || [];
-            const match = items.find((it: any) => (it.item_num || "").toString().trim() === itemNumStr);
+            const match = items.find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
             if (match) paidInPrevious += parseFloat(match.quantity) || 0;
         }
 
@@ -208,7 +217,7 @@ const PaymentCertForm = React.forwardRef(({
             ? currentQty
             : (() => {
                 const items = certs[certIdx]?.items || [];
-                const match = items.find((it: any) => (it.item_num || "").toString().trim() === itemNumStr);
+                const match = items.find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
                 return parseFloat(match?.quantity) || 0;
             })();
 
@@ -521,14 +530,15 @@ const PaymentCertForm = React.forwardRef(({
     };
 
     const getItemTotalRevisedQty = (itemNum: string) => {
-        const baseItem = contractItems.find(it => (it.item_num || "").toString().trim() === (itemNum || "").toString().trim());
+        const normalized = normalizeItemNum(itemNum);
+        const baseItem = contractItems.find(it => normalizeItemNum(it.item_num) === normalized);
         let baseQty = Number(baseItem?.quantity) || 0;
         
         const changeOrders = projectData?.change_orders || projectData?.chos || [];
         let extra = 0;
         changeOrders.forEach((co: any) => {
             const items = Array.isArray(co.items) ? co.items : (co.items as any)?.list || [];
-            const coItem = items.find((it: any) => (it.item_num || "").toString().trim() === (itemNum || "").toString().trim());
+            const coItem = items.find((it: any) => normalizeItemNum(it.item_num) === normalized);
             if (coItem) {
                 // Considerar proposed_change si existe, de lo contrario quantity
                 const qty = parseFloat(coItem.proposed_change !== undefined ? coItem.proposed_change : coItem.quantity) || 0;
@@ -1103,15 +1113,15 @@ const PaymentCertForm = React.forwardRef(({
                                                     // Necesitamos sumar desde certIdx + 1 hasta el final para pagos PREVIOS
                                                     for (let k = certIdx + 1; k < certs.length; k++) {
                                                         const prevCertItems = certs[k]?.items || [];
-                                                        const match = prevCertItems.find((p: any) => (p.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
+                                                        const match = prevCertItems.find((p: any) => normalizeItemNum(p.item_num) === normalizeItemNum(item.item_num));
                                                         if (match) paidInPrevious += parseFloat(match.quantity) || 0;
                                                     }
                                                     const availableBalance = totalRevisedQty - paidInPrevious;
                                                     
-                                                    const itemExistsInContract = contractItems.some(it => (it.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
+                                                    const itemExistsInContract = contractItems.some(it => normalizeItemNum(it.item_num) === normalizeItemNum(item.item_num));
                                                     const isKnownItem = itemExistsInContract || (projectData?.change_orders || projectData?.chos || []).some((co: any) => {
                                                         const items = Array.isArray(co.items) ? co.items : (co.items as any)?.list || [];
-                                                        return items.some((it: any) => (it.item_num || "").toString().trim() === (item.item_num || "").toString().trim());
+                                                        return items.some((it: any) => normalizeItemNum(it.item_num) === normalizeItemNum(item.item_num));
                                                     });
 
                                                     const workQty = parseFloat(item.quantity) || 0;

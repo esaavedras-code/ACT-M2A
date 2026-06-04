@@ -271,37 +271,34 @@ export async function generateAct122B(
             setVal(ws, 'AL52', personnelMap["Director Oficina Construccion"] || '', { shrink: true });
             setVal(ws, 'M56', 'Ing. Edwin González Montalvo', { shrink: true }); // Director Ejecutivo o FHWA
 
-            // 36. Justificación Texto
-            setVal(ws, 'C72', choData.justification || '', { shrink: true });
-
             // 8. PÁGINA 2 (BACK)
             setVal(ws, 'K63', projData.name || '', { shrink: true });
             setVal(ws, 'K64', projData.num_act || '');
             setVal(ws, 'BC64', choData.amendment_letter || '0', { center: true });
             setVal(ws, 'AZ64', choData.cho_num || '', { center: true });
 
-            // Restaurar visualmente los Radio Buttons de la fila 65 (que exceljs pierde)
-            setVal(ws, 'H65', '○ Design');
-            setVal(ws, 'R65', '○ Construction');
-            setVal(ws, 'AB65', '○ Contract');
-            setVal(ws, 'AL65', '○ Utilities');
-            setVal(ws, 'AV65', '○ Other');
+            // Restaurar visualmente los Radio Buttons de la fila 68 (que exceljs pierde)
+            setVal(ws, 'H68', '○ Design');
+            setVal(ws, 'R68', '○ Construction');
+            setVal(ws, 'AB68', '○ Contract');
+            setVal(ws, 'AL68', '○ Utilities');
+            setVal(ws, 'AV68', '○ Other');
 
-            // Numeración de página (55 y 113) en las celdas originales del template
-            setVal(ws, 'Z55', ''); // Limpiar si es que habíamos escrito en la Z
-            setVal(ws, 'Z113', '');
+            // Numeración de página (59 y 117) en las celdas originales del template
+            setVal(ws, 'Z59', ''); // Limpiar si es que habíamos escrito en la Z
+            setVal(ws, 'Z117', '');
             
-            // Fila 55
-            setVal(ws, 'AA55', 'Page');
-            setVal(ws, 'AE55', pageIndex + 1);
-            setVal(ws, 'AG55', 'of');
-            setVal(ws, 'AI55', totalPages);
+            // Fila 59
+            setVal(ws, 'AA59', 'Page');
+            setVal(ws, 'AE59', pageIndex + 1);
+            setVal(ws, 'AG59', 'of');
+            setVal(ws, 'AI59', totalPages);
             
-            // Fila 113
-            setVal(ws, 'AA113', 'Page');
-            setVal(ws, 'AE113', pageIndex + 1);
-            setVal(ws, 'AG113', 'of');
-            setVal(ws, 'AI113', totalPages);
+            // Fila 117
+            setVal(ws, 'AA117', 'Page');
+            setVal(ws, 'AE117', pageIndex + 1);
+            setVal(ws, 'AG117', 'of');
+            setVal(ws, 'AI117', totalPages);
         };
 
         // Llenar página 1 (ya existe en el workbook como 'ACT-122')

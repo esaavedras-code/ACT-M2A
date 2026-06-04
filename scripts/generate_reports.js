@@ -192,7 +192,7 @@ async function createPdf(filename, title, data) {
     let y = height - 50;
 
     // Header
-    page.drawText('M2A Group - Sistema de Control de Proyectos', { x: 50, y, size: 10, font: timesRomanFont });
+    page.drawText('Sistema de Control de Proyectos', { x: 50, y, size: 10, font: timesRomanFont });
     y -= 25;
     page.drawText(title, { x: 50, y, size: 16, font: timesRomanBoldFont });
     y -= 30;

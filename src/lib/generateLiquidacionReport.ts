@@ -161,9 +161,9 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         }
 
 
-        // Texto institucional y de M2A Group centrado
+        // Texto institucional centrado
         const pageCenter = PW / 2;
-        TXT(pg, 'M2A Group - Sistema de Control de Proyectos', pageCenter, topY - 8, 9, false, 'center');
+        TXT(pg, 'Sistema de Control de Proyectos', pageCenter, topY - 8, 9, false, 'center');
         TXT(pg, 'Autoridad de Carreteras y Transportación - Área de Construcción', pageCenter, topY - 20, 9, true, 'center');
 
         // Número de proyecto ACT centralizado
@@ -441,8 +441,17 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         RECT(pg, ML, Y - OBS_H, obsW, OBS_H, WH, 0.7);
         RECT(pg, ML + obsW, Y - halfEH, ewoW, halfEH, WH, 0.7);
         RECT(pg, ML + obsW, Y - OBS_H, ewoW, halfEH, WH, 0.7);
+        let statusText = '';
+        if (totalExe === 0) {
+            statusText = 'NO EJECUTADO';
+        } else if (Math.abs(totalExe - totalQty) < 0.001) {
+            statusText = '100% EJECUTADO';
+        }
 
         TXT(pg, 'Observaciones:', ML + 3, Y - 10, 8, true);
+        if (statusText) {
+            TXT(pg, statusText, ML + 80, Y - 10, 8, true);
+        }
         TXT(pg, 'E.W.O. #', ML + obsW + 4, Y - 10, 7.5, true);
         TXT(pg, 'PAG. #', ML + obsW + 4, Y - OBS_H + halfEH - 10, 7.5, true);
         TXT(pg, `${pageIndex + 1} de ${totalItems}`, ML + obsW + ewoW - 5, Y - OBS_H + halfEH - 10, 8, true, 'right');
