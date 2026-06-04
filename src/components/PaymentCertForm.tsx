@@ -262,6 +262,7 @@ const PaymentCertForm = React.forwardRef(({
 
             const cRet = (c.items || []).reduce((acc: number, it: any) => {
                 if (it.skip_retention) return acc;
+                if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                 return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
             }, 0) - (c.retention_return_amount || 0);
 
@@ -841,6 +842,7 @@ const PaymentCertForm = React.forwardRef(({
                     });
                     const certRetention = (c.items || []).reduce((acc: number, it: any) => {
                         if (it.skip_retention) return acc;
+                        if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                         return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
                     }, 0) - (c.retention_return_amount || 0);
                     
