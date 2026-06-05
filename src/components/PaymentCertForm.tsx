@@ -226,8 +226,17 @@ const PaymentCertForm = React.forwardRef(({
             if (match) paidInPrevious += parseFloat(match.quantity) || 0;
         }
 
-        // 3. Disponible = total CM - ya pagado en anteriores
-        const available = totalMfgApproved - paidInPrevious;
+        const isLS = baseItem.unit?.toUpperCase() === 'LS';
+        let available = 0;
+        let totalMfgApprovedScaled = totalMfgApproved;
+
+        if (isLS) {
+            const mfgQtyLimit = parseFloat(baseItem.mfg_cert_qty) || 1;
+            totalMfgApprovedScaled = totalMfgApproved * (100 / mfgQtyLimit);
+            available = totalMfgApprovedScaled - paidInPrevious;
+        } else {
+            available = totalMfgApproved - paidInPrevious;
+        }
 
         // 4. Cantidad que se quiere pagar en esta certificación
         const qtyToPay = currentQty !== undefined
@@ -239,14 +248,51 @@ const PaymentCertForm = React.forwardRef(({
             })();
 
         if (qtyToPay <= 0) {
-            return { status: 'OK', available, used: paidInPrevious, missing: 0, approved: totalMfgApproved };
+            return { 
+                status: 'OK', 
+                available: isLS ? totalMfgApproved : available, 
+                used: paidInPrevious, 
+                missing: 0, 
+                approved: totalMfgApproved 
+            };
         }
 
-        const missing = qtyToPay - available;
-        if (missing > 0.001) {
-            return { status: 'INSUFFICIENT', available, used: paidInPrevious, missing, approved: totalMfgApproved, qtyToPay };
+        if (isLS) {
+            const missingScaled = qtyToPay - available;
+            if (missingScaled > 0.001) {
+                const mfgQtyLimit = parseFloat(baseItem.mfg_cert_qty) || 1;
+                const missing = missingScaled * (mfgQtyLimit / 100);
+                const availablePhysical = totalMfgApproved - (paidInPrevious * (mfgQtyLimit / 100));
+                return { 
+                    status: 'INSUFFICIENT', 
+                    available: availablePhysical, 
+                    used: paidInPrevious, 
+                    missing, 
+                    approved: totalMfgApproved, 
+                    qtyToPay 
+                };
+            }
+        } else {
+            const missing = qtyToPay - available;
+            if (missing > 0.001) {
+                return { 
+                    status: 'INSUFFICIENT', 
+                    available, 
+                    used: paidInPrevious, 
+                    missing, 
+                    approved: totalMfgApproved, 
+                    qtyToPay 
+                };
+            }
         }
-        return { status: 'OK', available, used: paidInPrevious, missing: 0, approved: totalMfgApproved };
+
+        return { 
+            status: 'OK', 
+            available: isLS ? totalMfgApproved : available, 
+            used: paidInPrevious, 
+            missing: 0, 
+            approved: totalMfgApproved 
+        };
     };
 
     const { liveExecuted, livePaid, liveRetention, liveMOS, liveLiquidated, timeExtension } = useMemo(() => {
