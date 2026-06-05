@@ -10,6 +10,8 @@ export async function generateAct117C(projectId: string, certId: string, certNum
 
         const { data: contrData } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
         const { data: currentCert } = await supabase.from('payment_certifications').select('*').eq('id', certId).single();
+        // Valor de retención mostrado en la parte superior de la certificación
+        const topRetention = parseFloat(currentCert?.retention_amount as any) || 0;
         const { data: allCerts } = await supabase.from('payment_certifications')
             .select('*')
             .eq('project_id', projectId)
@@ -84,7 +86,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
         const percentWPValue = totalProjectAmount > 0 ? (wpTotalToDate / totalProjectAmount) * 100 : 0;
         
         let previousRetention = 0;
-        let currentRetention = 0;
+        // let currentRetention = 0; // Deprecated, using topRetention from certification header
         let totalRetentionToDate = 0;
         let reimbursementThisPeriod = 0;
 
@@ -119,14 +121,14 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                 if (c.cert_num < certNum) {
                     previousRetention += actualCertRet;
                 } else if (c.cert_num === certNum) {
-                    currentRetention = actualCertRet;
-                    reimbursementThisPeriod = actualReturn;
+                  // currentRetention = cRet; // Deprecated
+                  reimbursementThisPeriod = actualReturn;
                 }
                 totalRetentionToDate += actualCertRet;
             }
         });
 
-        const subTotalValue = wpCurrent - currentRetention + reimbursementThisPeriod;
+        const subTotalValue = wpCurrent - topRetention + reimbursementThisPeriod;
 
         const prevCerts = allCerts?.filter(c => c.cert_num < certNum) || [];
         const prevMOSBalance = prevCerts.reduce((acc, c) => {
@@ -497,7 +499,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             const sx = 415; // Moved 1.5cm left from 455 as requested
             const sumDefs = [
                 ["26", "Work Performed (WP):", fmt(wpCurrent, 2, true)],
-                ["27", "5% Retained (WP):", currentRetention === 0 ? "$0.00" : fmt(-Math.abs(currentRetention), 2, true)],
+                ["27", "5% Retained (WP):", topRetention === 0 ? "$0.00" : fmt(-Math.abs(topRetention), 2, true)],
                 ["28", "Reimbursement (WP)(+/-):", fmt(reimbursementThisPeriod, 2, true)],
                 ["29", "Sub Total:", fmt(subTotalValue, 2, true)],
                 ["30", "Material on Site (+/-):", fmt(currentMOSChange, 2, true)],
