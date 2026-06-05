@@ -17,9 +17,6 @@ const TIME_EXT_STATUSES = ["Aprobada", "Pendiente"];
 const FUND_SOURCES = ["FHWA 0%", "FHWA 80.25%", "FHWA 100%", "ACT 100%"];
 
 import { TodayButton } from "./TodayButton";
-import dynamic from "next/dynamic";
-
-const DOFAEIForm = dynamic(() => import("./DOFAEIForm"), { ssr: false });
 
 const calculateChoBreakdown = (items: any[], project: any) => {
     let fed = 0, act = 0;
@@ -42,7 +39,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
     const [expandedCHO, setExpandedCHO] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
-    const [showDofaei, setShowDofaei] = useState<{ show: boolean, choId: string }>({ show: false, choId: "" });
 
     useEffect(() => {
         setMounted(true);
@@ -231,7 +227,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
         const missingItemsMap = new Map();
         for (const cho of chos) {
             for (const item of (cho.items || [])) {
-                if (item.item_num && !contractItems.some(ci => ci.item_num === item.item_num)) {
+                if (item.item_num && !contractItems.some(ci => (ci.item_num || "").toString().trim().padStart(3, '0') === (item.item_num || "").toString().trim().padStart(3, '0'))) {
                     if (!missingItemsMap.has(item.item_num)) {
                         missingItemsMap.set(item.item_num, {
                             project_id: projectId,
@@ -460,13 +456,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <button 
-                                        onClick={() => setShowDofaei({ show: true, choId: cho.id })}
-                                        className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 border border-blue-100 dark:border-blue-800 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                                        title="Evaluación Federal Aid Eligibility Form"
-                                    >
-                                        DOFAEI
-                                    </button>
                                     <button onClick={() => toggleExpand(cho.id)} className="bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
                                         {expandedCHO === cho.id ? "Cerrar Partidas" : "Ver / Añadir Partidas"}
                                     </button>
@@ -507,8 +496,8 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                             <tr>
                                                 <th className="py-1 px-0.5 w-10 text-center text-blue-600">Nuevo</th>
 
-                                                <th className="py-1 px-0.5 w-24 text-center"># Item</th>
-                                                <th className="py-1 px-0.5 w-32 text-center">Espec.</th>
+                                                <th className="py-1 px-0.5 w-28 text-center"># Item</th>
+                                                <th className="py-1 px-0.5 w-40 text-center">Espec.</th>
                                                 <th className="py-1 px-0.5 min-w-[350px]">Descripción</th>
                                                 <th className="py-1 px-0.5 w-28 text-center">Unit</th>
                                                 <th className="py-1 px-0.5 w-36 text-right">Qty</th>
@@ -644,14 +633,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                     </div>
                 ))}
             </div>
-
-            {showDofaei.show && (
-                <DOFAEIForm 
-                    projectId={projectId || ""} 
-                    choId={showDofaei.choId} 
-                    onClose={() => setShowDofaei({ show: false, choId: "" })} 
-                />
-            )}
         </div>
     );
 });

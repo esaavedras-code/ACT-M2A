@@ -143,7 +143,15 @@ const PaymentCertForm = React.forwardRef(({
                 .select('*')
                 .eq('project_id', projectId);
             
-            if (!mError) setInternalMfgCerts(mfg || []);
+            if (!mError) {
+                // Enriquecer con item_num para manejar UUIDs obsoletos (cuando el contrato
+                // se re-inserta con nuevo UUID pero el CM apunta al UUID anterior)
+                const enrichedMfg = (mfg || []).map((cert: any) => {
+                    const contractItem = (items || []).find((it: any) => it.id === cert.item_id);
+                    return { ...cert, _item_num: contractItem?.item_num ?? null };
+                });
+                setInternalMfgCerts(enrichedMfg);
+            }
         } catch (error: any) {
             console.error('Error loading certs data:', error);
         } finally {
@@ -190,12 +198,21 @@ const PaymentCertForm = React.forwardRef(({
         if (!baseItem || !baseItem.requires_mfg_cert) return { status: 'NOT_REQUIRED', available: 0, used: 0, missing: 0 };
 
         // 1. Total aprobado en Certificados de Manufactura (TODOS, sin filtro de estatus)
-        //    Cada registro en manufacturing_certificates tiene item_id y quantity directamente
+        //    Primero construimos el set de UUIDs que coinciden con este item_num
+        const matchingItemIds = new Set(
+            contractItems
+                .filter(it => normalizeItemNum(it.item_num) === itemNumStr)
+                .map(it => it.id)
+        );
+
         let totalMfgApproved = 0;
         mfgCerts.forEach(cert => {
-            // Buscar por item_id (UUID) cruzando con contractItems
-            const matchedItem = contractItems.find(it => it.id === cert.item_id);
-            if (matchedItem && normalizeItemNum(matchedItem.item_num) === itemNumStr) {
+            // Búsqueda primaria: por item_id UUID
+            if (matchingItemIds.has(cert.item_id)) {
+                totalMfgApproved += parseFloat(cert.quantity) || 0;
+            }
+            // Búsqueda fallback: por _item_num enriquecido al cargar (UUID obsoleto)
+            else if (cert._item_num && normalizeItemNum(cert._item_num) === itemNumStr) {
                 totalMfgApproved += parseFloat(cert.quantity) || 0;
             }
         });
@@ -1039,7 +1056,7 @@ const PaymentCertForm = React.forwardRef(({
                             {expandedCert === c.cert_num && (
                                 <div className="p-4 border-t border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-900 animate-in slide-in-from-top-2 duration-300">
                                     {(() => {
-                                        const blockedItems = (c.items || [])
+                                        const blockedItems = loading ? [] : (c.items || [])
                                             .map((it: any) => ({ it, status: getItemMfgStatus(it.item_num, certIdx, parseFloat(it.quantity) || 0) }))
                                             .filter(({ status }) => status.status === 'INSUFFICIENT');
                                         return blockedItems.length > 0 ? (
@@ -1092,8 +1109,8 @@ const PaymentCertForm = React.forwardRef(({
                                         <table suppressHydrationWarning className="w-full text-left border-collapse table-fixed">
                     <thead className="text-[8px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                                 <tr>
-                                                    <th className="py-1 px-0.5 w-[50px] text-center"># Item</th>
-                                                    <th className="py-1 px-0.5 w-[80px] text-center">Espec.</th>
+                                                    <th className="py-1 px-0.5 w-[65px] text-center"># Item</th>
+                                                    <th className="py-1 px-0.5 w-[100px] text-center">Espec.</th>
                                                     <th className="py-1 px-0.5">Descripción</th>
                                                     <th className="py-1 px-0.5 w-[40px] text-center">Un.</th>
                                                     <th className="py-1 px-0.5 w-[40px] text-center" title="Certificado de Manufactura">CM</th>
@@ -1175,7 +1192,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
-                                                                        className="input-field text-center text-xs font-black p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200 rounded-lg"
+                                                                        className="input-field w-full text-center text-xs font-black p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200 rounded-lg"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.item_num}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'item_num', e.target.value)}
@@ -1192,7 +1209,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
-                                                                        className="input-field text-center text-xs font-mono p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200 rounded-lg"
+                                                                        className="input-field w-full text-center text-xs font-mono p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200 rounded-lg"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.specification}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'specification', e.target.value)}
