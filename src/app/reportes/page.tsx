@@ -56,6 +56,7 @@ import {
     generateFinalAcceptanceReportOfficialLogic,
     generatePayrollCertificationReportLogic,
     generateMaterialCertificationReportLogic,
+    generateSolicitudMaterialCertDocxLogic,
     generateDbeCertificationReportLogic,
     generateSubcontractsReportLogic,
     generateSignedItemsReportLogic,
@@ -83,6 +84,7 @@ interface ReportOption {
     icon: React.ReactNode;
     onPdf?: () => Promise<void> | void;
     onExcel?: () => Promise<void> | void;
+    onWord?: () => Promise<void> | void;
 }
 
 interface SelectiveReportOption {
@@ -182,6 +184,16 @@ function StandardReportItem({ option, loading, onAction, children, isLiquidation
                             >
                                 {loading ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
                                 EXCEL
+                            </button>
+                        )}
+                        {option.onWord && (
+                            <button
+                                onClick={() => { onAction(); option.onWord?.(); }}
+                                disabled={loading}
+                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-indigo-100 active:scale-95 group/btn"
+                            >
+                                {loading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
+                                WORD
                             </button>
                         )}
                     </div>
@@ -1063,6 +1075,21 @@ function ReportesContent() {
                             description: 'Una hoja por partida con CHOs, certificaciones y balance. Estructura basada en la forma oficial de liquidacion.',
                             icon: <FileCheck size={18} className="text-rose-600" />,
                             onPdf: () => generateLiquidacionItemsReportLogic(projectId, 'pdf')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => setStatus(`Error: ${e.message}`))
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        isLiquidation={true}
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'solicitud-material-cert',
+                            label: 'Solicitud de Material Certification (Word)',
+                            description: 'Documento Word con la plantilla oficial para solicitar la certificacion de materiales.',
+                            icon: <FileText size={18} className="text-blue-600" />,
+                            onWord: () => generateSolicitudMaterialCertDocxLogic(projectId)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
