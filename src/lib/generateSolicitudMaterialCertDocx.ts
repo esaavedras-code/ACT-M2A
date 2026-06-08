@@ -49,7 +49,8 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
             
             // Check if there is missing cert quantity (accounting for float precision)
             if (missing >= 0.0001) {
-                mfgDetails.push(`Partida ${b.item_num}: ${b.description}\n    [ ] Falta presentar certificado. Razón para no presentarlo: _____________________________________`);
+                const missingFormatted = missing.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                mfgDetails.push(`Partida ${b.item_num}: ${b.description}\n    [ ] Falta presentar certificado (Cantidad faltante: ${missingFormatted}). Razón para no presentarlo: _____________________________________`);
             } else {
                 mfgDetails.push(`Partida ${b.item_num}: ${b.description}\n    [X] Presentado y aprobado.`);
             }
