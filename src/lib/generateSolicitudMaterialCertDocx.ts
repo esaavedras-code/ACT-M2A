@@ -1,11 +1,18 @@
-import { Document, Paragraph, TextRun, Packer, Numbering, LevelFormat, AlignmentType } from "docx";
+import { Document, Paragraph, TextRun, Packer } from "docx";
 import { fetchAllReportData } from "./reportLogic";
 import { formatDate } from "./utils";
 
 export const generateSolicitudMaterialCertDocx = async (projectId: string): Promise<Blob | null> => {
     const { project, items, certs, chos, mfgCerts } = await fetchAllReportData(projectId);
     
-    if (!project) return null;
+    if (!project || !items) return null;
+
+    const createTextParagraph = (text: string) => {
+        return text.split('\n').map(line => new Paragraph({
+            children: [new TextRun({ text: `  ${line}`, size: 22 })], // 11pt
+            spacing: { after: 120 }
+        }));
+    };
 
     // 1. Partidas no ejecutadas
     const executedQtys = new Map<string, number>();
@@ -26,52 +33,67 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
         ? unexecutedItems.map(i => `Partida ${i.item_num}: ${i.description}`).join('\n')
         : "Ninguna";
 
-    // 2. Partidas con certificados de manufactura (CM)
-    const mfgItemsSet = new Set<string>();
-    mfgCerts?.forEach(m => {
-        if (m.item_num) mfgItemsSet.add(m.item_num);
-    });
+    // 2. Partidas que requieren certificados de manufactura (CM)
+    const itemsRequireMfg = items.filter(b => b.requires_mfg_cert);
+    let mfgText = "";
     
-    const mfgText = mfgItemsSet.size > 0
-        ? Array.from(mfgItemsSet).map(num => {
-            const it = items?.find(i => i.item_num === num);
-            return `Partida ${num}: ${it?.description || 'N/A'}`;
-        }).join('\n')
-        : "Ninguna";
+    if (itemsRequireMfg.length === 0) {
+        mfgText = "No hay partidas que requieran certificados de manufactura en este proyecto.";
+    } else {
+        const missingItemsDetails: string[] = [];
+        itemsRequireMfg.forEach(b => {
+            const itemMfgCerts = mfgCerts?.filter((c: any) => c.item_id === b.id) || [];
+            const mfgQty = itemMfgCerts.reduce((acc: number, c: any) => acc + (parseFloat(c.quantity) || 0), 0);
+            const certQty = executedQtys.get(b.item_num) || 0;
+            const missing = certQty - mfgQty;
+            
+            // Check if there is missing cert quantity (accounting for float precision)
+            if (missing >= 0.0001) {
+                missingItemsDetails.push(`Partida ${b.item_num}: ${b.description}\n    Razón para no presentarlo: _____________________________________`);
+            }
+        });
+
+        if (missingItemsDetails.length === 0) {
+            mfgText = "Todos los certificados requeridos fueron presentados y aprobados.";
+        } else {
+            mfgText = missingItemsDetails.join('\n');
+        }
+    }
 
     // 3. Materiales con descuento
-    const discountItems = new Set<string>();
+    const discountLines: string[] = [];
     certs?.forEach(cert => {
-        if (parseFloat(cert.price_adjustment) > 0) {
-            discountItems.add(`Certificación #${cert.cert_num} tiene ajuste de precio: $${cert.price_adjustment}`);
+        // Here we just identify if the cert has an overall discount/adjustment.
+        // The user asked to format it to be filled manually.
+        const adj = parseFloat(cert.price_adjustment) || 0;
+        if (adj > 0) {
+            discountLines.push(`Partida: ________________ - Descripción: _____________________________ - Descuento: ____% (Aplicado en Certificación #${cert.cert_num})\nNota: Se deberá enviar copia de la parte posterior de la certificación donde se aplicó el descuento.`);
         }
     });
-    const discountText = discountItems.size > 0 
-        ? Array.from(discountItems).join('\n') 
-        : "Ninguno";
+
+    const discountText = discountLines.length > 0 
+        ? discountLines.join('\n\n') 
+        : "Partida: ________________ - Descripción: _____________________________ - Descuento: ____% (Certificación #____)\nNota: Se deberá enviar copia de la parte posterior de la certificación donde se aplicó el descuento.";
 
     // 4. Materiales rechazados
-    // Generalmente no se lleva track directo como campo booleano simple, se deja manual o se indica "Ninguno registrado"
-    const rejectedText = "Ninguno registrado";
+    const rejectedText = "Partida: ________________ - Descripción: _____________________________ - ¿Material fue removido?: [ ] Sí  [ ] No";
 
-    // 5. Partidas con trabajos adicionales (Extra work / CHOs)
-    const extraWorkItems: string[] = [];
-    chos?.forEach(cho => {
-        const choLabel = `CHO ${cho.cho_num}${cho.amendment_letter || ''}`;
-        cho.items?.forEach((it: any) => {
-            extraWorkItems.push(`Partida ${it.item_num} (${choLabel}): ${it.description}`);
+    // 5. Partidas con trabajos adicionales (Spec 888)
+    const spec888Items = items.filter(i => (i.specification || '').includes('888'));
+    let extraWorkText = "";
+    if (spec888Items.length > 0) {
+        const extraWorkLines = spec888Items.map(i => {
+            return `Partida ${i.item_num} (Especificación ${i.specification}): ${i.description}
+    Consistencia del trabajo: ______________________________________________________________
+    Desglose de materiales: ________________________________________________________________
+    ¿Se tomaron muestras?: [ ] Sí  [ ] No
+    ¿Se presentaron certificados de manufactura?: [ ] Sí  [ ] No
+    ¿Se realizaron inspecciones de campo?: [ ] Sí  [ ] No`;
         });
-    });
-    const extraWorkText = extraWorkItems.length > 0
-        ? extraWorkItems.join('\n')
-        : "Ninguna";
-
-    const createTextParagraph = (text: string) => {
-        return text.split('\n').map(line => new Paragraph({
-            children: [new TextRun({ text: `  ${line}`, size: 22 })], // 11pt
-            spacing: { after: 120 }
-        }));
-    };
+        extraWorkText = extraWorkLines.join('\n\n');
+    } else {
+        extraWorkText = "Ninguna partida bajo especificación 888 reportada.";
+    }
 
     const doc = new Document({
         sections: [{
