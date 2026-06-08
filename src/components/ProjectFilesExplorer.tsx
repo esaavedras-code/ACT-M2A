@@ -73,7 +73,9 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     const [selectedDoc, setSelectedDoc] = useState<DocRecord | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [isDragOver, setIsDragOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const dropZoneRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (projectId) fetchDocs();
@@ -162,6 +164,31 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
             await fetchDocs();
         }
         setUploading(false);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Solo ocultar si el cursor sale del dropZone real
+        if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+            setIsDragOver(false);
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            handleUpload(files);
+        }
     };
 
     const handleDownload = async (doc: DocRecord) => {
@@ -283,8 +310,24 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-950 relative">
+                <div 
+                    ref={dropZoneRef}
+                    className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-950 relative"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
                     <div className="flex-1 overflow-y-auto p-4">
+                        {/* Drag & Drop Overlay */}
+                        {isDragOver && (
+                            <div className="absolute inset-0 z-50 bg-blue-500/10 border-4 border-dashed border-blue-400 rounded-xl flex flex-col items-center justify-center pointer-events-none backdrop-blur-[2px]">
+                                <div className="bg-white dark:bg-slate-900 rounded-2xl px-8 py-6 shadow-2xl flex flex-col items-center gap-3 border border-blue-200 dark:border-blue-800">
+                                    <Upload size={40} className="text-blue-500 animate-bounce" />
+                                    <p className="text-lg font-black text-blue-600">Soltar archivos aquí</p>
+                                    <p className="text-xs text-blue-400 font-medium">Se subirán a: <span className="font-black">{availableSections.find(s => s.id === selectedSection)?.label || "carpeta seleccionada"}</span></p>
+                                </div>
+                            </div>
+                        )}
                         {currentSectionDocs.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-slate-400">
                                 <FolderOpen size={48} className="text-slate-200 dark:text-slate-800 mb-4" />

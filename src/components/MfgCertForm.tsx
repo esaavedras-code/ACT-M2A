@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { Save, Factory, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Info, ShieldCheck, Download, FileText, Printer } from "lucide-react";
+import { Save, Factory, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Info, ShieldCheck, Download, FileText, Printer, Paperclip } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { parsePdfClient } from "@/lib/pdfClientParser";
@@ -32,6 +32,8 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
     const [parsing, setParsing] = useState(false);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [uploadingCmIdx, setUploadingCmIdx] = useState<number | null>(null);
+    const cmFileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
     const [contractorName, setContractorName] = useState("");
     const [showValidationIdx, setShowValidationIdx] = useState<number | null>(null);
@@ -135,6 +137,42 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         setCerts(newList);
         if (newList.length === 0) addCert();
         if (onDirty) onDirty();
+    };
+
+    const handleCmFileUpload = async (idx: number, file: File) => {
+        if (!projectId) return;
+        setUploadingCmIdx(idx);
+        try {
+            const dateFolder = new Date().toISOString().split('T')[0];
+            const timestamp = Date.now();
+            const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `${projectId}/mfg/${dateFolder}/${timestamp}_${safeName}`;
+
+            const { error: storageErr } = await supabase.storage.from("project-documents").upload(storagePath, file);
+            if (storageErr) throw storageErr;
+
+            // Registrar en project_documents
+            await supabase.from("project_documents").insert({
+                project_id: projectId,
+                file_name: file.name,
+                doc_type: "mfg",
+                section: "mfg",
+                storage_path: storagePath,
+            });
+
+            // Guardar ruta en el cert
+            const newList = [...certs];
+            newList[idx].cert_file_path = storagePath;
+            newList[idx].cert_file_name = file.name;
+            setCerts(newList);
+            if (onDirty) onDirty();
+            alert(`Archivo "${file.name}" subido correctamente a Certificados CM.`);
+        } catch (err: any) {
+            console.error("Error subiendo CM:", err);
+            alert("Error al subir el archivo. Intente de nuevo.");
+        } finally {
+            setUploadingCmIdx(null);
+        }
     };
 
 
@@ -574,6 +612,42 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                 </div>
                             </div>
 
+
+                            {/* Upload CM Button */}
+                            <div className="flex flex-col items-center gap-1">
+                                <input
+                                    ref={el => { cmFileInputRefs.current[idx] = el; }}
+                                    type="file"
+                                    accept="application/pdf,image/*"
+                                    className="hidden"
+                                    onChange={e => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleCmFileUpload(idx, file);
+                                        e.target.value = "";
+                                    }}
+                                />
+                                <button
+                                    onClick={() => cmFileInputRefs.current[idx]?.click()}
+                                    disabled={uploadingCmIdx === idx}
+                                    className={`flex items-center justify-center w-9 h-9 rounded-full border transition-all shadow-sm ${
+                                        c.cert_file_path
+                                            ? 'border-emerald-400 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-600'
+                                            : 'border-blue-200 text-blue-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-400'
+                                    }`}
+                                    title={c.cert_file_path ? `CM: ${c.cert_file_name || 'Archivo subido'} — clic para reemplazar` : "Subir archivo CM"}
+                                >
+                                    {uploadingCmIdx === idx
+                                        ? <Loader2 size={15} className="animate-spin" />
+                                        : c.cert_file_path
+                                            ? <Paperclip size={15} />
+                                            : <Upload size={15} />}
+                                </button>
+                                {c.cert_file_name && (
+                                    <span className="text-[7px] text-emerald-600 font-bold max-w-[40px] truncate" title={c.cert_file_name}>
+                                        {c.cert_file_name}
+                                    </span>
+                                )}
+                            </div>
 
                             {/* Delete Button */}
                             <button 
