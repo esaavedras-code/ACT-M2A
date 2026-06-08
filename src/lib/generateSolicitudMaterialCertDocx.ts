@@ -40,7 +40,7 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
     if (itemsRequireMfg.length === 0) {
         mfgText = "No hay partidas que requieran certificados de manufactura en este proyecto.";
     } else {
-        const missingItemsDetails: string[] = [];
+        const mfgDetails: string[] = [];
         itemsRequireMfg.forEach(b => {
             const itemMfgCerts = mfgCerts?.filter((c: any) => c.item_id === b.id) || [];
             const mfgQty = itemMfgCerts.reduce((acc: number, c: any) => acc + (parseFloat(c.quantity) || 0), 0);
@@ -49,15 +49,13 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
             
             // Check if there is missing cert quantity (accounting for float precision)
             if (missing >= 0.0001) {
-                missingItemsDetails.push(`Partida ${b.item_num}: ${b.description}\n    Razón para no presentarlo: _____________________________________`);
+                mfgDetails.push(`Partida ${b.item_num}: ${b.description}\n    [ ] Falta presentar certificado. Razón para no presentarlo: _____________________________________`);
+            } else {
+                mfgDetails.push(`Partida ${b.item_num}: ${b.description}\n    [X] Presentado y aprobado.`);
             }
         });
 
-        if (missingItemsDetails.length === 0) {
-            mfgText = "Todos los certificados requeridos fueron presentados y aprobados.";
-        } else {
-            mfgText = missingItemsDetails.join('\n');
-        }
+        mfgText = mfgDetails.join('\n\n');
     }
 
     // 3. Materiales con descuento
