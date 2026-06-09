@@ -703,7 +703,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
         };
     };
 
-    const saveData = async (silent = false) => {
+    const saveData = async (silent = false, allowOnlyCloud = false) => {
         try {
             // Evaluamos la info más reciente
             const currentData = formDataRef.current;
@@ -811,8 +811,8 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                     await agreementRef.current.save();
                 }
             } else {
-                // Si es un proyecto nuevo y no hay ruta de carpeta, activamos el modal
-                if (!formData.folder_path) {
+                // Si es un proyecto nuevo y no hay ruta de carpeta, activamos el modal (a menos que guardemos solo en la nube)
+                if (!formData.folder_path && !allowOnlyCloud) {
                     setShowFolderModal(true);
                     setLoading(false);
                     return;
@@ -1003,7 +1003,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                 </p>
                             </div>
                         </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+                        <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 flex-wrap">
                             <button
                                 onClick={() => {
                                     setShowFolderModal(false);
@@ -1012,6 +1012,15 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                 className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors"
                             >
                                 Cancelar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowFolderModal(false);
+                                    saveData(false, true); // Guardar solo en la nube
+                                }}
+                                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold transition-colors"
+                            >
+                                Solo en la Nube
                             </button>
                             <button
                                 onClick={() => {
