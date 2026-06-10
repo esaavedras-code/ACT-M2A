@@ -14,7 +14,7 @@ const specs = specsData as Record<string, { unit: string; description: string }>
 
 const DOC_STATUSES = ["Borrador", "En trámite", "Aprobado"];
 const TIME_EXT_STATUSES = ["Aprobada", "Pendiente"];
-const FUND_SOURCES = ["FHWA 0%", "FHWA 80.25%", "FHWA 100%", "ACT 100%"];
+const FUND_SOURCES = ["FHWA:100%", "FHWA:80.25", "ACT:100%"];
 
 import { TodayButton } from "./TodayButton";
 

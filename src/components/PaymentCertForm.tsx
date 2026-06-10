@@ -42,7 +42,7 @@ export const normalizeItemNum = (num: any): string => {
     return str;
 };
 
-const FUND_SOURCES = ["FHWA 0%", "FHWA 80.25%", "FHWA 100%", "ACT 100%"];
+const FUND_SOURCES = ["FHWA:100%", "FHWA:80.25", "ACT:100%"];
 
 interface PaymentCertFormProps {
     projectId?: string;
