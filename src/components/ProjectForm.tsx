@@ -843,6 +843,24 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
 
             const targetId = projectId || (data && data[0]?.id);
 
+            // Asignar membresía del creador en la base de datos si es un proyecto nuevo
+            if (!projectId && targetId) {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    const { error: memErr } = await supabase.from("memberships").insert([{
+                        project_id: targetId,
+                        user_id: session.user.id,
+                        role: 'B',
+                        is_active: true
+                    }]);
+                    if (memErr) {
+                        console.error("Error al crear membresía del creador del proyecto:", memErr);
+                    } else {
+                        console.log("Membresía de creador ('B') creada exitosamente para el proyecto:", targetId);
+                    }
+                }
+            }
+
             // Guardar partidas detectadas
             if (currentData.temporaryItems && currentData.temporaryItems.length > 0 && targetId) {
                 const itemsToInsert = currentData.temporaryItems.map((item: any) => ({
