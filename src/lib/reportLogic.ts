@@ -1064,18 +1064,24 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
     const missingCerts = items.filter((b: any) => b.requires_mfg_cert).map((b: any) => {
         const itemMfgCerts = mfgCerts?.filter((c: any) => c.item_id === b.id) || [];
         const mfgQty = itemMfgCerts.reduce((acc: number, c: any) => acc + (parseFloat(c.quantity) || 0), 0);
-        let certQty = certs?.reduce((acc: number, c: any) => {
+        let baseCertQty = certs?.reduce((acc: number, c: any) => {
             const itemsList = Array.isArray(c.items) ? c.items : (c.items?.list || []);
             const foundItem = itemsList.find((it: any) => it.item_num === b.item_num);
             return acc + (foundItem ? (parseFloat(foundItem.quantity) || 0) : 0);
         }, 0) || 0;
 
+        let certQty = baseCertQty;
+
         if (b.unit?.toUpperCase() === 'LS') {
-            const mfgQtyNeeded = parseFloat(b.mfg_cert_qty);
-            if (!isNaN(mfgQtyNeeded) && mfgQtyNeeded > 0) {
-                certQty = mfgQtyNeeded;
+            if (baseCertQty > 0) {
+                const mfgQtyNeeded = parseFloat(b.mfg_cert_qty);
+                if (!isNaN(mfgQtyNeeded) && mfgQtyNeeded > 0) {
+                    certQty = mfgQtyNeeded;
+                } else {
+                    certQty = 1; // Default fallback for LS if no quantity is specified
+                }
             } else {
-                certQty = 1; // Default fallback for LS if no quantity is specified
+                certQty = 0; // Si no ha sido pagada, no se considera ejecutada
             }
         }
 
