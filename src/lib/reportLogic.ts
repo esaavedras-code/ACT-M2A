@@ -1071,17 +1071,11 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
         }, 0) || 0;
 
         if (b.unit?.toUpperCase() === 'LS') {
-            for (const cm of itemMfgCerts) {
-                if (cm.material_description) {
-                    const match = cm.material_description.match(/[\d,]+(?:\.\d+)?/);
-                    if (match) {
-                        const parsed = parseFloat(match[0].replace(/,/g, ''));
-                        if (!isNaN(parsed)) {
-                            certQty = parsed;
-                            break;
-                        }
-                    }
-                }
+            const mfgQtyNeeded = parseFloat(b.mfg_cert_qty);
+            if (!isNaN(mfgQtyNeeded) && mfgQtyNeeded > 0) {
+                certQty = mfgQtyNeeded;
+            } else {
+                certQty = 1; // Default fallback for LS if no quantity is specified
             }
         }
 
