@@ -547,7 +547,7 @@ function ProjectDetailContent() {
                                                 </div>
                                             )}
                                             {selectedSection === "firmas" && <PersonnelForm ref={activeRef} projectId={id} userRole={role} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
-                                            {selectedSection === "partidas" && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} onlyOriginals={true} />}
+                                            {selectedSection === "partidas" && <ItemsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} onlyOriginals={false} />}
                                             {selectedSection === "ccml" && <CCMLModificationsForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                         </div>
                                     </div>
