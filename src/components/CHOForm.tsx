@@ -110,6 +110,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             is_change_of_contract: false,
             is_new_item: false,
             is_time_extension: false,
+            is_admin_amendment: false,
             items: []
         }, ...chos]);
         setExpandedCHO(newId);
@@ -280,6 +281,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                     is_change_of_contract: (c.items || []).some((it: any) => !it.is_new),
                     is_new_item: (c.items || []).some((it: any) => it.is_new),
                     is_time_extension: c.is_time_extension || (c.time_extension_days > 0),
+                    is_admin_amendment: c.is_admin_amendment || false,
                     items: c.items || []
                 };
 
@@ -415,7 +417,9 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">CHO / Enmienda</label>
                                         <div className="text-2xl font-black text-primary flex items-baseline gap-1">
                                             #{cho.cho_num}
-                                            <span className="text-lg text-slate-400 font-bold">{cho.amendment_letter}</span>
+                                            {cho.is_admin_amendment && (
+                                                <span className="text-lg text-slate-400 font-bold">{cho.amendment_letter}</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-1 relative">
@@ -477,6 +481,10 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                 <label className="flex items-center gap-2 cursor-pointer group">
                                     <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" checked={cho.is_time_extension || (cho.time_extension_days > 0)} onChange={(e) => updateCHO(idx, 'is_time_extension', e.target.checked)} />
                                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider group-hover:text-primary transition-colors">Time Extension</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" checked={cho.is_admin_amendment || false} onChange={(e) => updateCHO(idx, 'is_admin_amendment', e.target.checked)} />
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider group-hover:text-primary transition-colors">Enmienda Administrativa</span>
                                 </label>
                             </div>
                         </div>
