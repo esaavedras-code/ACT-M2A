@@ -417,9 +417,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">CHO / Enmienda</label>
                                         <div className="text-2xl font-black text-primary flex items-baseline gap-1">
                                             #{cho.cho_num}
-                                            {cho.is_admin_amendment && (
-                                                <span className="text-lg text-slate-400 font-bold">{cho.amendment_letter}</span>
-                                            )}
+                                            <span className="text-lg text-slate-400 font-bold">{cho.amendment_letter}</span>
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-1 relative">

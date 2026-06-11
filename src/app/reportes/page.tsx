@@ -750,7 +750,7 @@ function ReportesContent() {
                             description: 'Seleccione las ordenes de cambio para generar el formulario oficial ACT-122.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
-                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.is_admin_amendment ? (c.amendment_letter || '') : ''} (${formatDate(c.cho_date)})` })),
+                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
                             onExcel: async (ids) => {
                                 try {
                                     for(const id of ids) { await generateAct122ReportLogic(projectId, id, 'excel'); }
@@ -772,7 +772,7 @@ function ReportesContent() {
                             description: 'Seleccione las ordenes de cambio para generar el formulario suplementario ACT-123.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
                             selectLabel: "Elegir CHO",
-                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.is_admin_amendment ? (c.amendment_letter || '') : ''} (${formatDate(c.cho_date)})` })),
+                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
                             onExcel: async (ids) => {
                                 try {
                                     for(const id of ids) { await generateAct123ReportLogic(projectId, id, 'excel'); }
@@ -809,7 +809,7 @@ function ReportesContent() {
                             >
                                 <option value="">Elegir CHO para Checklist...</option>
                                 {chos.map(c => (
-                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.is_admin_amendment ? (c.amendment_letter || '') : ''} ({formatDate(c.cho_date)})</option>
+                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
                                 ))}
                             </select>
                         </div>
@@ -824,7 +824,7 @@ function ReportesContent() {
                             description: 'Formulario de determinación de elegibilidad de ayuda federal para la orden de cambio seleccionada.',
                             icon: <FileDigit size={18} className="text-purple-700" />,
                             selectLabel: "Elegir CHO",
-                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.is_admin_amendment ? (c.amendment_letter || '') : ''} (${formatDate(c.cho_date)})` })),
+                            items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
                             onExcel: async (ids) => {
                                 try {
                                     for(const id of ids) { await generateDOFAEIReportLogic(projectId, id, 'excel'); }
@@ -861,7 +861,7 @@ function ReportesContent() {
                             >
                                 <option value="">Elegir CHO para ROA...</option>
                                 {chos.map(c => (
-                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.is_admin_amendment ? (c.amendment_letter || '') : ''} ({formatDate(c.cho_date)})</option>
+                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
                                 ))}
                             </select>
                         </div>
@@ -895,7 +895,7 @@ function ReportesContent() {
                             >
                                 <option value="">Todos los CHOs (reporte completo)</option>
                                 {chos.map(c => (
-                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.is_admin_amendment ? (c.amendment_letter || '') : ''} ({formatDate(c.cho_date)})</option>
+                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
                                 ))}
                             </select>
                         </div>
@@ -929,7 +929,7 @@ function ReportesContent() {
                             >
                                 <option value="">Elegir CHO para ACT-32...</option>
                                 {chos.map(c => (
-                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.is_admin_amendment ? (c.amendment_letter || '') : ''} ({formatDate(c.cho_date)})</option>
+                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
                                 ))}
                             </select>
                         </div>
@@ -963,7 +963,7 @@ function ReportesContent() {
                             >
                                 <option value="">Elegir CHO para Grafica...</option>
                                 {chos.map(c => (
-                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.is_admin_amendment ? (c.amendment_letter || '') : ''} ({formatDate(c.cho_date)})</option>
+                                    <option key={c.id} value={c.id}>CHO #{c.cho_num}{c.amendment_letter || ''} ({formatDate(c.cho_date)})</option>
                                 ))}
                             </select>
                         </div>
