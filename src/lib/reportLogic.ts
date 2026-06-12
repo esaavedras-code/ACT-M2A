@@ -4,6 +4,7 @@ import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, g
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
 import { subcontratosTemplateB64 } from "./subcontratosTemplate";
+import ExcelJS from "exceljs";
 
 export const formatCurrency = (val: number, label?: string) => {
     if (val === null || val === undefined || isNaN(val)) return "$0.00";
