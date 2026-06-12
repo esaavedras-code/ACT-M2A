@@ -308,9 +308,11 @@ export const createPdfBlob = async (
     const tableMarginX = marginX + Math.max(0, (contentWidth - totalTableWidth) / 2);
 
     let savedHeader: { height: number, lines: any[] } | null = null;
+    const headerRowIndex = data.findIndex(r => !r.slice(1).every(c => !c || c.toString().trim() === ''));
+    const actualHeaderIndex = headerRowIndex !== -1 ? headerRowIndex : 0;
 
     data.forEach((row, rowIndex) => {
-        const isHeader = rowIndex === 0;
+        const isHeader = rowIndex === actualHeaderIndex;
         const isEmpty = row.every(cell => !cell || cell.toString().trim() === '');
         const isPartida = row[0]?.toString().startsWith('PARTIDA') || row[0]?.toString().startsWith('BALANCE TOTAL PARA FUENTE');
         // isSubtitleRow: first cell has content and the rest are empty OR the first cell is all-caps section title
