@@ -1149,21 +1149,6 @@ function ReportesContent() {
                             label: 'Certificacion Final',
                             description: 'Forma ACT-117C marcada como FINAL. Requiere que todas las hojas de liquidacion esten firmadas.',
                             icon: <FileCheck size={18} className="text-emerald-600" />,
-                            onPdf: async () => {
-                                try {
-                                    const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
-                                    const { data: ci } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
-                                    const liqData = proj?.liquidation_data || {};
-                                    const liquidatedItems = liqData.liquidated_items || [];
-                                    const allSigned = ci?.every(it => {
-                                        const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
-                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
-                                    });
-                                    if (!allSigned) { alert("Faltan firmas en las hojas de liquidacion. No se puede generar la Certificacion Final."); setLoading(false); return; }
-                                    await generateAct117CReportLogic(projectId, undefined, 'pdf', true);
-                                    setStatus("Reporte generado.");
-                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
-                            },
                             onExcel: async () => {
                                 try {
                                     const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
@@ -1317,10 +1302,6 @@ function ReportesContent() {
                             description: 'Informe con el estado de las firmas (Admin, Contratista, Liquidador) para cada partida en liquidacion.',
                             icon: <FileCheck size={18} className="text-pink-600" />,
                             onPdf: () => generateSignedItemsReportLogic(projectId, 'pdf')
-                                .then(() => setStatus("Reporte generado."))
-                                .catch((e: any) => setStatus(`Error: ${e.message}`))
-                                .finally(() => setLoading(false)),
-                            onExcel: () => generateSignedItemsReportLogic(projectId, 'excel')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch((e: any) => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))
