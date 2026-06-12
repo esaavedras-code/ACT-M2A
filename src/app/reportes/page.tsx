@@ -190,7 +190,7 @@ function StandardReportItem({ option, loading, onAction, children, isLiquidation
                             <button
                                 onClick={() => { onAction(); option.onWord?.(); }}
                                 disabled={loading}
-                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-indigo-100 active:scale-95 group/btn"
+                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-violet-100 active:scale-95 group/btn"
                             >
                                 {loading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
                                 WORD
