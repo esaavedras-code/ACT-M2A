@@ -2083,7 +2083,7 @@ export const generateMissingSignaturesReportLogic = async (
     );
 };
 
-export const generateMinuteReportLogic = async (projectId: string, minuteId: string, format: 'pdf' | 'excel' = 'pdf') => {
+export const generateMinuteReportLogic = async (projectId: string, minuteId: string, format: 'pdf' | 'excel' | 'word' = 'pdf') => {
     if (format === 'excel') {
         alert("El reporte de minutas no está disponible en formato Excel por requerimiento.");
         return;
@@ -2091,6 +2091,14 @@ export const generateMinuteReportLogic = async (projectId: string, minuteId: str
     const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
     const { data: minute } = await supabase.from("meeting_minutes").select("*").eq("id", minuteId).single();
     if (!minute) throw new Error("No se encontró la minuta.");
+    
+    if (format === 'word') {
+        const { generateMinutesReportDocx } = await import("./generateMinutesReportDocx");
+        const blob = await generateMinutesReportDocx(projectId, minute);
+        downloadBlob(blob, `Minuta_${minute.meeting_date || 'N/A'}.docx`);
+        return;
+    }
+
     const { generateMinutesReport } = await import("./generateMinutesReport");
     const blob = await generateMinutesReport(projectId, {
         summary: "Puntos clave discutidos en la reunión.",

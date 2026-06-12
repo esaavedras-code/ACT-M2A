@@ -30,6 +30,7 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
   function ACT45Form({ projectId, numAct, onDirty, onSaved }, ref) {
     const [tab, setTab] = useState(0);
     const [loading, setLoading] = useState(false);
+    const [projectItems, setProjectItems] = useState<any[]>([]);
     const [d, setD] = useState<ACT45Data>({
       fecha: new Date().toISOString().split("T")[0],
       diaSemana: DIAS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1],
@@ -63,6 +64,8 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
           fecha: new Date().toISOString().split("T")[0] 
         }));
       }
+      const { data: itemsData } = await supabase.from("contract_items").select("*").eq("project_id", projectId!);
+      if (itemsData) setProjectItems(itemsData);
     };
 
     const save = async (silent = false) => {
@@ -79,6 +82,17 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
     const addTrabajo = () => { setD(p => ({ ...p, trabajoEjecutado: [...p.trabajoEjecutado, { partida:"", especificacion:"", descripcion:"", cantMedida:"", unidad:"", lineaLadoProg:"", cantVerificada:"" }] })); };
     const rmTrabajo = (i: number) => { const a = [...d.trabajoEjecutado]; a.splice(i,1); upD("trabajoEjecutado", a); };
     const upTrabajo = (i: number, k: keyof TrabajoRow, v: string) => { const a = [...d.trabajoEjecutado]; a[i][k] = v; upD("trabajoEjecutado", a); };
+    const onPartidaSelect = (i: number, val: string) => {
+      const a = [...d.trabajoEjecutado];
+      a[i].partida = val;
+      const item = projectItems.find(it => it.item_num === val);
+      if (item) {
+        a[i].especificacion = item.specification || "";
+        a[i].descripcion = item.description || "";
+        a[i].unidad = item.unit || "";
+      }
+      upD("trabajoEjecutado", a);
+    };
 
     const addPersonal = () => { setD(p => ({ ...p, personal: [...p.personal, { nombre:"", clasificacion:"", horasTrabajadas:"", observaciones:"" }] })); };
     const rmPersonal = (i: number) => { const a = [...d.personal]; a.splice(i,1); upD("personal", a); };
@@ -187,7 +201,12 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
                   <tbody>
                     {d.trabajoEjecutado.map((r, i) => (
                       <tr key={i} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                        <td className="p-1"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.partida} onChange={e => upTrabajo(i,"partida",e.target.value)}/></td>
+                        <td className="p-1">
+                          <select className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.partida} onChange={e => onPartidaSelect(i, e.target.value)}>
+                            <option value="">Sel...</option>
+                            {projectItems.map(it => <option key={it.id} value={it.item_num}>{it.item_num}</option>)}
+                          </select>
+                        </td>
                         <td className="p-1"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.especificacion} onChange={e => upTrabajo(i,"especificacion",e.target.value)}/></td>
                         <td className="p-1"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.descripcion} onChange={e => upTrabajo(i,"descripcion",e.target.value)}/></td>
                         <td className="p-1"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0 text-center" value={r.cantMedida} onChange={e => upTrabajo(i,"cantMedida",e.target.value)}/></td>

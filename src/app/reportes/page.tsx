@@ -96,6 +96,7 @@ interface SelectiveReportOption {
     selectLabel?: string;
     onPdf?: (selectedIds: string[]) => Promise<void> | void;
     onExcel?: (selectedIds: string[]) => Promise<void> | void;
+    onWord?: (selectedIds: string[]) => Promise<void> | void;
 }
 
 // --- Componentes ---
@@ -297,6 +298,16 @@ function SelectiveReportItem({ option, loading, onAction, isLiquidation }: { opt
                             >
                                 {loading ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
                                 EXCEL
+                            </button>
+                        )}
+                        {option.onWord && (
+                            <button
+                                onClick={() => { onAction(); option.onWord?.(selectedIds); }}
+                                disabled={loading || (option.items.length > 0 && selectedIds.length === 0)}
+                                className="flex-1 flex items-center justify-center gap-2 py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md shadow-violet-100 active:scale-95 group/btn"
+                            >
+                                {loading ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} className="group-hover/btn:-translate-y-0.5 transition-transform" />}
+                                WORD
                             </button>
                         )}
                     </div>
@@ -1501,19 +1512,9 @@ function ReportesContent() {
                             icon: <FileText size={18} className="text-amber-700" />,
                             selectLabel: "Elegir Fecha",
                             items: minutes.map(m => ({ id: m.id, label: `${m.meeting_number || 'Reunion'} (${formatDate(m.meeting_date)})` })),
-                            onPdf: async (ids) => {
+                            onWord: async (ids) => {
                                 try {
-                                    await generateMinuteReportLogic(projectId, ids[0], 'pdf');
-                                    setStatus("Minuta generada.");
-                                } catch (e: any) {
-                                    setStatus(`Error: ${e.message}`);
-                                } finally {
-                                    setLoading(false);
-                                }
-                            },
-                            onExcel: async (ids) => {
-                                try {
-                                    await generateMinuteReportLogic(projectId, ids[0], 'excel');
+                                    await generateMinuteReportLogic(projectId, ids[0], 'word');
                                     setStatus("Minuta generada.");
                                 } catch (e: any) {
                                     setStatus(`Error: ${e.message}`);
