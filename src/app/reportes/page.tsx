@@ -578,7 +578,7 @@ function ReportesContent() {
                 </DropdownGroup>
 
                 {/* Partidas */}
-                <DropdownGroup title="Gestion de Partidas" icon={<ListChecks size={18} className="text-emerald-500" />}>
+                <DropdownGroup title="Gestion de partidas y subcontratos" icon={<ListChecks size={18} className="text-emerald-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}
