@@ -30,11 +30,11 @@ export default function AboutPage() {
                 </p>
                 <div className="mt-8 inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full font-bold text-sm border border-blue-100">
                     <ShieldCheck size={18} />
-                    Versión del Sistema: 3.26.0425
+                    Versión del Sistema: 3.26.0615
                 </div>
                 <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full font-semibold text-[10px] border border-emerald-100 uppercase tracking-widest">
                     <CalendarDays size={14} />
-                    Última actualización: 25 de abril de 2026 &nbsp;·&nbsp; 05:15 PM
+                    Última actualización: 15 de junio de 2026
                 </div>
             </div>
 
@@ -53,8 +53,8 @@ export default function AboutPage() {
                             <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-200">Diseñador del Programa</span>
                         </div>
 
-                        <h2 className="text-3xl font-black mb-1 tracking-tight">M2A GROUP</h2>
-                        <p className="text-blue-200 font-semibold mb-6 text-lg">Professional Engineer · M2A Group</p>
+                        <h2 className="text-3xl font-black mb-1 tracking-tight">Ing. Enrique Saavedra Sada, PE</h2>
+                        <p className="text-blue-200 font-semibold mb-6 text-lg">Diseñador y Professional Engineer · M2A Group</p>
                     </div>
                 </div>
             </div>
