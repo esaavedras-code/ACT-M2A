@@ -99,6 +99,22 @@ export const generateSubcontractsReportLogic = async (projectId: string) => {
                 const subName = subList[i];
                 const row = worksheet.getRow(rowIdx);
                 
+                let totalSubcontract = 0;
+                const subRecord = compliance?.find(c => 
+                    c.subcontractor_name && 
+                    c.subcontractor_name.trim() === subName && 
+                    c.doc_type === "Subcontratos"
+                );
+                
+                if (subRecord && Array.isArray(subRecord.assigned_items)) {
+                    subRecord.assigned_items.forEach((ai: any) => {
+                        const item = items?.find(it => it.item_num === ai.item_num);
+                        const unitPrice = item ? parseFloat(item.unit_price || 0) : 0;
+                        const quantity = parseFloat(ai.quantity || 0);
+                        totalSubcontract += quantity * unitPrice;
+                    });
+                }
+                
                 row.getCell(2).value = project.region || ""; 
                 row.getCell(3).value = project.num_act ? formatProjectNumber(project.num_act) : ""; 
                 row.getCell(4).value = project.name || ""; 
@@ -106,7 +122,7 @@ export const generateSubcontractsReportLogic = async (projectId: string) => {
                 row.getCell(6).value = project.admin_name || ""; 
                 row.getCell(7).value = i + 1; 
                 row.getCell(8).value = subName; 
-                row.getCell(9).value = ""; 
+                row.getCell(9).value = totalSubcontract; 
                 row.getCell(10).value = ""; 
                 
                 // Aplicar estilo de la fila 4 a las demas
