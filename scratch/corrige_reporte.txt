@@ -1,0 +1,198 @@
+corrige en el reporte de "certificados de manufactura que faltan", corrige las columnas, hasta unidad, todas las columnas a la izquierda, estan bien, luego la siguiente columna que sea Cantidad pagada, la siguiente columna Cantidad sin CM y finalmente la fecha del CM
+Plan de Implementación - Correcciones de Reporte de CM y Actualización de ACT-122
+Este plan detalla los cambios técnicos necesarios para cumplir con las dos solicitudes del Ing. Enrique Saavedra Sada:
+Reporte de CM que Faltan: Modificar el reporte a una estructura de 8 columnas (incluyendo "Cantidad ejecutada" con los valores de cantidad pagada antes de "Unidad", y después de "Unidad" colocar "Cantidad en CM", "Cantidad sin CM" y "Fecha del CM").
+ACT-122 CHO Form: Reemplazar el archivo de plantilla oficial de Excel con el nuevo archivo corregido y re-escribir toda la lógica de mapeo de celdas de generateAct122B.ts según las celdas detalladas en el archivo de instrucciones de celdas.
+Cambios Propuestos
+1. Central de Reportes (CM que Faltan)
+[MODIFY] reportLogic.ts
+Modificaremos la función generateMissingMfgReportLogic para que pase de 7 columnas a 8 columnas con el orden y nombres exactos aprobados por Enrique:
+Item
+Especificación
+Descripción
+Cantidad ejecutada (Contiene la cantidad pagada ordinaria m.certQty)
+Unidad
+Cantidad en CM (Contiene la cantidad certificada de manufactura m.mfgQty)
+Cantidad sin CM (Contiene la cantidad faltante de CM m.missing)
+Fecha del CM (Contiene la fecha donde empezó a faltar m.date)
+Ajuste de anchos en el reporte PDF: El array de anchos del reporte se modificará para soportar 8 columnas de forma balanceada en orientación horizontal (landscape): [40, 70, 180, 80, 50, 80, 80, 90] (Total = 670, perfecto para landscape con márgenes de 30px a los lados en 792px de ancho total).
+2. Formulario ACT-122 (Template e Instrucciones de Celdas)
+[NEW] ACT-122B_Template.xlsx y ACT-122_Official_Template.xlsx
+Reemplazaremos los dos archivos de plantillas en la carpeta public con el nuevo archivo: C:\Users\Enrique Saavedra\Documents\PROGRAMAS AI\Programa ACT\Documentos\ACT-122 CHO Form rev 12-2024 corregido.xlsx (Esto asegurará que la estructura visual sea la versión revisada de Diciembre 2024).
+[MODIFY] generateAct122B.ts
+Re-mapearemos por completo todas las celdas en la función fillPage para alinearnos 100% con las instrucciones provistas en el archivo de celdas de Enrique:
+Encasillado / Campo
+Celda Oficial (Hoja 1)
+Celda Oficial (Hoja 2)
+Código Anterior
+Código Nuevo (Propuesto)
+1. Nombre Proyecto
+J8
+K63
+J7, K59
+J8, K63
+2. Nombre Contratista
+J9
+-
+J8
+J9
+3. Número Proyecto (AC)
+J10
+K64
+J9, K60
+J10, K64
+4. Número Federal
+J11
+-
+J10
+J11
+5. Número Oracle
+J12
+-
+J11
+J12
+6. Número Contrato
+J13
+-
+J12
+J13
+7. Secuencia Enmienda
+J14
+BC64
+J13 (sin hoja 2)
+J14, BC64
+8. Secuencia CHO
+J15
+AZ64
+J14, AZ60
+J15, AZ64
+9a. Fecha Documento
+BA7
+-
+-
+BA7 (choData.cho_date)
+9. Fecha de Comienzo NTP
+BA8
+-
+BA7
+BA8 (projData.date_project_start)
+10. Fecha Term. Contractual
+BA9
+-
+BA8
+BA9 (dateRevisedBox10)
+11. Extensión Tiempo (Días)
+BA10
+-
+BA9
+BA10 (timeExt)
+11.a Días Compensables
+BA11
+-
+-
+BA11 (choData.compensable_days o 'N/A')
+12. Nueva Fecha Term.
+Fórmula
+-
+BA11 (manual)
+Automática en Excel (No se escribe)
+13. Fecha Contralor Rev.
+Fórmula
+-
+BA12 (manual)
+Automática en Excel (No se escribe)
+14. FMIS End Date
+BA14
+-
+BA13
+BA14 (projData.fmis_end_date)
+15. Checkboxes Tipo
+B19, V19, AN19
+-
+B18, V18, AN18
+B19, V19, AN19
+16. Scope de Trabajo
+B22
+-
+B21
+B22 (projData.scope / choData.description)
+17-25. Contract Items (filas)
+35 a 39
+-
+32 a 36
+35 a 39
+17-25. New Items (filas)
+42 a 44
+-
+39 a 41
+42 a 44
+26. Subtotal Contract Items
+AZ40
+-
+AZ37
+AZ40
+27. Subtotal New Items
+AZ46
+-
+AZ42
+AZ46
+28. Suma Total Subtotales
+BA48
+-
+BA44
+BA48
+29. Costo Contractual Prev.
+BA49
+-
+BA45
+BA49
+30. Monto Revisado Actual
+BA50
+-
+BA46
+BA50
+31. Firma Admin / Residente
+M48
+-
+M44
+M48
+32. Firma Contratista
+M50
+-
+M46
+M50
+33. Firma Supervisor
+M52
+-
+M48
+M52
+Firma Director Regional
+M54
+-
+M50
+M54
+Firma Dir. Ofic. Construc.
+AL52
+-
+BA50
+AL52
+Firma Dir. Ejecutivo / FHWA
+M56
+-
+M52
+M56
+36. Justificación Texto
+C72
+-
+-
+C72 (choData.justification)
+Páginas (Fila 55 y 113)
+Z / AA / AE
+-
+Z, AA, AE
+AA, AE, AG, AI
+(Nota: De acuerdo a las instrucciones de Enrique, los encasillados 12 y 13 ahora son fórmulas automatizadas dentro del libro Excel, por lo que evitaremos sobrescribir estas celdas para mantener el cálculo dinámico del propio Excel).
+Plan de Verificación
+Prueba Unitaria de CM que Faltan: Generar el reporte de Certificados de Manufactura que Faltan en formato PDF y verificar visualmente que contenga las 8 columnas solicitadas con los valores y cabeceras exactos.
+Prueba Unitaria de ACT-122: Generar un CHO de prueba, abrir el archivo Excel resultante y verificar minuciosamente que cada celda tenga exactamente los valores correspondientes al proyecto y al CHO de acuerdo al nuevo mapa de celdas de Enrique.
+Generación de Ejecutable: Tras verificar y recibir aprobación de los cambios en ejecución de desarrollo, se procederá a compilar el nuevo archivo ejecutable .exe para el Programa ACT.

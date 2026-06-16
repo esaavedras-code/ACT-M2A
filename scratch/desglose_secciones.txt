@@ -1,0 +1,283 @@
+# PACT - Plataforma de Administración y Control de Obras
+### Documentación Técnica y Funcional Detallada
+**Diseñado por: Ing. Enrique Saavedra Sada, PE**
+**Versión del Sistema: 2026.04**
+---
+## 1. REGISTRO Y GESTIÓN DE SEGURIDAD (USER ACCESS)
+* **Aislamiento de Datos por Grupo**: El sistema utiliza un motor de permisos que separa drásticamente a los usuarios de "M2A Group" de los "Contratistas Externos". Ningún contratista puede ver datos internos de administración, y viceversa.
+* **Jerarquía de Roles Globales**:
+* **Rol A (Administrador)**: Control total del sistema, gestión de usuarios y acceso a todos los proyectos.
+* **Rol B (Project Manager)**: Edición completa del proyecto asignado.
+* **Rol C (Data Entry)**: Capacidad de editar partidas, pagos y materiales.
+* **Rol D (Solo Lectura)**: Auditores o consultores.
+* **Rol E (Inspector)**: Acceso optimizado para campo y fotos.
+* **Rol F (Contratista)**: Interfaz personalizada con colores corporativos específicos y acceso limitado a su documentación.
+* **Seguridad de Contraseña**: Encriptación de nivel bancario. El sistema detecta contraseñas temporales y fuerza al usuario a crear una robusta (mínimo 8 caracteres, símbolos, números y mayúsculas).
+## 2. DASHBOARD DE PROYECTOS (PORTAL DE ENTRADA)
+* **Navegación Inteligente**: Permite cambiar entre la vista de "Mis Proyectos" (donde el usuario tiene membresía activa) y "Todos los Proyectos" (para administradores).
+* **Control de Solicitudes**: Integración con un módulo de "Request Access" que notifica al administrador cuando un usuario requiere entrar a un Proyecto nuevo.
+* **Indicadores Visuales de Estatus**: Cada tarjeta de proyecto muestra el Número de Proyecto (AC), Región y el estatus de construcción inmediatamente.
+## 3. RESUMEN EJECUTIVO (SUMMARY DASHBOARD)
+* **Cálculo de Avance Físico vs. Financiero**: El sistema compara el tiempo transcurrido del contrato con el dinero certificado para detectar desviaciones críticas.
+* **Visualización de Fondos**: Gráficas de distribución de fondos (ACT vs FHWA) que muestran exactamente de dónde viene el presupuesto.
+* **Resumen de Liquidación**: Muestra el total de partidas liquidadas vs. pendientes en tiempo real.
+* **Métricas de Tiempo**: Desglose de extensiones otorgadas, días originales y días de retraso proyectados.
+## 4. EXPLORADOR DE ARCHIVOS (PROJECT FILES)
+* **Estructura de Carpetas Dinámica**: Los archivos se organizan automáticamente por categorías: Documentación Crítica, Pago, Materiales, Órdenes de Cambio y Fotos de Obra.
+* **Previsualización en Nube**: Permite ver imágenes y documentos PDF sin necesidad de descargarlos.
+* **Control de Fotos para Inspectores**: Los inspectores tienen una interfaz simplificada para subir evidencia fotográfica diaria desde dispositivos móviles.
+## 5. DATOS DEL PROYECTO Y CONTRATISTA
+* **Línea de Tiempo Legal**: Registro preciso de fechas de NTP (Notice to Proceed), Terminación Original, Terminación Revisada y Aceptación Final.
+* **Proyecto del Contratista**: Información de la fianza (Performance & Payment Bond), póliza del Fondo del Seguro del Estado (CFSE) y cumplimiento con leyes federales.
+* **Configuración de Fondos**: Desglose porcentual de la participación de fondos estatales y federales.
+## 6. FIRMAS Y PERSONAL ACT
+* **Directorio Oficial del Proyecto**: Registro de todos los funcionarios públicos y consultores asociados al proyecto.
+* **Configuración de Firmantes**: Define quiénes aparecerán legalmente en los formularios impresos de pago y órdenes de cambio.
+## 7. TODAS LAS PARTIDAS (MASTER ITEM LIST)
+* **Gestión de Precios Unitarios**: Almacena el código de especificación, descripción, unidad y precio unitario original del contrato.
+* **Comparativa de Cantidades**: Muestra en una sola tabla la cantidad original vs. la cantidad ejecutada (As-Built).
+* **Balance Financiero**: Calcula automáticamente el ahorro o sobregiro por cada partida individual.
+## 8. MATERIAL ON SITE (MOS)
+* **Inventario no Instalado**: Permite al contratista cobrar materiales que ya están físicamente en el almacén de la obra pero no se han colocado.
+* **Cálculo de Deducciones**: El sistema descuenta automáticamente el MOS cobrado una vez que la partida final se certifica como instalada.
+* **Formulario ACT-117B**: Generación automática del reporte oficial de materiales con facturas asociadas.
+## 9. CUMPLIMIENTO LABORAL (LABOR COMPLIANCE)
+* **Nóminas Certificadas (CCML)**: Rastreo semáforo de las nóminas semanales. Si el contratista no entrega, el sistema alerta antes de procesar el pago.
+* **Documentación de Salarios**: Verificación de cumplimiento con las escalas salariales federales (Davis-Bacon Act).
+## 10. CHANGE ORDERS (CHO)
+* **Órdenes de Cambio (ACT-122)**: Motor para crear enmiendas al contrato. Maneja aumentos de cantidad, partidas nuevas y créditos.
+* **Suplementos y Enmiendas**: Documenta la justificación legal de cada cambio mediante cartas de enmienda.
+* **Control de Tiempo**: Suma o resta días al cronograma oficial mediante la CHO, actualizando la fecha de terminación del proyecto.
+## 11. SISTEMA DE PAGOS (PAYMENT CERTIFICATIONS)
+* **Fórmulas de Retención**: Aplica automáticamente la retención del 5% o 2% según el estatus del proyecto.
+* **Penalidades y Deducciones**: Módulo para aplicar "Liquidated Damages" (daños líquidos) por retrasos o penalidades de seguridad.
+* **Generador ACT-117C**: Crea el anverso (resumen financiero) y reverso (desglose de ítems) en el formato oficial de la ACT.
+## 12. CERTIFICADOS DE MANUFACTURA (MFG CERT)
+* **Control de Calidad (QA/QC)**: Registro de los certificados de fábrica que avalan la calidad del material (acero, luminarias, asfalto, etc.).
+* **Smart missing list**: Reporte de materiales que ya han sido pagados pero que aún no han entregado su certificado oficial, bloqueando cierres de liquidación.
+## 13. INITIAL CERTIFICATION (ICC)
+* **Notarización Digital**: Seguimiento de las certificaciones de contrato requeridas por la oficina legal.
+* **Vigencia de 60 Días**: PACT monitorea la fecha de la notarización y alerta cuando queda poco tiempo antes de que la certificación pierda validez legal para procesar pagos.
+## 14. MINUTAS DE REUNIÓN (WIP)
+* **Registro de Acuerdos**: Creación de actas para reuniones semanales de progreso.
+* **Asistencia y Tareas**: Lista de participantes y asignación de tareas con fechas límite.
+## 15-16. CONTROL DIARIO E INSPECCIÓN (WIP)
+* **Informes Semanales (ACT-45)**: Diario de campo donde se anotan las condiciones del tiempo, labor de los contratistas y equipo en uso.
+* **Reportes de Inspección (ACT-96)**: Reporte técnico del inspector sobre la calidad de los trabajos diarios.
+## 17. FORCE ACCOUNT (WIP)
+* **Trabajo por Administración**: Módulo de cálculo detallado para trabajos extra-contractuales pagados por costo real más porcentaje de beneficio (Labor, Equipo y Materiales).
+## 18. LIQUIDACIÓN (FINAL ACCEPTANCE)
+* **Proceso de Cierre**: Reconciliación final de todas las cantidades del proyecto para el pago del "Final Estimate".
+* **Hojas de Liquidación**: Documentos definitivos que cierran el balance de cada partida con la firma del contratista y del administrador.
+* **Checklist de Documentos Finales**: Seguimiento de todos los requisitos (DBE, Nóminas, Certificados) necesarios para el cierre oficial.
+## 19. CAMBIOS AL CCML (PROJECT MODIFICATIONS)
+* **Cartas de Modificación**: Seguimiento de las cartas contractuales enviadas (Letter 1, Letter 2, etc.) para solicitar cambios formales al contrato original.
+## 20. PRESENTACIONES MENSUALES (WIP)
+* **Storytelling de Obra**: Módulo que extrae las fotos de la sección de archivos y el progreso del mes para generar automáticamente una presentación visual ejecutiva.
+## 21. ACTUALIZAR TABLAS (ADMIN TOOL)
+* **Sincronización de Base de Datos**: Herramienta de mantenimiento para actualizar balances y corregir errores de migración de datos históricos.
+## 22. ZONA DE NEGOCIACIÓN (WIP)
+* **Benchmarking de Precios**: Historial de precios de adjudicación de otros proyectos similares en Puerto Rico para validar si los precios propuestos en CHOs son razonables.
+## 23. CENTRAL DE REPORTES (EXPORT CENTER)
+* **Formatos PDF y Excel**: Capacidad de exportar casi cualquier dato en formatos tabulares o documentos oficiales con membrete.
+* **Reportes Destacados**:
+* **ACT-117C**: Solicitud de Pago oficial.
+* **ACT-117B**: Inventario de Material on Site.
+* **ACT-122**: Change Order oficial.
+* **Dashboard Report**: Resumen visual para juntas de gerencia.
+* **Missing Signatures**: Lista de qué partidas aún no han sido firmadas en liquidación.
+---
+**PACT** ha sido diseñado para centralizar la complejidad de la gestión de carreteras en una interfaz intuitiva, premium y efectiva.
+> [!IMPORTANT]
+> **Diseñado y Patentado conceptualmente por:** Ing. Enrique Saavedra Sada, PE.
+-------
+SISTEMA DE ROLES Y SEGURIDAD (A - F)
+El programa utiliza una lógica de permisos basada en letras que define qué puede ver y hacer cada usuario. Esta estructura es fundamental para el aislamiento de datos y la integridad documental.
+Rol A: Administrador Global
+Nombre en Sistema: Administrador Global / Súper Usuario.
+Alcance: Acceso irrestricto a todos los proyectos de la plataforma.
+Funciones Exclusivas: Gestión de usuarios, aprobación de accesos, edición de catálogos maestros y acceso a las pestañas en desarrollo (WIP).
+Visibilidad: Ve todas las pestañas de navegación sin excepciones.
+Rol B: Administrador de Proyecto (PM)
+Nombre en Sistema: Project Manager / Administrador de Proyecto.
+Alcance: Gestión total sobre el proyecto específico al que está asignado.
+Funciones: Puede editar datos del proyecto, contratista, partidas, y generar todos los reportes oficiales.
+Visibilidad: Tiene acceso a la mayoría de las secciones, excepto la configuración de usuarios globales.
+Rol C: Data Entry / Colaborador
+Nombre en Sistema: Data Entry / Colaborador.
+Alcance: Enfocado en la entrada de datos operativos.
+Funciones: Creación y edición de certificaciones de pago, materiales y órdenes de cambio.
+Visibilidad: Ve las secciones de trabajo diario pero tiene bloqueadas algunas funciones administrativas de cierre.
+Rol D: Solo Lectura (Read Only)
+Nombre en Sistema: Solo Lectura / Auditor.
+Alcance: Visualización de expedientes para fines de auditoría o consulta.
+Funciones: Puede descargar reportes y ver datos, pero todos los botones de "Guardar" o "Eliminar" están desactivados.
+Visibilidad: Todas las pestañas están en modo consulta.
+Rol E: Inspector de Campo
+Nombre en Sistema: Inspector.
+Alcance: Perfil optimizado para trabajo en el sitio de la obra.
+Funciones: Registro de Actividades Diarias (Daily Logs) y carga de evidencia fotográfica.
+Visibilidad Especial: El sistema le oculta automáticamente las pestañas financieras complejas, mostrándole principalmente "Actividades" y "Fotos/Archivos".
+Rol F: Contratista External
+Nombre en Sistema: Contratista.
+Alcance: Acceso exclusivo a la información de su propio contrato.
+Impacto Visual Único: Al iniciar sesión, el programa cambia su esquema de colores de azul a un Rojo/Granate (Maroon) y el título cambia a "PACT-Contratista".
+Restricciones Severas: No puede ver el personal de ACT, Force Account, Liquidación interna ni procesos de negociación. Solo gestiona sus certificaciones de pago y documentos de cumplimiento.
+🛠️ DESGLOSE DE SECCIONES (DEEP DIVE)
+1. Registro y Acceso
+Control de Sesión: Soporte para sesiones persistentes ("Keep me logged in").
+Recuperación: Envío automático de credenciales temporales vía API.
+Seguridad: Bloqueo de cuentas inactivas por seguridad administrativa.
+2. Dashboard de Proyectos
+Búsqueda Dual: Localiza por nombre del proyecto o número de expediente (num_act).
+Aislamiento de Grupo: Filtra automáticamente si un proyecto fue creado por "M2A Group" o por un "Contratista" independiente.
+3. Resumen (Dashboard Ejecutivo)
+Dashboard Inteligente: Importa la lógica de resumen para mostrar el balance total de fondos FHWA y estatales de forma independiente.
+Avance: Calcula el % de tiempo vs. el % de ejecución financiera.
+4. Archivos y Fotos
+Lógica de Fotos: Clasificación específica para fotos de inspección diaria.
+Explorador: Interfaz de "arrastrar y soltar" para subir documentos de respaldo.
+5. Datos Proyecto & Contratista
+Fechas Críticas: Seguimiento de NTP, Fecha de Terminación y Aceptación Final.
+Contratista: Gestión de seguros, fianzas y contactos de emergencia.
+6. Firmas ACT (Personal Asignado)
+Organigrama: Directorio de Ingenieros Residentes, Inspectores y Administradores responsables ante la ley.
+7. Todas las Partidas
+Balances: Reconciliación entre cantidades originales y finales (final estimate quantities).
+8. Material On Site (MOS)
+Gestión de Facturas: Registro de materiales certificados en almacén para pago parcial.
+9. Cumplimiento Laboral
+Certificaciones Laborales: Registro y seguimiento legal de cumplimiento estatutario.
+10-11-12. Cambios, Pagos y Manufactura
+Flujo Financiero: Creación de Órdenes de Cambio, Certificaciones de Pago y Certificados de Manufactura con validación cruzada.
+13. ICC (Initial Certification)
+Control Legal: Monitoreo de vigencia de certificados notarizados (crítico para pagos federales).
+14-17. WIP (Minutas, Actividades, Inspección, Force Account)
+Control de Obra: Registro minucioso de todo lo que ocurre en el campo día a día.
+18. Liquidación
+Final Acceptance: Proceso de firmas finales para el cierre definitivo del proyecto.
+📊 CENTRAL DE REPORTES (EXPLICACIÓN DE CADA UNO)
+Dashboard Ejecutivo: Informe gerencial de una página con gráficas de estatus.
+Balances Actuales: Reporte detallado de cantidades ejecutadas vs. presupuestadas.
+Detalle de Partidas: Historial de cada movimiento por ítem.
+Listado de Certificados de Manufactura: Resumen de materiales aprobados por fábrica.
+Pendientes de Manufactura: Único reporte que detecta materiales pagados sin respaldo de calidad.
+Resumen de ICC: Vigencia de certificaciones notarizadas.
+Inventario de MOS: Balance de materiales en almacén.
+ACT-117B: Reporte oficial de Material on Site por partida.
+ACT-122 (Oficial): Formulario legal para Órdenes de Cambio (CHO).
+ACT-123B: Formulario suplementario B para CHOs.
+ACT-124 (Checklist): Guía de cumplimiento para tramitar una CHO.
+ROA (Authorization): Registro de autorización para proceder con revisiones de contrato.
+CCML (Mod Log): El registro maestro de modificaciones al contrato en formato Excel.
+ACT-117C (Oficial): La certificación de pago oficial que se somete a la ACT.
+Hojas de Liquidación: Documentos de cierre por cada partida (indispensable para el pago final).
+Final Acceptance Report: Documento oficial de FHWA/ACT para la entrega de la obra.
+Payroll Certification: Certificación de que todos los obreros cobraron acorde a la ley.
+Force Account Reports: Desgloces diarios, mensuales y anuales de trabajos por administración.
+Informes Diarios (ACT-45/96): Los diarios de campo legales del inspector y residente.
+----------
++++++
+Hola, Enrique! Es un gusto saludarte. He analizado detalladamente toda la estructura y el código del programa PACT (Plataforma de Administración y Control de Obras) para prepararte esta lista exhaustiva y técnica de cada una de sus partes y funcionalidades.
+A continuación, te presento el desglose detallado por secciones:
+1. Registro de Usuario
+Inicio de Sesión Seguro: Acceso mediante correo electrónico y contraseña con validación en tiempo real.
+Gestión de Contraseñas Temporales: Obliga al cambio de contraseña en el primer inicio de sesión si se detecta una clave temporal (ej. "PACT-XXXX").
+Recuperación de Cuenta: Sistema de "Olvidé mi contraseña" que envía una nueva clave temporal al correo del usuario.
+Solicitud de Acceso: Módulo para que nuevos usuarios soliciten acceso a la plataforma o a proyectos específicos.
+Aislamiento de Seguridad: Los usuarios solo pueden visualizar y editar proyectos a los que han sido explícitamente autorizados mediante "memberships".
+2. Dashboard (Proyectos)
+Vista Global de Proyectos: Lista interactiva de todos los proyectos disponibles para el usuario.
+Filtrado y Búsqueda: Motor de búsqueda por nombre de proyecto o Número de Proyecto ACT.
+Control de Acceso Visual: Indicadores de candado para proyectos sin acceso y botones de solicitud directa.
+Alcance de Vista: Interruptor para alternar entre "Mis Proyectos" y "Todos los Proyectos" (sujeto a rol administrativo).
+Creación de Proyectos: Acceso directo para registrar nuevos Proyectos en la plataforma.
+3. RESUMEN (Dashboard Ejecutivo)
+Métricas Financieras: Visualización de fondos originales, total de órdenes de cambio (CHO), y balances ejecutados.
+Progreso de Obra: Gráficas de avance físico vs. financiero y comparación de tiempo transcurrido vs. tiempo original.
+Status de Fechas: Monitoreo de fecha de inicio, terminación original y terminación proyectada basada en extensiones.
+Alertas Tempranas: Indicadores visuales sobre sobregiros o retrasos críticos en la línea de tiempo.
+4. ARCHIVOS
+Explorador de Documentos: Sistema centralizado para subir, visualizar y descargar documentos de respaldo.
+Galería de Fotos: Sección especializada (especialmente para Inspectores) para el registro fotográfico de la obra.
+Organización por Sección: Los archivos pueden clasificarse según el módulo al que pertenecen para facilitar las auditorías.
+5. DATOS PROYECTO
+Configuración General: Edición de fechas clave, número de contrato (AC), región y estatus de construcción.
+Información del Contratista: Registro detallado de la empresa constructora, fianza y contacto principal.
+Fondos del Proyecto: Desglose de fuentes de financiamiento (ACT, Federal FHWA, otros).
+6. FIRMAS ACT
+Directorio del Proyecto: Gestión de todo el personal de la ACT asignado (Ingenieros Residentes, Administradores, Inspectores, etc.).
+Gestión de Firmas: Configuración de quiénes están autorizados para firmar documentos oficiales como la ACT-117C o la ACT-122.
+7. TODAS LAS PARTIDAS
+Inventario del Contrato: Listado completo de ítems, especificaciones, unidades y precios unitarios.
+Control de Cantidades: Seguimiento de cantidades originales vs. ejecutadas.
+Gestión de Balances: Visualización de ahorros o excesos por cada partida individual.
+8. MAT. ON SITE (MOS)
+Registro de Inventario: Entrada de materiales recibidos en campo pero no instalados.
+Control de Facturación: Registro de facturas de proveedores y deducciones aplicables.
+Historial de MOS: Historial de materiales que entran y salen del inventario para su pago parcial.
+9. CUMPLIMIENTO LABORAL
+Nóminas Certificadas (CCML): Seguimiento de la entrega de nóminas por parte del contratista.
+Seguro Obrero y Documentación: Control de vigencia de pólizas (CFSE) y otros documentos de cumplimiento.
+10. CHANGE ORDERS (Órdenes de Cambio)
+Registro de CHOs: Creación de órdenes de cambio con número, fecha y motivo.
+Suplemento de Fondos: Control de aumentos o disminuciones al valor total del contrato.
+Extensiones de Tiempo: Registro oficial de días adicionales otorgados al proyecto.
+11. PAGOS (Certificaciones)
+Certificaciones Mensuales: Módulo para generar la ACT-117C basada en el trabajo realizado.
+Cálculo de Retenciones: Aplicación automática de retenciones (5% o 2%) y deducciones por materiales.
+Historial de Certificaciones: Registro de todos los pagos realizados con fechas de corte.
+12. CERTIFICADOS DE MANUFACTURA
+Aprobaciones de Fábrica: Registro de certificados recibidos para equipos y materiales pre-fabricados.
+Alertas de Faltante: Sistema que identifica qué materiales instalados aún no cuentan con su certificado de manufactura.
+13. INITIAL CERTIFICATION (ICC)
+Vigilancia de Certificaciones: Control de vigencia de los Initial Contract Certifications (ICC).
+Alertas de Expiración: Sistema de monitoreo de los 60 días de vigencia legal para certificaciones notarizadas.
+14. MINUTAS (WIP)
+Registro de Reuniones: Redacción y almacenamiento de minutas de reuniones de campo y administrativas.
+Seguimiento de Acuerdos: Identificación de puntos pendientes y responsables.
+15. ACTIVIDADES (WIP)
+Bitácora Diaria: Registro de actividades realizadas día a día en el proyecto.
+Control de Recursos: Anotación de equipo y labor utilizado diariamente.
+16. INSPECCIÓN (WIP)
+Informes Diarios de Inspección: Formulario especializado para que el inspector reporte incidentes o avances específicos.
+Voz a Texto: Capacidad futura para dictar informes directamente desde el campo.
+17. FORCE ACCOUNT (WIP)
+Trabajos Extraordinarios: Módulo para gestionar trabajos pagados por tiempo y materiales.
+Consolidación de Costos: Cálculo detallado de labor, equipo y materiales bajo la modalidad de Force Account.
+18. LIQUIDACIÓN
+Cierre de Partidas: Proceso final de firma y reconciliación de cada ítem del contrato.
+Final Acceptance Checklist: Cotejo de todos los requisitos federales y estatales para la aceptación final.
+Hojas de Liquidación: Generación de documentos finales por cada partida.
+19. CAMBIOS AL CCML
+Cartas de Requerimiento: Tramitación de las Cartas de Modificación de Contrato (Project Modification Letters).
+Log de Versiones: Seguimiento a las versiones enviadas y aprobadas de las modificaciones.
+20. PRESENTACIONES (WIP)
+Reportes Mensuales Visuales: Generador de diapositivas automáticas con fotos y logros del mes para exportar a formatos tipo PowerPoint.
+21. ACTUALIZAR TABLAS (WIP)
+Mantenimiento de Datos: Herramienta administrativa para realizar ajustes técnicos masivos en la base de datos de manera controlada.
+22. NEGOCIACIÓN (WIP)
+Central de Precios: Acceso al historial de precios oficiales de la ACT para comparación de costos.
+Análisis de Mercado: Herramienta de apoyo para la negociación de precios unitarios en órdenes de cambio.
+23. Central de Reportes
+Este módulo es el corazón documental de PACT, dividido en:
+Dashboard Ejecutivo: Vista gerencial del estatus de costos y tiempo.
+Gestión de Partidas: Reportes de Balances Actuales e Historial de Partidas.
+Certificados de Manufactura: Listados de certificados aprobados y pendientes.
+Initial Certification: Reporte de estatus y vigencia de ICCs.
+Material on Site (MOS): Inventario detallado y el formulario oficial ACT-117B.
+Change Orders: Generación oficial de los formularios ACT-122, ACT-123B, ACT-124 (Checklist) y el ROA (Record of Authorization).
+Certificaciones de Pago: Impresión oficial de la ACT-117C (Anverso y Reverso) y desgloses financieros.
+Liquidación (Final): Incluye el Final Acceptance Report, Payroll Certification, DBE Participation y el Final Construction Report.
+Force Account: Resúmenes anuales y mensuales de trabajos extraordinarios.
+Campo: Generación de los diarios de campo ACT-45 e informes de inspección ACT-96.
+24. Ayuda del Sistema
+Guía Elemental: Manual interactivo integrado con consejos de uso.
+Glosario de Siglas: Diccionario de términos técnicos de la ACT (ej. NTP, CCML, FHWA).
+Soporte Técnico: Acceso directo para reportar problemas o solicitar capacitación.
+25. Asistente
+Inteligencia Artificial PACT: Asistente basado en IA (Llama 3.1 / Gemini) que permite hacer consultas en lenguaje natural sobre los datos del proyecto, normativa vigente y ayuda técnica.
+26. Botón de Salir
+Cierre de Sesión Seguro: Finaliza la sesión del usuario y limpia los datos temporales de navegación para garantizar la privacidad en computadoras compartidas.
+NOTE
+About: Este sistema ha sido diseñado íntegramente por el Ing. Enrique Saavedra Sada, PE, integrando las mejores prácticas de ingeniería civil y control de proyectos.
