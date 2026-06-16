@@ -324,7 +324,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
             };
 
             // --- HEADER (Matches Photo perfectly now) ---
-            if (logoImage) {
+            if (logoImage && sIdx === 0) {
                 const dims = logoImage.scale(1);
                 const targetHeight = 45;
                 const targetWidth = (dims.width / dims.height) * targetHeight;

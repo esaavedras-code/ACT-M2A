@@ -565,10 +565,6 @@ function ReportesContent() {
                             label: 'Dashboard Ejecutivo',
                             description: 'Resumen gerencial de costos y tiempo.',
                             icon: <Activity size={18} className="text-indigo-500" />,
-                            onPdf: () => generateDashboardReportLogic(projectId, 'pdf', endDate)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false)),
                             onExcel: () => generateDashboardReportLogic(projectId, 'excel', endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
@@ -578,7 +574,7 @@ function ReportesContent() {
                 </DropdownGroup>
 
                 {/* Partidas */}
-                <DropdownGroup title="Gestion de partidas y subcontratos" icon={<ListChecks size={18} className="text-emerald-500" />}>
+                <DropdownGroup title="Partidas y Subcontratos" icon={<ListChecks size={18} className="text-emerald-500" />}>
                     <StandardReportItem
                         onAction={handleAction}
                         loading={loading}

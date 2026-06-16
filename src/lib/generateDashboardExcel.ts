@@ -403,11 +403,11 @@ export async function generateDashboardExcel(projectId: string): Promise<Blob> {
             }
         };
 
-        worksheet.mergeCells(`B${currentRow}:C${currentRow}`);
         const h1 = worksheet.getCell(`B${currentRow}`); h1.value = 'Rol / Puesto'; h1.style = headerStyle;
-        const h2 = worksheet.getCell(`D${currentRow}`); h2.value = 'Nombre'; h2.style = headerStyle;
-        worksheet.mergeCells(`E${currentRow}:F${currentRow}`);
-        const h3 = worksheet.getCell(`E${currentRow}`); h3.value = 'Contacto'; h3.style = headerStyle;
+        const h2 = worksheet.getCell(`C${currentRow}`); h2.value = 'Nombre'; h2.style = headerStyle;
+        worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
+        const h3 = worksheet.getCell(`D${currentRow}`); h3.value = 'Contacto'; h3.style = headerStyle;
+        const h4 = worksheet.getCell(`F${currentRow}`); h4.style = headerStyle;
 
         currentRow++;
 
@@ -422,11 +422,11 @@ export async function generateDashboardExcel(projectId: string): Promise<Blob> {
         };
 
         personnel.forEach(p => {
-            worksheet.mergeCells(`B${currentRow}:C${currentRow}`);
             const cell1 = worksheet.getCell(`B${currentRow}`); cell1.value = p.role; cell1.style = pRowStyle;
-            const cell2 = worksheet.getCell(`D${currentRow}`); cell2.value = p.name || 'N/A'; cell2.style = { ...pRowStyle, alignment: { horizontal: 'center' } };
-            worksheet.mergeCells(`E${currentRow}:F${currentRow}`);
-            const cell3 = worksheet.getCell(`E${currentRow}`); cell3.value = p.phone_mobile || p.email || 'N/A'; cell3.style = pRowStyle;
+            const cell2 = worksheet.getCell(`C${currentRow}`); cell2.value = p.name || 'N/A'; cell2.style = { ...pRowStyle, alignment: { horizontal: 'center' } };
+            worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
+            const cell3 = worksheet.getCell(`D${currentRow}`); cell3.value = p.phone_mobile || p.email || 'N/A'; cell3.style = pRowStyle;
+            const cell4 = worksheet.getCell(`F${currentRow}`); cell4.style = pRowStyle;
             currentRow++;
         });
         currentRow++;
