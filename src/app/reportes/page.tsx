@@ -619,6 +619,21 @@ function ReportesContent() {
                                 .finally(() => setLoading(false))
                         }}
                     />
+                    <StandardReportItem
+                        isLiquidation={true}
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'mobilization-report',
+                            label: 'Liquidacion Item No. 001 MOBILIZACION',
+                            description: 'Reporte de pagos parciales por movilizacion segun cronograma de avance (2.5%, 5%, 10%).',
+                            icon: <Activity size={18} className="text-blue-500" />,
+                            onExcel: () => generateMobilizationReportLogic(projectId)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => setStatus(`Error: ${e.message}`))
+                                .finally(() => setLoading(false))
+                        }}
+                    />
                 </DropdownGroup>
 
                 {/* Manufactura */}
@@ -1043,21 +1058,6 @@ function ReportesContent() {
                             description: 'Formulario oficial de cotejo para aceptacion final (Federal-Aid projects).',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             onPdf: () => generateFinalAcceptanceChecklistReportLogic(projectId, 'pdf')
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => setStatus(`Error: ${e.message}`))
-                                .finally(() => setLoading(false))
-                        }}
-                    />
-                    <StandardReportItem
-                        isLiquidation={true}
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
-                            id: 'mobilization-report',
-                            label: 'Liquidacion Item No. 001 MOBILIZACION',
-                            description: 'Reporte de pagos parciales por movilizacion segun cronograma de avance (2.5%, 5%, 10%).',
-                            icon: <Activity size={18} className="text-blue-500" />,
-                            onExcel: () => generateMobilizationReportLogic(projectId)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))

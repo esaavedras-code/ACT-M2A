@@ -30,7 +30,7 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
     }) || [];
 
     const unexecutedText = unexecutedItems.length > 0 
-        ? unexecutedItems.map(i => `Partida ${i.item_num}: ${i.description}`).join('\n')
+        ? unexecutedItems.map(i => i.item_num).join(', ')
         : "Ninguna";
 
     // 2. Partidas que requieren certificados de manufactura (CM)
@@ -40,23 +40,25 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
     if (itemsRequireMfg.length === 0) {
         mfgText = "No hay partidas que requieran certificados de manufactura en este proyecto.";
     } else {
-        const mfgDetails: string[] = [];
+        const itemsWithCm: string[] = [];
+        const itemsWithoutCm: string[] = [];
+
         itemsRequireMfg.forEach(b => {
             const itemMfgCerts = mfgCerts?.filter((c: any) => c.item_id === b.id) || [];
             const mfgQty = itemMfgCerts.reduce((acc: number, c: any) => acc + (parseFloat(c.quantity) || 0), 0);
             const certQty = executedQtys.get(b.item_num) || 0;
             const missing = certQty - mfgQty;
             
-            // Check if there is missing cert quantity (accounting for float precision)
             if (missing >= 0.0001) {
-                const missingFormatted = missing.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                mfgDetails.push(`Partida ${b.item_num}: ${b.description}\n    [ ] Falta presentar certificado (Cantidad faltante: ${missingFormatted}). Razón para no presentarlo: _____________________________________`);
+                itemsWithoutCm.push(b.item_num);
             } else {
-                mfgDetails.push(`Partida ${b.item_num}: ${b.description}\n    [X] Presentado y aprobado.`);
+                itemsWithCm.push(b.item_num);
             }
         });
 
-        mfgText = mfgDetails.join('\n\n');
+        const withCmText = itemsWithCm.length > 0 ? itemsWithCm.join(', ') : "Ninguna";
+        const withoutCmText = itemsWithoutCm.length > 0 ? itemsWithoutCm.join(', ') : "Ninguna";
+        mfgText = `Con certificado de manufactura:\n${withCmText}\n\nSin certificado de manufactura:\n${withoutCmText}`;
     }
 
     // 3. Materiales con descuento
@@ -66,23 +68,23 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
         // The user asked to format it to be filled manually.
         const adj = parseFloat(cert.price_adjustment) || 0;
         if (adj > 0) {
-            discountLines.push(`Partida: ________________ - Descripción: _____________________________ - Descuento: ____% (Aplicado en Certificación #${cert.cert_num})\nNota: Se deberá enviar copia de la parte posterior de la certificación donde se aplicó el descuento.`);
+            discountLines.push(`Partida: ________________ - Descuento: ____% (Aplicado en Certificación #${cert.cert_num})\nNota: Se deberá enviar copia de la parte posterior de la certificación donde se aplicó el descuento.`);
         }
     });
 
     const discountText = discountLines.length > 0 
         ? discountLines.join('\n\n') 
-        : "Partida: ________________ - Descripción: _____________________________ - Descuento: ____% (Certificación #____)\nNota: Se deberá enviar copia de la parte posterior de la certificación donde se aplicó el descuento.";
+        : "Partida: ________________ - Descuento: ____% (Certificación #____)\nNota: Se deberá enviar copia de la parte posterior de la certificación donde se aplicó el descuento.";
 
     // 4. Materiales rechazados
-    const rejectedText = "Partida: ________________ - Descripción: _____________________________ - ¿Material fue removido?: [ ] Sí  [ ] No";
+    const rejectedText = "Partida: ________________ - ¿Material fue removido?: [ ] Sí  [ ] No";
 
     // 5. Partidas con trabajos adicionales (Spec 888)
     const spec888Items = items.filter(i => (i.specification || '').includes('888'));
     let extraWorkText = "";
     if (spec888Items.length > 0) {
         const extraWorkLines = spec888Items.map(i => {
-            return `Partida ${i.item_num} (Especificación ${i.specification}): ${i.description}
+            return `Partida ${i.item_num}
     Consistencia del trabajo: ______________________________________________________________
     Desglose de materiales: ________________________________________________________________
     ¿Se tomaron muestras?: [ ] Sí  [ ] No

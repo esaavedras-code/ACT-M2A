@@ -215,13 +215,7 @@ export async function generateAct117CExcel(
 
         // Fill FRONT sheet with data
         const fillFrontSheet = (sheet: ExcelJS.Worksheet, pageItems: any[], pageNum: number) => {
-            // Inyectar Logo si está disponible (esto sobrescribirá cualquier imagen previa en esa zona)
-            if (logoId !== null) {
-                sheet.addImage(logoId, {
-                    tl: { col: 0.2, row: 0.2 },
-                    ext: { width: 140, height: 80 }
-                });
-            }
+            // El logo ya viene en la plantilla base64, no lo inyectamos de nuevo para evitar duplicados.
 
             // Header fields 1-8 (left column)
             sheet.getCell('C7').value = 'Director Regional';
@@ -265,10 +259,14 @@ export async function generateAct117CExcel(
                     sheet.getCell(`A${row}`).value = parseInt(it.item_num) || it.item_num;
                     // Column B = Alt (leave empty unless specified)
                     sheet.getCell(`C${row}`).value = it.specification || matchCi?.specification || '';
-                    sheet.getCell(`D${row}`).value = fedP > 0 ? `${fedP.toFixed(2)}%` : '0%';
+                    sheet.getCell(`D${row}`).value = '';
                     sheet.getCell(`E${row}`).value = fullDesc;
                     sheet.getCell(`H${row}`).value = it.unit || matchCi?.unit || '';
-                    sheet.getCell(`I${row}`).value = parseFloat(it.quantity) || 0;
+                    
+                    const qtyCell = sheet.getCell(`I${row}`);
+                    qtyCell.value = parseFloat(it.quantity) || 0;
+                    qtyCell.numFmt = '0.000000';
+                    
                     sheet.getCell(`J${row}`).value = parseFloat(it.unit_price) || 0;
                     sheet.getCell(`K${row}`).value = (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0);
                 } else {
