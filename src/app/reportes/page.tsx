@@ -583,10 +583,7 @@ function ReportesContent() {
                             label: 'Balances Actuales',
                             description: 'Cantidades originales vs ejecutadas.',
                             icon: <ListChecks size={18} className="text-emerald-500" />,
-                            onPdf: () => generateBalanceReportLogic(projectId, 'pdf', endDate)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false)),
+
                             onExcel: () => generateBalanceReportLogic(projectId, 'excel', endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
@@ -601,10 +598,7 @@ function ReportesContent() {
                             label: 'Detalle de cada partida',
                             description: 'Historial completo por cada partida.',
                             icon: <Files size={18} className="text-teal-500" />,
-                            onPdf: () => generateDetailReportLogic(projectId, 'pdf', endDate)
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false)),
+
                             onExcel: () => generateDetailReportLogic(projectId, 'excel', endDate)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
@@ -674,10 +668,7 @@ function ReportesContent() {
                             label: 'Resumen de ICC',
                             description: 'Vigencia de 60 dias de certificaciones.',
                             icon: <ShieldCheckIcon size={18} className="text-blue-500" />,
-                            onPdf: () => generateIccReportLogic(projectId, 'pdf')
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false)),
+
                             onExcel: () => generateIccReportLogic(projectId, 'excel')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })

@@ -2251,6 +2251,13 @@ export const generateIccReportLogic = async (projectId: string, format: 'pdf' | 
     // Como generateReport no está exportada pero se usa en el archivo, la llamamos directamente si es visible
     // Si no es visible, usaré la lógica de createPdfBlob directamente.
     
+    if (format === 'excel') {
+        const { generateIccExcelBlob } = await import("./generateIccExcel");
+        const blob = await generateIccExcelBlob(reportData, project);
+        downloadBlob(blob, `ICC_Resumen_${project?.num_act || projectId}.xlsx`);
+        return;
+    }
+
     const blob = await createPdfBlob(
         'RESUMEN DE INITIAL CONTRACT CERTIFICATIONS (ICC)',
         reportData,
