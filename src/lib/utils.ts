@@ -227,6 +227,15 @@ export function uniqueSortItems(items: any[]): any[] {
 }
 
 /**
+ * Formats an item number by removing leading zeros.
+ * For example: "002" becomes "2", "02A" becomes "2A", "000" remains "0".
+ */
+export function formatItemNum(num: string | number | null | undefined): string {
+    if (num === null || num === undefined) return '';
+    return num.toString().replace(/^0+(?!$)/, '');
+}
+
+/**
  * Obtiene el porcentaje de participación federal para un proyecto o item específico.
  * Prioriza la configuración individual del proyecto.
  */

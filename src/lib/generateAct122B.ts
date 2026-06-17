@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { formatDate, getFederalSharePct, sortItemsNaturally, uniqueSortItems } from '@/lib/utils';
+import { formatDate, getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -193,7 +193,7 @@ export async function generateAct122B(
                 if (it) {
                     const qty = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
                     const up = parseFloat(it.unit_price) || 0;
-                    setVal(ws, `B${currentRow}`, it.item_num);
+                    setVal(ws, `B${currentRow}`, formatItemNum(it.item_num));
                     setVal(ws, `E${currentRow}`, it.specification);
                     setVal(ws, `H${currentRow}`, it.description, { shrink: true });
                     setVal(ws, `AJ${currentRow}`, it.unit);
@@ -214,7 +214,7 @@ export async function generateAct122B(
                 if (it) {
                     const qty = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
                     const up = parseFloat(it.unit_price) || 0;
-                    setVal(ws, `B${currentRow}`, it.item_num);
+                    setVal(ws, `B${currentRow}`, formatItemNum(it.item_num));
                     setVal(ws, `E${currentRow}`, it.specification);
                     setVal(ws, `H${currentRow}`, it.description, { shrink: true });
                     setVal(ws, `AJ${currentRow}`, it.unit);

@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { formatDate, getFederalSharePct } from './utils';
+import { formatDate, getFederalSharePct, formatItemNum } from './utils';
 import { supabase } from './supabase';
 
 export async function generateAct122Excel(
@@ -100,7 +100,7 @@ export async function generateAct122Excel(
         let row = 32;
         let subtotalContract = 0;
         contractChoItems.slice(0, 5).forEach((it: any) => {
-            setVal(`B${row}`, it.item_num);
+            setVal(`B${row}`, formatItemNum(it.item_num));
             setVal(`E${row}`, it.specification || '');
             setVal(`H${row}`, it.description);
             setVal(`AJ${row}`, it.unit);
@@ -119,7 +119,7 @@ export async function generateAct122Excel(
         row = 39;
         let subtotalExtra = 0;
         extraWorkItems.slice(0, 3).forEach((it: any) => {
-            setVal(`B${row}`, it.item_num);
+            setVal(`B${row}`, formatItemNum(it.item_num));
             setVal(`E${row}`, it.specification || '');
             setVal(`H${row}`, it.description);
             setVal(`AJ${row}`, it.unit);

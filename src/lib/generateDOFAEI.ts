@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { getFederalSharePct, sortItemsNaturally, uniqueSortItems } from './utils';
+import { getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum } from './utils';
 import { DOFAEI_TEMPLATE_BASE64 } from './dofaeiTemplate';
 
 export async function generateDOFAEI(projectId: string, choId: string) {
@@ -100,7 +100,7 @@ function fillSheetConservatively(sheet: ExcelJS.Worksheet, projData: any, choDat
         const isFed = fedPct > 0;
         const ratio = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
         
-        row.getCell(2).value = it.item_num;
+        row.getCell(2).value = formatItemNum(it.item_num);
         row.getCell(5).value = it.specification;
         row.getCell(11).value = it.description;
         row.getCell(32).value = parseFloat(it.quantity) || 0;
@@ -125,7 +125,7 @@ function fillSheetConservatively(sheet: ExcelJS.Worksheet, projData: any, choDat
         const colIdx = matrixCols[itemIdx];
         if (!colIdx) return;
 
-        sheet.getCell(68, colIdx).value = `#${it.item_num}`;
+        sheet.getCell(68, colIdx).value = `#${formatItemNum(it.item_num)}`;
 
         Object.entries(criterionRows).forEach(([critId, rowIdx]) => {
             const val = evaluations[it.item_num]?.[critId];

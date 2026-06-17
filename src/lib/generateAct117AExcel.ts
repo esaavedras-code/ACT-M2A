@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber } from './utils';
+import { formatDate, formatProjectNumber, formatItemNum } from './utils';
 import { ACT117A_TEMPLATE_BASE64 } from './act117aTemplate';
 
 /**
@@ -51,7 +51,7 @@ export async function generateAct117AExcel(
             currentSheet.getCell('K7').value = formatProjectNumber(projData.num_act);
             currentSheet.getCell('K8').value = contrData?.name || '';
             
-            currentSheet.getCell('AO6').value = item.item_num || '';
+            currentSheet.getCell('AO6').value = formatItemNum(item.item_num) || '';
             currentSheet.getCell('AO7').value = parseFloat(item.unit_price) || 0;
             currentSheet.getCell('AO8').value = item.description || '';
             currentSheet.getCell('BG6').value = item.unit || '';

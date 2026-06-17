@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, formatCurrency, getFederalSharePct, sortItemsNaturally, uniqueSortItems } from './utils';
+import { formatDate, formatCurrency, getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum } from './utils';
 
 const PW = 612; // 8.5"
 const PH = 792; // 11"
@@ -262,7 +262,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                     const fedP = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
 
                     const fullDesc = [it.description, it.additional_description].filter(Boolean).join(' - ');
-                    drawText(p, it.item_num || "", vc[0]+(vc[1]-vc[0])/2, cy+10, font, 7, true);
+                    drawText(p, formatItemNum(it.item_num) || "", vc[0]+(vc[1]-vc[0])/2, cy+10, font, 7, true);
                     drawText(p, it.specification || "", vc[1]+(vc[2]-vc[1])/2, cy+10, font, 7, true);
                     drawText(p, (fullDesc || "").substring(0, 80), vc[2]+5, cy+10, font, 6.5);
                     drawText(p, "-", vc[3]+(vc[4]-vc[3])/2, cy+10, font, 7, true);
@@ -303,7 +303,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                     const fedP = (it.fund_source || "").toUpperCase() === "ACT:100%" ? "0%" : `${fedPct.toFixed(2)}%`;
 
                     const fullDesc = [it.description, it.additional_description].filter(Boolean).join(' - ');
-                    drawText(p, it.item_num || "", vc[0]+(vc[1]-vc[0])/2, cy+10, font, 7, true);
+                    drawText(p, formatItemNum(it.item_num) || "", vc[0]+(vc[1]-vc[0])/2, cy+10, font, 7, true);
                     drawText(p, it.specification || "", vc[1]+(vc[2]-vc[1])/2, cy+10, font, 7, true);
                     drawText(p, (fullDesc || "").substring(0, 80), vc[2]+5, cy+10, font, 6.5);
                     drawText(p, "-", vc[3]+(vc[4]-vc[3])/2, cy+10, font, 7, true);

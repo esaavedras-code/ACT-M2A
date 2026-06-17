@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally, uniqueSortItems } from './utils';
+import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum } from './utils';
 import { ACT117C_TEMPLATE_BASE64 } from './act117cTemplate';
 
 /**
@@ -256,7 +256,7 @@ export async function generateAct117CExcel(
                     const fedPct = getFederalSharePct(projData, it);
                     const fedP = (it.fund_source || "").toUpperCase() === "ACT:100%" ? 0 : fedPct;
 
-                    sheet.getCell(`A${row}`).value = parseInt(it.item_num) || it.item_num;
+                    sheet.getCell(`A${row}`).value = formatItemNum(it.item_num);
                     // Column B = Alt (leave empty unless specified)
                     sheet.getCell(`C${row}`).value = it.specification || matchCi?.specification || '';
                     sheet.getCell(`D${row}`).value = '';

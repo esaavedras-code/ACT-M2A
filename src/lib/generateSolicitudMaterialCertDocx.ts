@@ -1,6 +1,6 @@
 import { Document, Paragraph, TextRun, Packer } from "docx";
 import { fetchAllReportData } from "./reportLogic";
-import { formatDate } from "./utils";
+import { formatDate, formatItemNum } from "./utils";
 
 export const generateSolicitudMaterialCertDocx = async (projectId: string): Promise<Blob | null> => {
     const { project, items, certs, chos, mfgCerts } = await fetchAllReportData(projectId);
@@ -30,7 +30,7 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
     }) || [];
 
     const unexecutedText = unexecutedItems.length > 0 
-        ? unexecutedItems.map(i => i.item_num).join(', ')
+        ? unexecutedItems.map(i => formatItemNum(i.item_num)).join(', ')
         : "Ninguna";
 
     // 2. Partidas que requieren certificados de manufactura (CM)
@@ -50,9 +50,9 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
             const missing = certQty - mfgQty;
             
             if (missing >= 0.0001) {
-                itemsWithoutCm.push(b.item_num);
+                itemsWithoutCm.push(formatItemNum(b.item_num));
             } else {
-                itemsWithCm.push(b.item_num);
+                itemsWithCm.push(formatItemNum(b.item_num));
             }
         });
 
@@ -79,22 +79,15 @@ export const generateSolicitudMaterialCertDocx = async (projectId: string): Prom
     // 4. Materiales rechazados
     const rejectedText = "Partida: ________________ - ¿Material fue removido?: [ ] Sí  [ ] No";
 
-    // 5. Partidas con trabajos adicionales (Spec 888)
-    const spec888Items = items.filter(i => (i.specification || '').includes('888'));
-    let extraWorkText = "";
-    if (spec888Items.length > 0) {
-        const extraWorkLines = spec888Items.map(i => {
-            return `Partida ${i.item_num}
-    Consistencia del trabajo: ______________________________________________________________
-    Desglose de materiales: ________________________________________________________________
-    ¿Se tomaron muestras?: [ ] Sí  [ ] No
-    ¿Se presentaron certificados de manufactura?: [ ] Sí  [ ] No
-    ¿Se realizaron inspecciones de campo?: [ ] Sí  [ ] No`;
-        });
-        extraWorkText = extraWorkLines.join('\n\n');
-    } else {
-        extraWorkText = "Ninguna partida bajo especificación 888 reportada.";
+    // 5. Partidas con trabajos adicionales (CHO)
+    const choItems = chos ? items.filter(i => chos.some((c: any) => c.item_id === i.id)) : [];
+    let extraWorkLines: string[] = [];
+    if (choItems.length > 0) {
+        extraWorkLines = choItems.map(i => `Partida ${formatItemNum(i.item_num)}\n\n`);
     }
+    const extraWorkText = extraWorkLines.length > 0
+        ? extraWorkLines.join('\n')
+        : "Ninguna.";
 
     const doc = new Document({
         sections: [{

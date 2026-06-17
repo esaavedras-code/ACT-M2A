@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally, uniqueSortItems } from './utils';
+import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum } from './utils';
 
 export async function generateAct117C(projectId: string, certId: string, certNum: number, certDate: string, isFinal?: boolean) {
     try {
@@ -410,7 +410,7 @@ export async function generateAct117C(projectId: string, certId: string, certNum
                     specCode = items?.find((ci: any) => ci.item_num === "006")?.specification || '';
                 }
 
-                drawText(it.item_num, 57.5, rowY, 7, false, true);
+                drawText(formatItemNum(it.item_num), 57.5, rowY, 7, false, true);
                 drawText(specCode, 117.5, rowY, 7, false, true);
                 
                 // Column 20: % Federal participation

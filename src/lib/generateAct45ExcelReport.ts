@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { formatDate as utilsFormatDate } from './utils';
+import { formatDate as utilsFormatDate, formatItemNum } from './utils';
 import { downloadBlob } from './reportLogic';
 import { ACT45_TEMPLATE_BASE64 } from './act45Template';
 
@@ -79,7 +79,7 @@ export const generateAct45ExcelReport = async (projectId: string, logId: string)
         let rT = 24;
         for (const pt of partidas) {
             if (rT > 27) break;
-            sheet.getCell(`A${rT}`).value = pt.item_num || '';
+            sheet.getCell(`A${rT}`).value = formatItemNum(pt.item_num) || '';
             sheet.getCell(`H${rT}`).value = pt.description || '';
             sheet.getCell(`R${rT}`).value = pt.qty_worked || '';
             sheet.getCell(`U${rT}`).value = pt.unit || '';

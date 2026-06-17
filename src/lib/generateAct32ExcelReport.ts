@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { formatDate } from './utils';
+import { formatDate, formatItemNum } from './utils';
 import { downloadBlob } from './reportLogic';
 import { ACT32_TEMPLATE_BASE64 } from './act32Template';
 
@@ -80,7 +80,7 @@ export async function generateAct32ExcelReport(projectId: string, choId: string)
             if (currentRow > 46) break;
             
             // "Item Especificacion descripcion de partida" -> A39
-            const fullDesc = `${item.item_num || ''} ${item.spec_code || ''} ${item.description || ''}`;
+            const fullDesc = `${formatItemNum(item.item_num) || ''} ${item.spec_code || ''} ${item.description || ''}`;
             sheet.getCell(`A${currentRow}`).value = fullDesc.trim();
             sheet.getCell(`E${currentRow}`).value = item.unit || '';
             sheet.getCell(`F${currentRow}`).value = parseFloat(item.quantity) || 0;

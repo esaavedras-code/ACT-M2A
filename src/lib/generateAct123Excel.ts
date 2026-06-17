@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber, sortItemsNaturally, uniqueSortItems } from './utils';
+import { formatDate, formatProjectNumber, sortItemsNaturally, uniqueSortItems, formatItemNum } from './utils';
 import { ACT123_TEMPLATE_BASE64 } from './act123Template';
 
 /**
@@ -130,7 +130,7 @@ export async function generateAct123Excel(projectId: string, choId: string) {
         if (roaSheet) {
             let contractRow = 6;
             for (const item of contractItems) {
-                roaSheet.getCell(`B${contractRow}`).value = item.spec_code || item.item_num || '';
+                roaSheet.getCell(`B${contractRow}`).value = item.spec_code || formatItemNum(item.item_num) || '';
                 roaSheet.getCell(`C${contractRow}`).value = item.description || '';
                 roaSheet.getCell(`D${contractRow}`).value = '';
                 roaSheet.getCell(`E${contractRow}`).value = item.unit || '';
@@ -150,7 +150,7 @@ export async function generateAct123Excel(projectId: string, choId: string) {
             });
 
             for (const item of extraItems) {
-                roaSheet.getCell(`B${extraRow}`).value = item.spec_code || item.item_num || '';
+                roaSheet.getCell(`B${extraRow}`).value = item.spec_code || formatItemNum(item.item_num) || '';
                 roaSheet.getCell(`C${extraRow}`).value = item.description || '';
                 roaSheet.getCell(`D${extraRow}`).value = '';
                 roaSheet.getCell(`E${extraRow}`).value = item.unit || '';

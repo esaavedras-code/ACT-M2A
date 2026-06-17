@@ -1,6 +1,6 @@
 
 import { supabase } from './supabase';
-import { formatDate as utilsFormatDate } from './utils';
+import { formatDate as utilsFormatDate, formatItemNum } from './utils';
 
 export const generateDailyLogReport = async (projectId: string, logId: string) => {
     // 1. Fetch Data
@@ -219,7 +219,7 @@ export const generateDailyLogReport = async (projectId: string, logId: string) =
         colW.forEach((w, idx) => {
             page.drawRectangle({ x: curX, y: y - rowH, width: w, height: rowH, borderWidth: 0.3, borderColor: BK });
             let val = '';
-            if (idx === 0) val = p.item_num || '';
+            if (idx === 0) val = formatItemNum(p.item_num) || '';
             if (idx === 1) val = spec;
             if (idx === 2) val = (p.description || '').substring(0, 45);
             if (idx === 3) val = p.qty_worked?.toString() || '0.00';

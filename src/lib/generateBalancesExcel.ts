@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatCurrency, formatNum, roundedAmt, sortItemsNaturally } from './utils';
+import { formatDate, formatCurrency, formatNum, roundedAmt, sortItemsNaturally, formatItemNum } from './utils';
 
 export async function generateBalancesExcel(projectId: string): Promise<Blob> {
     const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
@@ -114,7 +114,7 @@ export async function generateBalancesExcel(projectId: string): Promise<Blob> {
         let sQty = 0, sAmt = 0;
         groupItems.forEach((b: any) => {
             const r = worksheet.addRow([
-                b.item_num, b.description, b.unit, 
+                formatItemNum(b.item_num), b.description, b.unit, 
                 b.origQty, b.choQty, b.totalQty, -b.certQty, 
                 b.balanceQty, b.balanceAmt
             ]);
