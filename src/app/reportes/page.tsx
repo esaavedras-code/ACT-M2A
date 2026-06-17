@@ -1320,14 +1320,14 @@ function ReportesContent() {
                                 { id: 'contractor', label: 'Contratista' },
                                 { id: 'liquidator', label: 'Liquidador' }
                             ],
-                            onGenerate: async (ids) => {
+                            onPdf: async (ids) => {
                                 try {
                                     const filters = {
                                         admin: ids.includes('admin'),
                                         contractor: ids.includes('contractor'),
                                         liquidator: ids.includes('liquidator')
                                     };
-                                    await generateMissingSignaturesReportLogic(projectId, reportFormat, filters);
+                                    await generateMissingSignaturesReportLogic(projectId, 'pdf', filters);
                                     setStatus("Reporte generado.");
                                 } catch (e: any) {
                                     setStatus(`Error: ${e.message}`);
@@ -1366,7 +1366,7 @@ function ReportesContent() {
                              label: 'AC-51 Resumen del Trabajo del FA',
                              description: 'Basado en el formato oficial Resumen Anual de FA.',
                              icon: <FileText size={18} className="text-pink-500" />,
-                             action: () => generateFaResumenAnualLogic(projectId, reportFormat)
+                             onPdf: () => generateFaResumenAnualLogic(projectId, 'pdf')
                                  .then(() => setStatus("Reporte generado."))
                                  .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
                                  .finally(() => setLoading(false))
@@ -1380,7 +1380,7 @@ function ReportesContent() {
                              label: 'AC-50 Relación de equipo del FA',
                              description: 'Basado en el formato oficial Relacion de equipo de FA.',
                              icon: <FileText size={18} className="text-pink-500" />,
-                             action: () => generateFaRelacionEquipoLogic(projectId, reportFormat, selectedFaMonth)
+                             onPdf: () => generateFaRelacionEquipoLogic(projectId, 'pdf', selectedFaMonth)
                                  .then(() => setStatus("Reporte generado."))
                                  .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
                                  .finally(() => setLoading(false))
@@ -1415,7 +1415,7 @@ function ReportesContent() {
                              label: 'AC-49 Diario de trabajos por FA',
                              description: 'Basado en el formato oficial Informe Diario de FA.',
                              icon: <FileText size={18} className="text-pink-500" />,
-                             action: () => generateFaInformeDiarioLogic(projectId, reportFormat, selectedFaDate)
+                             onPdf: () => generateFaInformeDiarioLogic(projectId, 'pdf', selectedFaDate)
                                  .then(() => setStatus("Reporte generado."))
                                  .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
                                  .finally(() => setLoading(false))
@@ -1438,7 +1438,7 @@ function ReportesContent() {
                              label: 'Resumen Mensual de FA (Anterior)',
                              description: 'Versión previa del resumen mensual.',
                              icon: <FileText size={18} className="text-pink-500" />,
-                             action: () => generateFaResumenMensualLogic(projectId, reportFormat)
+                             onPdf: () => generateFaResumenMensualLogic(projectId, 'pdf')
                                  .then(() => setStatus("Reporte generado."))
                                  .catch((e: any) => { console.error(e); setStatus(`Error: ${e.message}`); })
                                  .finally(() => setLoading(false))
