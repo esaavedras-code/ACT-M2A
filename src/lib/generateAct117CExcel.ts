@@ -282,8 +282,8 @@ export async function generateAct117CExcel(
                 }
             }
 
-            // Page number
-            sheet.getCell('E32').value = `PAGE ${pageNum}`;
+            // Page number removed by user request
+            sheet.getCell('E32').value = '';
 
             // Financial Summary (26-38)
             sheet.getCell('K33').value = wpCurrent;                                     // 26. Work Performed
