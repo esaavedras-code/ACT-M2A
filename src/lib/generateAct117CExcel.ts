@@ -330,6 +330,21 @@ export async function generateAct117CExcel(
             // 54-56 are typically left blank or manual
 
             // 59. Remarks - leave as template
+            const remarksArr: string[] = [];
+            if (currentCert?.liquidated_damages_notes) remarksArr.push(`Daños Líquidos: ${currentCert.liquidated_damages_notes}`);
+            if (currentCert?.extra_retention_notes) remarksArr.push(`Retención Extra: ${currentCert.extra_retention_notes}`);
+            if (currentCert?.price_adjustment_notes) remarksArr.push(`Ajuste Precio: ${currentCert.price_adjustment_notes}`);
+            if (currentCert?.insurance_fines_notes) remarksArr.push(`Seguros/Multas: ${currentCert.insurance_fines_notes}`);
+            if (currentCert?.other_penalties_notes) remarksArr.push(`Otras Penalidades: ${currentCert.other_penalties_notes}`);
+
+            let remarkRow = 23; // Assuming remarks box starts around row 22-23
+            remarksArr.forEach(r => {
+                const cell = sheet.getCell(`B${remarkRow}`);
+                cell.value = r;
+                cell.font = { size: 9, bold: false };
+                remarkRow++;
+            });
+
             // 60. Distribution - leave as template
         };
 

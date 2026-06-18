@@ -284,10 +284,7 @@ export function getFederalSharePct(project: any, item?: any): number {
  */
 export function getReportFileName(projectNum: string, reportName: string): string {
     const cleanNum = (projectNum || "").replace(/[^0-9]/g, '');
-    const now = new Date();
-    const yy = now.getFullYear().toString().slice(-2);
-    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
     const cleanReportName = (reportName || "").replace(/\s+/g, '_').toUpperCase();
-    return `AC${cleanNum}-${yy}${mm}-${cleanReportName}`;
+    return `AC-${cleanNum}-${cleanReportName}`;
 }
 

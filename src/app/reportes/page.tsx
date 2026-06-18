@@ -995,12 +995,6 @@ function ReportesContent() {
                             description: 'Seleccione las certificaciones para generar el formulario oficial de pago (Anverso/Reverso).',
                             icon: <FileCheck size={18} className="text-blue-600" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
-                            onPdf: async (ids) => {
-                                try {
-                                    for (const id of ids) { await generateAct117CReportLogic(projectId, id, 'pdf'); }
-                                    setStatus("Reporte(s) generado(s).");
-                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
-                            },
                             onExcel: async (ids) => {
                                 try {
                                     for (const id of ids) { await generateAct117CReportLogic(projectId, id, 'excel'); }

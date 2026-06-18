@@ -1735,7 +1735,7 @@ export const generateProjectedFundDistributionReportLogic = async (projectId: st
     await generateReport('Presupuesto Proyectado por Origen de Fondos', reportData, project, COL_WIDTHS, 'portrait', format, `Presupuesto_Proyectado_${project.num_act}.pdf`);
 };
 
-import { generateAct117C } from "./generateAct117C";
+
 import { generateAct117CExcel } from "./generateAct117CExcel";
 import { generateAct117AExcel } from "./generateAct117AExcel";
 import { generateAct123Excel } from "./generateAct123Excel";
@@ -1766,7 +1766,7 @@ import { generateDetailExcel } from "./generateDetailExcel";
 import { generateMobilizationReport } from "./generateMobilizationReport";
 import { generateSolicitudMaterialCertDocx } from "./generateSolicitudMaterialCertDocx";
 
-export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'pdf', isFinal?: boolean) => {
+export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'excel' = 'excel', isFinal?: boolean) => {
     const { project, certs } = await fetchAllReportData(projectId);
     if (!project) return;
     let cert = certId ? certs?.find(c => c.id === certId) : (certs && certs.length > 0 ? certs[certs.length - 1] : null);
@@ -1774,13 +1774,8 @@ export const generateAct117CReportLogic = async (projectId: string, certId?: str
         alert("No se encontró la certificación de pago.");
         return;
     }
-    if (format === 'excel') {
-        const blob = await generateAct117CExcel(projectId, cert.id, cert.cert_num, cert.cert_date, isFinal);
-        downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}${isFinal ? '_FINAL' : ''}.xlsx`);
-    } else {
-        const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date, isFinal);
-        downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}${isFinal ? '_FINAL' : ''}.pdf`);
-    }
+    const blob = await generateAct117CExcel(projectId, cert.id, cert.cert_num, cert.cert_date, isFinal);
+    downloadBlob(blob, `ACT-117C_Cert_${cert.cert_num}_${project.num_act}${isFinal ? '_FINAL' : ''}.xlsx`);
 };
 
 export const generateAct117AReportLogic = async (projectId: string, certId?: string, format: 'pdf' | 'excel' = 'excel') => {
