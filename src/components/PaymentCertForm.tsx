@@ -30,7 +30,7 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatNumber, sortItemsNaturally, getReportFileName } from '@/lib/utils';
 import FloatingFormActions from '@/components/FloatingFormActions';
 import AboutModal from './AboutModal';
-import { generateAct117C } from '@/lib/generateAct117C';
+import { generateAct117CExcel } from '@/lib/generateAct117CExcel';
 
 
 export const normalizeItemNum = (num: any): string => {
@@ -737,12 +737,12 @@ const PaymentCertForm = React.forwardRef(({
 
         setGenerating(cert.cert_num);
         try {
-            const blob = await generateAct117C(projectId, cert.id, cert.cert_num, cert.cert_date);
+            const blob = await generateAct117CExcel(projectId, cert.id, cert.cert_num, cert.cert_date);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             const fileName = getReportFileName(projectData.num_act, `CERT_${cert.cert_num}`);
-            a.download = `${fileName}.pdf`;
+            a.download = `${fileName}.xlsx`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
