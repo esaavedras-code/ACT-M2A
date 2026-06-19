@@ -185,7 +185,7 @@ const LoginPage: NextPage = () => {
             }
             
             setForgotSuccess(true);
-            alert("✓ Se ha enviado una contraseña temporal a tu correo electrónico. Por favor, revísalo para iniciar sesión.");
+            alert("✓ Se ha enviado un enlace de recuperación a tu correo electrónico. Ábrelo y sigue las instrucciones para establecer tu nueva contraseña.");
         } catch (err: any) {
             setError(err.message);
         } finally {
