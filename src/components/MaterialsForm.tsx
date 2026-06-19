@@ -34,7 +34,6 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
     };
 
     const updateCertItem = (certIdx: number, itemIdx: number, field: string, value: any) => {
-        const newList = [...certs];
         let finalValue = value;
 
         // Truncate price fields to 4 decimal places
@@ -46,22 +45,32 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             }
         }
 
-        newList[certIdx].items[itemIdx][field] = finalValue;
+        // Deep clone para garantizar que React detecte el cambio y re-renderice en tiempo real
+        const newList = certs.map((cert, cIdx) => {
+            if (cIdx !== certIdx) return cert;
+            const newItems = (cert.items as any[]).map((item: any, iIdx: number) => {
+                if (iIdx !== itemIdx) return item;
+                const updated = { ...item, [field]: finalValue };
 
-        // Auto-calculate mos_unit_price = total / quantity
-        if (field === 'mos_invoice_total' || field === 'mos_quantity') {
-            const total = parseFloat(newList[certIdx].items[itemIdx].mos_invoice_total) || 0;
-            const qty = parseFloat(newList[certIdx].items[itemIdx].mos_quantity) || 0;
-            if (qty > 0) {
-                const rawPrice = (total / qty).toString();
-                let calcPrice = rawPrice;
-                if (rawPrice.includes('.')) {
-                    const [intP, decP] = rawPrice.split('.');
-                    calcPrice = intP + '.' + decP.substring(0, 4);
+                // Auto-calculate mos_unit_price = total / quantity
+                if (field === 'mos_invoice_total' || field === 'mos_quantity') {
+                    const total = parseFloat(updated.mos_invoice_total) || 0;
+                    const qty = parseFloat(updated.mos_quantity) || 0;
+                    if (qty > 0) {
+                        const rawPrice = (total / qty).toString();
+                        let calcPrice = rawPrice;
+                        if (rawPrice.includes('.')) {
+                            const [intP, decP] = rawPrice.split('.');
+                            calcPrice = intP + '.' + decP.substring(0, 4);
+                        }
+                        updated['mos_unit_price'] = calcPrice;
+                    }
                 }
-                newList[certIdx].items[itemIdx]['mos_unit_price'] = calcPrice;
-            }
-        }
+                return updated;
+            });
+            return { ...cert, items: newItems };
+        });
+
         setCerts(newList);
         if (onDirty) onDirty();
     };
