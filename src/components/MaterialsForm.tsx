@@ -133,12 +133,18 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
             const currentBalance = balances.get(itemNum) || 0;
             const mosPU = getInvoicePU(certs, itemNum, cIdx);
             const price = mosPU > 0 ? mosPU : (parseFloat(it.unit_price) || 0);
+
+            // Si en esta misma cert hay una adición MOS + trabajo ejecutado, el balance disponible
+            // para la deducción debe incluir la adición de esta misma cert (balance proyectado).
+            // De lo contrario, si el balance previo es 0, la deducción nunca se computaría.
+            const additionCostThisCert = hasAddition ? (parseFloat(it.mos_invoice_total) || 0) : 0;
+            const balanceForDeduction = currentBalance + additionCostThisCert;
             
             // Determine the deduction quantity: use manual if provided, otherwise auto-calculate if there's work and balance
             // In both cases, NEVER exceed the available balance
             let deductionQty = 0;
-            if (currentBalance > 0.01) {
-                const availableQty = currentBalance / (price || 1);
+            if (balanceForDeduction > 0.01) {
+                const availableQty = balanceForDeduction / (price || 1);
                 if (manualDeductionQty > 0) {
                     // Manual entry: limit to what's actually available in the balance
                     deductionQty = Math.min(manualDeductionQty, availableQty);
@@ -147,6 +153,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                     deductionQty = Math.min(workQty, availableQty);
                 }
             }
+
 
             const hasDeduction = deductionQty > 0;
 
