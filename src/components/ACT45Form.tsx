@@ -202,9 +202,9 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
                     {d.trabajoEjecutado.map((r, i) => (
                       <tr key={i} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl">
                         <td className="p-1">
-                          <select className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.partida} onChange={e => onPartidaSelect(i, e.target.value)}>
+                          <select className="bg-transparent w-full text-xs font-bold border-none focus:ring-0 max-w-[150px] truncate" value={r.partida} onChange={e => onPartidaSelect(i, e.target.value)}>
                             <option value="">Sel...</option>
-                            {projectItems.map(it => <option key={it.id} value={it.item_num}>{it.item_num}</option>)}
+                            {projectItems.map(it => <option key={it.id} value={it.item_num}>{it.item_num} - {it.description}</option>)}
                           </select>
                         </td>
                         <td className="p-1"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.especificacion} onChange={e => upTrabajo(i,"especificacion",e.target.value)}/></td>
