@@ -32,6 +32,12 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
     const [tab, setTab] = useState(0);
     const [loading, setLoading] = useState(false);
     const [projectItems, setProjectItems] = useState<any[]>([]);
+    const [historicalPersonnelMap, setHistoricalPersonnelMap] = useState<{ nombre: string; clasificacion: string }[]>([]);
+    const [historicalEquipmentMap, setHistoricalEquipmentMap] = useState<{ tipo: string; descripcion: string }[]>([]);
+    const [namesList, setNamesList] = useState<string[]>([]);
+    const [classificationsList, setClassificationsList] = useState<string[]>([]);
+    const [equipTypesList, setEquipTypesList] = useState<string[]>([]);
+    const [equipDescsList, setEquipDescsList] = useState<string[]>([]);
     const [d, setD] = useState<ACT45Data>({
       fecha: new Date().toISOString().split("T")[0],
       diaSemana: DIAS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1],
@@ -67,14 +73,115 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
       }
       const { data: itemsData } = await supabase.from("contract_items").select("*").eq("project_id", projectId!);
       if (itemsData) setProjectItems(sortItemsNaturally(itemsData));
+
+      // Cargar listas históricas para autocompletado recopilándolas de todos los proyectos
+      const { data: allProjs } = await supabase.from("projects").select("act45_last_report");
+      const namesSet = new Set<string>();
+      const classesSet = new Set<string>();
+      const eqTypesSet = new Set<string>();
+      const eqDescsSet = new Set<string>();
+      const pMap: { nombre: string; clasificacion: string }[] = [];
+      const eMap: { tipo: string; descripcion: string }[] = [];
+
+      const addPerson = (n: string, c: string) => {
+        if (!n) return;
+        const nameClean = n.trim();
+        const classClean = c ? c.trim() : "";
+        namesSet.add(nameClean);
+        if (classClean) classesSet.add(classClean);
+        if (!pMap.some(x => x.nombre.toLowerCase() === nameClean.toLowerCase())) {
+          pMap.push({ nombre: nameClean, clasificacion: classClean });
+        }
+      };
+
+      const addEquip = (t: string, d: string) => {
+        if (!t) return;
+        const typeClean = t.trim();
+        const descClean = d ? d.trim() : "";
+        eqTypesSet.add(typeClean);
+        if (descClean) eqDescsSet.add(descClean);
+        if (!eMap.some(x => x.tipo.toLowerCase() === typeClean.toLowerCase())) {
+          eMap.push({ tipo: typeClean, descripcion: descClean });
+        }
+      };
+
+      if (allProjs) {
+        allProjs.forEach(p => {
+          const report = p.act45_last_report as any;
+          if (report) {
+            if (Array.isArray(report.personal)) {
+              report.personal.forEach((x: any) => addPerson(x.nombre, x.clasificacion));
+            }
+            if (Array.isArray(report.equipo)) {
+              report.equipo.forEach((x: any) => addEquip(x.tipo, x.descripcion));
+            }
+            if (Array.isArray(report.historicalPersonnel)) {
+              report.historicalPersonnel.forEach((x: any) => addPerson(x.nombre, x.clasificacion));
+            }
+            if (Array.isArray(report.historicalEquipment)) {
+              report.historicalEquipment.forEach((x: any) => addEquip(x.tipo, x.descripcion));
+            }
+          }
+        });
+      }
+
+      setHistoricalPersonnelMap(pMap);
+      setHistoricalEquipmentMap(eMap);
+      setNamesList(Array.from(namesSet).sort());
+      setClassificationsList(Array.from(classesSet).sort());
+      setEquipTypesList(Array.from(eqTypesSet).sort());
+      setEquipDescsList(Array.from(eqDescsSet).sort());
     };
 
     const save = async (silent = false) => {
       if (!projectId) return;
       setLoading(true);
-      const { error } = await supabase.from("projects").update({ act45_last_report: d }).eq("id", projectId);
+
+      const currentPersonnel = d.personal || [];
+      const currentEquipment = d.equipo || [];
+
+      const pMap = [...historicalPersonnelMap];
+      currentPersonnel.forEach(x => {
+        if (x.nombre && x.nombre.trim()) {
+          const nameClean = x.nombre.trim();
+          const classClean = x.clasificacion ? x.clasificacion.trim() : "";
+          if (!pMap.some(y => y.nombre.toLowerCase() === nameClean.toLowerCase())) {
+            pMap.push({ nombre: nameClean, clasificacion: classClean });
+          }
+        }
+      });
+
+      const eMap = [...historicalEquipmentMap];
+      currentEquipment.forEach(x => {
+        if (x.tipo && x.tipo.trim()) {
+          const typeClean = x.tipo.trim();
+          const descClean = x.descripcion ? x.descripcion.trim() : "";
+          if (!eMap.some(y => y.tipo.toLowerCase() === typeClean.toLowerCase())) {
+            eMap.push({ tipo: typeClean, descripcion: descClean });
+          }
+        }
+      });
+
+      const dataToSave = {
+        ...d,
+        historicalPersonnel: pMap,
+        historicalEquipment: eMap
+      };
+
+      const { error } = await supabase.from("projects").update({ act45_last_report: dataToSave }).eq("id", projectId);
       setLoading(false);
-      if (!error) { if (!silent) alert("ACT-45 guardado."); onSaved?.(); } else if (!silent) alert("Error: " + error.message);
+      if (!error) {
+        if (!silent) alert("ACT-45 guardado.");
+        setHistoricalPersonnelMap(pMap);
+        setHistoricalEquipmentMap(eMap);
+        setNamesList(pMap.map(x => x.nombre).sort());
+        setClassificationsList(Array.from(new Set(pMap.map(x => x.clasificacion).filter(Boolean))).sort());
+        setEquipTypesList(eMap.map(x => x.tipo).sort());
+        setEquipDescsList(Array.from(new Set(eMap.map(x => x.descripcion).filter(Boolean))).sort());
+        onSaved?.();
+      } else if (!silent) {
+        alert("Error: " + error.message);
+      }
     };
     useImperativeHandle(ref, () => ({ save: () => save(true) }));
 
@@ -97,11 +204,31 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
 
     const addPersonal = () => { setD(p => ({ ...p, personal: [...p.personal, { nombre:"", clasificacion:"", horasTrabajadas:"", observaciones:"" }] })); };
     const rmPersonal = (i: number) => { const a = [...d.personal]; a.splice(i,1); upD("personal", a); };
-    const upPersonal = (i: number, k: keyof PersonalRow, v: string) => { const a = [...d.personal]; a[i][k] = v; upD("personal", a); };
+    const upPersonal = (i: number, k: keyof PersonalRow, v: string) => {
+      const a = [...d.personal];
+      a[i][k] = v;
+      if (k === "nombre") {
+        const found = historicalPersonnelMap.find(x => x.nombre.toLowerCase() === v.trim().toLowerCase());
+        if (found && found.clasificacion) {
+          a[i].clasificacion = found.clasificacion;
+        }
+      }
+      upD("personal", a);
+    };
 
     const addEquipo = () => { setD(p => ({ ...p, equipo: [...p.equipo, { tipo:"", descripcion:"", horasActivo:"", horasInactivo:"" }] })); };
     const rmEquipo = (i: number) => { const a = [...d.equipo]; a.splice(i,1); upD("equipo", a); };
-    const upEquipo = (i: number, k: keyof EquipoRow, v: string) => { const a = [...d.equipo]; a[i][k] = v; upD("equipo", a); };
+    const upEquipo = (i: number, k: keyof EquipoRow, v: string) => {
+      const a = [...d.equipo];
+      a[i][k] = v;
+      if (k === "tipo") {
+        const found = historicalEquipmentMap.find(x => x.tipo.toLowerCase() === v.trim().toLowerCase());
+        if (found && found.descripcion) {
+          a[i].descripcion = found.descripcion;
+        }
+      }
+      upD("equipo", a);
+    };
 
     const tabs = [
       { label: "Encabezado & Clima", icon: <Cloud size={16}/> },
@@ -241,8 +368,8 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
                   <tbody>
                     {d.personal.map((r, i) => (
                       <tr key={i} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                        <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.nombre} onChange={e => upPersonal(i,"nombre",e.target.value)} placeholder="Nombre completo"/></td>
-                        <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.clasificacion} onChange={e => upPersonal(i,"clasificacion",e.target.value)} placeholder="Ej. Operador"/></td>
+                        <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.nombre} onChange={e => upPersonal(i,"nombre",e.target.value)} placeholder="Nombre completo" list="historical-names"/></td>
+                        <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.clasificacion} onChange={e => upPersonal(i,"clasificacion",e.target.value)} placeholder="Ej. Operador" list="historical-classifications"/></td>
                         <td className="p-1.5"><input type="number" className="bg-transparent w-full text-xs font-bold border-none focus:ring-0 text-center" value={r.horasTrabajadas} onChange={e => upPersonal(i,"horasTrabajadas",e.target.value)}/></td>
                         <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.observaciones} onChange={e => upPersonal(i,"observaciones",e.target.value)}/></td>
                         <td className="p-1.5"><button onClick={() => rmPersonal(i)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14}/></button></td>
@@ -271,8 +398,8 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
                     <tbody>
                       {d.equipo.map((r, i) => (
                         <tr key={i} className="bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                          <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.tipo} onChange={e => upEquipo(i,"tipo",e.target.value)} placeholder="Retroexcavadora"/></td>
-                          <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.descripcion} onChange={e => upEquipo(i,"descripcion",e.target.value)}/></td>
+                          <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.tipo} onChange={e => upEquipo(i,"tipo",e.target.value)} placeholder="Retroexcavadora" list="historical-equip-types"/></td>
+                          <td className="p-1.5"><input className="bg-transparent w-full text-xs font-bold border-none focus:ring-0" value={r.descripcion} onChange={e => upEquipo(i,"descripcion",e.target.value)} list="historical-equip-descs"/></td>
                           <td className="p-1.5"><input type="number" className="bg-transparent w-full text-xs font-bold border-none focus:ring-0 text-center" value={r.horasActivo} onChange={e => upEquipo(i,"horasActivo",e.target.value)}/></td>
                           <td className="p-1.5"><input type="number" className="bg-transparent w-full text-xs font-bold border-none focus:ring-0 text-center" value={r.horasInactivo} onChange={e => upEquipo(i,"horasInactivo",e.target.value)}/></td>
                           <td className="p-1.5"><button onClick={() => rmEquipo(i)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14}/></button></td>
@@ -315,6 +442,18 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
           { label: tab<4?"Siguiente":"Guardar", icon:tab<4?<ChevronRight/>:<Save/>, onClick:() => tab<4?setTab(tab+1):save(false), variant:tab<4?'secondary':'primary' }
         ]}/>
 
+        <datalist id="historical-names">
+          {namesList.map(name => <option key={name} value={name} />)}
+        </datalist>
+        <datalist id="historical-classifications">
+          {classificationsList.map(cls => <option key={cls} value={cls} />)}
+        </datalist>
+        <datalist id="historical-equip-types">
+          {equipTypesList.map(t => <option key={t} value={t} />)}
+        </datalist>
+        <datalist id="historical-equip-descs">
+          {equipDescsList.map(d2 => <option key={d2} value={d2} />)}
+        </datalist>
       </div>
     );
   }
