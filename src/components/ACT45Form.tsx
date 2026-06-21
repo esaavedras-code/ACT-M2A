@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { Save, Plus, Trash2, Loader2, FileText, Cloud, Users, Truck, ClipboardList, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
+import { sortItemsNaturally } from "@/lib/utils";
 
 interface TrabajoRow { partida: string; especificacion: string; descripcion: string; cantMedida: string; unidad: string; lineaLadoProg: string; cantVerificada: string; }
 interface PersonalRow { nombre: string; clasificacion: string; horasTrabajadas: string; observaciones: string; }
@@ -65,7 +66,7 @@ const ACT45Form = forwardRef<FormRef, { projectId?: string; numAct?: string; onD
         }));
       }
       const { data: itemsData } = await supabase.from("contract_items").select("*").eq("project_id", projectId!);
-      if (itemsData) setProjectItems(itemsData);
+      if (itemsData) setProjectItems(sortItemsNaturally(itemsData));
     };
 
     const save = async (silent = false) => {
