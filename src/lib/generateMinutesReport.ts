@@ -29,12 +29,27 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
         .lt('meeting_date', currentMeetingDate)
         .order('meeting_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-    const previousSummary = prevMinute?.participants?.summary || 'No hay resumen de la reunión anterior disponible.';
+    let previousSummary = 'No hay resumen de la reunión anterior disponible.';
+    if (prevMinute) {
+        const parsedPrev = prevMinute.participants && typeof prevMinute.participants === 'object' && !Array.isArray(prevMinute.participants)
+            ? prevMinute.participants
+            : {};
+        previousSummary = parsedPrev?.summary || (Array.isArray(prevMinute.participants) ? 'No hay resumen de la reunión anterior disponible.' : (prevMinute.participants || 'No hay resumen de la reunión anterior disponible.'));
+    }
     
-    // Use the stored number if it exists, otherwise use the calculated count
-    const meetingNum = minuteData.meeting_num || (minutesCountBefore || 1);
+    // Parse currently passed minuteData participants
+    const parsedParticipants = minuteData.participants && typeof minuteData.participants === 'object' && !Array.isArray(minuteData.participants) 
+        ? minuteData.participants 
+        : {};
+
+    const meetingNum = minuteData.meeting_number || minuteData.meeting_num || (minutesCountBefore || 1);
+    const meetingDate = minuteData.meeting_date || new Date().toISOString().split('T')[0];
+    const meetingTime = minuteData.meeting_time || parsedParticipants?.meeting_time || 'N/A';
+    const attendeesText = minuteData.attendees || parsedParticipants?.attendees || (Array.isArray(minuteData.participants) ? minuteData.participants.join(', ') : 'No se registró lista de asistentes.');
+    const currentSummary = minuteData.summary || parsedParticipants?.summary || 'No hay resumen disponible.';
+    const fullMinutes = minuteData.minutes || minuteData.content || '';
 
     // --- Calculations for Snapshot ---
     const originalCost = project.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
@@ -185,11 +200,11 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
     drawText(`${meetingNum}`, metadataX + 110, y, 9, true, 'left', BK);
     
     drawText(`FECHA:`, metadataCol2X, y, 8, true, 'left', PROGRAM_BLUE);
-    drawText(`${utilsFormatDate(minuteData.meeting_date || project.last_meeting_date || new Date().toISOString())}`, metadataCol2X + 65, y, 9, true, 'left', BK);
+    drawText(`${utilsFormatDate(meetingDate)}`, metadataCol2X + 65, y, 9, true, 'left', BK);
     y -= 15;
 
     drawText(`HORA:`, metadataX, y, 8, true, 'left', PROGRAM_BLUE);
-    drawText(`${minuteData.meeting_time || 'N/A'}`, metadataX + 110, y, 9, true, 'left', BK);
+    drawText(`${meetingTime}`, metadataX + 110, y, 9, true, 'left', BK);
     
     drawText(`PROYECTO:`, metadataCol2X, y, 8, true, 'left', PROGRAM_BLUE);
     drawText(`${project.project_name || project.num_act || 'N/A'}`, metadataCol2X + 65, y, 9, true, 'left', BK);
@@ -197,7 +212,6 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
 
     // Attendees
     drawText(`ASISTENTES:`, metadataX, y, 8, true, 'left', PROGRAM_BLUE);
-    const attendeesText = minuteData.attendees || 'No se registró lista de asistentes.';
     drawWrappedText(attendeesText, metadataX + 90, y, 8, false, 'left', BK, contentWidth - 120);
     y -= 45;
 
@@ -420,9 +434,9 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
     y -= 10;
     drawText("B. PUNTOS PRINCIPALES DE LA REUNIÓN ACTUAL:", margin + 5, y, 8, true, 'left', PROGRAM_BLUE);
     y -= 12;
-    drawSectionText(minuteData.summary);
+    drawSectionText(currentSummary);
     
-    const fullMinutes = minuteData.minutes || '';
+    // fullMinutes ya está declarada al inicio de la función
 
     // --- Special Tables for Section 2 & 3 ---
     

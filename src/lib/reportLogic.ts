@@ -2102,21 +2102,34 @@ export const generateMinuteReportLogic = async (projectId: string, minuteId: str
     const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
     const { data: minute } = await supabase.from("meeting_minutes").select("*").eq("id", minuteId).single();
     if (!minute) throw new Error("No se encontró la minuta.");
+
+    const parsedParticipants = minute.participants && typeof minute.participants === 'object' && !Array.isArray(minute.participants)
+        ? minute.participants
+        : {};
+
+    const enrichedMinute = {
+        id: minute.id,
+        meeting_number: minute.meeting_number,
+        meeting_num: minute.meeting_number,
+        meeting_date: minute.meeting_date,
+        meeting_time: parsedParticipants.meeting_time || 'N/A',
+        attendees: parsedParticipants.attendees || (Array.isArray(minute.participants) ? minute.participants.join(', ') : 'No se registró lista de asistentes.'),
+        summary: parsedParticipants.summary || 'No hay resumen disponible.',
+        minutes: minute.content || '',
+        content: minute.content || '',
+        participants: minute.participants,
+        audio_url: minute.audio_url
+    };
     
     if (format === 'word') {
         const { generateMinutesReportDocx } = await import("./generateMinutesReportDocx");
-        const blob = await generateMinutesReportDocx(projectId, minute);
+        const blob = await generateMinutesReportDocx(projectId, enrichedMinute);
         downloadBlob(blob, `Minuta_${minute.meeting_date || 'N/A'}.docx`);
         return;
     }
 
     const { generateMinutesReport } = await import("./generateMinutesReport");
-    const blob = await generateMinutesReport(projectId, {
-        summary: "Puntos clave discutidos en la reunión.",
-        minutes: minute.content,
-        meeting_number: minute.meeting_number,
-        meeting_date: minute.meeting_date
-    });
+    const blob = await generateMinutesReport(projectId, enrichedMinute);
     downloadBlob(blob, `Minuta_${minute.meeting_date || 'N/A'}.pdf`);
 };
 

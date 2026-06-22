@@ -29,7 +29,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
         detectItems: true
     });
 
-    // Results
+    // Results - declarados antes del useEffect para evitar errores de hooks
     const [activeTab, setActiveTab] = useState<"upload" | "result">("upload");
     const [result, setResult] = useState<{
         id?: string;
@@ -42,6 +42,45 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
         meeting_date?: string;
         attendees?: string;
     } | null>(null);
+
+    // Cargar la última minuta existente al iniciar el componente
+    React.useEffect(() => {
+        const loadLatestMinute = async () => {
+            if (!projectId) return;
+            setLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from("meeting_minutes")
+                    .select("*")
+                    .eq("project_id", projectId)
+                    .order("meeting_date", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (data) {
+                    const parsedParticipants = data.participants && typeof data.participants === "object" ? data.participants : {};
+                    setResult({
+                        id: data.id,
+                        summary: parsedParticipants?.summary || "",
+                        minutes: data.content || "",
+                        json: parsedParticipants?.json || JSON.stringify(parsedParticipants, null, 2),
+                        audio_url: data.audio_url || "",
+                        meeting_num: data.meeting_number || "",
+                        meeting_time: parsedParticipants?.meeting_time || "",
+                        meeting_date: data.meeting_date || "",
+                        attendees: parsedParticipants?.attendees || ""
+                    });
+                    setActiveTab("result");
+                }
+            } catch (err) {
+                console.error("Error al cargar la última minuta:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadLatestMinute();
+    }, [projectId]);
 
     useImperativeHandle(ref, () => ({
         save: async () => {
@@ -92,7 +131,7 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
                     project_id: projectId,
                     meeting_date: new Date().toISOString().split('T')[0],
                     content: `Audio subido: ${file.name}`,
-                    participants: { summary: "", json: "" },
+                    participants: { summary: "", json: "", attendees: "", meeting_time: "" },
                     audio_url: uploadedUrl
                 });
                 if (onSaved) onSaved();
@@ -149,9 +188,15 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
             const { error } = await supabase.from("meeting_minutes").upsert({
                 id: dataToSave.id,
                 project_id: projectId,
-                meeting_date: new Date().toISOString().split('T')[0],
+                meeting_date: dataToSave.meeting_date || new Date().toISOString().split('T')[0],
+                meeting_number: dataToSave.meeting_num || null,
                 content: dataToSave.minutes,
-                participants: { summary: dataToSave.summary, json: dataToSave.json },
+                participants: { 
+                    summary: dataToSave.summary, 
+                    json: dataToSave.json,
+                    attendees: dataToSave.attendees || "",
+                    meeting_time: dataToSave.meeting_time || ""
+                },
                 audio_url: dataToSave.audio_url
             });
             if (error) throw error;
@@ -197,14 +242,18 @@ const MinutesForm = forwardRef<FormRef, { projectId?: string, projectName?: stri
 
             setUploadProgress(50);
 
-            // Simulation of AI processing
+            // Simulation of AI processing with PRASA template topics
             setTimeout(async () => {
                 setUploadProgress(100);
                 const mockResult = {
-                    summary: `### RESUMEN EJECUTIVO\n- **Proyecto:** ${projectName || 'Proyecto ACT'}\n- **Estado:** ${numAct || 'ACT-XXXXXX'}\n- **Avance:** 45% aproximado\n- **Hitos:** Revision de drenajes y pavimentacion completada.`,
-                    minutes: `### 1. Actas anteriores: Aprobadas.\n### 2. Construction permit: El permiso esta vigente hasta el 2026.\n### 3. Owner Controlled Insurance Program (OCIP) Claims: No hay reclamos pendientes.\n### 4. Construction Progress Tracking: Segun el Earned Value, el proyecto esta en un 45%.\n### 5. Main Critical Activities: Vaciado de asfalto en el km 5.\n### 11. Administration (AD): Pendiente aprobacion de CHO #3.\n### 13. Substantial Completion: Proyectada para julio 2026.`,
+                    summary: `### RESUMEN EJECUTIVO\n- **Proyecto:** ${projectName || 'Proyecto ACT'}\n- **Estado:** ${numAct || 'AC-XXXXXX'}\n- **Avance:** 86.00% físico frente a 87.13% de tiempo transcurrido.\n- **Hitos:** Instalación de tubería Vieques al 100%. Demolición y construcción de tanque en Punta Lima en progreso.`,
+                    minutes: `### 4. Seguimiento del progreso de construcción\n- Avance físico reportado del proyecto es de 86%.\n- Se discutió la demolición y construcción del tanque en Punta Lima, Naguabo.\n\n### 5. Actividades críticas principales (Four Weeks Look Ahead)\n- Se revisaron las actividades de los próximos 30 días, enfocándose en la finalización de interconexiones y pruebas de tubería.\n\n### 6. Planos marcados (Red-lined drawings)\n- Estatus de planos red-lined en SLSCO se encuentra en espera (On Hold).\n\n### 7. Seguridad (SA)\n- Se discutieron los aspectos de seguridad de Punta Lima, Naguabo.\n- No se reportaron accidentes ni incidentes en la última semana.\n\n### 8. Cronograma (SC)\n- Itinerario de progreso actualizado con fecha actual de terminación sustancial para el 31 de marzo de 2025.\n\n### 9. Adquisiciones (PR)\n- Se discutió el asunto CR#6 relacionado con los RFIs 7, 8 y 9 (puntos de interconexión de tuberías de entrada 12" y salida 16" al tanque).\n\n### 10. Construcción (CO)\n- Certificaciones de cumplimiento con la provisión "American Iron and Steel" (AIS).\n- Estatus de días de lluvia y retrasos asociados por clima.\n\n### 11. Administración (AD)\n- Coordinación de trámites administrativos.\n- Pendiente presentación final de Orden de Cambio C (CO-C).\n\n### 12. Otros (OT)\n- Solicitud de propuesta económica al contratista para instalación de defensas tipo bolardos (8 en total) en la caja de by-pass de la ACV.\n\n### 13. Terminación Sustancial\n- Discusión de la carta de terminación sustancial y preparación del Punch List.`,
                     json: JSON.stringify({ sections: 13, status: "complete" }, null, 2),
-                    audio_url: uploadedUrl
+                    audio_url: uploadedUrl,
+                    meeting_num: "59",
+                    meeting_date: new Date().toISOString().split('T')[0],
+                    meeting_time: "13:00",
+                    attendees: "Julio Correa, Enrique Saavedra, Manuel Bermudez, Vincent Fafard, Wilson X. Rivera, Jimmy Solivan, Rafael Díaz"
                 };
                 
                 setResult(mockResult);
