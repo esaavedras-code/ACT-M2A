@@ -1141,23 +1141,22 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
     await generateReport('REPORTE DE CERTIFICADOS DE MANUFACTURA (CM) QUE FALTAN', data, project, [40, 70, 180, 80, 50, 80, 80, 90], 'landscape', format, 'Certificados_CM_Faltantes.pdf');
 };
 
+const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
+    for (let i = currentCertIdx; i >= 0; i--) {
+        if (!certsList[i]) continue;
+        const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
+        const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
+        if (match) return parseFloat(match.mos_unit_price);
+    }
+    return 0;
+};
+
 export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
     const { project, items: itemsRepo, certs } = await fetchAllReportData(projectId);
     if (!certs) return;
 
     const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
     const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff) || [];
-
-
-    const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
-        for (let i = currentCertIdx; i >= 0; i--) {
-            if (!certsList[i]) continue;
-            const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
-            const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
-            if (match) return parseFloat(match.mos_unit_price);
-        }
-        return 0;
-    };
 
     const groupedItems = new Map<string, any>();
     const balances = new Map<string, number>();
@@ -1445,6 +1444,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     let totalRetentionReturned = 0;
     // Para el cálculo de MOS en el dashboard, necesitamos trackear los precios de factura por item
     const mosPricesByItem = new Map<string, number>();
+    let mosBalance = 0;
 
     filteredCerts.forEach((cert) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
@@ -1479,7 +1479,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
                 let mosPU = parseFloat(item.mos_unit_price);
                 if (!mosPU || mosPU <= 0) {
                     // REGLA DE ORO: Buscamos en TODAS las certificaciones (certs), no solo en las filtradas
-                    mosPU = getInvoicePU(certs, item.item_num, certs.findIndex(c => c.id === cert.id)) || up;
+                    mosPU = getInvoicePU(certs || [], item.item_num, (certs || []).findIndex(c => c.id === cert.id)) || up;
                 }
                 mosBalance = roundedAmt(mosBalance - roundedAmt(qtyFromMos * mosPU, 2), 2);
             }

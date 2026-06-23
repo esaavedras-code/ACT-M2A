@@ -289,8 +289,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             .map(([item_num, balance]) => {
                 // Buscar el PU de MOS para este item
                 let lastPU = 0;
-                for (let i = certs.length - 1; i >= 0; i--) {
-                    const its = Array.isArray(certs[i].items) ? certs[i].items : (certs[i].items?.list || []);
+                const safeCerts = certs || [];
+                for (let i = safeCerts.length - 1; i >= 0; i--) {
+                    const its = Array.isArray(safeCerts[i].items) ? safeCerts[i].items : (safeCerts[i].items?.list || []);
                     const match = its.find((itx: any) => itx.item_num === item_num && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
                     if (match) {
                         lastPU = parseFloat(match.mos_unit_price);

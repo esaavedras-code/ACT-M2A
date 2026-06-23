@@ -259,38 +259,46 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
     return (
         <div className="space-y-6">
-            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between mb-6">
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-bold flex items-center gap-2 font-geist tracking-tight">
-                        <ListChecks className="text-primary" />
-                        Todas las partidas
-                    </h2>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total del Contrato (Revisado):</span>
-                        <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-extrabold border border-emerald-100 dark:border-emerald-800/50">
-                            {formatCurrency(React.useMemo(() => items.reduce((sum, item) => {
-                                const choQty = getCHOQty(item.item_num);
-                                const totalQty = (parseFloat(item.quantity) || 0) + choQty;
-                                return roundedAmt(sum + roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2), 2);
-                            }, 0), [items, chos]))}
-                        </span>
+            <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-4 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col items-center justify-between mb-6">
+                <div className="w-full flex justify-center mb-2">
+                    <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-xl">
+                        <Info size={14} className="text-red-600 shrink-0" />
+                        <span className="text-sm font-black text-red-600 uppercase">Esta sección se actualiza automáticamente — no es necesario ingresar información aquí.</span>
                     </div>
                 </div>
-
-                <div className="flex-1 max-w-md mx-6">
-                    <div className="relative group">
-                        <input 
-                            type="text"
-                            placeholder="Buscar por item, especificación o descripción..."
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-4 pr-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                <div className="w-full flex items-center justify-between">
+                    <div className="space-y-1">
+                        <h2 className="text-2xl font-bold flex items-center gap-2 font-geist tracking-tight">
+                            <ListChecks className="text-primary" />
+                            Todas las partidas
+                        </h2>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total del Contrato (Revisado):</span>
+                            <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-extrabold border border-emerald-100 dark:border-emerald-800/50">
+                                {formatCurrency(React.useMemo(() => items.reduce((sum, item) => {
+                                    const choQty = getCHOQty(item.item_num);
+                                    const totalQty = (parseFloat(item.quantity) || 0) + choQty;
+                                    return roundedAmt(sum + roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2), 2);
+                                }, 0), [items, chos]))}
+                            </span>
+                        </div>
                     </div>
-                </div>
 
-                <div className="flex gap-3">
-                    {/* Los botones ahora son flotantes para mayor accesibilidad */}
+                    <div className="flex-1 max-w-md mx-6">
+                        <div className="relative group">
+                            <input 
+                                type="text"
+                                placeholder="Buscar por item, especificación o descripción..."
+                                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-4 pr-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        {/* Los botones ahora son flotantes para mayor accesibilidad */}
+                    </div>
                 </div>
             </div>
 
