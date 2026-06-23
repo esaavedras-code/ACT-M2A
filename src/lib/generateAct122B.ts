@@ -188,10 +188,12 @@ export async function generateAct122B(
         );
 
         // --- FUNCIONES DE AYUDA ---
-        const setVal = (ws: ExcelJS.Worksheet, addr: string, val: any, options: { bold?: boolean, center?: boolean, shrink?: boolean, fontSize?: number, color?: string } = {}) => {
+        const setVal = (ws: ExcelJS.Worksheet, addr: string, val: any, options: { bold?: boolean, center?: boolean, shrink?: boolean, fontSize?: number, color?: string, numFmt?: string } = {}) => {
             const cell = ws.getCell(addr);
             cell.value = val;
             
+            if (options.numFmt) cell.numFmt = options.numFmt;
+
             let newFont = cell.font ? { ...cell.font } : {};
             if (options.fontSize) {
                 newFont.size = options.fontSize;
@@ -307,7 +309,7 @@ export async function generateAct122B(
                     setVal(ws, `E${currentRow}`, it.specification);
                     setVal(ws, `H${currentRow}`, it.description, { shrink: true });
                     setVal(ws, `AJ${currentRow}`, it.unit);
-                    setVal(ws, `AN${currentRow}`, qty);
+                    setVal(ws, `AN${currentRow}`, qty, { numFmt: '#,##0.00####' });
                     setVal(ws, `AT${currentRow}`, up);
                     setVal(ws, `AZ${currentRow}`, qty * up);
                     setVal(ws, `BF${currentRow}`, (getFederalSharePct(projData, it) / 100));
@@ -328,7 +330,7 @@ export async function generateAct122B(
                     setVal(ws, `E${currentRow}`, it.specification);
                     setVal(ws, `H${currentRow}`, it.description, { shrink: true });
                     setVal(ws, `AJ${currentRow}`, it.unit);
-                    setVal(ws, `AN${currentRow}`, qty);
+                    setVal(ws, `AN${currentRow}`, qty, { numFmt: '#,##0.00####' });
                     setVal(ws, `AT${currentRow}`, up);
                     setVal(ws, `AZ${currentRow}`, qty * up);
                     setVal(ws, `BF${currentRow}`, (getFederalSharePct(projData, it) / 100));

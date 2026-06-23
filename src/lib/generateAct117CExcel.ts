@@ -265,7 +265,7 @@ export async function generateAct117CExcel(
                     
                     const qtyCell = sheet.getCell(`I${row}`);
                     qtyCell.value = parseFloat(it.quantity) || 0;
-                    qtyCell.numFmt = '0.000000';
+                    qtyCell.numFmt = '#,##0.00####';
                     
                     sheet.getCell(`J${row}`).value = parseFloat(it.unit_price) || 0;
                     sheet.getCell(`K${row}`).value = (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0);

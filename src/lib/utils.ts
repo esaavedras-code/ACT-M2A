@@ -288,3 +288,10 @@ export function getReportFileName(projectNum: string, reportName: string): strin
     return `AC-${cleanNum}-${cleanReportName}`;
 }
 
+export function formatQuantity(value: number | string | null | undefined): string {
+    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (numericValue === null || numericValue === undefined || isNaN(numericValue)) return '-';
+    if (numericValue === 0) return '0.00';
+    const formatted = Math.abs(numericValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+    return numericValue < 0 ? `(${formatted})` : formatted;
+}

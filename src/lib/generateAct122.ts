@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, formatCurrency, getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum } from './utils';
+import { formatDate, formatCurrency, getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum, formatQuantity } from './utils';
 
 const PW = 612; // 8.5"
 const PH = 792; // 11"
@@ -370,7 +370,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                     drawText(p, "-", vc[3]+(vc[4]-vc[3])/2, cy+10, font, 7, true);
                     drawText(p, "-", vc[4]+(vc[5]-vc[4])/2, cy+10, font, 7, true);
                     drawText(p, it.unit || "", vc[5]+(vc[6]-vc[5])/2, cy+10, font, 7, true);
-                    drawText(p, fmt(q), vc[7]-4, cy+10, font, 7, false, true);
+                    drawText(p, formatQuantity(q), vc[7]-4, cy+10, font, 7, false, true);
                     drawText(p, fmt(up), vc[8]-4, cy+10, font, 7, false, true);
                     drawText(p, "$", vc[8]+5, cy+10, font, 7);
                     drawText(p, fmt(amt), vc[9]-5, cy+10, font, 7, false, true);
@@ -411,7 +411,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                     drawText(p, "-", vc[3]+(vc[4]-vc[3])/2, cy+10, font, 7, true);
                     drawText(p, "-", vc[4]+(vc[5]-vc[4])/2, cy+10, font, 7, true);
                     drawText(p, it.unit || "", vc[5]+(vc[6]-vc[5])/2, cy+10, font, 7, true);
-                    drawText(p, fmt(q), vc[7]-4, cy+10, font, 7, false, true);
+                    drawText(p, formatQuantity(q), vc[7]-4, cy+10, font, 7, false, true);
                     drawText(p, fmt(up), vc[8]-4, cy+10, font, 7, false, true);
                     drawText(p, "$", vc[8]+5, cy+10, font, 7);
                     drawText(p, fmt(amt), vc[9]-5, cy+10, font, 7, false, true);

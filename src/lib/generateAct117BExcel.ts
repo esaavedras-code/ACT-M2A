@@ -108,7 +108,9 @@ export async function generateAct117BExcel(projectId: string, certId: string, it
         const fullDesc = [desc, addDesc].filter(Boolean).join(' - ');
         sheet.getCell('F10').value = fullDesc;
 
-        sheet.getCell('H11').value = parseFloat(itemData?.quantity || 0);
+        const cellH11 = sheet.getCell('H11');
+        cellH11.value = parseFloat(itemData?.quantity || 0);
+        cellH11.numFmt = '#,##0.00####';
         sheet.getCell('H12').value = parseFloat(itemData?.unit_price || 0);
         sheet.getCell('H13').value = field8_75PercentUP;
 
@@ -117,7 +119,9 @@ export async function generateAct117BExcel(projectId: string, certId: string, it
         sheet.getCell('AJ10').value = itemData?.unit || '';
 
         sheet.getCell('AG11').value = invoiceAmount;
-        sheet.getCell('AG12').value = invoiceQty;
+        const cellAG12 = sheet.getCell('AG12');
+        cellAG12.value = invoiceQty;
+        cellAG12.numFmt = '#,##0.00####';
         sheet.getCell('AG13').value = field14_InvoiceUP;
         sheet.getCell('T14').value = field15_LotUP;
 
@@ -141,14 +145,18 @@ export async function generateAct117BExcel(projectId: string, certId: string, it
         for (const tx of allTransactions) {
             if (currentRow > 40) break; // Keep within template table range
 
-            cumulativeQty = Math.round((cumulativeQty + tx.qty) * 100) / 100;
+            cumulativeQty = parseFloat((cumulativeQty + tx.qty).toFixed(6));
             cumulativeAmount = Math.round(cumulativeQty * field15_LotUP * 100) / 100;
 
             sheet.getCell(`A${currentRow}`).value = formatDate(tx.cert.cert_date);
             sheet.getCell(`E${currentRow}`).value = parseFloat(tx.cert.cert_num) || tx.cert.cert_num;
-            sheet.getCell(`G${currentRow}`).value = tx.qty;
+            const cellG = sheet.getCell(`G${currentRow}`);
+            cellG.value = tx.qty;
+            cellG.numFmt = '#,##0.00####';
             sheet.getCell(`L${currentRow}`).value = tx.amt;
-            sheet.getCell(`R${currentRow}`).value = cumulativeQty;
+            const cellR = sheet.getCell(`R${currentRow}`);
+            cellR.value = cumulativeQty;
+            cellR.numFmt = '#,##0.00####';
             sheet.getCell(`W${currentRow}`).value = cumulativeAmount;
             sheet.getCell(`AC${currentRow}`).value = tx.remark;
 

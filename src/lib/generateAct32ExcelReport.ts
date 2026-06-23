@@ -83,7 +83,9 @@ export async function generateAct32ExcelReport(projectId: string, choId: string)
             const fullDesc = `${formatItemNum(item.item_num) || ''} ${item.spec_code || ''} ${item.description || ''}`;
             sheet.getCell(`A${currentRow}`).value = fullDesc.trim();
             sheet.getCell(`E${currentRow}`).value = item.unit || '';
-            sheet.getCell(`F${currentRow}`).value = parseFloat(item.quantity) || 0;
+            const cellF32 = sheet.getCell(`F${currentRow}`);
+            cellF32.value = parseFloat(item.quantity) || 0;
+            cellF32.numFmt = '#,##0.00####';
             sheet.getCell(`G${currentRow}`).value = parseFloat(item.unit_price) || 0;
             sheet.getCell(`H${currentRow}`).value = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
             

@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { supabase } from './supabase';
-import { formatDate, roundedAmt, formatCurrency } from './utils';
+import { formatDate, roundedAmt, formatCurrency, formatQuantity } from './utils';
 
 export async function generateAct117B(projectId: string, certId: string, itemNum: string) {
     try {
@@ -184,7 +184,7 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
             const addDesc = itemData?.additional_description || "";
             const fullDesc = [desc, addDesc].filter(Boolean).join(' - ');
             drawField("5", "Description", 40, ly + fieldH * 4, midXReduced, fullDesc);
-            drawField("6", "Contract Quantity", 40, ly + fieldH * 5, 220, fmt(parseFloat(itemData?.quantity || 0)));
+            drawField("6", "Contract Quantity", 40, ly + fieldH * 5, 220, formatQuantity(parseFloat(itemData?.quantity || 0)));
             drawField("7", "Contract Unit Price", 40, ly + fieldH * 6, 220, fmt(itemData?.unit_price), true);
             drawField("8", "75% Cont. Unit Price", 40, ly + fieldH * 7, 220, fmt(field8_75PercentUP), true);
 
@@ -195,7 +195,7 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
 
             const rx2 = 330;
             drawField("12", "Invoice Amount", rx2, ly + fieldH * 5, 575, fmt(invoiceAmount));
-            drawField("13", "Invoice Quantity", rx2, ly + fieldH * 6, 575, fmt(invoiceQty));
+            drawField("13", "Invoice Quantity", rx2, ly + fieldH * 6, 575, formatQuantity(invoiceQty));
             drawField("14", "Invoice Unit Price", rx2, ly + fieldH * 7, 575, fmt(field14_InvoiceUP), true);
             drawField("15", "Lot Unit Price", 250, ly + fieldH * 8, 385, fmt(field15_LotUP), true);
 
@@ -306,14 +306,14 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
             const rowY = ty + th + (filledInPage * rowH) + rowH / 2;
             drawText(fmtDate(tx.cert.cert_date), (cols[0] + cols[1]) / 2, rowY + 3.5, 8, false, true);
             drawText(tx.cert.cert_num, (cols[1] + cols[2]) / 2, rowY + 3.5, 8, false, true);
-            drawText(tx.qty === 0 ? "0.00" : fmt(tx.qty), cols[3] - 5, rowY + 3.5, 8, false, false, true);
+            drawText(tx.qty === 0 ? "0.00" : formatQuantity(tx.qty), cols[3] - 5, rowY + 3.5, 8, false, false, true);
             drawText(fmt(tx.amt), cols[4] - 5, rowY + 3.5, 8, false, false, true);
             
             // Col 20 & 21: Balance
             const isZeroQty = Math.abs(cumulativeQty) < 0.0001;
             const balanceSize = isZeroQty ? 9 : 8;
             const balanceBold = isZeroQty;
-            drawText(fmt(cumulativeQty), cols[5] - 5, rowY + 3.5, balanceSize, balanceBold, false, true);
+            drawText(formatQuantity(cumulativeQty), cols[5] - 5, rowY + 3.5, balanceSize, balanceBold, false, true);
             drawText(fmt(cumulativeAmount), cols[6] - 5, rowY + 3.5, balanceSize, balanceBold, false, true);
             drawText(tx.remark, cols[6] + 5, rowY + 3.5, 8, false);
 
@@ -345,7 +345,7 @@ export async function generateAct117B(projectId: string, certId: string, itemNum
 
             // Final Balances in Cols 5 and 6
             const isZeroQty = Math.abs(cumulativeQty) < 0.0001;
-            drawText(fmt(cumulativeQty), cols[5] - 5, rowY + 3.5, isZeroQty ? 9 : 8, true, false, true);
+            drawText(formatQuantity(cumulativeQty), cols[5] - 5, rowY + 3.5, isZeroQty ? 9 : 8, true, false, true);
             drawText(fmt(cumulativeAmount), cols[6] - 5, rowY + 3.5, isZeroQty ? 9 : 8, true, false, true);
             
             filledInPage++;

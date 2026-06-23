@@ -134,7 +134,9 @@ export async function generateAct123Excel(projectId: string, choId: string) {
                 roaSheet.getCell(`C${contractRow}`).value = item.description || '';
                 roaSheet.getCell(`D${contractRow}`).value = '';
                 roaSheet.getCell(`E${contractRow}`).value = item.unit || '';
-                roaSheet.getCell(`F${contractRow}`).value = parseFloat(item.quantity) || 0;
+                const cellF_c = roaSheet.getCell(`F${contractRow}`);
+                cellF_c.value = parseFloat(item.quantity) || 0;
+                cellF_c.numFmt = '#,##0.00####';
                 roaSheet.getCell(`G${contractRow}`).value = parseFloat(item.unit_price) || 0;
                 roaSheet.getCell(`H${contractRow}`).value = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
                 roaSheet.getCell(`I${contractRow}`).value = item.fed_pct || 0;
@@ -154,7 +156,9 @@ export async function generateAct123Excel(projectId: string, choId: string) {
                 roaSheet.getCell(`C${extraRow}`).value = item.description || '';
                 roaSheet.getCell(`D${extraRow}`).value = '';
                 roaSheet.getCell(`E${extraRow}`).value = item.unit || '';
-                roaSheet.getCell(`F${extraRow}`).value = parseFloat(item.quantity) || 0;
+                const cellF_e = roaSheet.getCell(`F${extraRow}`);
+                cellF_e.value = parseFloat(item.quantity) || 0;
+                cellF_e.numFmt = '#,##0.00####';
                 roaSheet.getCell(`G${extraRow}`).value = parseFloat(item.unit_price) || 0;
                 roaSheet.getCell(`H${extraRow}`).value = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
                 roaSheet.getCell(`I${extraRow}`).value = item.fed_pct || 0;

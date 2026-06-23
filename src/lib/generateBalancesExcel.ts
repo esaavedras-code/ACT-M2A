@@ -119,7 +119,7 @@ export async function generateBalancesExcel(projectId: string): Promise<Blob> {
                 b.balanceQty, b.balanceAmt
             ]);
             r.getCell(1).alignment = { horizontal: 'center' };
-            [4,5,6,7,8].forEach(i => r.getCell(i).numFmt = '#,##0.00');
+            [4,5,6,7,8].forEach(i => r.getCell(i).numFmt = '#,##0.00####');
             r.getCell(9).numFmt = '"$"#,##0.00';
             
             sQty += b.balanceQty;

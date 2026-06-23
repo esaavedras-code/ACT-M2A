@@ -103,7 +103,9 @@ function fillSheetConservatively(sheet: ExcelJS.Worksheet, projData: any, choDat
         row.getCell(2).value = formatItemNum(it.item_num);
         row.getCell(5).value = it.specification;
         row.getCell(11).value = it.description;
-        row.getCell(32).value = parseFloat(it.quantity) || 0;
+        const qtyCell = row.getCell(32);
+        qtyCell.value = parseFloat(it.quantity) || 0;
+        qtyCell.numFmt = '#,##0.00####';
         row.getCell(37).value = it.unit;
         row.getCell(41).value = parseFloat(it.unit_price) || 0;
         row.getCell(46).value = (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0);
