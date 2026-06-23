@@ -1893,7 +1893,7 @@ export const generateAct122ReportLogic = async (projectId: string, choId: string
     if (format === 'excel') {
         // Unificación: Usamos el motor de ACT-122B (que es el formato Excel oficial más reciente)
         // pero lo guardamos con el nombre ACT-122 por requerimiento de Enrique.
-        const blob = await generateAct122B(projectId, choId);
+        const blob = await generateAct122B(projectId, choId, isFinal);
         downloadBlob(blob, `ACT-122_CHO_${choLabel}_${project.num_act}${isFinal ? '_FINAL' : ''}.xlsx`);
     } else {
         const blob = await generateAct122(projectId, choId, isFinal);

@@ -8,7 +8,8 @@ import { supabase } from '@/lib/supabase';
  */
 export async function generateAct122B(
     projectId: string,
-    choId: string
+    choId: string,
+    isFinal?: boolean
 ): Promise<Blob> {
     try {
         const { data: projData } = await supabase.from('projects').select('*').eq('id', projectId).single();
@@ -16,7 +17,7 @@ export async function generateAct122B(
         
         const { data: contrData } = await supabase.from('contractors').select('*').eq('project_id', projectId).single();
         const { data: choData } = await supabase.from('chos').select('*').eq('id', choId).single();
-        const { data: allChos } = await supabase.from('chos').select('cho_num, time_extension_days, proposed_change').eq('project_id', projectId).order('cho_num', { ascending: true });
+        const { data: allChos } = await supabase.from('chos').select('*').eq('project_id', projectId).order('cho_num', { ascending: true });
         
         const { data: personnel } = await supabase.from('act_personnel').select('*').eq('project_id', projectId);
         const personnelMap: Record<string, string> = {};
@@ -35,6 +36,7 @@ export async function generateAct122B(
         if (!templateWs) throw new Error('No se encontró la hoja "ACT-122" en la plantilla');
 
         // --- CÁLCULOS ---
+        const roundedAmt = (val: number, dec: number) => Math.round(val * Math.pow(10, dec)) / Math.pow(10, dec);
         let prevExtDays = 0;
         let prevCostMods = 0;
         const currentChoNum = parseFloat(choData.cho_num);
@@ -50,7 +52,117 @@ export async function generateAct122B(
 
         const originalCost = parseFloat(projData.cost_original) || 0;
         const actualContractAmount = originalCost + prevCostMods;
-        const currentChoAmount = parseFloat(choData.proposed_change) || 0;
+        
+        let contractChoItems: any[] = [];
+        let extraWorkItems: any[] = [];
+
+        if (isFinal) {
+            // 1. Obtener todas las certificaciones de pago del proyecto
+            const { data: certs } = await supabase.from('payment_certifications').select('items').eq('project_id', projectId);
+            
+            // 2. Obtener las partidas de contrato originales
+            const { data: contractItems } = await supabase.from('contract_items').select('*').eq('project_id', projectId);
+            
+            // Map para acumular cantidades certificadas
+            const certQtyMap = new Map<string, number>();
+            certs?.forEach(cert => {
+                const cItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
+                cItems.forEach((it: any) => {
+                    if (it.item_num) {
+                        const qty = parseFloat(it.quantity) || 0;
+                        certQtyMap.set(it.item_num, (certQtyMap.get(it.item_num) || 0) + qty);
+                    }
+                });
+            });
+
+            // Map para recopilar los datos básicos de todas las partidas posibles (originales + Extra Work de CHOs anteriores)
+            const itemsMap = new Map<string, { item_num: string, specification: string, description: string, unit: string, unit_price: number, is_new: boolean }>();
+            
+            contractItems?.forEach(it => {
+                itemsMap.set(it.item_num, {
+                    item_num: it.item_num,
+                    specification: it.specification || '',
+                    description: it.description || '',
+                    unit: it.unit || '',
+                    unit_price: parseFloat(it.unit_price) || 0,
+                    is_new: false
+                });
+            });
+
+            // Agregar Extra Work creados en cualquier CHO anterior a este CHO Final
+            allChos?.forEach(c => {
+                const loopNum = parseFloat(c.cho_num);
+                if (loopNum < currentChoNum) {
+                    const cItems = Array.isArray(c.items) ? c.items : [];
+                    cItems.forEach((it: any) => {
+                        if (it.item_num && it.is_new) {
+                            itemsMap.set(it.item_num, {
+                                item_num: it.item_num,
+                                specification: it.specification || '',
+                                description: it.description || '',
+                                unit: it.unit || '',
+                                unit_price: parseFloat(it.unit_price) || 0,
+                                is_new: true
+                            });
+                        }
+                    });
+                }
+            });
+
+            // Map para calcular la cantidad autorizada previa (Original + CHOs anteriores)
+            const authQtyMap = new Map<string, number>();
+            contractItems?.forEach(it => {
+                authQtyMap.set(it.item_num, parseFloat(it.quantity) || 0);
+            });
+
+            allChos?.forEach(c => {
+                const loopNum = parseFloat(c.cho_num);
+                if (loopNum < currentChoNum) {
+                    const cItems = Array.isArray(c.items) ? c.items : [];
+                    cItems.forEach((it: any) => {
+                        if (it.item_num) {
+                            const change = parseFloat(it.proposed_change !== undefined ? it.proposed_change : it.quantity) || 0;
+                            authQtyMap.set(it.item_num, (authQtyMap.get(it.item_num) || 0) + change);
+                        }
+                    });
+                }
+            });
+
+            // Crear los items de ajuste del CHO Final
+            const finalChoItems: any[] = [];
+            itemsMap.forEach((it, itemNum) => {
+                const qtyAuthPrev = authQtyMap.get(itemNum) || 0;
+                const qtyCert = certQtyMap.get(itemNum) || 0;
+                const adjustment = roundedAmt(qtyCert - qtyAuthPrev, 4);
+
+                if (Math.abs(adjustment) > 0.0001) {
+                    finalChoItems.push({
+                        ...it,
+                        proposed_change: adjustment,
+                        quantity: qtyAuthPrev
+                    });
+                }
+            });
+
+            // Ordenar los items
+            const sortedFinalItems = uniqueSortItems(finalChoItems);
+            contractChoItems = sortedFinalItems.filter((it: any) => !it.is_new);
+            extraWorkItems = sortedFinalItems.filter((it: any) => it.is_new);
+        } else {
+            const allItemsRaw = Array.isArray(choData.items) ? choData.items : [];
+            const allItems = uniqueSortItems([...allItemsRaw]);
+            contractChoItems = allItems.filter((it: any) => !it.is_new);
+            extraWorkItems = allItems.filter((it: any) => it.is_new);
+        }
+
+        let currentChoAmount = parseFloat(choData.proposed_change) || 0;
+        if (isFinal) {
+            let tempAmt = 0;
+            contractChoItems.forEach(it => { tempAmt += (it.proposed_change || 0) * (it.unit_price || 0); });
+            extraWorkItems.forEach(it => { tempAmt += (it.proposed_change || 0) * (it.unit_price || 0); });
+            currentChoAmount = roundedAmt(tempAmt, 2);
+        }
+        
         const newContractAmount = actualContractAmount + currentChoAmount;
 
         const origEnd = projData.date_orig_completion ? new Date(projData.date_orig_completion + "T00:00:00") : null;
@@ -63,11 +175,6 @@ export async function generateAct122B(
         if (adminEnd) {
             adminEnd = new Date(adminEnd.getTime() + 730 * 86400000); 
         }
-
-        const allItemsRaw = Array.isArray(choData.items) ? choData.items : [];
-        const allItems = uniqueSortItems([...allItemsRaw]);
-        const contractChoItems = allItems.filter((it: any) => !it.is_new);
-        const extraWorkItems = allItems.filter((it: any) => it.is_new);
 
         // Determinamos cuántas páginas necesitamos. 
         // Cada página tiene espacio para 5 ítems de contrato y 3 ítems extra.
