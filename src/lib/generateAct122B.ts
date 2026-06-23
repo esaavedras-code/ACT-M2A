@@ -42,6 +42,7 @@ export async function generateAct122B(
         const displayChoNum = isFinal ? finalChoNumStr : (choData.cho_num || "");
 
         let prevExtDays = 0;
+        let prevCostMods = 0;
         if (allChos) {
             for (const c of allChos) {
                 const loopNum = parseFloat(c.cho_num);
