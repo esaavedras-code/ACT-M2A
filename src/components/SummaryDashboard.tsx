@@ -233,10 +233,14 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 const currentBalance = perItemMosBalance[itemNum] || 0;
                 const mosPU = getInvoicePU(certs, itemNum, cIdx);
                 const price = mosPU > 0 ? mosPU : up;
+
+                // Incluir la adición de esta misma cert al balance disponible para deducción
+                const additionCostThisCert = hasAddition ? (parseFloat(item.mos_invoice_total) || 0) : 0;
+                const balanceForDeduction = currentBalance + additionCostThisCert;
                 
                 let deductionQty = 0;
-                if (currentBalance > 0.01) {
-                    const availableQty = currentBalance / (price || 1);
+                if (balanceForDeduction > 0.01) {
+                    const availableQty = balanceForDeduction / (price || 1);
                     if (manualDeductionQty > 0) {
                         deductionQty = Math.min(manualDeductionQty, availableQty);
                     } else if (qty > 0) {

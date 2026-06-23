@@ -1176,9 +1176,13 @@ export const generateMosReportLogic = async (projectId: string, format: 'pdf' | 
             const mosPU = getInvoicePU(filteredCerts, itemNum, cIdx);
             const price = mosPU > 0 ? mosPU : (parseFloat(it.unit_price) || 0);
 
+            // Incluir la adición de esta misma cert al balance disponible para deducción
+            const additionCostThisCert = hasAddition ? (parseFloat(it.mos_invoice_total) || 0) : 0;
+            const balanceForDeduction = currentBalance + additionCostThisCert;
+
             let deductionQty = 0;
-            if (currentBalance > 0.01) {
-                const availableQty = currentBalance / (price || 1);
+            if (balanceForDeduction > 0.01) {
+                const availableQty = balanceForDeduction / (price || 1);
                 if (manualDeductionQty > 0) {
                     deductionQty = Math.min(manualDeductionQty, availableQty);
                 } else if (workQty > 0) {
