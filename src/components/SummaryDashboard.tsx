@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Clock, DollarSign, PieChart, Activity, AlertCircle, Layers, ShieldAlert } from "lucide-react";
+import { Clock, DollarSign, PieChart, Activity, AlertCircle, Layers, ShieldAlert, Info } from "lucide-react";
 import { formatCurrency, roundedAmt, formatDate, formatNumber, getFederalSharePct } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -426,18 +426,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col gap-2">
+                <div className="w-full flex justify-center mb-2">
+                    <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-50 border border-blue-100 rounded-xl">
+                        <Info size={14} className="text-blue-600 shrink-0" />
+                        <span className="text-sm font-black text-blue-600 uppercase">AQUI SE ENCUENTRA LA PRINCIPAL INFORMACION DEL PROYECTO</span>
+                    </div>
+                </div>
                 <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold flex items-center gap-3">
                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                             <Activity className="text-primary" size={24} />
                         </div>
                         <div className="flex flex-col">
-                            <div className="flex items-center gap-3">
-                                <span className="text-slate-950 dark:text-white">Resumen</span>
-                                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200 shadow-sm uppercase tracking-wider">
-                                    AQUI SE ENCUENTRA LA PRINCIPAL INFORMACION DEL PROYECTO
-                                </span>
-                            </div>
+                            <span className="text-slate-950 dark:text-white">Resumen</span>
                         </div>
                     </h2>
                 </div>
