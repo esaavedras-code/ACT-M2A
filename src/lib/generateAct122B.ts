@@ -149,13 +149,13 @@ export async function generateAct122B(
 
             // Ordenar los items
             const sortedFinalItems = uniqueSortItems(finalChoItems);
-            contractChoItems = sortedFinalItems.filter((it: any) => !it.is_new);
-            extraWorkItems = sortedFinalItems.filter((it: any) => it.is_new);
+            contractChoItems = sortedFinalItems.filter((it: any) => !it.is_new || (it.proposed_change !== undefined && parseFloat(it.proposed_change) < 0));
+            extraWorkItems = sortedFinalItems.filter((it: any) => it.is_new && !(it.proposed_change !== undefined && parseFloat(it.proposed_change) < 0));
         } else {
             const allItemsRaw = Array.isArray(choData.items) ? choData.items : [];
             const allItems = uniqueSortItems([...allItemsRaw]);
-            contractChoItems = allItems.filter((it: any) => !it.is_new);
-            extraWorkItems = allItems.filter((it: any) => it.is_new);
+            contractChoItems = allItems.filter((it: any) => !it.is_new || (it.proposed_change !== undefined && parseFloat(it.proposed_change) < 0));
+            extraWorkItems = allItems.filter((it: any) => it.is_new && !(it.proposed_change !== undefined && parseFloat(it.proposed_change) < 0));
         }
 
         let currentChoAmount = parseFloat(choData.proposed_change) || 0;
@@ -267,7 +267,7 @@ export async function generateAct122B(
             setVal(ws, 'J11', projData.num_federal || 'N/A');
             setVal(ws, 'J12', projData.num_oracle || '');
             setVal(ws, 'J13', projData.num_contrato || '');
-            setVal(ws, 'J14', choData.amendment_letter || '0', { color: 'FF000000' });
+            setVal(ws, 'J14', isFinal ? '' : (choData.amendment_letter || '0'), { color: 'FF000000' });
             setVal(ws, 'J15', displayChoNum, { color: 'FF000000' });
 
             // 2. Tiempo
@@ -386,7 +386,7 @@ export async function generateAct122B(
             // 8. PÁGINA 2 (BACK)
             setVal(ws, 'K63', projData.name || '', { shrink: true });
             setVal(ws, 'K64', projData.num_act || '');
-            setVal(ws, 'BC64', choData.amendment_letter || '0', { center: true });
+            setVal(ws, 'BC64', isFinal ? '' : (choData.amendment_letter || '0'), { center: true });
             setVal(ws, 'AZ64', displayChoNum, { center: true });
 
             // Restaurar visualmente los Radio Buttons de la fila 68 (que exceljs pierde)

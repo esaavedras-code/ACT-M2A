@@ -169,8 +169,8 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
 
             // Ordenar los items
             const sortedFinalItems = uniqueSortItems(finalChoItems);
-            contractChoItems = sortedFinalItems.filter((it: any) => !it.is_new);
-            newChoItems = sortedFinalItems.filter((it: any) => it.is_new);
+            contractChoItems = sortedFinalItems.filter((it: any) => !it.is_new || (it.proposed_change !== undefined && parseFloat(it.proposed_change) < 0));
+            newChoItems = sortedFinalItems.filter((it: any) => it.is_new && !(it.proposed_change !== undefined && parseFloat(it.proposed_change) < 0));
         } else {
             // Identificar Items de Contrato vs Items Nuevos basándose en el checkbox is_new de cada item
             const allChoItemsRaw = Array.isArray(choData.items) ? choData.items : [];
@@ -178,8 +178,8 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
             // Ordenar items de menor a mayor por item_num usando orden natural y eliminando duplicados
             const sortedAllChoItems = uniqueSortItems([...allChoItemsRaw]);
 
-            contractChoItems = sortedAllChoItems.filter((it: any) => !it.is_new);
-            newChoItems = sortedAllChoItems.filter((it: any) => it.is_new);
+            contractChoItems = sortedAllChoItems.filter((it: any) => !it.is_new || (it.proposed_change !== undefined && parseFloat(it.proposed_change) < 0));
+            newChoItems = sortedAllChoItems.filter((it: any) => it.is_new && !(it.proposed_change !== undefined && parseFloat(it.proposed_change) < 0));
         }
 
         const pdfDoc = await PDFDocument.create();
@@ -268,7 +268,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
             drawF("4", "Federal Num.:", c1, ly+lh*3, 205, projData.num_federal);
             drawF("5", "Oracle Num.:", c1, ly+lh*4, 230, projData.num_oracle);
             drawF("6", "Contract Num.:", c1, ly+lh*5, 205, projData.num_contrato);
-            drawF("7", "Amendment:", c1, ly+lh*6, 150, choData.amendment_letter || "0");
+            drawF("7", "Amendment:", c1, ly+lh*6, 150, isFinal ? "" : (choData.amendment_letter || "0"));
             drawF("8", "CHO Number:", c1, ly+lh*7, 150, isFinal ? `${parseFloat(choData.cho_num) + 1} (F)` : choData.cho_num);
 
             // Right column: 9. Date (CHO date), 9a. Contract Beginning Date, 10-14
