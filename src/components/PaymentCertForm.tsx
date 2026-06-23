@@ -24,7 +24,8 @@ import {
     Image,
     ZoomIn,
     X,
-    Info
+    Info,
+    Coins
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatNumber, sortItemsNaturally, getReportFileName } from '@/lib/utils';
@@ -295,7 +296,7 @@ const PaymentCertForm = React.forwardRef(({
         };
     };
 
-    const { liveExecuted, livePaid, liveRetention, liveMOS, liveLiquidated, timeExtension } = useMemo(() => {
+    const { liveExecuted, livePaid, liveRetention, liveMOS, liveLiquidated, liveRemaining, timeExtension } = useMemo(() => {
         let execution = 0;
         let retention = 0;
         let mos = 0;
@@ -303,7 +304,7 @@ const PaymentCertForm = React.forwardRef(({
         let totalPaid = 0;
         let ext = 0;
 
-        if (!certs) return { liveExecuted: 0, livePaid: 0, liveRetention: 0, liveMOS: 0, liveLiquidated: 0, timeExtension: 0 };
+        if (!certs) return { liveExecuted: 0, livePaid: 0, liveRetention: 0, liveMOS: 0, liveLiquidated: 0, liveRemaining: 0, timeExtension: 0 };
 
         certs.forEach((c, idx) => {
             let certWork = 0;
@@ -323,30 +324,42 @@ const PaymentCertForm = React.forwardRef(({
             execution += certWork;
             mos += certMOSNet;
 
-            const cRet = (c.items || []).reduce((acc: number, it: any) => {
+            const r5 = (c.items || []).reduce((acc: number, it: any) => {
                 if (it.skip_retention) return acc;
                 if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                 return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
-            }, 0) - (c.retention_return_amount || 0);
+            }, 0);
 
-            if (!c.skip_retention) retention += cRet;
-            
-            liquidated += parseFloat(c.liquidated_damages) || 0;
+            const val5 = c.skip_retention ? 0 : r5;
+            const returnAmount = c.show_retention_return ? (parseFloat(c.retention_return_amount) || 0) : 0;
             const extraRet = parseFloat(c.extra_retention) || 0;
+
+            retention += val5 + extraRet - returnAmount;
+            liquidated += parseFloat(c.liquidated_damages) || 0;
+            
             const priceAdj = parseFloat(c.price_adjustment) || 0;
             const insurance = parseFloat(c.insurance_fines) || 0;
             const otherPenalties = parseFloat(c.other_penalties) || 0;
             
-            totalPaid += certWork - (c.skip_retention ? 0 : cRet) + certMOSNet 
+            const certNet = certWork - val5 + returnAmount + certMOSNet 
                 - (parseFloat(c.liquidated_damages) || 0)
                 - extraRet
                 + priceAdj
                 - insurance
                 - otherPenalties;
+
+            totalPaid += certNet;
         });
 
-        const changeOrders = projectData?.change_orders || [];
+        const changeOrders = projectData?.change_orders || projectData?.chos || [];
         ext = changeOrders.reduce((acc: number, co: any) => acc + (parseInt(co.time_extension_days) || 0), 0);
+
+        const originalCost = parseFloat(projectData?.cost_original) || 0;
+        const approvedCHOsAmount = changeOrders
+            .filter((co: any) => co.doc_status === 'Aprobado')
+            .reduce((acc: number, co: any) => acc + (parseFloat(co.proposed_change || '0')), 0);
+        const vigentContractCost = originalCost + approvedCHOsAmount;
+        const remaining = vigentContractCost - execution;
 
         return { 
             liveExecuted: execution, 
@@ -354,9 +367,10 @@ const PaymentCertForm = React.forwardRef(({
             liveRetention: retention, 
             liveMOS: (projectData?.num_act === 'AC-017630' || projectId === '2e0d8d80-3542-451c-bbef-63a791012e34') ? 3266.95 : mos, 
             liveLiquidated: liquidated,
+            liveRemaining: remaining,
             timeExtension: ext
         };
-    }, [certs, projectData]);
+    }, [certs, projectData, projectId]);
 
     const addCert = () => {
         const nextNum = certs.length > 0 ? Math.max(...certs.map(c => c.cert_num)) + 1 : 1;
@@ -857,7 +871,7 @@ const PaymentCertForm = React.forwardRef(({
             />
 
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <SummaryItem
                     label="Trabajo Ejecutado (WP)"
                     value={liveExecuted}
@@ -894,6 +908,14 @@ const PaymentCertForm = React.forwardRef(({
                     color="text-red-600"
                     bgColor="bg-red-50 dark:bg-red-900/20"
                 />
+                <SummaryItem
+                    label="Balance Remaining"
+                    value={liveRemaining}
+                    icon={<Coins size={16} />}
+                    color="text-blue-600"
+                    bgColor="bg-sky-50 dark:bg-sky-950/20"
+                    description="Balance restante del contrato"
+                />
             </div>
 
             <div className="space-y-4">
@@ -910,20 +932,40 @@ const PaymentCertForm = React.forwardRef(({
                         const deductedMOS = (parseFloat(item.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p);
                         certMOSNet += addedMOS - deductedMOS;
                     });
-                    const certRetention = (c.items || []).reduce((acc: number, it: any) => {
+                    const r5 = (c.items || []).reduce((acc: number, it: any) => {
                         if (it.skip_retention) return acc;
                         if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                         return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
-                    }, 0) - (c.retention_return_amount || 0);
-                    
-                    const certNetChange = certWork 
-                        - (c.skip_retention ? 0 : (certRetention < 0 && !c.show_retention_return ? 0 : certRetention)) 
-                        + certMOSNet
+                    }, 0);
+                    const val5 = c.skip_retention ? 0 : r5;
+                    const returnAmt = c.show_retention_return ? (parseFloat(c.retention_return_amount) || 0) : 0;
+                    const extraRet = parseFloat(c.extra_retention) || 0;
+
+                    const certRetentionDisplay = val5 - returnAmt;
+
+                    const certNetChange = certWork - val5 + returnAmt + certMOSNet 
                         - (parseFloat(c.liquidated_damages) || 0)
-                        - (parseFloat(c.extra_retention) || 0)
+                        - extraRet
                         + (parseFloat(c.price_adjustment) || 0)
                         - (parseFloat(c.insurance_fines) || 0)
                         - (parseFloat(c.other_penalties) || 0);
+
+                    // Calcular la retención neta acumulada en tiempo real hasta la certificación actual
+                    const getCertRetentionNet = (certObj: any) => {
+                        const otherR5 = (certObj.items || []).reduce((acc: number, it: any) => {
+                            if (it.skip_retention) return acc;
+                            if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
+                            return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
+                        }, 0);
+                        const otherVal5 = certObj.skip_retention ? 0 : otherR5;
+                        const otherReturn = certObj.show_retention_return ? (parseFloat(certObj.retention_return_amount) || 0) : 0;
+                        const otherExtra = parseFloat(certObj.extra_retention) || 0;
+                        return otherVal5 + otherExtra - otherReturn;
+                    };
+
+                    const accumulatedRetention = certs
+                        .filter(otherCert => otherCert.cert_num <= c.cert_num)
+                        .reduce((sum, otherCert) => sum + getCertRetentionNet(otherCert), 0);
 
                     return (
                         <div key={certIdx} className="card border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 p-0 mb-4">
@@ -981,8 +1023,11 @@ const PaymentCertForm = React.forwardRef(({
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <span className={`text-xl xl:text-2xl font-black ${c.skip_retention ? 'text-slate-300 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
-                                                        {formatCurrency(c.skip_retention ? 0 : -certRetention)}
+                                                        {formatCurrency(c.skip_retention ? 0 : -certRetentionDisplay)}
                                                     </span>
+                                                </div>
+                                                <div className="text-[10px] font-bold text-slate-400 mt-1 leading-tight">
+                                                    Reten. Acumulado: <span className="text-violet-600 font-extrabold">{formatCurrency(accumulatedRetention)}</span>
                                                 </div>
                                                 <label className="flex items-center gap-1.5 cursor-pointer group mt-1" title="Devolución de retenido">
                                                     <input
