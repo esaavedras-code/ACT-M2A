@@ -83,7 +83,7 @@ export async function generateBalancesExcel(projectId: string): Promise<Blob> {
             item_num: itemNum,
             description: baseItem ? [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ') : "Ítem nuevo por CHO",
             unit: baseItem?.unit || "UN",
-            source: baseItem?.fund_source || choSource || "N/A",
+            source: choSource || baseItem?.fund_source || "N/A",
             origQty, choQty, totalQty, certQty,
             balanceQty: totalQty - certQty,
             balanceAmt: (totalQty - certQty) * price
