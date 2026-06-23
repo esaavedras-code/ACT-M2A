@@ -92,7 +92,7 @@ export async function generateAct122B(
             // Agregar Extra Work creados en cualquier CHO anterior a este CHO Final
             allChos?.forEach(c => {
                 const loopNum = parseFloat(c.cho_num);
-                if (loopNum < currentChoNum) {
+                if (loopNum < currentChoNum && c.doc_status === "Aprobado") {
                     const cItems = Array.isArray(c.items) ? c.items : [];
                     cItems.forEach((it: any) => {
                         if (it.item_num && it.is_new) {
@@ -109,7 +109,7 @@ export async function generateAct122B(
                 }
             });
 
-            // Map para calcular la cantidad autorizada previa (Original + CHOs anteriores)
+            // Map para calcular la cantidad autorizada previa (Original + CHOs anteriores aprobados)
             const authQtyMap = new Map<string, number>();
             contractItems?.forEach(it => {
                 authQtyMap.set(it.item_num, parseFloat(it.quantity) || 0);
@@ -117,7 +117,7 @@ export async function generateAct122B(
 
             allChos?.forEach(c => {
                 const loopNum = parseFloat(c.cho_num);
-                if (loopNum < currentChoNum) {
+                if (loopNum < currentChoNum && c.doc_status === "Aprobado") {
                     const cItems = Array.isArray(c.items) ? c.items : [];
                     cItems.forEach((it: any) => {
                         if (it.item_num) {

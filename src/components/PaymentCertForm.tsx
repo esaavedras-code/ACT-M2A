@@ -550,7 +550,14 @@ const PaymentCertForm = React.forwardRef(({
                 const { created_at, ...rest } = c;
                 return {
                     ...rest,
-                    project_id: projectId
+                    project_id: projectId,
+                    liquidated_damages: parseFloat(c.liquidated_damages as any) || 0,
+                    refund: parseFloat(c.refund as any) || 0,
+                    extra_retention: parseFloat(c.extra_retention as any) || 0,
+                    price_adjustment: parseFloat(c.price_adjustment as any) || 0,
+                    insurance_fines: parseFloat(c.insurance_fines as any) || 0,
+                    other_penalties: parseFloat(c.other_penalties as any) || 0,
+                    retention_return_amount: parseFloat(c.retention_return_amount as any) || 0
                 };
             });
 

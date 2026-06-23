@@ -277,6 +277,13 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                 const payload = {
                     ...rest,
                     project_id: projectId,
+                    time_extension_days: parseInt(c.time_extension_days as any) || 0,
+                    federal_share_pct: parseFloat(c.federal_share_pct as any) || 0,
+                    toll_credits_amt: parseFloat(c.toll_credits_amt as any) || 0,
+                    non_participating_state_amt: parseFloat(c.non_participating_state_amt as any) || 0,
+                    state_share_federal_funds: parseFloat(c.state_share_federal_funds as any) || 0,
+                    fed_share_mod_letter: parseFloat(c.fed_share_mod_letter as any) || 0,
+                    toll_credits_mod: parseFloat(c.toll_credits_mod as any) || 0,
                     proposed_change: total,
                     is_change_of_contract: (c.items || []).some((it: any) => !it.is_new),
                     is_new_item: (c.items || []).some((it: any) => it.is_new),
