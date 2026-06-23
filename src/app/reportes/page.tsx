@@ -1094,25 +1094,8 @@ function ReportesContent() {
                         option={{
                             id: 'cho-final',
                             label: 'CHO Final',
-                            description: 'Forma ACT-122 marcada como FINAL. Requiere que todas las hojas de liquidacion esten firmadas.',
+                            description: 'Forma ACT-122 marcada como FINAL. Requiere que las hojas de liquidacion esten firmadas por el administrador y el contratista.',
                             icon: <FileCheck size={18} className="text-purple-600" />,
-                            onPdf: async () => {
-                                try {
-                                    const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
-                                    const { data: ci } = await supabase.from('contract_items').select('item_num').eq('project_id', projectId);
-                                    const liqData = proj?.liquidation_data || {};
-                                    const liquidatedItems = liqData.liquidated_items || [];
-                                    const allSigned = ci?.every(it => {
-                                        const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
-                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
-                                    });
-                                    if (!allSigned) { alert("Faltan firmas en las hojas de liquidacion. No se puede generar el reporte CHO Final."); setLoading(false); return; }
-                                    const { data: lastCho } = await supabase.from('chos').select('id').eq('project_id', projectId).order('cho_num', { ascending: false }).limit(1);
-                                    if (!lastCho || lastCho.length === 0) { alert("No se encontro ningun Change Order."); setLoading(false); return; }
-                                    await generateAct122ReportLogic(projectId, lastCho[0].id, 'pdf', true);
-                                    setStatus("Reporte generado.");
-                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
-                            },
                             onExcel: async () => {
                                 try {
                                     const { data: proj } = await supabase.from('projects').select('liquidation_data').eq('id', projectId).single();
@@ -1121,9 +1104,9 @@ function ReportesContent() {
                                     const liquidatedItems = liqData.liquidated_items || [];
                                     const allSigned = ci?.every(it => {
                                         const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
-                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
+                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor;
                                     });
-                                    if (!allSigned) { alert("Faltan firmas en las hojas de liquidacion. No se puede generar el reporte CHO Final."); setLoading(false); return; }
+                                    if (!allSigned) { alert("Faltan firmas del Administrador o Contratista en las hojas de liquidacion. No se puede generar el reporte CHO Final."); setLoading(false); return; }
                                     const { data: lastCho } = await supabase.from('chos').select('id').eq('project_id', projectId).order('cho_num', { ascending: false }).limit(1);
                                     if (!lastCho || lastCho.length === 0) { alert("No se encontro ningun Change Order."); setLoading(false); return; }
                                     await generateAct122ReportLogic(projectId, lastCho[0].id, 'excel', true);
