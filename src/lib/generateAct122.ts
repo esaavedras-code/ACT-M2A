@@ -110,11 +110,11 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                 });
             });
 
-            // Agregar Extra Work creados en cualquier CHO anterior aprobado a este CHO Final
+            // Agregar Extra Work creados en cualquier CHO anterior a este CHO Final
             const currentChoNum = parseFloat(choData.cho_num);
             allChos?.forEach(c => {
                 const loopNum = parseFloat(c.cho_num);
-                if (loopNum < currentChoNum && c.doc_status === "Aprobado") {
+                if (loopNum <= currentChoNum) {
                     const cItems = Array.isArray(c.items) ? c.items : [];
                     cItems.forEach((it: any) => {
                         if (it.item_num && it.is_new) {
@@ -139,7 +139,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
 
             allChos?.forEach(c => {
                 const loopNum = parseFloat(c.cho_num);
-                if (loopNum < currentChoNum && c.doc_status === "Aprobado") {
+                if (loopNum <= currentChoNum) {
                     const cItems = Array.isArray(c.items) ? c.items : [];
                     cItems.forEach((it: any) => {
                         if (it.item_num) {
@@ -158,7 +158,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
                 const qtyCert = certQtyMap.get(itemNum) || 0;
                 const adjustment = roundedAmt(qtyCert - qtyAuthPrev, 4);
 
-                if (Math.abs(adjustment) > 0.0001) {
+                if (Math.abs(adjustment) >= 0.01) {
                     finalChoItems.push({
                         ...it,
                         proposed_change: adjustment,
@@ -269,7 +269,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
             drawF("5", "Oracle Num.:", c1, ly+lh*4, 230, projData.num_oracle);
             drawF("6", "Contract Num.:", c1, ly+lh*5, 205, projData.num_contrato);
             drawF("7", "Amendment:", c1, ly+lh*6, 150, choData.amendment_letter || "0");
-            drawF("8", "CHO Number:", c1, ly+lh*7, 150, isFinal ? `${choData.cho_num} FINAL` : choData.cho_num);
+            drawF("8", "CHO Number:", c1, ly+lh*7, 150, isFinal ? `${parseFloat(choData.cho_num) + 1} (F)` : choData.cho_num);
 
             // Right column: 9. Date (CHO date), 9a. Contract Beginning Date, 10-14
             drawF("9", "Date:", c2, ry, PW-45, formatDate(choData.cho_date));
@@ -492,7 +492,7 @@ export async function generateAct122(projectId: string, choId: string, isFinal?:
              const py = 45;
              drawText(p, "1. Project Name:", 40, py, fontBold, 8); drawLine(p, 110, py+2, 450, py+2, 0.5); drawText(p, projData.name, 115, py, font, 8.5);
              drawText(p, "3. Project Num.:", 40, py+20, fontBold, 8); drawLine(p, 110, py+22, 350, py+22, 0.5); drawText(p, projData.num_act, 115, py+20, font, 8.5);
-             drawText(p, "8. CHO Number:", 390, py+20, fontBold, 8); drawLine(p, 470, py+22, PW-40, py+22, 0.5); drawText(p, choData.cho_num, 475, py+20, font, 8.5);
+             drawText(p, "8. CHO Number:", 390, py+20, fontBold, 8); drawLine(p, 470, py+22, PW-40, py+22, 0.5); drawText(p, displayChoNum, 475, py+20, font, 8.5);
              drawLine(p, 40, py+40, PW-45, py+40, 0.8);
              
              let currentY = py + 65;

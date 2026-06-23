@@ -37,9 +37,11 @@ export async function generateAct122B(
 
         // --- CÁLCULOS ---
         const roundedAmt = (val: number, dec: number) => Math.round(val * Math.pow(10, dec)) / Math.pow(10, dec);
-        let prevExtDays = 0;
-        let prevCostMods = 0;
         const currentChoNum = parseFloat(choData.cho_num);
+        const finalChoNumStr = (currentChoNum + 1).toString() + " (F)";
+        const displayChoNum = isFinal ? finalChoNumStr : (choData.cho_num || "");
+
+        let prevExtDays = 0;
         if (allChos) {
             for (const c of allChos) {
                 const loopNum = parseFloat(c.cho_num);
@@ -92,7 +94,7 @@ export async function generateAct122B(
             // Agregar Extra Work creados en cualquier CHO anterior a este CHO Final
             allChos?.forEach(c => {
                 const loopNum = parseFloat(c.cho_num);
-                if (loopNum < currentChoNum && c.doc_status === "Aprobado") {
+                if (loopNum <= currentChoNum) {
                     const cItems = Array.isArray(c.items) ? c.items : [];
                     cItems.forEach((it: any) => {
                         if (it.item_num && it.is_new) {
@@ -117,7 +119,7 @@ export async function generateAct122B(
 
             allChos?.forEach(c => {
                 const loopNum = parseFloat(c.cho_num);
-                if (loopNum < currentChoNum && c.doc_status === "Aprobado") {
+                if (loopNum <= currentChoNum) {
                     const cItems = Array.isArray(c.items) ? c.items : [];
                     cItems.forEach((it: any) => {
                         if (it.item_num) {
@@ -135,7 +137,7 @@ export async function generateAct122B(
                 const qtyCert = certQtyMap.get(itemNum) || 0;
                 const adjustment = roundedAmt(qtyCert - qtyAuthPrev, 4);
 
-                if (Math.abs(adjustment) > 0.0001) {
+                if (Math.abs(adjustment) >= 0.01) {
                     finalChoItems.push({
                         ...it,
                         proposed_change: adjustment,
@@ -263,7 +265,7 @@ export async function generateAct122B(
             setVal(ws, 'J12', projData.num_oracle || '');
             setVal(ws, 'J13', projData.num_contrato || '');
             setVal(ws, 'J14', choData.amendment_letter || '0', { color: 'FF000000' });
-            setVal(ws, 'J15', choData.cho_num || '', { color: 'FF000000' });
+            setVal(ws, 'J15', displayChoNum, { color: 'FF000000' });
 
             // 2. Tiempo
             const safeDate = (d: any) => (d instanceof Date && !isNaN(d.getTime())) ? d : null;
@@ -382,7 +384,7 @@ export async function generateAct122B(
             setVal(ws, 'K63', projData.name || '', { shrink: true });
             setVal(ws, 'K64', projData.num_act || '');
             setVal(ws, 'BC64', choData.amendment_letter || '0', { center: true });
-            setVal(ws, 'AZ64', choData.cho_num || '', { center: true });
+            setVal(ws, 'AZ64', displayChoNum, { center: true });
 
             // Restaurar visualmente los Radio Buttons de la fila 68 (que exceljs pierde)
             setVal(ws, 'H68', '○ Design');
