@@ -497,9 +497,6 @@ if (!mounted) return null;
                                     />
                                     <Calendar size={14} className="opacity-60 shrink-0" />
                                     <span className="whitespace-nowrap">{c.cert_date ? formatDate(c.cert_date) : "Seleccionar Fecha"}</span>
-                                    {c.cert_date === new Date().toISOString().split('T')[0] && (
-                                        <span className="text-[10px] bg-white/50 px-1.5 rounded-md font-black uppercase tracking-tighter shrink-0">HOY</span>
-                                    )}
                                 </div>
 
                                 {/* Payment Cert Link */}

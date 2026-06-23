@@ -91,6 +91,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const today = new Date();
         const todayStr = today.toISOString().split("T")[0];
         
+        const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
+
         const { data: complianceData } = await supabase
             .from("labor_compliance")
             .select("doc_type, date_expiry, subcontractor_name, custom_doc_name, status")
@@ -102,13 +104,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             
             const expiry = new Date(doc.date_expiry + "T00:00:00");
             if (isNaN(expiry.getTime())) return false;
+
+            // Si el proyecto tiene aprobada la terminación sustancial, los documentos que expiran después de la terminación sustancial no son considerados vencidos
+            if (proj?.reached_substantial_completion && proj?.date_substantial_completion) {
+                const substantialDate = new Date(proj.date_substantial_completion + "T00:00:00");
+                if (!isNaN(substantialDate.getTime()) && expiry > substantialDate) {
+                    return false;
+                }
+            }
             
             const todayLimit = new Date(todayStr + "T00:00:00");
             return expiry < todayLimit;
         });
         setExpiredDocs(expired);
-
-        const { data: proj } = await supabase.from("projects").select("*").eq("id", projectId).single();
 
         if (proj?.fmis_end_date) {
             const fmisDate = new Date(proj.fmis_end_date + "T23:59:59");
