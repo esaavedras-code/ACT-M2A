@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName, sortItemsNaturally, uniqueSortItems } from "./utils";
+import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName, sortItemsNaturally, uniqueSortItems, normalizeFundSource } from "./utils";
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
 import { subcontratosTemplateB64 } from "./subcontratosTemplate";
@@ -822,7 +822,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
         const origQty = baseItem ? (parseFloat(baseItem.quantity) || 0) : 0;
         const description = baseItem ? [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ') : "";
         const unit = baseItem ? baseItem.unit : "";
-        const fundSource = baseItem?.fund_source || "N/A";
+        const fundSource = normalizeFundSource(baseItem?.fund_source);
         const unitPrice = baseItem ? (parseFloat(baseItem.unit_price) || 0) : 0;
 
         let totalChoQty = 0;
@@ -837,7 +837,7 @@ export const generateBalanceReportLogic = async (projectId: string, format: 'pdf
                 totalChoQty += (parseFloat(match.proposed_change !== undefined ? match.proposed_change : match.quantity) || 0);
                 if (!description && match.description) choDescription = match.description;
                 if (match.unit_price) choUnitPrice = parseFloat(match.unit_price);
-                if (match.fund_source) choFundSource = match.fund_source;
+                if (match.fund_source) choFundSource = normalizeFundSource(match.fund_source);
             }
         });
 

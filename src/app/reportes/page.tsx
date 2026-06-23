@@ -1132,7 +1132,7 @@ function ReportesContent() {
                                     const liquidatedItems = liqData.liquidated_items || [];
                                     const allSigned = ci?.every(it => {
                                         const liqItem = liquidatedItems.find((l: any) => l.item_num === it.item_num);
-                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor && liqItem.signed_by_liquidator;
+                                        return liqItem && liqItem.signed_by_admin && liqItem.signed_by_contractor;
                                     });
                                     if (!allSigned) { alert("Faltan firmas en las hojas de liquidacion. No se puede generar la Certificacion Final."); setLoading(false); return; }
                                     await generateAct117CReportLogic(projectId, undefined, 'excel', true);

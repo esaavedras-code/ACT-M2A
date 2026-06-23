@@ -295,3 +295,23 @@ export function formatQuantity(value: number | string | null | undefined): strin
     const formatted = Math.abs(numericValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
     return numericValue < 0 ? `(${formatted})` : formatted;
 }
+
+/**
+ * Normaliza las fuentes de fondos para evitar grupos duplicados causados por inconsistencias de tipeo.
+ * Ej: "ACT 100%" y "ACT: 100%" y "ACT:100%" se normalizan a "ACT:100%"
+ */
+export function normalizeFundSource(source: string | null | undefined): string {
+    if (!source) return "N/A";
+    const cleaned = source.trim().toUpperCase();
+    if (cleaned === "ACT 100%" || cleaned === "ACT:100%" || cleaned === "ACT: 100%") {
+        return "ACT:100%";
+    }
+    if (cleaned === "FHWA 100%" || cleaned === "FHWA:100%" || cleaned === "FHWA: 100%") {
+        return "FHWA:100%";
+    }
+    if (cleaned === "FHWA 80.25" || cleaned === "FHWA:80.25" || cleaned === "FHWA: 80.25" || cleaned === "FHWA:80.25%") {
+        return "FHWA:80.25";
+    }
+    return source.trim();
+}
+

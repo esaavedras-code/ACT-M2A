@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatCurrency, formatNum, roundedAmt, sortItemsNaturally, formatItemNum } from './utils';
+import { formatDate, formatCurrency, roundedAmt, sortItemsNaturally, formatItemNum, normalizeFundSource } from './utils';
 
 export async function generateBalancesExcel(projectId: string): Promise<Blob> {
     const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
@@ -83,7 +83,7 @@ export async function generateBalancesExcel(projectId: string): Promise<Blob> {
             item_num: itemNum,
             description: baseItem ? [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ') : "Ítem nuevo por CHO",
             unit: baseItem?.unit || "UN",
-            source: choSource || baseItem?.fund_source || "N/A",
+            source: normalizeFundSource(choSource || baseItem?.fund_source),
             origQty, choQty, totalQty, certQty,
             balanceQty: totalQty - certQty,
             balanceAmt: (totalQty - certQty) * price
