@@ -383,7 +383,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 .map(({ item, originalIndex: idx }) => {
                             const choQty = getCHOQty(item.item_num);
                             const totalQty = (parseFloat(item.quantity) || 0) + choQty;
-                            const amountFinal = roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2);
+                            const amountFinal = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
 
                             const paidBreakdown = certs.map(cert => {
                                 const certItems = Array.isArray(cert.items) ? cert.items : [];
