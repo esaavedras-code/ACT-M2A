@@ -232,12 +232,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
     return (
         <div className="space-y-6">
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-4 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex flex-col items-center justify-between mb-6">
-                <div className="w-full flex justify-center mb-2">
-                    <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-xl">
-                        <Info size={14} className="text-red-600 shrink-0" />
-                        <span className="text-sm font-black text-red-600 uppercase">Esta sección se actualiza automáticamente — no es necesario ingresar información aquí.</span>
+                {readOnly && (
+                    <div className="w-full flex justify-center mb-2">
+                        <div className="flex items-center gap-2 px-4 py-1.5 bg-red-50 border border-red-100 rounded-xl">
+                            <Info size={14} className="text-red-600 shrink-0" />
+                            <span className="text-sm font-black text-red-600 uppercase">Esta sección es de solo lectura — los datos se actualizan automáticamente.</span>
+                        </div>
                     </div>
-                </div>
+                )}
                 <div className="w-full flex items-center justify-between">
                     <div className="space-y-1">
                         <h2 className="text-2xl font-bold flex items-center gap-2 font-geist tracking-tight">
@@ -329,7 +331,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 .map((item, originalIndex) => ({ item, originalIndex }))
                                 .filter(({ item }) => {
                                     // Si solo queremos originales, filtramos los que tengan cantidad original 0
-                                    if (onlyOriginals && (parseFloat(item.quantity) || 0) <= 0) return false;
+                                    // Pero los items recién creados (sin id) siempre se muestran para que el usuario pueda editarlos
+                                    if (onlyOriginals && item.id && (parseFloat(item.quantity) || 0) <= 0) return false;
 
                                     if (!searchTerm) return true;
                                     const s = searchTerm.toLowerCase().trim();
