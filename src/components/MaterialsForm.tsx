@@ -385,14 +385,6 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         description: "Imprimir el inventario de Material on Site",
                         variant: 'secondary' as const,
                         size: 'small' as const
-                    },
-                    {
-                        label: loading ? "Guardando..." : "Guardar cambios",
-                        icon: <Save />,
-                        onClick: () => saveData(false),
-                        description: "Guardar los ajustes manuales de MOS",
-                        variant: 'primary' as const,
-                        disabled: loading
                     }
                 ]}
             />

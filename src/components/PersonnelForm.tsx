@@ -230,13 +230,6 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                         size: 'small' as const
                     },
                     {
-                        label: "Añadir Persona",
-                        icon: <Plus />,
-                        onClick: addItem,
-                        description: "Incluir un nuevo funcionario de la ACT al registro de firmas del proyecto",
-                        variant: 'secondary' as const
-                    },
-                    {
                         label: loading ? "Guardando..." : "Guardar cambios",
                         icon: <Save />,
                         onClick: () => saveData(false),
