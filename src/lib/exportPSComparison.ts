@@ -2,6 +2,8 @@ import { downloadBlob } from './reportLogic';
 
 export interface ComparisonResult {
     metric: string;
+    psName?: string;
+    pactName?: string;
     psValue: number;
     pactValue: number;
     diff: number;
@@ -29,9 +31,11 @@ export const generatePSComparisonExcel = async (results: ComparisonResult[], pro
         // Headers
         sheet.columns = [
             { header: 'Categoría', key: 'category', width: 20 },
-            { header: 'Métrica / Partida', key: 'metric', width: 45 },
-            { header: 'Project Status (PS)', key: 'psValue', width: 25, style: { numFmt: currencyFmt } },
-            { header: 'PACT', key: 'pactValue', width: 25, style: { numFmt: currencyFmt } },
+            { header: 'Métrica / Partida', key: 'metric', width: 30 },
+            { header: 'Project Status (PS)', key: 'psName', width: 25 },
+            { header: 'PACT', key: 'pactName', width: 30 },
+            { header: 'Valor PS', key: 'psValue', width: 25, style: { numFmt: currencyFmt } },
+            { header: 'Valor PACT', key: 'pactValue', width: 25, style: { numFmt: currencyFmt } },
             { header: 'Diferencia', key: 'diff', width: 20, style: { numFmt: currencyFmt } },
             { header: 'Resultado', key: 'result', width: 15 }
         ];
@@ -47,6 +51,8 @@ export const generatePSComparisonExcel = async (results: ComparisonResult[], pro
             const row = sheet.addRow({
                 category: res.category || 'Métrica Global',
                 metric: res.metric,
+                psName: res.psName || '',
+                pactName: res.pactName || '',
                 psValue: res.psValue,
                 pactValue: res.pactValue,
                 diff: res.diff,
