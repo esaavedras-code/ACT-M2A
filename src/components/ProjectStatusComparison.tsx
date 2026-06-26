@@ -31,12 +31,14 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
             const { data: chos } = await supabase.from("chos").select("*").eq("project_id", projectId);
             const { data: certs } = await supabase.from("payment_certifications").select("*").eq("project_id", projectId).order("cert_num", { ascending: true });
 
-            let original = 0;
-            const pactItemsMap: Record<string, any> = {};
+            // ─── Costo Original: igual que SummaryDashboard ───
+            const original = proj?.cost_original
+                || (items?.reduce((acc: number, it: any) => roundedAmt(acc + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2) ?? 0)
+                || 0);
 
+            const pactItemsMap: Record<string, any> = {};
             items?.forEach(it => {
                 const amt = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
-                original = roundedAmt(original + amt, 2);
                 pactItemsMap[it.item_num] = {
                     itemNum: it.item_num,
                     description: it.description,
@@ -49,14 +51,15 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                 };
             });
 
-            let revised = original;
+            // ─── Costo Revisado = Original + suma de proposed_change de CHOs aprobados (igual que Dashboard) ───
             const approvedCHOs = chos?.filter(c => c.doc_status === 'Aprobado') || [];
+            const approvedCHOTotal = approvedCHOs.reduce((acc: number, c: any) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
+            const revised = roundedAmt(original + approvedCHOTotal, 2);
+            // ─── Actualizar pactItemsMap con qty ajustada por CHOs aprobados ───
             approvedCHOs.forEach(cho => {
                 if (Array.isArray(cho.items)) {
-                    cho.items.forEach(it => {
+                    cho.items.forEach((it: any) => {
                         const amt = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
-                        revised = roundedAmt(revised + amt, 2);
-                        
                         if (pactItemsMap[it.item_num]) {
                             pactItemsMap[it.item_num].qty += parseFloat(it.quantity) || 0;
                             pactItemsMap[it.item_num].amount = roundedAmt(pactItemsMap[it.item_num].amount + amt, 2);
@@ -75,15 +78,15 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                 }
             });
 
+            // ─── Certificaciones: igual que SummaryDashboard ───
             let certified = 0;
             let lastCertAmount = 0;
             let lastCertNum = 0;
-            let totalRetention = 0;
-            let lastRetention = 0;
+            let totalRetentionDeducted = 0;
+            let totalRetentionReturned = 0;
 
             certs?.forEach(cert => {
                 let certAmount = 0;
-                let certRet = 0;
                 const cItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
 
                 cItems.forEach((it: any) => {
@@ -92,10 +95,12 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                     const amt = roundedAmt(qty * up, 2);
                     certAmount = roundedAmt(certAmount + amt, 2);
 
+                    // Retención del 5% por item (solo si no está marcado skip)
                     if (!cert.skip_retention && !it.skip_retention) {
-                        certRet = roundedAmt(certRet + roundedAmt(amt * 0.05, 2), 2);
+                        totalRetentionDeducted = roundedAmt(totalRetentionDeducted + roundedAmt(amt * 0.05, 2), 2);
                     }
 
+                    // Acumular por item para comparación partida por partida
                     if (pactItemsMap[it.item_num]) {
                         pactItemsMap[it.item_num].certQty += qty;
                         pactItemsMap[it.item_num].certAmnt = roundedAmt(pactItemsMap[it.item_num].certAmnt + amt, 2);
@@ -103,24 +108,21 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                 });
 
                 certified = roundedAmt(certified + certAmount, 2);
-                
-                let returned = 0;
-                if (cert.show_retention_return) {
-                    returned = parseFloat(cert.retention_return_amount) || 0;
-                }
-                
-                totalRetention = roundedAmt(totalRetention + certRet - returned, 2);
 
-                if (cert.cert_num > lastCertNum) {
+                // Retención devuelta
+                if (cert.show_retention_return && cert.retention_return_amount) {
+                    totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
+                }
+
+                if ((cert.cert_num || 0) > lastCertNum) {
                     lastCertNum = cert.cert_num;
                     lastCertAmount = certAmount;
-                    lastRetention = certRet;
                 }
             });
 
             const remaining = roundedAmt(revised - certified, 2);
-            
-            // Basic net paid approximation: Certified - Total Retention
+            const totalRetention = roundedAmt(totalRetentionDeducted - totalRetentionReturned, 2);
+            // Net Paid = Certified - Retención neta (igual que Dashboard: certified - retention total)
             const netPaid = roundedAmt(certified - totalRetention, 2);
 
             // Compute remaining per item
@@ -137,7 +139,6 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                 lastCertified: lastCertAmount,
                 netPaid,
                 retentionTD: totalRetention,
-                lastRetention: lastRetention,
                 items: pactItemsMap
             });
 
@@ -199,7 +200,6 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
             { name: "Amount Remaining", ps: psData.globals.remaining, pact: pactData.remaining, psName: "Amount Remaining", pactName: "Balance actual (remaining)" },
             { name: "Última Certificación", ps: psData.globals.lastCertified, pact: pactData.lastCertified, psName: "Last Certified", pactName: "Última Certificación" },
             { name: "Net Paid", ps: psData.globals.netPaid, pact: pactData.netPaid, psName: "Other Net Paid", pactName: "Net Paid" },
-            { name: "Última Retención", ps: psData.globals.lastRetention, pact: pactData.lastRetention, psName: "Last Retention", pactName: "Última Retención" },
             { name: "Retention TD", ps: psData.globals.retentionTD, pact: pactData.retentionTD, psName: "Retention TD", pactName: "Retention TD" }
         ];
 
