@@ -82,11 +82,13 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
             let certified = 0;
             let lastCertAmount = 0;
             let lastCertNum = 0;
+            let lastRetention = 0;
             let totalRetentionDeducted = 0;
             let totalRetentionReturned = 0;
 
             certs?.forEach(cert => {
                 let certAmount = 0;
+                let certRetention = 0;
                 const cItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
 
                 cItems.forEach((it: any) => {
@@ -97,7 +99,9 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
 
                     // Retención del 5% por item (solo si no está marcado skip)
                     if (!cert.skip_retention && !it.skip_retention) {
-                        totalRetentionDeducted = roundedAmt(totalRetentionDeducted + roundedAmt(amt * 0.05, 2), 2);
+                        const itemRet = roundedAmt(amt * 0.05, 2);
+                        totalRetentionDeducted = roundedAmt(totalRetentionDeducted + itemRet, 2);
+                        certRetention = roundedAmt(certRetention + itemRet, 2);
                     }
 
                     // Acumular por item para comparación partida por partida
@@ -114,9 +118,11 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                     totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
                 }
 
+                // Guardar retención de la última certificación
                 if ((cert.cert_num || 0) > lastCertNum) {
                     lastCertNum = cert.cert_num;
                     lastCertAmount = certAmount;
+                    lastRetention = certRetention;
                 }
             });
 
@@ -137,6 +143,7 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                 certified,
                 remaining,
                 lastCertified: lastCertAmount,
+                lastRetention,
                 netPaid,
                 retentionTD: totalRetention,
                 items: pactItemsMap
@@ -200,6 +207,7 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
             { name: "Amount Remaining", ps: psData.globals.remaining, pact: pactData.remaining, psName: "Amount Remaining", pactName: "Balance actual (remaining)" },
             { name: "Última Certificación", ps: psData.globals.lastCertified, pact: pactData.lastCertified, psName: "Last Certified", pactName: "Última Certificación" },
             { name: "Net Paid", ps: psData.globals.netPaid, pact: pactData.netPaid, psName: "Other Net Paid", pactName: "Net Paid" },
+            { name: "Última Retención", ps: psData.globals.lastRetention, pact: pactData.lastRetention, psName: "Last Retention", pactName: "Última Retención (última cert)" },
             { name: "Retention TD", ps: psData.globals.retentionTD, pact: pactData.retentionTD, psName: "Retention TD", pactName: "Retention TD" }
         ];
 
