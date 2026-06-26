@@ -39,6 +39,7 @@ const MonthlyPresentations = dynamic(() => import("@/components/MonthlyPresentat
 const UpdateTablesForm = dynamic(() => import("@/components/UpdateTablesForm"), { ssr: false });
 const SummaryDashboard = dynamic(() => import("@/components/SummaryDashboard"), { ssr: false });
 const ProjectTasks = dynamic(() => import("@/components/ProjectTasks"), { ssr: false });
+const ProjectStatusComparison = dynamic(() => import("@/components/ProjectStatusComparison"), { ssr: false });
 
 function ProjectDetailContent() {
     const searchParams = useSearchParams();
@@ -136,6 +137,7 @@ function ProjectDetailContent() {
         { id: "update-tables", label: "Actualizar tablas",       icon: <RefreshCcw size={12} /> },
         { id: "files",       label: role === 'E' ? "📸 Fotos" : "Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
         { id: "tasks",       label: "Pendientes",                 icon: <ListChecks size={12} /> },
+        { id: "ps-comparison", label: "Comparación PS",           icon: <ListChecks size={12} /> },
     ];
 
     // Filtrar pestañas basadas en roles
@@ -595,6 +597,7 @@ function ProjectDetailContent() {
                                 {activeTab === "files"       && <ProjectFilesExplorer projectId={id} userRole={role} />}
                                 {activeTab === "tasks"       && <ProjectTasks projectId={id} userRole={role} />}
                                 {activeTab === "update-tables" && <UpdateTablesForm projectId={id || ""} numAct={numAct} />}
+                                {activeTab === "ps-comparison" && <ProjectStatusComparison projectId={id} numAct={numAct} projectName={projectName} />}
                                 {activeTab === "negotiation" && (
                                     <div className="space-y-6">
                                         <PriceComparison projectId={id || undefined} />
