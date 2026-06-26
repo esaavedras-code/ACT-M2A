@@ -223,18 +223,8 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                 if (pItem) {
                     const desc = pItem.description ? ` - ${pItem.description}` : '';
                     comp.push({
-                        category: `Partida ${psItem.itemNum}`,
-                        metric: `Cantidad Certificada${desc}`,
-                        psName: "Certified QTY",
-                        pactName: "Cantidad Certificada",
-                        psValue: psItem.certQty,
-                        pactValue: pItem.certQty,
-                        diff: roundedAmt(psItem.certQty - pItem.certQty, 4),
-                        isEqual: checkMatch(psItem.certQty, pItem.certQty)
-                    });
-                    comp.push({
-                        category: `Partida ${psItem.itemNum}`,
-                        metric: `Amount Certificado${desc}`,
+                        category: `Partida ${psItem.itemNum}${desc}`,
+                        metric: "Amount Certificado",
                         psName: "Certified Amnt",
                         pactName: "Importe Certificado",
                         psValue: psItem.certAmnt,
@@ -243,24 +233,34 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                         isEqual: checkMatch(psItem.certAmnt, pItem.certAmnt)
                     });
                     comp.push({
-                        category: `Partida ${psItem.itemNum}`,
-                        metric: `Cantidad Remaining${desc}`,
-                        psName: "Rem QTY",
-                        pactName: "Saldo Qty",
-                        psValue: psItem.remQty,
-                        pactValue: pItem.remQty,
-                        diff: roundedAmt(psItem.remQty - pItem.remQty, 4),
-                        isEqual: checkMatch(psItem.remQty, pItem.remQty)
+                        category: `Partida ${psItem.itemNum}${desc}`,
+                        metric: "Cantidad certificada",
+                        psName: "Certified QTY",
+                        pactName: "Cantidad Certificada",
+                        psValue: psItem.certQty,
+                        pactValue: pItem.certQty,
+                        diff: roundedAmt(psItem.certQty - pItem.certQty, 4),
+                        isEqual: checkMatch(psItem.certQty, pItem.certQty)
                     });
                     comp.push({
-                        category: `Partida ${psItem.itemNum}`,
-                        metric: `Amount Remaining${desc}`,
+                        category: `Partida ${psItem.itemNum}${desc}`,
+                        metric: "Amount remanente",
                         psName: "Rem. Amount",
                         pactName: "Saldo Monto",
                         psValue: psItem.remAmnt,
                         pactValue: pItem.remAmnt,
                         diff: roundedAmt(psItem.remAmnt - pItem.remAmnt, 2),
                         isEqual: checkMatch(psItem.remAmnt, pItem.remAmnt)
+                    });
+                    comp.push({
+                        category: `Partida ${psItem.itemNum}${desc}`,
+                        metric: "Cantidad Remaining",
+                        psName: "Rem QTY",
+                        pactName: "Saldo Qty",
+                        psValue: psItem.remQty,
+                        pactValue: pItem.remQty,
+                        diff: roundedAmt(psItem.remQty - pItem.remQty, 4),
+                        isEqual: checkMatch(psItem.remQty, pItem.remQty)
                     });
                 } else {
                     comp.push({
