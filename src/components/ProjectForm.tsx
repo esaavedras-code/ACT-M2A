@@ -77,6 +77,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
     const [uploadingDoc, setUploadingDoc] = useState(false);
     const [aiPrompt, setAiPrompt] = useState("");
     const [aiResponse, setAiResponse] = useState("");
+    const [approvedExtDays, setApprovedExtDays] = useState(0);
     const agreementRef = useRef<{ save: () => Promise<void> }>(null);
 
     // Memorizar funciones de carga para evitar re-ejecuciones de efectos innecesarias
@@ -94,6 +95,14 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             .select("*")
             .eq("id", projectId)
             .single();
+
+        let extDays = 0;
+        const { data: chos } = await supabase.from("chos").select("time_extension_days").eq("project_id", projectId).eq("doc_status", "Aprobado");
+        if (chos) {
+            extDays = chos.reduce((sum, c) => sum + (c.time_extension_days || 0), 0);
+        }
+        setApprovedExtDays(extDays);
+
         if (data) {
             const fetchedData = {
                 ...data,
@@ -104,6 +113,28 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             formDataRef.current = fetchedData;
         }
     }, [projectId]);
+
+    useEffect(() => {
+        if (formData.date_orig_completion) {
+            const dateParts = formData.date_orig_completion.split('-');
+            if (dateParts.length === 3) {
+                const d = new Date(parseInt(dateParts[0]), parseInt(dateParts[1])-1, parseInt(dateParts[2]));
+                d.setDate(d.getDate() + approvedExtDays);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const newRev = `${yyyy}-${mm}-${dd}`;
+                
+                if (formData.date_rev_completion !== newRev) {
+                    setFormData(prev => {
+                        const nextData = { ...prev, date_rev_completion: newRev };
+                        formDataRef.current = nextData;
+                        return nextData;
+                    });
+                }
+            }
+        }
+    }, [formData.date_orig_completion, approvedExtDays]);
 
     useEffect(() => {
         setMounted(true);
@@ -1609,12 +1640,11 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="input-field"
+                                    className="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded shadow-sm py-2 px-3 text-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
                                     style={getFieldStyle('date_rev_completion')}
                                     value={formData.date_rev_completion || ""}
-                                    onChange={(e) => {
-                                        handleChange('date_rev_completion', e.target.value);
-                                    }}
+                                    readOnly
+                                    disabled
                                 />
                             </div>
                         </div>
