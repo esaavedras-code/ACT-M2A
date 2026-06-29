@@ -339,8 +339,16 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         
         const revisedDays = (totalDays || 0) + (approvedDays || 0);
 
+        // Calcular fecha revisada = fecha de comienzo + dias revisados (originales + CHO)
+        let revisedDateStr = "";
+        if (startDate && !isNaN(startDate.getTime()) && revisedDays > 0) {
+            const revCalc = new Date(startDate.getTime());
+            revCalc.setDate(revCalc.getDate() + revisedDays);
+            revisedDateStr = revCalc.toISOString().split("T")[0];
+        }
+
         let adminDateStr = "";
-        const baseAdminDate = proj?.date_rev_completion || proj?.date_orig_completion;
+        const baseAdminDate = revisedDateStr || proj?.date_orig_completion;
         if (baseAdminDate) {
             const revDate = new Date(baseAdminDate + "T23:59:59");
             if (!isNaN(revDate.getTime())) {
@@ -369,7 +377,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             dates: {
                 start: proj?.date_project_start || "",
                 original: proj?.date_orig_completion || "",
-                revised: proj?.date_rev_completion || "",
+                revised: revisedDateStr || "",
                 substantial: proj?.date_substantial_completion || "",
                 administrative: adminDateStr || "",
                 fmis: proj?.fmis_end_date || ""
