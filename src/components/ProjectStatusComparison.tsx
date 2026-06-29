@@ -204,10 +204,10 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
         const globals = [
             { name: "Amount Original", ps: psData.globals.original, pact: pactData.original, psName: "Amount Original", pactName: "Costo Original" },
             { name: "Amount Revisado", ps: psData.globals.revised, pact: pactData.revised, psName: "Amount Revisado", pactName: "Costo Ajustado" },
-            { name: "Amount Certificado", ps: psData.globals.certified, pact: pactData.certified, psName: "Amount Certificado", pactName: "Certified to date (WP)" },
+            { name: "Amount Certified", ps: psData.globals.certified, pact: pactData.certified, psName: "Amount Certified", pactName: "Certified to date (WP)" },
             { name: "Amount Remaining", ps: psData.globals.remaining, pact: pactData.remaining, psName: "Amount Remaining", pactName: "Balance actual (remaining)" },
             { name: "Última Certificación", ps: psData.globals.lastCertified, pact: pactData.lastCertified, psName: "Last Certified", pactName: "Última Certificación" },
-            { name: "Net Paid", ps: psData.globals.netPaid, pact: pactData.netPaid, psName: "Other Net Paid", pactName: "Net Paid" },
+            { name: "Net payment", ps: psData.globals.netPaid, pact: pactData.netPaid, psName: "Other Net Paid", pactName: "Net Paid" },
             { name: "Última Retención", ps: psData.globals.lastRetention, pact: pactData.lastRetention, psName: "Last Retention", pactName: "Última Retención (última cert)" },
             { name: "Retention TD", ps: psData.globals.retentionTD, pact: pactData.retentionTD, psName: "Retention TD", pactName: "Retention TD" }
         ];
@@ -227,13 +227,20 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
 
         // Items
         if (psData.items && Array.isArray(psData.items)) {
-            psData.items.forEach((psItem: any) => {
+            const sortedItems = [...psData.items].sort((a, b) => {
+                const numA = parseInt(a.itemNum, 10) || 0;
+                const numB = parseInt(b.itemNum, 10) || 0;
+                return numA - numB;
+            });
+
+            sortedItems.forEach((psItem: any) => {
                 const pItem = pactData.items[psItem.itemNum];
+                const paddedItemNum = String(psItem.itemNum).padStart(3, '0');
                 if (pItem) {
                     const desc = pItem.description ? ` - ${pItem.description}` : '';
                     comp.push({
-                        category: `Partida ${psItem.itemNum}${desc}`,
-                        metric: "Amount Certificado",
+                        category: `Partida ${paddedItemNum}${desc}`,
+                        metric: "Amount certified",
                         psName: "Certified Amnt",
                         pactName: "Importe Certificado",
                         psValue: psItem.certAmnt,
@@ -242,8 +249,8 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                         isEqual: checkMatch(psItem.certAmnt, pItem.certAmnt)
                     });
                     comp.push({
-                        category: `Partida ${psItem.itemNum}${desc}`,
-                        metric: "Cantidad certificada",
+                        category: `Partida ${paddedItemNum}${desc}`,
+                        metric: "Quantity certified",
                         psName: "Certified QTY",
                         pactName: "Cantidad Certificada",
                         psValue: psItem.certQty,
@@ -252,8 +259,8 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                         isEqual: checkMatch(psItem.certQty, pItem.certQty)
                     });
                     comp.push({
-                        category: `Partida ${psItem.itemNum}${desc}`,
-                        metric: "Amount remanente",
+                        category: `Partida ${paddedItemNum}${desc}`,
+                        metric: "Amount remaining",
                         psName: "Rem. Amount",
                         pactName: "Saldo Monto",
                         psValue: psItem.remAmnt,
@@ -262,8 +269,8 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                         isEqual: checkMatch(psItem.remAmnt, pItem.remAmnt)
                     });
                     comp.push({
-                        category: `Partida ${psItem.itemNum}${desc}`,
-                        metric: "Cantidad Remaining",
+                        category: `Partida ${paddedItemNum}${desc}`,
+                        metric: "Quantity remaining",
                         psName: "Rem QTY",
                         pactName: "Saldo Qty",
                         psValue: psItem.remQty,
@@ -273,7 +280,7 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                     });
                 } else {
                     comp.push({
-                        category: `Partida ${psItem.itemNum}`,
+                        category: `Partida ${paddedItemNum}`,
                         metric: "No encontrada en PACT",
                         psName: "N/A",
                         pactName: "N/A",
