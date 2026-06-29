@@ -155,7 +155,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const { data: certs } = await supabase
             .from("payment_certifications")
-            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund")
+            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund, excluded")
             .eq("project_id", projectId)
             .order("cert_num", { ascending: true });
 
@@ -207,6 +207,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
             for (let i = currentCertIdx; i >= 0; i--) {
                 if (!certsList[i]) continue;
+                if (certsList[i].excluded) continue;
                 const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
                 const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
                 if (match) return parseFloat(match.mos_unit_price);
@@ -217,6 +218,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const perItemMosBalance: Record<string, number> = {};
 
         certs?.forEach((cert: any, cIdx: number) => {
+            if (cert.excluded) return;
+
             const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
             let certAmount = 0;
 
@@ -302,6 +305,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 let lastPU = 0;
                 const safeCerts = certs || [];
                 for (let i = safeCerts.length - 1; i >= 0; i--) {
+                    if (safeCerts[i].excluded) continue;
                     const its = Array.isArray(safeCerts[i].items) ? safeCerts[i].items : (safeCerts[i].items?.list || []);
                     const match = its.find((itx: any) => itx.item_num === item_num && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
                     if (match) {

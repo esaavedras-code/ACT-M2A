@@ -171,7 +171,9 @@ export const fetchAllReportData = async (projectId: string) => {
             alert("Error: No se encontró el proyecto. Verifique sus permisos o la conexión.");
         }
 
-        return { project, items, chos, certs, mfgCerts, agreementFunds };
+        const validCerts = certs?.filter((c: any) => !c.excluded) || [];
+
+        return { project, items, chos, certs: validCerts, mfgCerts, agreementFunds };
     } catch (e) {
         console.error("Exception in fetchAllReportData:", e);
         alert("Excepción al cargar datos: " + (e as Error).message);
@@ -1401,7 +1403,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
 
     // Filtrar CHOs y Certs por fecha de corte
     const filteredChos = chos?.filter(c => new Date(c.cho_date) <= cutOff) || [];
-    const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff) || [];
+    const filteredCerts = certs?.filter(c => new Date(c.cert_date) <= cutOff && !c.excluded) || [];
 
     const originalCost = proj.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
 

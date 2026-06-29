@@ -307,6 +307,9 @@ const PaymentCertForm = React.forwardRef(({
         if (!certs) return { liveExecuted: 0, livePaid: 0, liveRetention: 0, liveMOS: 0, liveLiquidated: 0, liveRemaining: 0, timeExtension: 0 };
 
         certs.forEach((c, idx) => {
+            // Saltar certificaciones excluidas de los resultados
+            if (c.excluded) return;
+
             let certWork = 0;
             let certMOSNet = 0;
             
@@ -390,6 +393,7 @@ const PaymentCertForm = React.forwardRef(({
             skip_retention: false,
             retention_return_amount: 0,
             show_retention_return: false,
+            excluded: false,
             notes: '',
             notes_images: []
         };
@@ -968,15 +972,15 @@ const PaymentCertForm = React.forwardRef(({
                         .reduce((sum, otherCert) => sum + getCertRetentionNet(otherCert), 0);
 
                     return (
-                        <div key={certIdx} className="card border-none shadow-sm overflow-hidden bg-white dark:bg-slate-900 p-0 mb-4">
-                            <div className="p-4 bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
+                        <div key={certIdx} className={`card border-none shadow-sm overflow-hidden p-0 mb-4 ${c.excluded ? 'bg-red-50/40 dark:bg-red-950/10 ring-1 ring-red-200 dark:ring-red-900/30' : 'bg-white dark:bg-slate-900'}`}>
+                            <div className={`p-4 border-b ${c.excluded ? 'bg-red-50/30 dark:bg-red-950/10 border-red-100 dark:border-red-900/30' : 'bg-slate-50/50 dark:bg-slate-800/20 border-slate-100 dark:border-slate-800'}`}>
                                 <div className="flex flex-col xl:flex-row gap-6">
                                     {/* Información Básica de la Certificación */}
                                     <div className="flex flex-row md:flex-col gap-4 border-r-0 xl:border-r border-slate-200 dark:border-slate-700/50 pr-0 xl:pr-6 shrink-0 justify-between md:justify-start">
                                         <div className="flex items-center gap-6">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Certificación #</label>
-                                                <div className="text-2xl font-black text-primary">#{c.cert_num}</div>
+                                                <div className={`text-2xl font-black ${c.excluded ? 'text-slate-300 line-through' : 'text-primary'}`}>#{c.cert_num}</div>
                                             </div>
                                             <div className="flex flex-col gap-1">
                                                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha Cert.</label>
@@ -999,6 +1003,16 @@ const PaymentCertForm = React.forwardRef(({
                                                 onChange={(e) => updateCert(certIdx, 'wp_up_to', e.target.value)}
                                             />
                                         </div>
+                                        {/* Checkbox para excluir esta certificación de los resultados */}
+                                        <label className="flex items-center gap-2 cursor-pointer group mt-1" title="Al marcar, esta certificación no se incluirá en los totales y resultados">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-slate-300 text-red-500 focus:ring-red-400 w-4 h-4"
+                                                checked={!!c.excluded}
+                                                onChange={(e) => updateCert(certIdx, 'excluded', e.target.checked)}
+                                            />
+                                            <span className={`text-[10px] font-black uppercase tracking-wider leading-none transition-colors ${c.excluded ? 'text-red-500' : 'text-slate-400 group-hover:text-red-500'}`}>Excluir de resultados</span>
+                                        </label>
                                     </div>
 
                                     {/* Totales Principales */}

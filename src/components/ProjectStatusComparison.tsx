@@ -87,6 +87,7 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
             let totalRetentionReturned = 0;
 
             certs?.forEach(cert => {
+                if (cert.excluded) return;
                 let certAmount = 0;
                 let certRetention = 0;
                 const cItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
