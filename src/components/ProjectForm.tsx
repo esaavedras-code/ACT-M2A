@@ -1627,7 +1627,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                 <input
                                     type="date"
                                     className="input-field"
-                                    style={getFieldStyle('date_orig_completion')}
+                                    style={{ ...getFieldStyle('date_orig_completion'), backgroundColor: fieldStatus['date_orig_completion']?.updated ? '#FFFF00' : '#FFFFFF' }}
                                     value={formData.date_orig_completion || ""}
                                     onChange={(e) => {
                                         handleChange('date_orig_completion', e.target.value);
