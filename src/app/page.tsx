@@ -129,7 +129,7 @@ export default function Dashboard() {
                     const rev = new Date(proj.date_rev_completion);
                     const today = new Date();
                     const diff = rev.getTime() - today.getTime();
-                    remainingDays = Math.ceil(diff / (1000 * 3600 * 24));
+                    remainingDays = Math.floor(diff / (1000 * 3600 * 24));
                 }
 
                 return {

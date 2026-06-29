@@ -58,7 +58,7 @@ export async function generateTimeAnalysisReportLogic(projectId: string) {
         const getDaysDiff = (d1: Date | null, d2: Date | null) => {
             if (!d1 || !d2) return 0;
             const diffTime = d2.getTime() - d1.getTime();
-            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return Math.floor(diffTime / (1000 * 60 * 60 * 24));
         };
 
         const duration12_14 = getDaysDiff(dateStart, dateFinished);

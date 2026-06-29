@@ -1,0 +1,1 @@
+- Cuando se deban hacer cálculos con fechas, para considerarlos como un día, deben ser de 24 horas para contar como un día.

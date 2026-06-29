@@ -158,14 +158,14 @@ export async function generateAct117CExcel(
         const endDate = projData.date_orig_completion ? new Date(projData.date_orig_completion) : null;
         let duration = 0;
         if (startDate && endDate) {
-            duration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+            duration = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         }
 
         const revEndDate = projData.date_rev_completion ? new Date(projData.date_rev_completion) : endDate;
         let timeElapsed = 0;
         if (startDate) {
             const wpDate = new Date(currentCert?.wp_up_to || certDate);
-            timeElapsed = Math.ceil((wpDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+            timeElapsed = Math.floor((wpDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         }
 
         // Liquidated damages calculations
@@ -173,7 +173,7 @@ export async function generateAct117CExcel(
         const ldToDate = currentCert?.wp_up_to ? new Date(currentCert.wp_up_to) : new Date(certDate);
         let ldDays = 0;
         if (ldFromDate && ldToDate > ldFromDate) {
-            ldDays = Math.ceil((ldToDate.getTime() - ldFromDate.getTime()) / (1000 * 3600 * 24));
+            ldDays = Math.floor((ldToDate.getTime() - ldFromDate.getTime()) / (1000 * 3600 * 24));
         }
         const ldRatePerDay = parseFloat(projData.liquidated_damages_amount) || 2000;
         const ldTotal = currentCert?.liquidated_damages || 0;

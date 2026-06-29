@@ -122,7 +122,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         if (proj?.fmis_end_date) {
             const fmisDate = new Date(proj.fmis_end_date + "T23:59:59");
             const diffTime = fmisDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+            const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
 
             if (diffDays < 0) {
                 setFmisAlert({ status: 'expired', daysLeft: diffDays });
@@ -328,7 +328,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         
         let totalDays = 0;
         if (startDate && origEndDate && !isNaN(startDate.getTime()) && !isNaN(origEndDate.getTime())) {
-            totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+            totalDays = Math.floor((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         }
 
         let timeEndDate = new Date();
@@ -337,7 +337,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         let usedDays = 0;
         if (startDate && !isNaN(startDate.getTime()) && !isNaN(timeEndDate.getTime())) {
-            usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+            usedDays = Math.floor((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         }
         if (usedDays < 0) usedDays = 0;
         

@@ -379,7 +379,7 @@ if (!mounted) return null;
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     const isExpired = expiration && expiration < today;
-                    const daysLeft = expiration ? Math.ceil((expiration.getTime() - today.getTime()) / (1000 * 3600 * 24)) : null;
+                    const daysLeft = expiration ? Math.floor((expiration.getTime() - today.getTime()) / (1000 * 3600 * 24)) : null;
                     const isNearExpiration = daysLeft !== null && daysLeft > 0 && daysLeft <= 10;
                     
                     const selectedItem = contractItems.find(it => it.id === c.item_id);

@@ -188,7 +188,7 @@ export function ProfessionalGantt({ projectId, choId }: ProfessionalGanttProps) 
     );
 
     const stats = tasks.reduce((acc: any, t) => {
-        const diff = Math.ceil((t.end.getTime() - t.start.getTime()) / (1000 * 3600 * 24));
+        const diff = Math.floor((t.end.getTime() - t.start.getTime()) / (1000 * 3600 * 24));
         acc[t.id] = diff;
         return acc;
     }, {});

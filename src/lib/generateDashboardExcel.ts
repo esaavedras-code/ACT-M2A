@@ -202,7 +202,7 @@ export async function generateDashboardExcel(projectId: string): Promise<Blob> {
     
     let totalDays = 0;
     if (startDate && origEndDate) {
-        totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        totalDays = Math.floor((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
     }
     const revisedDays = totalDays + approvedDays;
 
@@ -212,7 +212,7 @@ export async function generateDashboardExcel(projectId: string): Promise<Blob> {
 
     let usedDays = 0;
     if (startDate) {
-        usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        usedDays = Math.floor((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
     }
     if (usedDays < 0) usedDays = 0;
     const percentTime = revisedDays > 0 ? roundedAmt((usedDays / revisedDays) * 100, 2) : 0;

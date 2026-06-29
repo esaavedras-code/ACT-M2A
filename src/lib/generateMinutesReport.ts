@@ -102,12 +102,12 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
     const startDate = project.date_project_start ? new Date(`${project.date_project_start}T00:00:00`) : null;
     const origEndDate = project.date_orig_completion ? new Date(`${project.date_orig_completion}T23:59:59`) : null;
     let origDays = 0;
-    if (startDate && origEndDate) origDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+    if (startDate && origEndDate) origDays = Math.floor((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
     const currentDays = origDays + approvedCHODays;
     
     const today = new Date();
     let elapsedDays = 0;
-    if (startDate) elapsedDays = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+    if (startDate) elapsedDays = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
     const timeElapsedPct = currentDays > 0 ? (elapsedDays / currentDays) * 100 : 0;
     const remainingDays = Math.max(0, currentDays - elapsedDays);
     

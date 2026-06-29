@@ -1498,7 +1498,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
     const startDate = proj.date_project_start ? new Date(`${proj.date_project_start}T00:00:00`) : null;
     const origEndDate = proj.date_orig_completion ? new Date(`${proj.date_orig_completion}T23:59:59`) : null;
     let totalDays = 0;
-    if (startDate && origEndDate) totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+    if (startDate && origEndDate) totalDays = Math.floor((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
     const revisedDaysTotal = totalDays + approvedDays;
 
     let timeEndDate = cutOff; // Usamos la fecha de corte como referencia de tiempo actual del reporte
@@ -1507,7 +1507,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
 
     let usedDays = 0;
     if (startDate) {
-        usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        usedDays = Math.floor((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         if (usedDays < 0) usedDays = 0;
     }
     const timeBalance = revisedDaysTotal - usedDays;

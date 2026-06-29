@@ -146,7 +146,7 @@ export async function generateCCMLReport(
 
         let totalDays = 0;
         if (startDate && origEndDate) {
-            totalDays = Math.ceil((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+            totalDays = Math.floor((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         }
 
         const approvedDays = trueChoList.reduce((acc: number, c: any) => acc + (c.time_extension_days || 0), 0);
@@ -165,7 +165,7 @@ export async function generateCCMLReport(
 
         let usedDays = 0;
         if (startDate) {
-            usedDays = Math.ceil((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+            usedDays = Math.floor((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         }
         if (usedDays < 0) usedDays = 0;
         const balanceDays = revisedDays - usedDays;
