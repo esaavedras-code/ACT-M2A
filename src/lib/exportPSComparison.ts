@@ -59,6 +59,15 @@ export const generatePSComparisonExcel = async (results: ComparisonResult[], pro
                 result: res.isEqual ? 'Igual' : 'Diferente'
             });
 
+            // Si es una cantidad, aplicar formato de 4 decimales
+            const isQty = res.metric.toLowerCase().includes('quantity');
+            if (isQty) {
+                const qtyFmt = '#,##0.0000';
+                row.getCell('psValue').numFmt = qtyFmt;
+                row.getCell('pactValue').numFmt = qtyFmt;
+                row.getCell('diff').numFmt = qtyFmt;
+            }
+
             // Styling for diff
             if (!res.isEqual) {
                 row.getCell('result').font = redFont;

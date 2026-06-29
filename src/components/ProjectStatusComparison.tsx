@@ -207,7 +207,7 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
             { name: "Amount Certified", ps: psData.globals.certified, pact: pactData.certified, psName: "Amount Certified", pactName: "Certified to date (WP)" },
             { name: "Amount Remaining", ps: psData.globals.remaining, pact: pactData.remaining, psName: "Amount Remaining", pactName: "Balance actual (remaining)" },
             { name: "Última Certificación", ps: psData.globals.lastCertified, pact: pactData.lastCertified, psName: "Last Certified", pactName: "Última Certificación" },
-            { name: "Net payment", ps: psData.globals.netPaid, pact: pactData.netPaid, psName: "Other Net Paid", pactName: "Net Paid" },
+            { name: "Net payment", ps: psData.globals.certified, pact: pactData.netPaid, psName: "Other Net Paid", pactName: "Net Paid" },
             { name: "Última Retención", ps: psData.globals.lastRetention, pact: pactData.lastRetention, psName: "Last Retention", pactName: "Última Retención (última cert)" },
             { name: "Retention TD", ps: psData.globals.retentionTD, pact: pactData.retentionTD, psName: "Retention TD", pactName: "Retention TD" }
         ];
@@ -233,63 +233,64 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                 return numA - numB;
             });
 
+            let partidaIndex = 1;
             sortedItems.forEach((psItem: any) => {
-                const pItem = pactData.items[psItem.itemNum];
-                const paddedItemNum = String(psItem.itemNum).padStart(3, '0');
-                if (pItem) {
-                    const desc = pItem.description ? ` - ${pItem.description}` : '';
-                    comp.push({
-                        category: `Partida ${paddedItemNum}${desc}`,
-                        metric: "Amount certified",
-                        psName: "Certified Amnt",
-                        pactName: "Importe Certificado",
-                        psValue: psItem.certAmnt,
-                        pactValue: pItem.certAmnt,
-                        diff: roundedAmt(psItem.certAmnt - pItem.certAmnt, 2),
-                        isEqual: checkMatch(psItem.certAmnt, pItem.certAmnt)
-                    });
-                    comp.push({
-                        category: `Partida ${paddedItemNum}${desc}`,
-                        metric: "Quantity certified",
-                        psName: "Certified QTY",
-                        pactName: "Cantidad Certificada",
-                        psValue: psItem.certQty,
-                        pactValue: pItem.certQty,
-                        diff: roundedAmt(psItem.certQty - pItem.certQty, 4),
-                        isEqual: checkMatch(psItem.certQty, pItem.certQty)
-                    });
-                    comp.push({
-                        category: `Partida ${paddedItemNum}${desc}`,
-                        metric: "Amount remaining",
-                        psName: "Rem. Amount",
-                        pactName: "Saldo Monto",
-                        psValue: psItem.remAmnt,
-                        pactValue: pItem.remAmnt,
-                        diff: roundedAmt(psItem.remAmnt - pItem.remAmnt, 2),
-                        isEqual: checkMatch(psItem.remAmnt, pItem.remAmnt)
-                    });
-                    comp.push({
-                        category: `Partida ${paddedItemNum}${desc}`,
-                        metric: "Quantity remaining",
-                        psName: "Rem QTY",
-                        pactName: "Saldo Qty",
-                        psValue: psItem.remQty,
-                        pactValue: pItem.remQty,
-                        diff: roundedAmt(psItem.remQty - pItem.remQty, 4),
-                        isEqual: checkMatch(psItem.remQty, pItem.remQty)
-                    });
-                } else {
-                    comp.push({
-                        category: `Partida ${paddedItemNum}`,
-                        metric: "No encontrada en PACT",
-                        psName: "N/A",
-                        pactName: "N/A",
-                        psValue: psItem.amount,
-                        pactValue: 0,
-                        diff: psItem.amount,
-                        isEqual: false
-                    });
-                }
+                const pItem = pactData.items[psItem.itemNum] || {
+                    description: psItem.description || "No encontrada en PACT",
+                    qty: 0,
+                    unitPrice: 0,
+                    amount: 0,
+                    certQty: 0,
+                    certAmnt: 0,
+                    remQty: 0,
+                    remAmnt: 0
+                };
+
+                const formattedIndex = String(partidaIndex).padStart(3, '0');
+                const desc = pItem.description ? ` - ${pItem.description}` : '';
+                const categoryName = `Partida ${formattedIndex}${desc}`;
+                partidaIndex++;
+
+                comp.push({
+                    category: categoryName,
+                    metric: "Amount Certified",
+                    psName: "Certified Amnt",
+                    pactName: "Importe Certificado",
+                    psValue: psItem.certAmnt || 0,
+                    pactValue: pItem.certAmnt || 0,
+                    diff: roundedAmt((psItem.certAmnt || 0) - (pItem.certAmnt || 0), 2),
+                    isEqual: checkMatch(psItem.certAmnt, pItem.certAmnt)
+                });
+                comp.push({
+                    category: categoryName,
+                    metric: "Quantity Certified",
+                    psName: "Certified QTY",
+                    pactName: "Cantidad Certificada",
+                    psValue: psItem.certQty || 0,
+                    pactValue: pItem.certQty || 0,
+                    diff: roundedAmt((psItem.certQty || 0) - (pItem.certQty || 0), 4),
+                    isEqual: checkMatch(psItem.certQty, pItem.certQty)
+                });
+                comp.push({
+                    category: categoryName,
+                    metric: "Amount Remaining",
+                    psName: "Rem. Amount",
+                    pactName: "Saldo Monto",
+                    psValue: psItem.remAmnt || 0,
+                    pactValue: pItem.remAmnt || 0,
+                    diff: roundedAmt((psItem.remAmnt || 0) - (pItem.remAmnt || 0), 2),
+                    isEqual: checkMatch(psItem.remAmnt, pItem.remAmnt)
+                });
+                comp.push({
+                    category: categoryName,
+                    metric: "Quantity Remaining",
+                    psName: "Rem QTY",
+                    pactName: "Saldo Qty",
+                    psValue: psItem.remQty || 0,
+                    pactValue: pItem.remQty || 0,
+                    diff: roundedAmt((psItem.remQty || 0) - (pItem.remQty || 0), 4),
+                    isEqual: checkMatch(psItem.remQty, pItem.remQty)
+                });
             });
         }
 
@@ -367,15 +368,18 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                             </tr>
                         </thead>
                         <tbody>
-                            {results.map((r, i) => (
-                                <tr key={i} className={`border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${!r.isEqual ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}>
-                                    <td className="px-4 py-2 font-medium">{r.category}</td>
-                                    <td className="px-4 py-2">{r.metric}</td>
-                                    <td className="px-4 py-2 text-right">{formatCurrency(r.psValue)}</td>
-                                    <td className="px-4 py-2 text-right">{formatCurrency(r.pactValue)}</td>
-                                    <td className={`px-4 py-2 text-right font-semibold ${!r.isEqual ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                                        {formatCurrency(r.diff)}
-                                    </td>
+                            {results.map((r, i) => {
+                                const isQty = r.metric.toLowerCase().includes("quantity");
+                                const formatVal = (val: number) => isQty ? (val || 0).toFixed(4) : formatCurrency(val);
+                                return (
+                                    <tr key={i} className={`border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 ${!r.isEqual ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}>
+                                        <td className="px-4 py-2 font-medium">{r.category}</td>
+                                        <td className="px-4 py-2">{r.metric}</td>
+                                        <td className="px-4 py-2 text-right">{formatVal(r.psValue)}</td>
+                                        <td className="px-4 py-2 text-right">{formatVal(r.pactValue)}</td>
+                                        <td className={`px-4 py-2 text-right font-semibold ${!r.isEqual ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                                            {formatVal(r.diff)}
+                                        </td>
                                     <td className="px-4 py-2 text-center">
                                         {r.isEqual ? (
                                             <span className="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full font-medium">Igual</span>
@@ -384,7 +388,8 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                                         )}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
