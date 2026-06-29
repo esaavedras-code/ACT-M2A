@@ -17,6 +17,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             certTotal: 0,
             lastCertAmount: 0,
             lastCertNum: 0,
+            lastCertDate: "",
             balance: 0,
             percentObra: 0,
             actTotal: 0,
@@ -194,6 +195,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         let lastCertAmount = 0;
         let lastCertNum = 0;
+        let lastCertDate = "";
         let totalRetentionDeducted = 0;
         let totalRetentionReturned = 0;
         let totalExtraRetention = 0;
@@ -271,6 +273,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             if ((cert.cert_num || 0) > lastCertNum) {
                 lastCertNum = cert.cert_num;
                 lastCertAmount = certAmount;
+                lastCertDate = cert.cert_date || "";
             }
 
             if (!cert.skip_retention) {
@@ -385,6 +388,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 certTotal: certified || 0,
                 lastCertAmount: lastCertAmount || 0,
                 lastCertNum: lastCertNum || 0,
+                lastCertDate: lastCertDate || "",
                 balance: roundedAmt(((originalCost || 0) + (approvedCHO || 0)) - (certified || 0), 2),
                 percentObra: ((originalCost || 0) + (approvedCHO || 0)) > 0 ? roundedAmt(((certified || 0) / ((originalCost || 0) + (approvedCHO || 0))) * 100, 2) : 0,
                 actTotal: actTotal || 0,
@@ -528,6 +532,18 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
                         <MetricRow label="Costo Ajustado" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" />
                         <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" />
+                        {metrics.cost.lastCertDate && (
+                            <div className="ml-2 pl-2 border-l-2 border-emerald-200 dark:border-emerald-800 py-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Última Cert #{metrics.cost.lastCertNum}</span>
+                                    <span className="text-[10px] font-bold text-emerald-600">{formatDate(metrics.cost.lastCertDate)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Monto</span>
+                                    <span className="text-[10px] font-bold text-emerald-600">{formatCurrency(metrics.cost.lastCertAmount)}</span>
+                                </div>
+                            </div>
+                        )}
                         <MetricRow label="Balance actual (remaining)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
                         
                         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
