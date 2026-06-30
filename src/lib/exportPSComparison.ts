@@ -72,8 +72,11 @@ export const generatePSComparisonExcel = async (results: ComparisonResult[], pro
             if (!res.isEqual) {
                 row.getCell('result').font = redFont;
                 row.getCell('diff').font = redFont;
-                // row.getCell('psValue').font = redFont;
-                // row.getCell('pactValue').font = redFont;
+                row.getCell('diff').fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFFFC7CE' } // Fondo rojo claro
+                };
             } else {
                 row.getCell('result').font = greenFont;
             }

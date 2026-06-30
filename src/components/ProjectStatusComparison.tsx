@@ -6,6 +6,11 @@ import { Upload, FileText, Download, CheckCircle, AlertTriangle, Loader2 } from 
 import { formatCurrency, roundedAmt } from "@/lib/utils";
 import { ComparisonResult, generatePSComparisonExcel } from "@/lib/exportPSComparison";
 
+const normalizeItemNum = (num: string | number): string => {
+    const raw = String(num).trim();
+    return /^\d+$/.test(raw) ? String(parseInt(raw, 10)).padStart(3, '0') : raw;
+};
+
 interface ProjectStatusComparisonProps {
     projectId: string;
     numAct?: string;
@@ -38,9 +43,10 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
 
             const pactItemsMap: Record<string, any> = {};
             items?.forEach(it => {
+                const normKey = normalizeItemNum(it.item_num);
                 const amt = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
-                pactItemsMap[it.item_num] = {
-                    itemNum: it.item_num,
+                pactItemsMap[normKey] = {
+                    itemNum: normKey,
                     description: it.description,
                     originalQty: parseFloat(it.quantity) || 0,
                     qty: parseFloat(it.quantity) || 0,
@@ -59,13 +65,14 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
             approvedCHOs.forEach(cho => {
                 if (Array.isArray(cho.items)) {
                     cho.items.forEach((it: any) => {
+                        const normKey = normalizeItemNum(it.item_num);
                         const amt = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
-                        if (pactItemsMap[it.item_num]) {
-                            pactItemsMap[it.item_num].qty += parseFloat(it.quantity) || 0;
-                            pactItemsMap[it.item_num].amount = roundedAmt(pactItemsMap[it.item_num].amount + amt, 2);
+                        if (pactItemsMap[normKey]) {
+                            pactItemsMap[normKey].qty += parseFloat(it.quantity) || 0;
+                            pactItemsMap[normKey].amount = roundedAmt(pactItemsMap[normKey].amount + amt, 2);
                         } else {
-                            pactItemsMap[it.item_num] = {
-                                itemNum: it.item_num,
+                            pactItemsMap[normKey] = {
+                                itemNum: normKey,
                                 description: it.description,
                                 qty: parseFloat(it.quantity) || 0,
                                 unitPrice: parseFloat(it.unit_price) || 0,
@@ -106,9 +113,10 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                     }
 
                     // Acumular por item para comparación partida por partida
-                    if (pactItemsMap[it.item_num]) {
-                        pactItemsMap[it.item_num].certQty += qty;
-                        pactItemsMap[it.item_num].certAmnt = roundedAmt(pactItemsMap[it.item_num].certAmnt + amt, 2);
+                    const normKey = normalizeItemNum(it.item_num);
+                    if (pactItemsMap[normKey]) {
+                        pactItemsMap[normKey].certQty += qty;
+                        pactItemsMap[normKey].certAmnt = roundedAmt(pactItemsMap[normKey].certAmnt + amt, 2);
                     }
                 });
 
@@ -132,10 +140,10 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
             // Net Paid = Certified - Retención neta (igual que Dashboard: certified - retention total)
             const netPaid = roundedAmt(certified - totalRetention, 2);
 
-            // Compute remaining per item
+            // Compute remaining per item (sin redondear para cumplir con: "No redondees números")
             Object.values(pactItemsMap).forEach(it => {
-                it.remQty = roundedAmt(it.qty - it.certQty, 4);
-                it.remAmnt = roundedAmt(it.amount - it.certAmnt, 2);
+                it.remQty = it.qty - it.certQty;
+                it.remAmnt = it.amount - it.certAmnt;
             });
 
             setPactData({
@@ -196,9 +204,9 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
 
     const compareData = (psData: any) => {
         const comp: ComparisonResult[] = [];
-        const THRESHOLD = 0.05; // 5 cents tolerance
+        const THRESHOLD = 0.0001; // Tolerancia muy pequeña o diferencia exacta
 
-        const checkMatch = (val1: number, val2: number) => Math.abs((val1 || 0) - (val2 || 0)) <= THRESHOLD;
+        const checkMatch = (val1: number, val2: number) => Math.abs((val1 || 0) - (val2 || 0)) < THRESHOLD;
 
         // Globals
         const globals = [
@@ -220,79 +228,106 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                 pactName: g.pactName,
                 psValue: g.ps || 0,
                 pactValue: g.pact || 0,
-                diff: roundedAmt((g.ps || 0) - (g.pact || 0), 2),
+                diff: (g.ps || 0) - (g.pact || 0), // Sin redondeo
                 isEqual: checkMatch(g.ps, g.pact)
             });
         });
 
-        // Items
+        // 1. Consolidar la Lista A (PS) sumando sus valores por partida
+        const consolidatedPSItems: Record<string, any> = {};
         if (psData.items && Array.isArray(psData.items)) {
-            const sortedItems = [...psData.items].sort((a, b) => {
-                const numA = parseInt(a.itemNum, 10) || 0;
-                const numB = parseInt(b.itemNum, 10) || 0;
-                return numA - numB;
-            });
-
-            let partidaIndex = 1;
-            sortedItems.forEach((psItem: any) => {
-                const pItem = pactData.items[psItem.itemNum] || {
-                    description: psItem.description || "No encontrada en PACT",
-                    qty: 0,
-                    unitPrice: 0,
-                    amount: 0,
-                    certQty: 0,
-                    certAmnt: 0,
-                    remQty: 0,
-                    remAmnt: 0
-                };
-
-                const formattedIndex = String(partidaIndex).padStart(3, '0');
-                const desc = pItem.description ? ` - ${pItem.description}` : '';
-                const categoryName = `Partida ${formattedIndex}${desc}`;
-                partidaIndex++;
-
-                comp.push({
-                    category: categoryName,
-                    metric: "Amount Certified",
-                    psName: "Certified Amnt",
-                    pactName: "Importe Certificado",
-                    psValue: psItem.certAmnt || 0,
-                    pactValue: pItem.certAmnt || 0,
-                    diff: roundedAmt((psItem.certAmnt || 0) - (pItem.certAmnt || 0), 2),
-                    isEqual: checkMatch(psItem.certAmnt, pItem.certAmnt)
-                });
-                comp.push({
-                    category: categoryName,
-                    metric: "Quantity Certified",
-                    psName: "Certified QTY",
-                    pactName: "Cantidad Certificada",
-                    psValue: psItem.certQty || 0,
-                    pactValue: pItem.certQty || 0,
-                    diff: roundedAmt((psItem.certQty || 0) - (pItem.certQty || 0), 4),
-                    isEqual: checkMatch(psItem.certQty, pItem.certQty)
-                });
-                comp.push({
-                    category: categoryName,
-                    metric: "Amount Remaining",
-                    psName: "Rem. Amount",
-                    pactName: "Saldo Monto",
-                    psValue: psItem.remAmnt || 0,
-                    pactValue: pItem.remAmnt || 0,
-                    diff: roundedAmt((psItem.remAmnt || 0) - (pItem.remAmnt || 0), 2),
-                    isEqual: checkMatch(psItem.remAmnt, pItem.remAmnt)
-                });
-                comp.push({
-                    category: categoryName,
-                    metric: "Quantity Remaining",
-                    psName: "Rem QTY",
-                    pactName: "Saldo Qty",
-                    psValue: psItem.remQty || 0,
-                    pactValue: pItem.remQty || 0,
-                    diff: roundedAmt((psItem.remQty || 0) - (pItem.remQty || 0), 4),
-                    isEqual: checkMatch(psItem.remQty, pItem.remQty)
-                });
+            psData.items.forEach((psItem: any) => {
+                const normNum = normalizeItemNum(psItem.itemNum);
+                
+                if (!consolidatedPSItems[normNum]) {
+                    consolidatedPSItems[normNum] = {
+                        itemNum: normNum,
+                        description: psItem.description || "",
+                        certAmnt: 0,
+                        certQty: 0,
+                        remAmnt: 0,
+                        remQty: 0
+                    };
+                }
+                
+                consolidatedPSItems[normNum].certAmnt += (psItem.certAmnt || 0);
+                consolidatedPSItems[normNum].certQty += (psItem.certQty || 0);
+                consolidatedPSItems[normNum].remAmnt += (psItem.remAmnt || 0);
+                consolidatedPSItems[normNum].remQty += (psItem.remQty || 0);
+                
+                if (!consolidatedPSItems[normNum].description && psItem.description) {
+                    consolidatedPSItems[normNum].description = psItem.description;
+                }
             });
         }
+
+        // 2. Full Outer Join entre consolidatedPSItems y pactData.items
+        const allKeys = new Set([
+            ...Object.keys(consolidatedPSItems),
+            ...Object.keys(pactData.items)
+        ]);
+
+        const sortedKeys = Array.from(allKeys).sort((a, b) => {
+            const isNumA = /^\d+$/.test(a);
+            const isNumB = /^\d+$/.test(b);
+            if (isNumA && isNumB) {
+                return parseInt(a, 10) - parseInt(b, 10);
+            }
+            return a.localeCompare(b);
+        });
+
+        let partidaIndex = 1;
+        sortedKeys.forEach((key) => {
+            const psItem = consolidatedPSItems[key];
+            const pItem = pactData.items[key];
+
+            let description = "";
+            const psExists = !!psItem;
+            const pactExists = !!pItem;
+
+            if (pItem) {
+                description = pItem.description;
+            } else if (psItem) {
+                description = psItem.description || "No encontrada en PACT";
+            }
+
+            const formattedIndex = String(partidaIndex).padStart(3, '0');
+            
+            // Identificar partidas que no existen en una de las listas
+            let warningSuffix = "";
+            if (!psExists) {
+                warningSuffix = " (No existe en PS)";
+            } else if (!pactExists) {
+                warningSuffix = " (No existe en PACT)";
+            }
+
+            const categoryName = `Partida ${formattedIndex} - ${key}${description ? ' - ' + description : ''}${warningSuffix}`;
+            partidaIndex++;
+
+            const psValues = psItem || { certAmnt: 0, certQty: 0, remAmnt: 0, remQty: 0 };
+            const pactValues = pItem || { certAmnt: 0, certQty: 0, remQty: 0, remAmnt: 0 };
+
+            const fields = [
+                { metric: "Amount Certified", psVal: psValues.certAmnt, pactVal: pactValues.certAmnt, psName: "Certified Amnt", pactName: "Importe Certificado" },
+                { metric: "Quantity Certified", psVal: psValues.certQty, pactVal: pactValues.certQty, psName: "Certified QTY", pactName: "Cantidad Certificada" },
+                { metric: "Amount Remaining", psVal: psValues.remAmnt, pactVal: pactValues.remAmnt, psName: "Rem. Amount", pactName: "Saldo Monto" },
+                { metric: "Quantity Remaining", psVal: psValues.remQty, pactVal: pactValues.remQty, psName: "Rem QTY", pactName: "Saldo Qty" }
+            ];
+
+            fields.forEach(f => {
+                const diff = (f.psVal || 0) - (f.pactVal || 0); // Sin redondeo
+                comp.push({
+                    category: categoryName,
+                    metric: f.metric,
+                    psName: f.psName,
+                    pactName: f.pactName,
+                    psValue: f.psVal || 0,
+                    pactValue: f.pactVal || 0,
+                    diff: diff,
+                    isEqual: checkMatch(f.psVal, f.pactVal)
+                });
+            });
+        });
 
         setResults(comp);
     };
@@ -377,7 +412,7 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
                                         <td className="px-4 py-2">{r.metric}</td>
                                         <td className="px-4 py-2 text-right">{formatVal(r.psValue)}</td>
                                         <td className="px-4 py-2 text-right">{formatVal(r.pactValue)}</td>
-                                        <td className={`px-4 py-2 text-right font-semibold ${!r.isEqual ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                                        <td className={`px-4 py-2 text-right font-semibold ${!r.isEqual ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
                                             {formatVal(r.diff)}
                                         </td>
                                     <td className="px-4 py-2 text-center">
