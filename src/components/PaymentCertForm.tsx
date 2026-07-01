@@ -554,6 +554,59 @@ const PaymentCertForm = React.forwardRef(({
         if (!projectId) return;
         setLoading(true);
         try {
+            // Recalcular y registrar automáticamente el descuento de MOS para todos los ítems de todas las certificaciones en orden cronológico
+            const updatedCerts = JSON.parse(JSON.stringify(certs));
+            
+            for (let i = updatedCerts.length - 1; i >= 0; i--) {
+                const cert = updatedCerts[i];
+                const items = cert.items || [];
+                
+                for (let j = 0; j < items.length; j++) {
+                    const item = items[j];
+                    const workQty = parseFloat(item.quantity) || 0;
+                    
+                    if (workQty > 0) {
+                        let cumulativeMOSInvoicedAmount = 0;
+                        let cumulativeMOSUsedAmountBefore = 0;
+                        
+                        // Recorremos las certificaciones anteriores (índices mayores que i en orden descendente)
+                        for (let prevIdx = updatedCerts.length - 1; prevIdx > i; prevIdx--) {
+                            const prevCert = updatedCerts[prevIdx];
+                            const prevItems = prevCert.items || [];
+                            const prevItem = prevItems.find((it: any) => normalizeItemNum(it.item_num) === normalizeItemNum(item.item_num));
+                            if (prevItem) {
+                                cumulativeMOSInvoicedAmount += parseFloat(prevItem.has_material_on_site ? prevItem.mos_invoice_total : 0) || 0;
+                                
+                                const pr = getInvoicePUFromList(updatedCerts, prevItem.item_num, prevIdx);
+                                const prevPU = pr > 0 ? pr : (parseFloat(prevItem.unit_price) || 0);
+                                cumulativeMOSUsedAmountBefore += (parseFloat(prevItem.qty_from_mos) || 0) * prevPU;
+                            }
+                        }
+                        
+                        const availableMOSBalance = cumulativeMOSInvoicedAmount - cumulativeMOSUsedAmountBefore;
+                        
+                        if (availableMOSBalance > 0.001) {
+                            const mosPUForCalc = getInvoicePUFromList(updatedCerts, item.item_num, i);
+                            const currentDeductionPU = mosPUForCalc > 0 ? mosPUForCalc : (parseFloat(item.unit_price) || 0);
+                            const availableMOSQty = currentDeductionPU > 0 ? (availableMOSBalance / currentDeductionPU) : 0;
+                            
+                            if (availableMOSQty > 0.001) {
+                                const autoDeductionQty = Math.min(workQty, availableMOSQty);
+                                item.qty_from_mos = Number(autoDeductionQty.toFixed(4));
+                            } else {
+                                item.qty_from_mos = 0;
+                            }
+                        } else {
+                            item.qty_from_mos = 0;
+                        }
+                    } else {
+                        item.qty_from_mos = 0;
+                    }
+                }
+            }
+            
+            setCerts(updatedCerts);
+
             // 1. Obtener IDs existentes para saber cuáles borrar después
             const { data: existingRecords, error: fetchError } = await supabase
                 .from('payment_certifications')
@@ -563,8 +616,8 @@ const PaymentCertForm = React.forwardRef(({
             if (fetchError) throw fetchError;
             const existingIds = existingRecords?.map(r => r.id) || [];
 
-            // 2. Preparar los datos para upsert
-            const updates = certs.map(c => {
+            // 2. Preparar los datos para upsert utilizando updatedCerts
+            const updates = updatedCerts.map(c => {
                 const { created_at, ...rest } = c;
                 return {
                     ...rest,
@@ -1463,12 +1516,11 @@ const PaymentCertForm = React.forwardRef(({
                                                                     <input
                                                                         type="number"
                                                                         step="0.0001"
-                                                                        disabled={!hasMOSActivity}
-                                                                        className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${!hasMOSActivity ? 'opacity-30 cursor-not-allowed' : 'text-amber-600'}`}
-                                                                        style={{ backgroundColor: hasMOSActivity ? '#66FF99' : '#f1f5f9' }}
-                                                                        value={item.qty_from_mos ?? ""}
-                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'qty_from_mos', e.target.value)}
-                                                                        placeholder={finalQtyFromMOS > 0 ? finalQtyFromMOS.toFixed(2) : "0.00"}
+                                                                        readOnly
+                                                                        className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${!hasMOSActivity ? 'opacity-30 cursor-not-allowed' : 'text-amber-600 cursor-default'}`}
+                                                                        style={{ backgroundColor: hasMOSActivity ? '#E6FFFA' : '#f1f5f9' }}
+                                                                        value={finalQtyFromMOS > 0 ? Number(finalQtyFromMOS.toFixed(4)) : ""}
+                                                                        placeholder="0.00"
                                                                     />
                                                                 </td>
                                                                 <td className="py-1 px-0.5 text-right text-[11px] font-bold text-amber-600 font-geist">
