@@ -4,6 +4,14 @@ import { roundedAmt, formatDate, getFederalSharePct, formatProjectNumber } from 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function parseNum(val: any): number {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    const clean = String(val).replace(/[$,\s]/g, '');
+    const parsed = parseFloat(clean);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
 function fmtCur(val: number): string {
     if (val === null || val === undefined || isNaN(val)) return '$0.00';
     const abs = Math.abs(val);
@@ -69,18 +77,93 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         .from('payment_certifications').select('*').eq('project_id', projectId)
         .order('cert_num', { ascending: true });
 
-    const allItems = (items || []).sort((a, b) => {
-        return (a.item_num || '').localeCompare(b.item_num || '', undefined, { numeric: true, sensitivity: 'base' });
-    });
     const allChos  = chos  || [];
     const allCerts = certs || [];
 
+    const approvedCHOs = allChos.filter(c => c.doc_status === 'Aprobado');
+
+    // 1. Consolidar partidas ordinarias del contrato original (mismo item_num y descripción)
+    const consolidatedItemsMap: Record<string, any> = {};
+    (items || []).forEach((it: any) => {
+        const itemNum = (it.item_num || '').trim();
+        const desc = (it.description || '').trim();
+        const key = `${itemNum}_${desc.toLowerCase()}`;
+        if (consolidatedItemsMap[key]) {
+            consolidatedItemsMap[key].quantity = roundedAmt((parseNum(consolidatedItemsMap[key].quantity) || 0) + (parseNum(it.quantity) || 0), 3);
+        } else {
+            consolidatedItemsMap[key] = { ...it };
+        }
+    });
+    const consolidatedItems = Object.values(consolidatedItemsMap);
+
+    // Identificar qué números de partidas están en el contrato original
+    const originalItemNums = new Set((items || []).map(it => (it.item_num || '').trim()));
+
+    // 2. Extraer partidas de CHOs aprobadas
+    const choItemsList: any[] = [];
+    approvedCHOs.forEach(cho => {
+        const cItems = Array.isArray(cho.items) ? cho.items : (cho.items?.list || []);
+        cItems.forEach((it: any) => {
+            choItemsList.push({
+                ...it,
+                isChoItem: !originalItemNums.has((it.item_num || '').trim()),
+                originChoNum: cho.cho_num
+            });
+        });
+    });
+
+    // 3. Consolidar partidas de CHO repetidas
+    const consolidatedChoItemsMap: Record<string, any> = {};
+    choItemsList.forEach((it: any) => {
+        const itemNum = (it.item_num || '').trim();
+        const desc = (it.description || '').trim();
+        const key = `${itemNum}_${desc.toLowerCase()}`;
+        if (consolidatedChoItemsMap[key]) {
+            consolidatedChoItemsMap[key].quantity = roundedAmt((parseNum(consolidatedChoItemsMap[key].quantity) || 0) + (parseNum(it.quantity) || 0), 3);
+        } else {
+            consolidatedChoItemsMap[key] = { ...it };
+        }
+    });
+    const consolidatedChoItems = Object.values(consolidatedChoItemsMap);
+
+    // Para las partidas que surgieron por EWO/CHO, anotamos la cantidad original en la descripción
+    consolidatedChoItems.forEach((it: any) => {
+        if (it.isChoItem) {
+            const qtyOrig = parseNum(it.quantity) || 0;
+            const note = `(Qty. Orig: ${qtyOrig.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+            it.description = `${it.description || ''} ${note}`.trim();
+        }
+    });
+
+    // 4. Combinar partidas consolidadas ordinarias con las de CHO
+    const finalItemsMap: Record<string, any> = {};
+    consolidatedItems.forEach((it: any) => {
+        const itemNum = (it.item_num || '').trim();
+        const desc = (it.description || '').trim();
+        const key = `${itemNum}_${desc.toLowerCase()}`;
+        finalItemsMap[key] = { ...it };
+    });
+
+    consolidatedChoItems.forEach((it: any) => {
+        const itemNum = (it.item_num || '').trim();
+        const desc = (it.description || '').trim();
+        const key = `${itemNum}_${desc.toLowerCase()}`;
+        if (finalItemsMap[key]) {
+            finalItemsMap[key].quantity = roundedAmt((parseNum(finalItemsMap[key].quantity) || 0) + (parseNum(it.quantity) || 0), 3);
+        } else {
+            finalItemsMap[key] = { ...it };
+        }
+    });
+
+    const allItems = Object.values(finalItemsMap).sort((a: any, b: any) => {
+        return (a.item_num || '').localeCompare(b.item_num || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
+
     // ── Cálculos financieros ──────────────────────────────────────────────
     const originalCost = project.cost_original ||
-        allItems.reduce((a, it) => roundedAmt(a + roundedAmt((it.quantity || 0) * (it.unit_price || 0), 2), 2), 0);
+        allItems.reduce((a, it) => roundedAmt(a + roundedAmt((parseNum(it.quantity) || 0) * (parseNum(it.unit_price) || 0), 2), 2), 0);
 
-    const approvedCHOs = allChos.filter(c => c.doc_status === 'Aprobado');
-    const approvedCHOAmt = approvedCHOs.reduce((a, c) => roundedAmt(a + parseFloat(c.proposed_change || '0'), 2), 0);
+    const approvedCHOAmt = approvedCHOs.reduce((a, c) => roundedAmt(a + parseNum(c.proposed_change || '0'), 2), 0);
     const revisedCost = roundedAmt(originalCost + approvedCHOAmt, 2);
 
     // Lo certificado por partida (para mostrar en tabla)
@@ -90,8 +173,8 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         certItems.forEach((ci: any) => {
             if (!ci.item_num) return;
-            const qty = parseFloat(ci.quantity) || 0;
-            const up  = parseFloat(ci.unit_price) || 0;
+            const qty = parseNum(ci.quantity) || 0;
+            const up  = parseNum(ci.unit_price) || 0;
             if (!certByItem[ci.item_num]) certByItem[ci.item_num] = { qty: 0, amt: 0 };
             certByItem[ci.item_num].qty = roundedAmt(certByItem[ci.item_num].qty + qty, 3);
             certByItem[ci.item_num].amt = roundedAmt(certByItem[ci.item_num].amt + roundedAmt(qty * up, 2), 2);
@@ -101,8 +184,8 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     // Totales generales
     let totalQty = 0, totalAmt = 0, totalCertQty = 0, totalCertAmt = 0, totalRemQty = 0, totalRemAmt = 0;
     allItems.forEach(it => {
-        const qty  = parseFloat(it.quantity)   || 0;
-        const up   = parseFloat(it.unit_price) || 0;
+        const qty  = parseNum(it.quantity)   || 0;
+        const up   = parseNum(it.unit_price) || 0;
         const amt  = roundedAmt(qty * up, 2);
         const c    = certByItem[it.item_num] || { qty: 0, amt: 0 };
         const rQty = roundedAmt(qty - c.qty, 3);
@@ -143,8 +226,8 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         for (let i = currentCertIdx; i >= 0; i--) {
             if (!certsList[i] || certsList[i].excluded) continue;
             const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
-            const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
-            if (match) return parseFloat(match.mos_unit_price);
+            const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseNum(itx.mos_unit_price) > 0);
+            if (match) return parseNum(match.mos_unit_price);
         }
         return 0;
     };
@@ -163,16 +246,16 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
             const itemNum = item.item_num;
             if (!itemNum) return;
 
-            const qty = parseFloat(item.quantity) || 0;
-            const up = parseFloat(item.unit_price) || 0;
-            const manualDeductionQty = parseFloat(item.qty_from_mos) || 0;
-            const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseFloat(item.mos_invoice_total) > 0);
+            const qty = parseNum(item.quantity) || 0;
+            const up = parseNum(item.unit_price) || 0;
+            const manualDeductionQty = parseNum(item.qty_from_mos) || 0;
+            const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseNum(item.mos_invoice_total) > 0);
             
             const currentBalance = perItemMosBalance[itemNum] || 0;
             const mosPU = getInvoicePU(sortedCertsAsc, itemNum, cIdx);
             const price = mosPU > 0 ? mosPU : up;
 
-            const additionCostThisCert = hasAddition ? (parseFloat(item.mos_invoice_total) || 0) : 0;
+            const additionCostThisCert = hasAddition ? (parseNum(item.mos_invoice_total) || 0) : 0;
             if (hasAddition) {
                 certMatAddedThisCert = roundedAmt(certMatAddedThisCert + additionCostThisCert, 2);
             }
@@ -214,14 +297,14 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         }
 
         if (cert.show_retention_return && cert.retention_return_amount) {
-            totalRetReturned = roundedAmt(totalRetReturned + parseFloat(cert.retention_return_amount || '0'), 2);
+            totalRetReturned = roundedAmt(totalRetReturned + parseNum(cert.retention_return_amount || '0'), 2);
         }
 
-        totalExtraRetention = roundedAmt(totalExtraRetention + (parseFloat(cert.extra_retention) || 0), 2);
-        totalPriceAdjustment = roundedAmt(totalPriceAdjustment + (parseFloat(cert.price_adjustment) || 0), 2);
-        totalInsuranceFines = roundedAmt(totalInsuranceFines + (parseFloat(cert.insurance_fines) || 0), 2);
-        totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseFloat(cert.other_penalties) || 0), 2);
-        totalRefund = roundedAmt(totalRefund + (parseFloat(cert.refund) || 0), 2);
+        totalExtraRetention = roundedAmt(totalExtraRetention + (parseNum(cert.extra_retention) || 0), 2);
+        totalPriceAdjustment = roundedAmt(totalPriceAdjustment + (parseNum(cert.price_adjustment) || 0), 2);
+        totalInsuranceFines = roundedAmt(totalInsuranceFines + (parseNum(cert.insurance_fines) || 0), 2);
+        totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseNum(cert.other_penalties) || 0), 2);
+        totalRefund = roundedAmt(totalRefund + (parseNum(cert.refund) || 0), 2);
     });
 
     matNetPaid = roundedAmt(Object.values(perItemMosBalance).reduce((acc, bal) => acc + bal, 0), 2);
@@ -237,7 +320,7 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         ? (() => {
                const items2 = Array.isArray(lastCert.items) ? lastCert.items : (lastCert.items?.list || []);
                return items2.reduce((a: number, ci: any) =>
-                   roundedAmt(a + roundedAmt((parseFloat(ci.quantity) || 0) * (parseFloat(ci.unit_price) || 0), 2), 2), 0);
+                   roundedAmt(a + roundedAmt((parseNum(ci.quantity) || 0) * (parseNum(ci.unit_price) || 0), 2), 2), 0);
            })()
         : 0;
 
@@ -247,18 +330,18 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         const lastCertItems = Array.isArray(lastCert.items) ? lastCert.items : (lastCert.items?.list || []);
         lastCertItems.forEach((ci: any) => {
             if (!ci.skip_retention) {
-                lastCertRetentionDeducted = roundedAmt(lastCertRetentionDeducted + roundedAmt((parseFloat(ci.quantity) || 0) * (parseFloat(ci.unit_price) || 0) * 0.05, 2), 2);
+                lastCertRetentionDeducted = roundedAmt(lastCertRetentionDeducted + roundedAmt((parseNum(ci.quantity) || 0) * (parseNum(ci.unit_price) || 0) * 0.05, 2), 2);
             }
         });
     }
-    const lastCertRetentionReturned = lastCert && lastCert.show_retention_return ? (parseFloat(lastCert.retention_return_amount) || 0) : 0;
+    const lastCertRetentionReturned = lastCert && lastCert.show_retention_return ? (parseNum(lastCert.retention_return_amount) || 0) : 0;
     const lastCertRetentionTotal = roundedAmt(
         lastCertRetentionDeducted - lastCertRetentionReturned +
-        (parseFloat(lastCert?.extra_retention) || 0) +
-        (parseFloat(lastCert?.insurance_fines) || 0) +
-        (parseFloat(lastCert?.other_penalties) || 0) -
-        (parseFloat(lastCert?.price_adjustment) || 0) -
-        (parseFloat(lastCert?.refund) || 0),
+        (parseNum(lastCert?.extra_retention) || 0) +
+        (parseNum(lastCert?.insurance_fines) || 0) +
+        (parseNum(lastCert?.other_penalties) || 0) -
+        (parseNum(lastCert?.price_adjustment) || 0) -
+        (parseNum(lastCert?.refund) || 0),
         2
     );
 
@@ -275,7 +358,7 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     if (project.date_substantial_completion) timeEndDate = new Date(project.date_substantial_completion + 'T23:59:59');
     else if (project.date_real_completion)   timeEndDate = new Date(project.date_real_completion   + 'T23:59:59');
     let usedDays = startDate ? Math.max(0, Math.floor((timeEndDate.getTime() - startDate.getTime()) / 86400000)) : 0;
-    const damAmt = parseFloat(project.liquidated_damages_amount || '500');
+    const damAmt = parseNum(project.liquidated_damages_amount || '500');
     const liqDamages = Math.max(0, (usedDays - revisedDays) * damAmt);
 
     // Fecha del reporte
@@ -349,6 +432,23 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         styleValue(cellV, value, bold, valColor, 'left');
     };
 
+    // ── Función para Name (con fusión de celdas) ──
+    const addLVName = (r: number, colL: number, colVStart: number, colVEnd: number, label: string, value: string | number, bold = false, valColor = C.headerText) => {
+        const cellL = ws.getCell(r, colL);
+        styleLabel(cellL, label);
+        
+        ws.mergeCells(r, colVStart, r, colVEnd);
+        const cellV = ws.getCell(r, colVStart);
+        styleValue(cellV, value, bold, valColor, 'left');
+        
+        // Aplicar estilo de borde y fondo a las celdas fusionadas
+        for (let c = colVStart + 1; c <= colVEnd; c++) {
+            const cell = ws.getCell(r, c);
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.white } };
+            cell.border = { bottom: { style: 'hair', color: { argb: C.borderGray } } };
+        }
+    };
+
     // ─────────────────────────────────────────────────────────────────────
     // ENCABEZADO DE PÁGINA  (filas 1-4)
     // ─────────────────────────────────────────────────────────────────────
@@ -394,17 +494,16 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     styleSectionTitle(ws.getCell(row, 6), 'PROJECT DESCRIPTION');
     row++;
 
-    const contractNum = project.contract_number || project.num_federal || '';
-    addLV(row, 2, 3, 'Number:', contractNum || '—'); row++;
-    addLV(row, 2, 3, 'Name:',   `${formatProjectNumber(project.num_act || '')} - ${project.name || ''}`.trim()); row++;
+    addLV(row, 2, 3, 'Number:', project.oracle_id || '—'); row++; // Punto 2: Número de Oracle en Number
+    addLVName(row, 2, 3, 5, 'Name:', `${formatProjectNumber(project.num_act || '')} - ${project.name || ''}`.trim()); row++; // Punto 1: Fusión Name para evitar corte
     addLV(row, 2, 3, 'PMIS ID:', project.pmis_id || project.oracle_id || '—'); row++;
     addLV(row, 2, 3, 'Federal No:', project.num_federal || '—'); row++;
     addLV(row, 2, 3, 'AC Code:', project.num_act ? `${formatProjectNumber(project.num_act)}` : '—'); row++;
     addLV(row, 2, 3, 'Oracle Id:', project.oracle_id || '—'); row++;
 
     // Descripción (derecha)
-    const descStartRow = row - 5;
-    ws.mergeCells(descStartRow, 6, descStartRow + 4, 12);
+    const descStartRow = row - 6;
+    ws.mergeCells(descStartRow, 6, descStartRow + 5, 12);
     const descCell = ws.getCell(descStartRow, 6);
     descCell.value     = project.scope || project.description || '—';
     descCell.font      = { name: FONT_BASE, size: 9 };
@@ -556,8 +655,8 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     };
 
     allItems.forEach((item: any, idx: number) => {
-        const qty   = parseFloat(item.quantity)   || 0;
-        const up    = parseFloat(item.unit_price) || 0;
+        const qty   = parseNum(item.quantity)   || 0;
+        const up    = parseNum(item.unit_price) || 0;
         const amt   = roundedAmt(qty * up, 2);
         const c     = certByItem[item.item_num] || { qty: 0, amt: 0 };
         const rQty  = roundedAmt(qty - c.qty, 3);
@@ -566,22 +665,22 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         const isEven = idx % 2 === 0;
         const fgRow: ExcelJS.FillPattern = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? C.offWhite : C.white } };
 
-        const setCell = (col: number, value: string | number, align: ExcelJS.Alignment['horizontal'] = 'left', bold = false) => {
+        const setCell = (col: number, value: string | number, align: ExcelJS.Alignment['horizontal'] = 'left', bold = false, wrap = false) => {
             const cell = ws.getCell(row, col);
             cell.value     = value;
             cell.font      = { name: FONT_BASE, size: 8, bold };
             cell.fill      = fgRow;
-            cell.alignment = { horizontal: align, vertical: 'middle' };
+            cell.alignment = { horizontal: align, vertical: 'middle', wrapText: wrap };
             cell.border    = dataBorder;
         };
 
         const fullDesc = [item.description, item.additional_description].filter(Boolean).join(' - ');
 
-        ws.getRow(row).height = 13;
+        // Punto 1: Quitamos el ws.getRow(row).height = 13 fijo para permitir autoajuste de altura de fila de Excel
         setCell(2,  item.item_num   || '—');
         setCell(3,  item.contract_num || project.contract_number || '—');
-        setCell(4,  fullDesc || '—', 'left');
-        setCell(5,  item.unit_of_measure || item.uom || '—', 'center');
+        setCell(4,  fullDesc || '—', 'left', false, true); // Punto 1: Habilitar wrapText = true para descripción de partidas
+        setCell(5,  item.unit || item.unit_of_measure || item.uom || '—', 'center'); // Punto 6: Soporte para item.unit en UOM
         setCell(6,  fmtCur(up),  'right');
         setCell(7,  fmtNum(qty), 'right');
         setCell(8,  fmtCur(amt), 'right', true);
