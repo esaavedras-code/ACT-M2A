@@ -69,7 +69,9 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         .from('payment_certifications').select('*').eq('project_id', projectId)
         .order('cert_num', { ascending: true });
 
-    const allItems = items || [];
+    const allItems = (items || []).sort((a, b) => {
+        return (a.item_num || '').localeCompare(b.item_num || '', undefined, { numeric: true, sensitivity: 'base' });
+    });
     const allChos  = chos  || [];
     const allCerts = certs || [];
 
@@ -84,6 +86,7 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     // Lo certificado por partida (para mostrar en tabla)
     const certByItem: Record<string, { qty: number; amt: number }> = {};
     allCerts.forEach(cert => {
+        if (cert.excluded) return;
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         certItems.forEach((ci: any) => {
             if (!ci.item_num) return;
@@ -112,33 +115,152 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         totalRemAmt  = roundedAmt(totalRemAmt + rAmt, 2);
     });
 
-    // Retención
-    let totalRetDeducted = 0, totalRetReturned = 0;
-    allCerts.forEach(cert => {
-        const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
-        if (!cert.skip_retention) {
-            certItems.forEach((ci: any) => {
-                if (!ci.skip_retention) {
-                    totalRetDeducted = roundedAmt(totalRetDeducted + roundedAmt((parseFloat(ci.quantity) || 0) * (parseFloat(ci.unit_price) || 0) * 0.05, 2), 2);
-                }
-            });
+    // Retenciones, Ajustes, Multas, etc. acumulados (Lógica de PACT del SummaryDashboard de la UI)
+    let totalRetDeducted = 0;
+    let totalRetReturned = 0;
+    let totalExtraRetention = 0;
+    let totalPriceAdjustment = 0;
+    let totalInsuranceFines = 0;
+    let totalOtherPenalties = 0;
+    let totalRefund = 0;
+
+    // Lógica para Material On Site (MOS) acumulado
+    let matPaidTD = 0;
+    let matPaidLast = 0;
+    let matNetPaid = 0;
+
+    const perItemMosBalance: Record<string, number> = {};
+    const allReferenceItems = [...allItems];
+    approvedCHOs.forEach(cho => {
+        const choItems = Array.isArray(cho.items) ? cho.items : (cho.items?.list || []);
+        choItems.forEach((it: any) => {
+            const exists = allReferenceItems.find(r => r.item_num === it.item_num);
+            if (!exists) allReferenceItems.push(it);
+        });
+    });
+
+    const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
+        for (let i = currentCertIdx; i >= 0; i--) {
+            if (!certsList[i] || certsList[i].excluded) continue;
+            const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
+            const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
+            if (match) return parseFloat(match.mos_unit_price);
         }
+        return 0;
+    };
+
+    const sortedCertsAsc = [...allCerts].sort((a, b) => (a.cert_num || 0) - (b.cert_num || 0));
+    let lastCertNumVal = 0;
+    let lastCertMatAdded = 0;
+
+    sortedCertsAsc.forEach((cert, cIdx) => {
+        if (cert.excluded) return;
+
+        const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
+        let certMatAddedThisCert = 0;
+
+        certItems.forEach((item: any) => {
+            const itemNum = item.item_num;
+            if (!itemNum) return;
+
+            const qty = parseFloat(item.quantity) || 0;
+            const up = parseFloat(item.unit_price) || 0;
+            const manualDeductionQty = parseFloat(item.qty_from_mos) || 0;
+            const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseFloat(item.mos_invoice_total) > 0);
+            
+            const currentBalance = perItemMosBalance[itemNum] || 0;
+            const mosPU = getInvoicePU(sortedCertsAsc, itemNum, cIdx);
+            const price = mosPU > 0 ? mosPU : up;
+
+            const additionCostThisCert = hasAddition ? (parseFloat(item.mos_invoice_total) || 0) : 0;
+            if (hasAddition) {
+                certMatAddedThisCert = roundedAmt(certMatAddedThisCert + additionCostThisCert, 2);
+            }
+            
+            const balanceForDeduction = currentBalance + additionCostThisCert;
+            
+            let deductionQty = 0;
+            if (balanceForDeduction > 0.01) {
+                const availableQty = balanceForDeduction / (price || 1);
+                if (manualDeductionQty > 0) {
+                    deductionQty = Math.min(manualDeductionQty, availableQty);
+                } else if (qty > 0) {
+                    deductionQty = Math.min(qty, availableQty);
+                }
+            }
+
+            if (hasAddition) {
+                perItemMosBalance[itemNum] = roundedAmt(currentBalance + additionCostThisCert, 2);
+            }
+
+            if (deductionQty > 0) {
+                const cost = roundedAmt(deductionQty * price, 2);
+                const newBal = roundedAmt((perItemMosBalance[itemNum] || 0) - cost, 2);
+                perItemMosBalance[itemNum] = Math.max(0, newBal);
+            }
+
+            // Retención del 5%
+            if (!cert.skip_retention && !item.skip_retention) {
+                const itemAmt = roundedAmt(qty * up, 2);
+                totalRetDeducted = roundedAmt(totalRetDeducted + roundedAmt(itemAmt * 0.05, 2), 2);
+            }
+        });
+
+        matPaidTD = roundedAmt(matPaidTD + certMatAddedThisCert, 2);
+
+        if ((cert.cert_num || 0) > lastCertNumVal) {
+            lastCertNumVal = cert.cert_num;
+            lastCertMatAdded = certMatAddedThisCert;
+        }
+
         if (cert.show_retention_return && cert.retention_return_amount) {
             totalRetReturned = roundedAmt(totalRetReturned + parseFloat(cert.retention_return_amount || '0'), 2);
         }
+
+        totalExtraRetention = roundedAmt(totalExtraRetention + (parseFloat(cert.extra_retention) || 0), 2);
+        totalPriceAdjustment = roundedAmt(totalPriceAdjustment + (parseFloat(cert.price_adjustment) || 0), 2);
+        totalInsuranceFines = roundedAmt(totalInsuranceFines + (parseFloat(cert.insurance_fines) || 0), 2);
+        totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseFloat(cert.other_penalties) || 0), 2);
+        totalRefund = roundedAmt(totalRefund + (parseFloat(cert.refund) || 0), 2);
     });
+
+    matNetPaid = roundedAmt(Object.values(perItemMosBalance).reduce((acc, bal) => acc + bal, 0), 2);
+    matPaidLast = lastCertMatAdded;
+
     const retentionNet = roundedAmt(totalRetDeducted - totalRetReturned, 2);
+    const retentionTD = roundedAmt(totalRetDeducted - totalRetReturned + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalPriceAdjustment - totalRefund, 2);
 
     // Última certificación
-    const sortedCerts = [...allCerts].sort((a, b) => (b.cert_num || 0) - (a.cert_num || 0));
+    const sortedCerts = [...allCerts].filter(c => !c.excluded).sort((a, b) => (b.cert_num || 0) - (a.cert_num || 0));
     const lastCert    = sortedCerts[0];
     const lastCertAmt = lastCert
         ? (() => {
-              const items2 = Array.isArray(lastCert.items) ? lastCert.items : (lastCert.items?.list || []);
-              return items2.reduce((a: number, ci: any) =>
-                  roundedAmt(a + roundedAmt((parseFloat(ci.quantity) || 0) * (parseFloat(ci.unit_price) || 0), 2), 2), 0);
-          })()
+               const items2 = Array.isArray(lastCert.items) ? lastCert.items : (lastCert.items?.list || []);
+               return items2.reduce((a: number, ci: any) =>
+                   roundedAmt(a + roundedAmt((parseFloat(ci.quantity) || 0) * (parseFloat(ci.unit_price) || 0), 2), 2), 0);
+           })()
         : 0;
+
+    // Retención y penalidades de la última certificación
+    let lastCertRetentionDeducted = 0;
+    if (lastCert && !lastCert.skip_retention) {
+        const lastCertItems = Array.isArray(lastCert.items) ? lastCert.items : (lastCert.items?.list || []);
+        lastCertItems.forEach((ci: any) => {
+            if (!ci.skip_retention) {
+                lastCertRetentionDeducted = roundedAmt(lastCertRetentionDeducted + roundedAmt((parseFloat(ci.quantity) || 0) * (parseFloat(ci.unit_price) || 0) * 0.05, 2), 2);
+            }
+        });
+    }
+    const lastCertRetentionReturned = lastCert && lastCert.show_retention_return ? (parseFloat(lastCert.retention_return_amount) || 0) : 0;
+    const lastCertRetentionTotal = roundedAmt(
+        lastCertRetentionDeducted - lastCertRetentionReturned +
+        (parseFloat(lastCert?.extra_retention) || 0) +
+        (parseFloat(lastCert?.insurance_fines) || 0) +
+        (parseFloat(lastCert?.other_penalties) || 0) -
+        (parseFloat(lastCert?.price_adjustment) || 0) -
+        (parseFloat(lastCert?.refund) || 0),
+        2
+    );
 
     // Daños líquidos
     const startDate   = project.date_project_start   ? new Date(project.date_project_start   + 'T00:00:00') : null;
@@ -162,7 +284,7 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
 
     // ── Workbook ───────────────────────────────────────────────────────────
     const workbook  = new ExcelJS.Workbook();
-    const ws        = workbook.addWorksheet('Project Status', { properties: { tabColor: { argb: C.pactBlue } } });
+    const ws        = workbook.addWorksheet('Project Status (PACT)', { properties: { tabColor: { argb: C.pactBlue } } });
 
     // Columnas: A(margen) B(item) C(contract) D(description) E(uom) F(unit price) G(qty) H(amount) I(certQty) J(certAmt) K(remQty) L(remAmt) M(margen)
     ws.columns = [
@@ -254,7 +376,7 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     ws.getRow(row).height = 20;
     ws.mergeCells(row, 1, row, 13);
     const titleCell = ws.getCell(row, 1);
-    titleCell.value = 'PROJECT STATUS';
+    titleCell.value = 'PROJECT STATUS (PACT)';
     titleCell.font  = { name: FONT_BASE, size: 14, bold: true, color: { argb: C.white } };
     titleCell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.pactDark } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -284,7 +406,7 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     const descStartRow = row - 5;
     ws.mergeCells(descStartRow, 6, descStartRow + 4, 12);
     const descCell = ws.getCell(descStartRow, 6);
-    descCell.value     = project.description || '—';
+    descCell.value     = project.scope || project.description || '—';
     descCell.font      = { name: FONT_BASE, size: 9 };
     descCell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.white } };
     descCell.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
@@ -330,30 +452,30 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         ['Revised:',            fmtCur(revisedCost)],
         ['Certified:',          fmtCur(totalCertAmt)],
         ['Last Certified:',     fmtCur(lastCertAmt)],
-        ['Remaining:',          fmtCur(totalRemAmt)],
+        ['Remaining:',          fmtCur(revisedCost - totalCertAmt)],
         ['Liq.Damage:',         fmtCur(liqDamages)],
-        ['Reimbursement:',      '$0.00'],
+        ['Reimbursement:',      fmtCur(totalRefund)],
         ['', ''],
     ];
     const colMaterials: [string, string][] = [
-        ['Mat. Net Paid:',      fmtCur(0)],
-        ['Mat. Paid Last:',     fmtCur(0)],
-        ['Mat. Paid TD:',       fmtCur(0)],
+        ['Mat. Net Paid:',      fmtCur(matNetPaid)],
+        ['Mat. Paid Last:',     fmtCur(matPaidLast)],
+        ['Mat. Paid TD:',       fmtCur(matPaidTD)],
         ['', ''],
         ['', ''],
         ['', ''],
-        ['Retention 5%', ''],
-        ['Extra Ret. TD:', fmtCur(0)],
+        ['Retention 5%:',       ''],
+        ['Extra Ret. TD:',      fmtCur(totalExtraRetention)],
     ];
     const colOther: [string, string][] = [
-        ['Net Paid:',           fmtCur(totalCertAmt - retentionNet)],
-        ['Paid Last:',          fmtCur(lastCertAmt)],
-        ['Liq.Dam. Or Rem:',    fmtCur(0)],
+        ['Net Paid:',           fmtCur(totalCertAmt + matNetPaid - retentionTD)],
+        ['Paid Last:',          fmtCur(lastCertAmt + matPaidLast - lastCertRetentionTotal)],
+        ['Liq.Dam. Or Rem:',    fmtCur(totalRefund)],
         ['', ''],
         ['', ''],
         ['', ''],
-        ['Last Retention:',     fmtCur(-totalRetDeducted)],
-        ['Retention TD:',       fmtCur(-retentionNet)],
+        ['Last Retention:',     fmtCur(-lastCertRetentionTotal)],
+        ['Retention TD:',       fmtCur(-retentionTD)],
     ];
 
     const numInfoRows = Math.max(colDates.length, colAmounts.length, colMaterials.length, colOther.length);
@@ -393,7 +515,7 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     // ─────────────────────────────────────────────────────────────────────
     // TABLA DE PARTIDAS
     // ─────────────────────────────────────────────────────────────────────
-    ws.getRow(row).height = 20;
+    ws.getRow(row).height = 30;
     const tableHeaderStyle: Partial<ExcelJS.Style> = {
         font:      { name: FONT_BASE, size: 9, bold: true, color: { argb: C.white } },
         fill:      { type: 'pattern', pattern: 'solid', fgColor: { argb: C.pactBlue } },
@@ -453,10 +575,12 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
             cell.border    = dataBorder;
         };
 
+        const fullDesc = [item.description, item.additional_description].filter(Boolean).join(' - ');
+
         ws.getRow(row).height = 13;
         setCell(2,  item.item_num   || '—');
         setCell(3,  item.contract_num || project.contract_number || '—');
-        setCell(4,  item.description   || '—', 'left');
+        setCell(4,  fullDesc || '—', 'left');
         setCell(5,  item.unit_of_measure || item.uom || '—', 'center');
         setCell(6,  fmtCur(up),  'right');
         setCell(7,  fmtNum(qty), 'right');
