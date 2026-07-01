@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatCurrency as formatC, roundedAmt, formatDate as utilsFormatDate, getLocalStorageItem, formatProjectNumber, getFederalSharePct, getReportFileName, sortItemsNaturally, uniqueSortItems, normalizeFundSource } from "./utils";
 import * as XLSX from "xlsx";
 import { generateCCMLReport } from "./generateCCMLReport";
+import { generateProjectStatusExcel } from "./generateProjectStatusExcel";
 import { subcontratosTemplateB64 } from "./subcontratosTemplate";
 import ExcelJS from "exceljs";
 
@@ -2299,3 +2300,11 @@ export const generateSolicitudMaterialCertDocxLogic = async (projectId: string) 
         await downloadBlob(blob, `Solicitud_Material_Certification_${project?.num_act || projectId}.docx`);
     }
 };
+
+export const generateProjectStatusReportLogic = async (projectId: string) => {
+    const { data: project } = await supabase
+        .from('projects').select('num_act').eq('id', projectId).single();
+    const blob = await generateProjectStatusExcel(projectId);
+    await downloadBlob(blob, `ProjectStatus_${project?.num_act || projectId}.xlsx`, project?.num_act);
+};
+

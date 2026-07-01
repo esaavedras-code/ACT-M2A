@@ -67,6 +67,7 @@ import {
     generateFaRelacionEquipoLogic,
     generateMinuteReportLogic,
     generateMobilizationReportLogic,
+    generateProjectStatusReportLogic,
     formatDate
 } from "@/lib/reportLogic";
 
@@ -566,6 +567,20 @@ function ReportesContent() {
                             description: 'Resumen gerencial de costos y tiempo.',
                             icon: <Activity size={18} className="text-indigo-500" />,
                             onExcel: () => generateDashboardReportLogic(projectId, 'excel', endDate)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'project-status',
+                            label: 'Project Status',
+                            description: 'Reporte completo de estado del proyecto con partidas, montos certificados y remanentes. Estilo ACT en color azul PACT.',
+                            icon: <BarChart size={18} className="text-blue-600" />,
+                            onExcel: () => generateProjectStatusReportLogic(projectId)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
