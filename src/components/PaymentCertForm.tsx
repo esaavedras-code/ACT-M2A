@@ -28,7 +28,7 @@ import {
     Coins
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency, formatNumber, sortItemsNaturally, getReportFileName } from '@/lib/utils';
+import { formatCurrency, formatNumber, sortItemsNaturally, getReportFileName, roundedAmt } from '@/lib/utils';
 import FloatingFormActions from '@/components/FloatingFormActions';
 import AboutModal from './AboutModal';
 import { generateAct117CExcel } from '@/lib/generateAct117CExcel';
@@ -317,42 +317,46 @@ const PaymentCertForm = React.forwardRef(({
             (c.items || []).forEach((item: any) => {
                 const q = parseFloat(item.quantity) || 0;
                 const p = parseFloat(item.unit_price) || 0;
-                certWork += q * p;
+                const itemWork = roundedAmt(q * p, 2);
+                certWork = roundedAmt(certWork + itemWork, 2);
 
-                const addedMOS = item.has_material_on_site ? (parseFloat(item.mos_invoice_total) || 0) : 0;
+                const addedMOS = roundedAmt(item.has_material_on_site ? (parseFloat(item.mos_invoice_total) || 0) : 0, 2);
                 const mosPU = getInvoicePUFromList(certs, item.item_num, idx);
-                const deductedMOS = (parseFloat(item.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p);
-                certMOSNet += addedMOS - deductedMOS;
+                const deductedMOS = roundedAmt((parseFloat(item.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p), 2);
+                certMOSNet = roundedAmt(certMOSNet + addedMOS - deductedMOS, 2);
             });
 
-            execution += certWork;
-            mos += certMOSNet;
+            execution = roundedAmt(execution + certWork, 2);
+            mos = roundedAmt(mos + certMOSNet, 2);
 
             const r5 = (c.items || []).reduce((acc: number, it: any) => {
                 if (it.skip_retention) return acc;
                 if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
-                return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
+                const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
+                return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
             }, 0);
 
-            const val5 = c.skip_retention ? 0 : r5;
-            const returnAmount = c.show_retention_return ? (parseFloat(c.retention_return_amount) || 0) : 0;
-            const extraRet = parseFloat(c.extra_retention) || 0;
+            const val5 = c.skip_retention ? 0 : roundedAmt(r5, 2);
+            const returnAmount = roundedAmt(c.show_retention_return ? (parseFloat(c.retention_return_amount) || 0) : 0, 2);
+            const extraRet = roundedAmt(parseFloat(c.extra_retention) || 0, 2);
 
-            retention += val5 + extraRet - returnAmount;
-            liquidated += parseFloat(c.liquidated_damages) || 0;
+            retention = roundedAmt(retention + val5 + extraRet - returnAmount, 2);
+            liquidated = roundedAmt(liquidated + (parseFloat(c.liquidated_damages) || 0), 2);
             
-            const priceAdj = parseFloat(c.price_adjustment) || 0;
-            const insurance = parseFloat(c.insurance_fines) || 0;
-            const otherPenalties = parseFloat(c.other_penalties) || 0;
+            const priceAdj = roundedAmt(parseFloat(c.price_adjustment) || 0, 2);
+            const insurance = roundedAmt(parseFloat(c.insurance_fines) || 0, 2);
+            const otherPenalties = roundedAmt(parseFloat(c.other_penalties) || 0, 2);
             
-            const certNet = certWork - val5 + returnAmount + certMOSNet 
+            const certNet = roundedAmt(
+                certWork - val5 + returnAmount + certMOSNet 
                 - (parseFloat(c.liquidated_damages) || 0)
                 - extraRet
                 + priceAdj
                 - insurance
-                - otherPenalties;
+                - otherPenalties, 2
+            );
 
-            totalPaid += certNet;
+            totalPaid = roundedAmt(totalPaid + certNet, 2);
         });
 
         const changeOrders = projectData?.change_orders || projectData?.chos || [];
@@ -361,9 +365,9 @@ const PaymentCertForm = React.forwardRef(({
         const originalCost = parseFloat(projectData?.cost_original) || 0;
         const approvedCHOsAmount = changeOrders
             .filter((co: any) => co.doc_status === 'Aprobado')
-            .reduce((acc: number, co: any) => acc + (parseFloat(co.proposed_change || '0')), 0);
-        const vigentContractCost = originalCost + approvedCHOsAmount;
-        const remaining = vigentContractCost - execution;
+            .reduce((acc: number, co: any) => acc + (parseFloat(co.proposed_change || '0')), 2);
+        const vigentContractCost = roundedAmt(originalCost + approvedCHOsAmount, 2);
+        const remaining = roundedAmt(vigentContractCost - execution, 2);
 
         return { 
             liveExecuted: execution, 
@@ -983,47 +987,54 @@ const PaymentCertForm = React.forwardRef(({
                     (c.items || []).forEach((item: any) => {
                         const q = parseFloat(item.quantity) || 0;
                         const p = parseFloat(item.unit_price) || 0;
-                        certWork += q * p;
+                        const itemWork = roundedAmt(q * p, 2);
+                        certWork = roundedAmt(certWork + itemWork, 2);
 
-                        const addedMOS = item.has_material_on_site ? (parseFloat(item.mos_invoice_total) || 0) : 0;
+                        const addedMOS = roundedAmt(item.has_material_on_site ? (parseFloat(item.mos_invoice_total) || 0) : 0, 2);
                         const mosPU = getInvoicePUFromList(certs, item.item_num, certIdx);
-                        const deductedMOS = (parseFloat(item.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p);
-                        certMOSNet += addedMOS - deductedMOS;
+                        const deductedMOS = roundedAmt((parseFloat(item.qty_from_mos) || 0) * (mosPU > 0 ? mosPU : p), 2);
+                        certMOSNet = roundedAmt(certMOSNet + addedMOS - deductedMOS, 2);
                     });
                     const r5 = (c.items || []).reduce((acc: number, it: any) => {
                         if (it.skip_retention) return acc;
                         if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
-                        return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
+                        const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
+                        return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
                     }, 0);
-                    const val5 = c.skip_retention ? 0 : r5;
-                    const returnAmt = c.show_retention_return ? (parseFloat(c.retention_return_amount) || 0) : 0;
-                    const extraRet = parseFloat(c.extra_retention) || 0;
+                    const val5 = c.skip_retention ? 0 : roundedAmt(r5, 2);
+                    const returnAmt = roundedAmt(c.show_retention_return ? (parseFloat(c.retention_return_amount) || 0) : 0, 2);
+                    const extraRet = roundedAmt(parseFloat(c.extra_retention) || 0, 2);
 
-                    const certRetentionDisplay = val5 - returnAmt;
+                    const certRetentionDisplay = roundedAmt(val5 - returnAmt, 2);
 
-                    const certNetChange = certWork - val5 + returnAmt + certMOSNet 
+                    const certNetChange = roundedAmt(
+                        certWork - val5 + returnAmt + certMOSNet 
                         - (parseFloat(c.liquidated_damages) || 0)
                         - extraRet
                         + (parseFloat(c.price_adjustment) || 0)
                         - (parseFloat(c.insurance_fines) || 0)
-                        - (parseFloat(c.other_penalties) || 0);
+                        - (parseFloat(c.other_penalties) || 0), 2
+                    );
 
                     // Calcular la retención neta acumulada en tiempo real hasta la certificación actual
                     const getCertRetentionNet = (certObj: any) => {
                         const otherR5 = (certObj.items || []).reduce((acc: number, it: any) => {
                             if (it.skip_retention) return acc;
                             if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
-                            return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
+                            const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
+                            return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
                         }, 0);
-                        const otherVal5 = certObj.skip_retention ? 0 : otherR5;
-                        const otherReturn = certObj.show_retention_return ? (parseFloat(certObj.retention_return_amount) || 0) : 0;
-                        const otherExtra = parseFloat(certObj.extra_retention) || 0;
-                        return otherVal5 + otherExtra - otherReturn;
+                        const otherVal5 = certObj.skip_retention ? 0 : roundedAmt(otherR5, 2);
+                        const otherReturn = roundedAmt(certObj.show_retention_return ? (parseFloat(certObj.retention_return_amount) || 0) : 0, 2);
+                        const otherExtra = roundedAmt(parseFloat(certObj.extra_retention) || 0, 2);
+                        return roundedAmt(otherVal5 + otherExtra - otherReturn, 2);
                     };
 
-                    const accumulatedRetention = certs
-                        .filter(otherCert => otherCert.cert_num <= c.cert_num)
-                        .reduce((sum, otherCert) => sum + getCertRetentionNet(otherCert), 0);
+                    const accumulatedRetention = roundedAmt(
+                        certs
+                            .filter(otherCert => otherCert.cert_num <= c.cert_num)
+                            .reduce((sum, otherCert) => sum + getCertRetentionNet(otherCert), 0), 2
+                    );
 
                     return (
                         <div key={certIdx} className={`card border-none shadow-sm overflow-hidden p-0 mb-4 ${c.excluded ? 'bg-red-50/40 dark:bg-red-950/10 ring-1 ring-red-200 dark:ring-red-900/30' : 'bg-white dark:bg-slate-900'}`}>
@@ -1391,9 +1402,9 @@ const PaymentCertForm = React.forwardRef(({
                                                         ? parseFloat(item.qty_from_mos) 
                                                         : (cumulativeMOSInvoicedAmount > 0 && workQty > 0 ? Math.min(workQty, availableMOSQty) : 0);
                                                     
-                                                    const workAmount = workQty * (parseFloat(item.unit_price) || 0);
-                                                    const autoDeductionAmount = finalQtyFromMOS * currentDeductionPU;
-                                                    const netTotal = workAmount - autoDeductionAmount;
+                                                    const workAmount = roundedAmt(workQty * (parseFloat(item.unit_price) || 0), 2);
+                                                    const autoDeductionAmount = roundedAmt(finalQtyFromMOS * currentDeductionPU, 2);
+                                                    const netTotal = roundedAmt(workAmount - autoDeductionAmount, 2);
                                                     const mfgStatus = getItemMfgStatus(item.item_num, certIdx, workQty);
                                                     const isMfgBlocked = mfgStatus.status === 'INSUFFICIENT';
 
