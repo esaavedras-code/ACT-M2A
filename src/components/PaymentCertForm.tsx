@@ -92,6 +92,7 @@ const PaymentCertForm = React.forwardRef(({
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'contract_items', filter: `project_id=eq.${projectId}` }, () => loadData())
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_certifications', filter: `project_id=eq.${projectId}` }, () => loadData())
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'manufacturing_certificates', filter: `project_id=eq.${projectId}` }, () => loadData())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'chos', filter: `project_id=eq.${projectId}` }, () => loadData())
                 .subscribe();
 
             return () => {

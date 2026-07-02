@@ -39,6 +39,28 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
     const [showValidationIdx, setShowValidationIdx] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
 
+    // Estados para el buscador de acumulado de certificados por partida
+    const [sumSearchText, setSumSearchText] = useState("");
+    const [sumSearchItemId, setSumSearchItemId] = useState("");
+    const [isSumDropdownOpen, setIsSumDropdownOpen] = useState(false);
+
+    // Función para calcular la suma de certificados aprobados para un ítem en específico
+    const calculateTotalForItemId = (itemId: string) => {
+        let total = 0;
+        certs.forEach(c => {
+            if (c.is_multiple) {
+                if (c.item_ids?.includes(itemId)) {
+                    total += parseFloat(c.multiple_quantities?.[itemId] ?? c.quantity) || 0;
+                }
+            } else {
+                if (c.item_id === itemId) {
+                    total += parseFloat(c.quantity) || 0;
+                }
+            }
+        });
+        return total;
+    };
+
     useEffect(() => {
         setMounted(true);
         if (projectId) {
@@ -361,6 +383,14 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
 
     useImperativeHandle(ref, () => ({ save: () => saveData(true) }));
 
+    const filteredItemsForSum = contractItems.filter(it => {
+        if (!sumSearchText) return true;
+        const selectedLabel = `Pt. ${it.item_num}: ${it.description}`;
+        if (sumSearchText === selectedLabel) return true;
+        const term = sumSearchText.toLowerCase();
+        return (it.item_num || "").toString().toLowerCase().includes(term) || (it.description || "").toLowerCase().includes(term);
+    });
+
     if (!mounted) return null;
 
     return (
@@ -394,6 +424,116 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                 { label: "Añadir CM", description: "Añadir nuevo certificado de manufactura", icon: <Plus />, onClick: addCert, variant: 'secondary' },
                 { label: loading ? "Guardando..." : "Guardar cambios", description: "Grabar certificados al servidor", icon: <Save />, onClick: () => saveData(false), variant: 'primary', disabled: loading }
             ]} />
+
+            {/* ====== PANEL: BUSCADOR DE ACUMULADO POR PARTIDA ====== */}
+            <div className="relative bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-slate-900 dark:via-slate-900 dark:to-emerald-950 rounded-3xl border border-emerald-200 dark:border-emerald-900/40 shadow-lg overflow-visible p-5">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-md shadow-emerald-200 dark:shadow-emerald-900">
+                        <Factory size={18} className="text-white" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-widest">Consultar Total de Certificados</p>
+                        <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 font-medium">Busca una partida y ve la suma total de todas sus CMs</p>
+                    </div>
+                </div>
+
+                {/* Input de búsqueda con dropdown */}
+                <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setIsSumDropdownOpen(false); }}>
+                    <input
+                        type="text"
+                        placeholder="Escribe número o descripción de partida..."
+                        className="w-full bg-white dark:bg-slate-800 border-2 border-emerald-200 dark:border-emerald-800 rounded-2xl py-3 px-5 text-sm font-semibold focus:ring-4 focus:ring-emerald-300/30 focus:border-emerald-500 transition-all outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                        value={sumSearchText}
+                        onChange={(e) => { setSumSearchText(e.target.value); setSumSearchItemId(""); setIsSumDropdownOpen(true); }}
+                        onFocus={() => setIsSumDropdownOpen(true)}
+                    />
+                    {sumSearchText && (
+                        <button
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors text-lg leading-none"
+                            onMouseDown={(e) => { e.preventDefault(); setSumSearchText(""); setSumSearchItemId(""); setIsSumDropdownOpen(false); }}
+                        >✕</button>
+                    )}
+
+                    {/* Dropdown de partidas filtradas */}
+                    {isSumDropdownOpen && sumSearchText && filteredItemsForSum.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border-2 border-emerald-200 dark:border-emerald-800 rounded-2xl shadow-2xl z-50 max-h-52 overflow-y-auto">
+                            {filteredItemsForSum.map(it => {
+                                const itemTotal = calculateTotalForItemId(it.id);
+                                const certCount = certs.filter(c => {
+                                    if (c.is_multiple) return c.item_ids?.includes(it.id);
+                                    return c.item_id === it.id;
+                                }).length;
+                                return (
+                                    <button
+                                        key={it.id}
+                                        className="w-full text-left px-5 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors flex items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 last:border-0"
+                                        onMouseDown={(e) => { e.preventDefault(); setSumSearchItemId(it.id); setSumSearchText(`Pt. ${it.item_num}: ${it.description}`); setIsSumDropdownOpen(false); }}
+                                    >
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-xs font-black text-slate-800 dark:text-slate-100">Pt. {it.item_num}: {it.description}</span>
+                                            <span className="text-[10px] text-slate-400 font-medium">{certCount} documento{certCount !== 1 ? 's' : ''} • {it.unit}</span>
+                                        </div>
+                                        <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap">{itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {it.unit}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Panel de resultado: suma y desglose */}
+                {sumSearchItemId && (() => {
+                    const selectedItem = contractItems.find(it => it.id === sumSearchItemId);
+                    const total = calculateTotalForItemId(sumSearchItemId);
+                    const matchingCerts = certs.filter(c => {
+                        if (c.is_multiple) return c.item_ids?.includes(sumSearchItemId);
+                        return c.item_id === sumSearchItemId;
+                    });
+                    return (
+                        <div className="mt-4 bg-white dark:bg-slate-900 rounded-2xl border border-emerald-200 dark:border-emerald-900/40 shadow-inner overflow-hidden">
+                            {/* Encabezado con total */}
+                            <div className="bg-emerald-500 px-5 py-4 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] font-black text-emerald-100 uppercase tracking-widest mb-0.5">Partida {selectedItem?.item_num}</p>
+                                    <p className="text-sm font-bold text-white leading-tight">{selectedItem?.description}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-emerald-100 uppercase tracking-widest">Total Certificado</p>
+                                    <p className="text-2xl font-black text-white">{total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className="text-[10px] font-bold text-emerald-200">{selectedItem?.unit} • {matchingCerts.length} doc{matchingCerts.length !== 1 ? 's' : '.'}</p>
+                                </div>
+                            </div>
+                            {/* Desglose por documento */}
+                            {matchingCerts.length > 0 && (
+                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {matchingCerts.map((c, i) => {
+                                        const qty = c.is_multiple
+                                            ? (parseFloat(c.multiple_quantities?.[sumSearchItemId]) || 0)
+                                            : (parseFloat(c.quantity) || 0);
+                                        return (
+                                            <div key={i} className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                                                        {c.manufacturer_name || <span className="italic text-slate-400">Sin fabricante</span>}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">{c.cert_date || '—'}{c.material_description ? ` • ${c.material_description}` : ''}</span>
+                                                </div>
+                                                <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                                                    {qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {selectedItem?.unit}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {matchingCerts.length === 0 && (
+                                <p className="px-5 py-4 text-xs text-slate-400 italic text-center">No hay certificados registrados para esta partida.</p>
+                            )}
+                        </div>
+                    );
+                })()}
+            </div>
+            {/* ====== FIN PANEL BUSCADOR ====== */}
 
             <div className="flex flex-col space-y-3">
                 {/* Header Row (Optional for reference) */}

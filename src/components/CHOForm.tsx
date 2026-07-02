@@ -249,13 +249,61 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             }
         }
 
+        let currentContractItems = [...contractItems];
+
         if (missingItemsMap.size > 0) {
             const missingItemsToInsert = Array.from(missingItemsMap.values());
-            const { error: insErr } = await supabase.from("contract_items").insert(missingItemsToInsert);
+            const { data: insertedData, error: insErr } = await supabase
+                .from("contract_items")
+                .insert(missingItemsToInsert)
+                .select();
             if (!insErr) {
+                if (insertedData) {
+                    currentContractItems = [...currentContractItems, ...insertedData];
+                }
                 fetchContractItems();
             } else {
                 console.error("Error adding missing items to contract", insErr);
+            }
+        }
+
+        // Sincronizar todos los ítems de los CHO en la tabla contract_items (incluyendo requires_mfg_cert)
+        const itemsToUpdate = [];
+        const updatedItemNums = new Set();
+        for (const cho of chos) {
+            for (const item of (cho.items || [])) {
+                if (item.item_num && !updatedItemNums.has(item.item_num)) {
+                    const existingItem = currentContractItems.find(
+                        ci => (ci.item_num || "").toString().trim().padStart(3, '0') === (item.item_num || "").toString().trim().padStart(3, '0')
+                    );
+                    if (existingItem) {
+                        updatedItemNums.add(item.item_num);
+                        itemsToUpdate.push({
+                            id: existingItem.id, // UUID
+                            project_id: projectId,
+                            item_num: item.item_num,
+                            specification: item.specification || "",
+                            description: item.description || "",
+                            additional_description: item.additional_description || "",
+                            quantity: existingItem.quantity, // Conservamos la cantidad contractual original
+                            unit: item.unit || "",
+                            unit_price: item.unit_price || 0,
+                            fund_source: item.fund_source || FUND_SOURCES[0],
+                            requires_mfg_cert: item.requires_mfg_cert || false,
+                            mfg_cert_qty: item.mfg_cert_qty || 1,
+                            mfg_cert_description: item.mfg_cert_description || ""
+                        });
+                    }
+                }
+            }
+        }
+
+        if (itemsToUpdate.length > 0) {
+            const { error: updErr } = await supabase.from("contract_items").upsert(itemsToUpdate, { onConflict: "id" });
+            if (!updErr) {
+                fetchContractItems();
+            } else {
+                console.error("Error updating contract items from CHO", updErr);
             }
         }
 
