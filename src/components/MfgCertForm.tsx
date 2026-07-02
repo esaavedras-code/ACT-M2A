@@ -28,6 +28,7 @@ interface ValidationResult {
 const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function MfgCertForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [certs, setCerts] = useState<any[]>([]);
     const [contractItems, setContractItems] = useState<any[]>([]);
+    const [paymentCerts, setPaymentCerts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [parsing, setParsing] = useState(false);
     const [hasLoaded, setHasLoaded] = useState(false);
@@ -44,7 +45,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
     const [sumSearchItemId, setSumSearchItemId] = useState("");
     const [isSumDropdownOpen, setIsSumDropdownOpen] = useState(false);
 
-    // Función para calcular la suma de certificados aprobados para un ítem en específico
+    // Función para calcular la suma de CMs aprobados para un ítem en específico
     const calculateTotalForItemId = (itemId: string) => {
         let total = 0;
         certs.forEach(c => {
@@ -61,6 +62,30 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         return total;
     };
 
+    // Función para calcular lo ya pagado en todas las certificaciones de pago para un item_num
+    const calculatePaidForItemNum = (itemNum: string) => {
+        const normalizeNum = (n: any) => {
+            if (!n) return "";
+            const s = n.toString().trim();
+            return /^\d+$/.test(s) ? s.padStart(3, '0') : s;
+        };
+        const normTarget = normalizeNum(itemNum);
+        let totalPaid = 0;
+        const breakdown: { certNum: number; quantity: number }[] = [];
+        paymentCerts.forEach(pc => {
+            const items = pc.items || [];
+            const match = items.find((it: any) => normalizeNum(it.item_num) === normTarget);
+            if (match) {
+                const qty = parseFloat(match.quantity) || 0;
+                if (qty > 0) {
+                    totalPaid += qty;
+                    breakdown.push({ certNum: pc.cert_num, quantity: qty });
+                }
+            }
+        });
+        return { totalPaid, breakdown };
+    };
+
     useEffect(() => {
         setMounted(true);
         if (projectId) {
@@ -70,10 +95,20 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                 if (cItems) {
                     await fetchCerts(cItems);
                 }
+                await fetchPaymentCerts();
             };
             loadData();
         }
     }, [projectId]);
+
+    const fetchPaymentCerts = async () => {
+        const { data } = await supabase
+            .from('payment_certifications')
+            .select('cert_num, items')
+            .eq('project_id', projectId)
+            .order('cert_num', { ascending: true });
+        if (data) setPaymentCerts(data);
+    };
 
     const fetchContractor = async () => {
         const { data } = await supabase.from("contractors").select("name").eq("project_id", projectId).single();
@@ -481,53 +516,95 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     )}
                 </div>
 
-                {/* Panel de resultado: suma y desglose */}
+                {/* Panel de resultado: suma, pagos y balance */}
                 {sumSearchItemId && (() => {
                     const selectedItem = contractItems.find(it => it.id === sumSearchItemId);
                     const total = calculateTotalForItemId(sumSearchItemId);
+                    const { totalPaid, breakdown: paidBreakdown } = calculatePaidForItemNum(selectedItem?.item_num);
+                    const balance = total - totalPaid;
                     const matchingCerts = certs.filter(c => {
                         if (c.is_multiple) return c.item_ids?.includes(sumSearchItemId);
                         return c.item_id === sumSearchItemId;
                     });
                     return (
                         <div className="mt-4 bg-white dark:bg-slate-900 rounded-2xl border border-emerald-200 dark:border-emerald-900/40 shadow-inner overflow-hidden">
-                            {/* Encabezado con total */}
-                            <div className="bg-emerald-500 px-5 py-4 flex items-center justify-between">
-                                <div>
-                                    <p className="text-[10px] font-black text-emerald-100 uppercase tracking-widest mb-0.5">Partida {selectedItem?.item_num}</p>
-                                    <p className="text-sm font-bold text-white leading-tight">{selectedItem?.description}</p>
+
+                            {/* ── Barra de resumen con 3 métricas ── */}
+                            <div className="grid grid-cols-3 divide-x divide-emerald-400/30">
+                                {/* Total CMs */}
+                                <div className="bg-emerald-500 px-4 py-4 flex flex-col gap-0.5">
+                                    <p className="text-[9px] font-black text-emerald-100 uppercase tracking-widest">Total Certificado (CM)</p>
+                                    <p className="text-xl font-black text-white leading-tight">{total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className="text-[9px] font-bold text-emerald-200">{selectedItem?.unit} • {matchingCerts.length} doc{matchingCerts.length !== 1 ? 's' : '.'}</p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] font-black text-emerald-100 uppercase tracking-widest">Total Certificado</p>
-                                    <p className="text-2xl font-black text-white">{total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p className="text-[10px] font-bold text-emerald-200">{selectedItem?.unit} • {matchingCerts.length} doc{matchingCerts.length !== 1 ? 's' : '.'}</p>
+                                {/* Ya Pagado */}
+                                <div className="bg-blue-600 px-4 py-4 flex flex-col gap-0.5">
+                                    <p className="text-[9px] font-black text-blue-100 uppercase tracking-widest">Ya Pagado (Certs. Pago)</p>
+                                    <p className="text-xl font-black text-white leading-tight">{totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className="text-[9px] font-bold text-blue-200">{selectedItem?.unit} • {paidBreakdown.length} cert{paidBreakdown.length !== 1 ? 's.' : '.'}</p>
+                                </div>
+                                {/* Balance */}
+                                <div className={`px-4 py-4 flex flex-col gap-0.5 ${balance < 0 ? 'bg-red-600' : balance === 0 ? 'bg-slate-600' : 'bg-teal-600'}`}>
+                                    <p className="text-[9px] font-black text-white/80 uppercase tracking-widest">Balance Disponible</p>
+                                    <p className="text-xl font-black text-white leading-tight">{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className="text-[9px] font-bold text-white/70">{selectedItem?.unit} {balance < 0 ? '⚠ Excedido' : balance === 0 ? '✓ Completo' : '✓ Disponible'}</p>
                                 </div>
                             </div>
-                            {/* Desglose por documento */}
+
+                            {/* Descripción de la partida */}
+                            <div className="px-5 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Partida {selectedItem?.item_num}</p>
+                                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{selectedItem?.description}</p>
+                            </div>
+
+                            {/* ── Desglose: Certificados de Manufactura ── */}
                             {matchingCerts.length > 0 && (
-                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {matchingCerts.map((c, i) => {
-                                        const qty = c.is_multiple
-                                            ? (parseFloat(c.multiple_quantities?.[sumSearchItemId]) || 0)
-                                            : (parseFloat(c.quantity) || 0);
-                                        return (
-                                            <div key={i} className="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
-                                                        {c.manufacturer_name || <span className="italic text-slate-400">Sin fabricante</span>}
+                                <div>
+                                    <p className="px-5 pt-3 pb-1 text-[9px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Certificados de Manufactura</p>
+                                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {matchingCerts.map((c, i) => {
+                                            const qty = c.is_multiple
+                                                ? (parseFloat(c.multiple_quantities?.[sumSearchItemId]) || 0)
+                                                : (parseFloat(c.quantity) || 0);
+                                            return (
+                                                <div key={i} className="flex items-center justify-between px-5 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                                                            {c.manufacturer_name || <span className="italic text-slate-400">Sin fabricante</span>}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400">{c.cert_date || '—'}{c.material_description ? ` • ${c.material_description}` : ''}</span>
+                                                    </div>
+                                                    <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                                                        +{qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {selectedItem?.unit}
                                                     </span>
-                                                    <span className="text-[10px] text-slate-400">{c.cert_date || '—'}{c.material_description ? ` • ${c.material_description}` : ''}</span>
                                                 </div>
-                                                <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                                                    {qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {selectedItem?.unit}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
                             {matchingCerts.length === 0 && (
-                                <p className="px-5 py-4 text-xs text-slate-400 italic text-center">No hay certificados registrados para esta partida.</p>
+                                <p className="px-5 py-3 text-xs text-slate-400 italic">No hay certificados de manufactura registrados para esta partida.</p>
+                            )}
+
+                            {/* ── Desglose: Certificaciones de Pago ── */}
+                            {paidBreakdown.length > 0 && (
+                                <div className="border-t border-slate-100 dark:border-slate-800">
+                                    <p className="px-5 pt-3 pb-1 text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Pagado en Certificaciones de Pago</p>
+                                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {paidBreakdown.map((p, i) => (
+                                            <div key={i} className="flex items-center justify-between px-5 py-2 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
+                                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Certificación #{p.certNum}</span>
+                                                <span className="text-sm font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                                                    -{p.quantity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {selectedItem?.unit}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {paidBreakdown.length === 0 && matchingCerts.length > 0 && (
+                                <p className="px-5 pb-3 text-[10px] text-slate-400 italic border-t border-slate-100 dark:border-slate-800 pt-2">Ninguna certificación de pago ha incluido esta partida aún.</p>
                             )}
                         </div>
                     );
