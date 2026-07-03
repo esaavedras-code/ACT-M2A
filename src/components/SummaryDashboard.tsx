@@ -664,6 +664,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <MetricRow label="Daños Liquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="Retenciones y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
+                        <MetricRow label="Net Paid" value={formatCurrency(roundedAmt(metrics.cost.certTotal - metrics.retention.total, 2))} color="text-emerald-700 dark:text-emerald-400 font-bold" />
                     </div>
                 </div>
 
