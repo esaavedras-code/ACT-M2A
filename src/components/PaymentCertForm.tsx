@@ -1331,6 +1331,7 @@ const PaymentCertForm = React.forwardRef(({
                                         <table suppressHydrationWarning className="w-full text-left border-collapse table-fixed">
                     <thead className="text-[8px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
                                                 <tr>
+                                                    <th className="py-1 px-0.5 w-[35px] text-center" title="No aplicar 5% de retención">N.R.</th>
                                                     <th className="py-1 px-0.5 w-[65px] text-center"># Item</th>
                                                     <th className="py-1 px-0.5 w-[100px] text-center">Espec.</th>
                                                     <th className="py-1 px-0.5">Descripción</th>
@@ -1411,6 +1412,15 @@ const PaymentCertForm = React.forwardRef(({
                                                     return (
                                                         <React.Fragment key={itIdx}>
                                                             <tr className={`border-b border-slate-50 dark:border-slate-800/50 group/row hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${isMfgBlocked ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`}>
+                                                                <td className="py-1 px-0.5 text-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="rounded border-slate-300 dark:border-slate-700 text-violet-600 focus:ring-violet-500 h-3.5 w-3.5"
+                                                                        checked={!!item.skip_retention}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'skip_retention', e.target.checked)}
+                                                                        title="Marcar para excluir este ítem del 5% de retención"
+                                                                    />
+                                                                </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
@@ -1561,7 +1571,7 @@ const PaymentCertForm = React.forwardRef(({
                                                             </tr>
                                                             {item.has_material_on_site && (
                                                                 <tr className="bg-amber-50/30 dark:bg-amber-950/10 border-b border-amber-100 dark:border-amber-900/30">
-                                                                    <td className="py-1 px-0.5 text-center">
+                                                                    <td className="py-1 px-0.5 text-center" colSpan={2}>
                                                                         <div className="flex flex-col items-center">
                                                                             <span className="text-[10px] text-amber-600 font-black">MOS</span>
                                                                             <Package size={14} className="text-amber-500" />
