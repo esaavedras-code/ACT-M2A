@@ -330,7 +330,7 @@ const PaymentCertForm = React.forwardRef(({
             mos = roundedAmt(mos + certMOSNet, 2);
 
             const r5 = (c.items || []).reduce((acc: number, it: any) => {
-                if (it.skip_retention) return acc;
+                if (it.skip_retention === true || it.skip_retention === 'true') return acc;
                 if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                 const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
                 return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
@@ -508,7 +508,10 @@ const PaymentCertForm = React.forwardRef(({
             }
         }
 
-        newCerts[certIdx].items = newItems;
+        newCerts[certIdx] = {
+            ...newCerts[certIdx],
+            items: newItems
+        };
         setCerts(newCerts);
 
         const it = newItems[itIdx];
@@ -996,7 +999,7 @@ const PaymentCertForm = React.forwardRef(({
                         certMOSNet = roundedAmt(certMOSNet + addedMOS - deductedMOS, 2);
                     });
                     const r5 = (c.items || []).reduce((acc: number, it: any) => {
-                        if (it.skip_retention) return acc;
+                        if (it.skip_retention === true || it.skip_retention === 'true') return acc;
                         if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                         const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
                         return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
@@ -1019,7 +1022,7 @@ const PaymentCertForm = React.forwardRef(({
                     // Calcular la retención neta acumulada en tiempo real hasta la certificación actual
                     const getCertRetentionNet = (certObj: any) => {
                         const otherR5 = (certObj.items || []).reduce((acc: number, it: any) => {
-                            if (it.skip_retention) return acc;
+                            if (it.skip_retention === true || it.skip_retention === 'true') return acc;
                             if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                             const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
                             return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);

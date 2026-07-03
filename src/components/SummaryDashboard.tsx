@@ -281,7 +281,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
             if (!cert.skip_retention) {
                 certItems.forEach((item: any) => {
-                    if (!item.skip_retention) {
+                    if (item.skip_retention !== true && item.skip_retention !== 'true') {
                         const itemAmt = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
                         totalRetentionDeducted = roundedAmt(totalRetentionDeducted + roundedAmt(itemAmt * 0.05, 2), 2);
                     }
