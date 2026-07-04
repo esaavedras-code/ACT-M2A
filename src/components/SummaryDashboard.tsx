@@ -155,7 +155,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const { data: certs } = await supabase
             .from("payment_certifications")
-            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund, excluded")
+            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund, excluded, liquidated_damages")
             .eq("project_id", projectId)
             .order("cert_num", { ascending: true });
 
@@ -203,6 +203,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         let totalInsuranceFines = 0;
         let totalOtherPenalties = 0;
         let totalRefund = 0;
+        let totalLiquidatedDamagesCerts = 0;
 
         const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
             for (let i = currentCertIdx; i >= 0; i--) {
@@ -296,6 +297,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             totalInsuranceFines = roundedAmt(totalInsuranceFines + (parseFloat(cert.insurance_fines) || 0), 2);
             totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseFloat(cert.other_penalties) || 0), 2);
             totalRefund = roundedAmt(totalRefund + (parseFloat(String(cert.refund ?? '').replace(/,/g, '')) || 0), 2);
+            totalLiquidatedDamagesCerts = roundedAmt(totalLiquidatedDamagesCerts + (parseFloat(String(cert.liquidated_damages ?? '').replace(/,/g, '')) || 0), 2);
         });
 
         const mosEntries = Object.entries(perItemMosBalance)
@@ -393,7 +395,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 insuranceFines: totalInsuranceFines || 0,
                 otherPenalties: totalOtherPenalties || 0,
                 returned: totalRetentionReturned || 0,
-                total: roundedAmt(totalRetentionDeducted - totalRetentionReturned + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalPriceAdjustment - totalRefund + liqDamages, 2)
+                total: roundedAmt(totalRetentionDeducted - totalRetentionReturned + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalPriceAdjustment - totalRefund + liqDamages + totalLiquidatedDamagesCerts, 2)
             },
             cost: {
                 original: originalCost || 0,
@@ -425,11 +427,11 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 percentDays: (totalDays || 0) > 0 ? Math.round(((approvedDays || 0) / (totalDays || 0)) * 100) : 0,
             },
             penalties: {
-                liquidated: liqDamages || 0,
+                liquidated: liqDamages + totalLiquidatedDamagesCerts,
                 dlqReimbursement: totalRefund || 0,
                 security: totalInsuranceFines || 0,
                 others: totalOtherPenalties || 0,
-                total: roundedAmt(liqDamages + totalInsuranceFines + totalOtherPenalties, 2)
+                total: roundedAmt(liqDamages + totalLiquidatedDamagesCerts + totalInsuranceFines + totalOtherPenalties, 2)
             },
             liquidation: {
                 totalItems: totalItemsCount,
