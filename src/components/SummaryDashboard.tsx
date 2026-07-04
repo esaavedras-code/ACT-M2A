@@ -291,7 +291,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
             }
 
-            totalExtraRetention = roundedAmt(totalExtraRetention + (parseFloat(cert.extra_retention) || 0), 2);
+            totalExtraRetention = roundedAmt(totalExtraRetention + (parseFloat(String(cert.extra_retention ?? '').replace(/,/g, '')) || 0), 2);
             totalPriceAdjustment = roundedAmt(totalPriceAdjustment + (parseFloat(cert.price_adjustment) || 0), 2);
             totalInsuranceFines = roundedAmt(totalInsuranceFines + (parseFloat(cert.insurance_fines) || 0), 2);
             totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseFloat(cert.other_penalties) || 0), 2);
@@ -657,6 +657,13 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="Retencion 5% ($)" value={formatCurrency(metrics.retention.fivePercent)} />
+                        {metrics.retention.extra > 0 && (
+                            <MetricRow
+                                label="Retención Extra ($)"
+                                value={formatCurrency(metrics.retention.extra)}
+                                color="text-amber-700 font-bold"
+                            />
+                        )}
                         <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment > 0 ? "text-emerald-700 font-bold" : ""} />
                         <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
                         <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
