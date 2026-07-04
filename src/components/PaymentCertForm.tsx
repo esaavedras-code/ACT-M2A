@@ -355,7 +355,8 @@ const PaymentCertForm = React.forwardRef(({
                 - extraRet
                 + priceAdj
                 - insurance
-                - otherPenalties, 2
+                - otherPenalties
+                + parseFmtNum(c.refund), 2
             );
 
             totalPaid = roundedAmt(totalPaid + certNet, 2);
@@ -638,7 +639,7 @@ const PaymentCertForm = React.forwardRef(({
                     ...rest,
                     project_id: projectId,
                     liquidated_damages: parseFmtNum(c.liquidated_damages as any),
-                    refund: parseFloat(c.refund as any) || 0,
+                    refund: parseFmtNum(c.refund as any),
                     extra_retention: parseFmtNum(c.extra_retention as any),
                     price_adjustment: parseFmtNum(c.price_adjustment as any),
                     insurance_fines: parseFmtNum(c.insurance_fines as any),
@@ -1022,7 +1023,8 @@ const PaymentCertForm = React.forwardRef(({
                         - extraRet
                         + parseFmtNum(c.price_adjustment)
                         - parseFmtNum(c.insurance_fines)
-                        - parseFmtNum(c.other_penalties), 2
+                        - parseFmtNum(c.other_penalties)
+                        + parseFmtNum(c.refund), 2
                     );
 
                     // Calcular la retención neta acumulada en tiempo real hasta la certificación actual
@@ -1159,7 +1161,7 @@ const PaymentCertForm = React.forwardRef(({
 
                                 {/* Nueva Sección de Deducciones y Ajustes */}
                                 <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row gap-6 items-end">
-                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 flex-1 w-full">
+                                    <div className="grid grid-cols-2 md:grid-cols-6 gap-4 flex-1 w-full">
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Daños Líquidos</label>
                                             <input
@@ -1307,6 +1309,36 @@ const PaymentCertForm = React.forwardRef(({
                                                     value={c.other_penalties_notes ?? ""}
                                                     onChange={(e) => updateCert(certIdx, 'other_penalties_notes', e.target.value)}
                                                     placeholder="Especificar"
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider block">Reembolso</label>
+                                            <input
+                                                type="text"
+                                                className="input-field text-xs font-bold text-emerald-700 bg-white dark:bg-slate-900 border-emerald-100 focus:border-emerald-300 h-8"
+                                                value={c.refund ?? ""}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/,/g, '');
+                                                    if (/^-?\d*\.?\d*$/.test(raw)) updateCert(certIdx, 'refund', raw);
+                                                }}
+                                                onFocus={(e) => {
+                                                    const raw = String(c.refund ?? '').replace(/,/g, '');
+                                                    updateCert(certIdx, 'refund', raw);
+                                                }}
+                                                onBlur={(e) => {
+                                                    const num = parseFloat(String(c.refund).replace(/,/g, ''));
+                                                    if (!isNaN(num)) updateCert(certIdx, 'refund', num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                                                }}
+                                                placeholder="0.00"
+                                            />
+                                            {parseFmtNum(c.refund) > 0 && (
+                                                <input
+                                                    type="text"
+                                                    className="input-field text-[10px] w-full mt-1 bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800 focus:border-emerald-300 h-7"
+                                                    value={c.refund_notes ?? ""}
+                                                    onChange={(e) => updateCert(certIdx, 'refund_notes', e.target.value)}
+                                                    placeholder="Detalle del reembolso"
                                                 />
                                             )}
                                         </div>
