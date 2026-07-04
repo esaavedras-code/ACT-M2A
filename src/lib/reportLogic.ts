@@ -1354,7 +1354,16 @@ export const generateCertReportLogic = async (projectId: string, certIds: string
                 mosDelta -= (parseFloat(it.qty_from_mos) || 0) * mosPU;
             }
         });
-        const grossRetention = cert.skip_retention ? 0 : (subtotal * 0.05);
+        let grossRetention = 0;
+        if (!cert.skip_retention) {
+            (cert.items || []).forEach((it: any) => {
+                if (it.skip_retention === true || it.skip_retention === 'true') return;
+                const qty = parseFloat(it.quantity) || 0;
+                const pu = parseFloat(it.unit_price) || 0;
+                const itemWork = roundedAmt(qty * pu, 2);
+                grossRetention = roundedAmt(grossRetention + roundedAmt(itemWork * 0.05, 2), 2);
+            });
+        }
         const returnedAmount = parseFloat(cert.retention_return_amount) || 0;
         const netRetention = grossRetention - returnedAmount;
         const refund = parseFloat(cert.refund) || 0;

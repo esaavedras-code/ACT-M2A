@@ -45,6 +45,9 @@ export const normalizeItemNum = (num: any): string => {
 
 const FUND_SOURCES = ["FHWA:100%", "FHWA:80.25", "ACT:100%"];
 
+/** Parsea un valor que puede tener comas de miles (ej: "4,885.00" => 4885) */
+const parseFmtNum = (val: any): number => parseFloat(String(val ?? '').replace(/,/g, '')) || 0;
+
 interface PaymentCertFormProps {
     projectId?: string;
     projectData?: any;
@@ -331,25 +334,24 @@ const PaymentCertForm = React.forwardRef(({
 
             const r5 = (c.items || []).reduce((acc: number, it: any) => {
                 if (it.skip_retention === true || it.skip_retention === 'true') return acc;
-                if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                 const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
                 return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
             }, 0);
 
             const val5 = c.skip_retention ? 0 : roundedAmt(r5, 2);
             const returnAmount = roundedAmt(c.show_retention_return ? (parseFloat(c.retention_return_amount) || 0) : 0, 2);
-            const extraRet = roundedAmt(parseFloat(c.extra_retention) || 0, 2);
+            const extraRet = roundedAmt(parseFmtNum(c.extra_retention), 2);
 
             retention = roundedAmt(retention + val5 + extraRet - returnAmount, 2);
-            liquidated = roundedAmt(liquidated + (parseFloat(c.liquidated_damages) || 0), 2);
+            liquidated = roundedAmt(liquidated + parseFmtNum(c.liquidated_damages), 2);
             
-            const priceAdj = roundedAmt(parseFloat(c.price_adjustment) || 0, 2);
-            const insurance = roundedAmt(parseFloat(c.insurance_fines) || 0, 2);
-            const otherPenalties = roundedAmt(parseFloat(c.other_penalties) || 0, 2);
+            const priceAdj = roundedAmt(parseFmtNum(c.price_adjustment), 2);
+            const insurance = roundedAmt(parseFmtNum(c.insurance_fines), 2);
+            const otherPenalties = roundedAmt(parseFmtNum(c.other_penalties), 2);
             
             const certNet = roundedAmt(
                 certWork - val5 + returnAmount + certMOSNet 
-                - (parseFloat(c.liquidated_damages) || 0)
+                - parseFmtNum(c.liquidated_damages)
                 - extraRet
                 + priceAdj
                 - insurance
@@ -484,6 +486,7 @@ const PaymentCertForm = React.forwardRef(({
             const paddedValue = value.toString().padStart(3, '0');
             const baseItem = contractItems.find(it => it.item_num === paddedValue || it.item_num === value);
             if (baseItem) {
+                const is888 = (baseItem.specification || "").toString().trim() === "888-150" || (baseItem.item_num || "").toString().trim() === "888-150";
                 newItems[itIdx] = {
                     ...newItems[itIdx],
                     item_num: baseItem.item_num,
@@ -491,7 +494,8 @@ const PaymentCertForm = React.forwardRef(({
                     description: baseItem.description,
                     unit: baseItem.unit,
                     unit_price: baseItem.unit_price,
-                    fund_source: baseItem.fund_source
+                    fund_source: baseItem.fund_source,
+                    skip_retention: is888 ? true : (newItems[itIdx].skip_retention ?? false)
                 };
             } else {
                 newItems[itIdx] = { ...newItems[itIdx], [field]: value };
@@ -541,18 +545,21 @@ const PaymentCertForm = React.forwardRef(({
 
         const toImport = contractItems
             .filter(it => !existingNums.has(it.item_num))
-            .map(it => ({
-                item_num: it.item_num,
-                specification: it.specification,
-                description: it.description,
-                unit: it.unit,
-                quantity: 0,
-                unit_price: it.unit_price,
-                fund_source: FUND_SOURCES[0],
-                has_material_on_site: false,
-                qty_from_mos: 0,
-                skip_retention: false
-            }));
+            .map(it => {
+                const is888 = (it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150";
+                return {
+                    item_num: it.item_num,
+                    specification: it.specification,
+                    description: it.description,
+                    unit: it.unit,
+                    quantity: 0,
+                    unit_price: it.unit_price,
+                    fund_source: FUND_SOURCES[0],
+                    has_material_on_site: false,
+                    qty_from_mos: 0,
+                    skip_retention: is888
+                };
+            });
 
         newCerts[certIdx].items = [...existingItems, ...toImport];
         setCerts(newCerts);
@@ -630,12 +637,12 @@ const PaymentCertForm = React.forwardRef(({
                 return {
                     ...rest,
                     project_id: projectId,
-                    liquidated_damages: parseFloat(c.liquidated_damages as any) || 0,
+                    liquidated_damages: parseFmtNum(c.liquidated_damages as any),
                     refund: parseFloat(c.refund as any) || 0,
-                    extra_retention: parseFloat(c.extra_retention as any) || 0,
-                    price_adjustment: parseFloat(c.price_adjustment as any) || 0,
-                    insurance_fines: parseFloat(c.insurance_fines as any) || 0,
-                    other_penalties: parseFloat(c.other_penalties as any) || 0,
+                    extra_retention: parseFmtNum(c.extra_retention as any),
+                    price_adjustment: parseFmtNum(c.price_adjustment as any),
+                    insurance_fines: parseFmtNum(c.insurance_fines as any),
+                    other_penalties: parseFmtNum(c.other_penalties as any),
                     retention_return_amount: parseFloat(c.retention_return_amount as any) || 0
                 };
             });
@@ -1000,36 +1007,34 @@ const PaymentCertForm = React.forwardRef(({
                     });
                     const r5 = (c.items || []).reduce((acc: number, it: any) => {
                         if (it.skip_retention === true || it.skip_retention === 'true') return acc;
-                        if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                         const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
                         return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
                     }, 0);
                     const val5 = c.skip_retention ? 0 : roundedAmt(r5, 2);
                     const returnAmt = roundedAmt(c.show_retention_return ? (parseFloat(c.retention_return_amount) || 0) : 0, 2);
-                    const extraRet = roundedAmt(parseFloat(c.extra_retention) || 0, 2);
+                    const extraRet = roundedAmt(parseFmtNum(c.extra_retention), 2);
 
                     const certRetentionDisplay = roundedAmt(val5 - returnAmt, 2);
 
                     const certNetChange = roundedAmt(
                         certWork - val5 + returnAmt + certMOSNet 
-                        - (parseFloat(c.liquidated_damages) || 0)
+                        - parseFmtNum(c.liquidated_damages)
                         - extraRet
-                        + (parseFloat(c.price_adjustment) || 0)
-                        - (parseFloat(c.insurance_fines) || 0)
-                        - (parseFloat(c.other_penalties) || 0), 2
+                        + parseFmtNum(c.price_adjustment)
+                        - parseFmtNum(c.insurance_fines)
+                        - parseFmtNum(c.other_penalties), 2
                     );
 
                     // Calcular la retención neta acumulada en tiempo real hasta la certificación actual
                     const getCertRetentionNet = (certObj: any) => {
                         const otherR5 = (certObj.items || []).reduce((acc: number, it: any) => {
                             if (it.skip_retention === true || it.skip_retention === 'true') return acc;
-                            if ((it.specification || "").toString().trim() === "888-150" || (it.item_num || "").toString().trim() === "888-150") return acc;
                             const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
                             return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
                         }, 0);
                         const otherVal5 = certObj.skip_retention ? 0 : roundedAmt(otherR5, 2);
                         const otherReturn = roundedAmt(certObj.show_retention_return ? (parseFloat(certObj.retention_return_amount) || 0) : 0, 2);
-                        const otherExtra = roundedAmt(parseFloat(certObj.extra_retention) || 0, 2);
+                        const otherExtra = roundedAmt(parseFmtNum(certObj.extra_retention), 2);
                         return roundedAmt(otherVal5 + otherExtra - otherReturn, 2);
                     };
 
@@ -1158,13 +1163,24 @@ const PaymentCertForm = React.forwardRef(({
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Daños Líquidos</label>
                                             <input
-                                                type="number"
+                                                type="text"
                                                 className="input-field text-xs font-bold text-red-600 bg-white dark:bg-slate-900 border-red-50 focus:border-red-200 h-8"
                                                 value={c.liquidated_damages ?? ""}
-                                                onChange={(e) => updateCert(certIdx, 'liquidated_damages', e.target.value)}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/,/g, '');
+                                                    if (/^-?\d*\.?\d*$/.test(raw)) updateCert(certIdx, 'liquidated_damages', raw);
+                                                }}
+                                                onFocus={(e) => {
+                                                    const raw = String(c.liquidated_damages ?? '').replace(/,/g, '');
+                                                    updateCert(certIdx, 'liquidated_damages', raw);
+                                                }}
+                                                onBlur={(e) => {
+                                                    const num = parseFloat(String(c.liquidated_damages).replace(/,/g, ''));
+                                                    if (!isNaN(num)) updateCert(certIdx, 'liquidated_damages', num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                                                }}
                                                 placeholder="0.00"
                                             />
-                                            {parseFloat(c.liquidated_damages) > 0 && (
+                                            {parseFloat(String(c.liquidated_damages).replace(/,/g, '')) > 0 && (
                                                 <input
                                                     type="text"
                                                     className="input-field text-[10px] w-full mt-1 bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-800 focus:border-red-300 h-7"
@@ -1177,13 +1193,24 @@ const PaymentCertForm = React.forwardRef(({
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Retención Extra</label>
                                             <input
-                                                type="number"
+                                                type="text"
                                                 className="input-field text-xs font-bold text-amber-700 bg-white dark:bg-slate-900 border-amber-50 focus:border-amber-200 h-8"
                                                 value={c.extra_retention ?? ""}
-                                                onChange={(e) => updateCert(certIdx, 'extra_retention', e.target.value)}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/,/g, '');
+                                                    if (/^-?\d*\.?\d*$/.test(raw)) updateCert(certIdx, 'extra_retention', raw);
+                                                }}
+                                                onFocus={(e) => {
+                                                    const raw = String(c.extra_retention ?? '').replace(/,/g, '');
+                                                    updateCert(certIdx, 'extra_retention', raw);
+                                                }}
+                                                onBlur={(e) => {
+                                                    const num = parseFloat(String(c.extra_retention).replace(/,/g, ''));
+                                                    if (!isNaN(num)) updateCert(certIdx, 'extra_retention', num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                                                }}
                                                 placeholder="0.00"
                                             />
-                                            {parseFloat(c.extra_retention) > 0 && (
+                                            {parseFloat(String(c.extra_retention).replace(/,/g, '')) > 0 && (
                                                 <input
                                                     type="text"
                                                     className="input-field text-[10px] w-full mt-1 bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800 focus:border-amber-300 h-7"
@@ -1196,13 +1223,24 @@ const PaymentCertForm = React.forwardRef(({
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Ajuste Precio (Clause)</label>
                                             <input
-                                                type="number"
+                                                type="text"
                                                 className="input-field text-xs font-bold text-blue-600 bg-white dark:bg-slate-900 border-blue-50 focus:border-blue-200 h-8"
                                                 value={c.price_adjustment ?? ""}
-                                                onChange={(e) => updateCert(certIdx, 'price_adjustment', e.target.value)}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/,/g, '');
+                                                    if (/^-?\d*\.?\d*$/.test(raw)) updateCert(certIdx, 'price_adjustment', raw);
+                                                }}
+                                                onFocus={(e) => {
+                                                    const raw = String(c.price_adjustment ?? '').replace(/,/g, '');
+                                                    updateCert(certIdx, 'price_adjustment', raw);
+                                                }}
+                                                onBlur={(e) => {
+                                                    const num = parseFloat(String(c.price_adjustment).replace(/,/g, ''));
+                                                    if (!isNaN(num)) updateCert(certIdx, 'price_adjustment', num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                                                }}
                                                 placeholder="0.00"
                                             />
-                                            {parseFloat(c.price_adjustment) !== 0 && c.price_adjustment && (
+                                            {parseFloat(String(c.price_adjustment).replace(/,/g, '')) !== 0 && c.price_adjustment && (
                                                 <input
                                                     type="text"
                                                     className="input-field text-[10px] w-full mt-1 bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800 focus:border-blue-300 h-7"
@@ -1215,13 +1253,24 @@ const PaymentCertForm = React.forwardRef(({
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Seguros / Multas</label>
                                             <input
-                                                type="number"
+                                                type="text"
                                                 className="input-field text-xs font-bold text-red-700 bg-white dark:bg-slate-900 border-red-50 focus:border-red-200 h-8"
                                                 value={c.insurance_fines ?? ""}
-                                                onChange={(e) => updateCert(certIdx, 'insurance_fines', e.target.value)}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/,/g, '');
+                                                    if (/^-?\d*\.?\d*$/.test(raw)) updateCert(certIdx, 'insurance_fines', raw);
+                                                }}
+                                                onFocus={(e) => {
+                                                    const raw = String(c.insurance_fines ?? '').replace(/,/g, '');
+                                                    updateCert(certIdx, 'insurance_fines', raw);
+                                                }}
+                                                onBlur={(e) => {
+                                                    const num = parseFloat(String(c.insurance_fines).replace(/,/g, ''));
+                                                    if (!isNaN(num)) updateCert(certIdx, 'insurance_fines', num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                                                }}
                                                 placeholder="0.00"
                                             />
-                                            {parseFloat(c.insurance_fines) > 0 && (
+                                            {parseFloat(String(c.insurance_fines).replace(/,/g, '')) > 0 && (
                                                 <input
                                                     type="text"
                                                     className="input-field text-[10px] w-full mt-1 bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-800 focus:border-red-300 h-7"
@@ -1234,13 +1283,24 @@ const PaymentCertForm = React.forwardRef(({
                                         <div className="space-y-1">
                                             <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Otras Penalidades</label>
                                             <input
-                                                type="number"
+                                                type="text"
                                                 className="input-field text-xs font-bold text-slate-700 bg-white dark:bg-slate-900 border-slate-100 focus:border-slate-200 h-8"
                                                 value={c.other_penalties ?? ""}
-                                                onChange={(e) => updateCert(certIdx, 'other_penalties', e.target.value)}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value.replace(/,/g, '');
+                                                    if (/^-?\d*\.?\d*$/.test(raw)) updateCert(certIdx, 'other_penalties', raw);
+                                                }}
+                                                onFocus={(e) => {
+                                                    const raw = String(c.other_penalties ?? '').replace(/,/g, '');
+                                                    updateCert(certIdx, 'other_penalties', raw);
+                                                }}
+                                                onBlur={(e) => {
+                                                    const num = parseFloat(String(c.other_penalties).replace(/,/g, ''));
+                                                    if (!isNaN(num)) updateCert(certIdx, 'other_penalties', num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                                                }}
                                                 placeholder="0.00"
                                             />
-                                            {parseFloat(c.other_penalties) > 0 && (
+                                            {parseFloat(String(c.other_penalties).replace(/,/g, '')) > 0 && (
                                                 <input
                                                     type="text"
                                                     className="input-field text-[10px] w-full mt-1 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-slate-300 h-7"

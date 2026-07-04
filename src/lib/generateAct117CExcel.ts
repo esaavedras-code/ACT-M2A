@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
-import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum } from './utils';
+import { formatDate, formatProjectNumber, getFederalSharePct, sortItemsNaturally, uniqueSortItems, formatItemNum, roundedAmt } from './utils';
 import { ACT117C_TEMPLATE_BASE64 } from './act117cTemplate';
 
 /**
@@ -92,8 +92,9 @@ export async function generateAct117CExcel(
             if (c.cert_num <= certNum) {
                 const itemsList = Array.isArray(c.items) ? c.items : (c.items?.list || []);
                 const cRet = itemsList.reduce((acc: number, it: any) => {
-                    if (it.skip_retention) return acc;
-                    return acc + ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0) * 0.05);
+                    if (it.skip_retention === true || it.skip_retention === 'true') return acc;
+                    const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
+                    return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
                 }, 0);
                 const returnAmount = parseFloat(c.retention_return_amount as any) || 0;
 

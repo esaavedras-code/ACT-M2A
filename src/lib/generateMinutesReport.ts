@@ -79,7 +79,13 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
         });
         
         totalGrossCertified = roundedAmt(totalGrossCertified + certGross, 2);
-        const retention = c.skip_retention ? 0 : roundedAmt(certGross * 0.05, 2);
+        const retention = c.skip_retention ? 0 : roundedAmt(
+            certItems.reduce((acc: number, it: any) => {
+                if (it.skip_retention === true || it.skip_retention === 'true') return acc;
+                const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
+                return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
+            }, 0), 2
+        );
         const net = roundedAmt(certGross - retention, 2);
         totalNetCertified = roundedAmt(totalNetCertified + net, 2);
 
