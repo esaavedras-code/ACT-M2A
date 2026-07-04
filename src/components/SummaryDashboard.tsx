@@ -393,7 +393,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 insuranceFines: totalInsuranceFines || 0,
                 otherPenalties: totalOtherPenalties || 0,
                 returned: totalRetentionReturned || 0,
-                total: roundedAmt(totalRetentionDeducted - totalRetentionReturned + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalPriceAdjustment - totalRefund, 2)
+                total: roundedAmt(totalRetentionDeducted - totalRetentionReturned + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalPriceAdjustment - totalRefund + liqDamages, 2)
             },
             cost: {
                 original: originalCost || 0,
@@ -657,23 +657,18 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="Retencion 5% ($)" value={formatCurrency(metrics.retention.fivePercent)} />
-                        {metrics.retention.extra > 0 && (
-                            <MetricRow
-                                label="Retención Extra ($)"
-                                value={formatCurrency(metrics.retention.extra)}
-                                color="text-amber-700 font-bold"
-                            />
-                        )}
+                        <MetricRow label="Retención Extra ($)" value={formatCurrency(metrics.retention.extra)} color={metrics.retention.extra > 0 ? "text-amber-700 font-bold" : ""} />
                         <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment > 0 ? "text-emerald-700 font-bold" : ""} />
                         <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
                         <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Reembolso" value={metrics.retention.returned > 0 ? `+${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
-                        {metrics.penalties.liquidated > 0 && (
-                            <MetricRow label="Reembolso (Retenc/Penal)" value={formatCurrency(metrics.penalties.dlqReimbursement)} color="text-emerald-700 font-bold" />
-                        )}
-                        <MetricRow label="Daños Liquidos (Dlq)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
+                        <MetricRow label="Daños Liquidos (DLQ) ($)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
+                        
+                        <hr className="my-1 border-slate-100 dark:border-slate-800" />
+                        <MetricRow label="Reembolso Retención ($)" value={metrics.retention.returned > 0 ? `+${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
+                        <MetricRow label="Reembolso Penalidades ($)" value={metrics.penalties.dlqReimbursement > 0 ? `+${formatCurrency(metrics.penalties.dlqReimbursement)}` : formatCurrency(0)} color="text-emerald-700" />
+
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Retenciones y penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
+                        <MetricRow label="Retenciones y Penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
                         <MetricRow label="Net Paid" value={formatCurrency(roundedAmt(metrics.cost.certTotal - metrics.retention.total, 2))} color="text-emerald-700 dark:text-emerald-400 font-bold" />
                     </div>
                 </div>
