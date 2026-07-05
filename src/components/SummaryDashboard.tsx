@@ -173,22 +173,24 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         items?.forEach((item: any) => {
             const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-            if (item.fund_source?.includes('ACT')) {
-                actProjected = roundedAmt(actProjected + amount, 2);
-            } else if (item.fund_source?.includes('FHWA')) {
-                fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
-            }
+            const fedPct = getFederalSharePct(proj, item);
+            const fhwaShare = roundedAmt(amount * (fedPct / 100), 2);
+            const actShare = roundedAmt(amount - fhwaShare, 2);
+            
+            actProjected = roundedAmt(actProjected + actShare, 2);
+            fhwaProjected = roundedAmt(fhwaProjected + fhwaShare, 2);
         });
 
         chos?.forEach((cho: any) => {
             if (cho.items && Array.isArray(cho.items)) {
                 cho.items.forEach((item: any) => {
                     const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-                    if (item.fund_source?.includes('ACT')) {
-                        actProjected = roundedAmt(actProjected + amount, 2);
-                    } else if (item.fund_source?.includes('FHWA')) {
-                        fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
-                    }
+                    const fedPct = getFederalSharePct(proj, item);
+                    const fhwaShare = roundedAmt(amount * (fedPct / 100), 2);
+                    const actShare = roundedAmt(amount - fhwaShare, 2);
+                    
+                    actProjected = roundedAmt(actProjected + actShare, 2);
+                    fhwaProjected = roundedAmt(fhwaProjected + fhwaShare, 2);
                 });
             }
         });
