@@ -394,6 +394,7 @@ export async function generateAct117CExcel(
             if (currentCert?.price_adjustment_notes) remarksArr.push(`Ajuste Precio: ${currentCert.price_adjustment_notes}`);
             if (currentCert?.insurance_fines_notes) remarksArr.push(`Seguros/Multas: ${currentCert.insurance_fines_notes}`);
             if (currentCert?.other_penalties_notes) remarksArr.push(`Otras Penalidades: ${currentCert.other_penalties_notes}`);
+            if (currentCert?.refund_notes) remarksArr.push(`Reembolso: ${currentCert.refund_notes}`);
 
             const fullRemarkText = remarksArr.join("\n");
 

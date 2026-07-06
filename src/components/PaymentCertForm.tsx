@@ -634,7 +634,7 @@ const PaymentCertForm = React.forwardRef(({
 
             // 2. Preparar los datos para upsert utilizando updatedCerts
             const updates = updatedCerts.map(c => {
-                const { created_at, ...rest } = c;
+                const { created_at, refund_notes, ...rest } = c;
                 return {
                     ...rest,
                     project_id: projectId,
