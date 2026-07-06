@@ -333,20 +333,24 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const certified = roundedAmt(actTotal + fhwaTotal, 2);
         const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : null;
-        const origEndDate = proj?.date_orig_completion ? new Date(proj.date_orig_completion + "T23:59:59") : null;
+        const origEndDate = proj?.date_orig_completion ? new Date(proj.date_orig_completion + "T00:00:00") : null;
         
         let totalDays = 0;
         if (startDate && origEndDate && !isNaN(startDate.getTime()) && !isNaN(origEndDate.getTime())) {
-            totalDays = Math.floor((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+            totalDays = Math.round((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
         }
 
         let timeEndDate = new Date();
-        if (proj?.date_substantial_completion) timeEndDate = new Date(proj.date_substantial_completion + "T23:59:59");
-        else if (proj?.date_real_completion) timeEndDate = new Date(proj.date_real_completion + "T23:59:59");
+        timeEndDate.setHours(0, 0, 0, 0);
+        if (proj?.date_substantial_completion) {
+            timeEndDate = new Date(proj.date_substantial_completion + "T00:00:00");
+        } else if (proj?.date_real_completion) {
+            timeEndDate = new Date(proj.date_real_completion + "T00:00:00");
+        }
 
         let usedDays = 0;
         if (startDate && !isNaN(startDate.getTime()) && !isNaN(timeEndDate.getTime())) {
-            usedDays = Math.floor((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+            usedDays = Math.round((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
         }
         if (usedDays < 0) usedDays = 0;
         
@@ -356,7 +360,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         let revisedDateStr = "";
         if (startDate && !isNaN(startDate.getTime()) && revisedDays > 0) {
             const revCalc = new Date(startDate.getTime());
-            revCalc.setDate(revCalc.getDate() + revisedDays);
+            revCalc.setDate(revCalc.getDate() + revisedDays - 1);
             revisedDateStr = revCalc.toISOString().split("T")[0];
         }
 
