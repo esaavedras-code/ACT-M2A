@@ -196,6 +196,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         });
 
         let lastCertAmount = 0;
+        let lastCertRetention = 0;
         let lastCertNum = 0;
         let lastCertDate = "";
         let totalRetentionDeducted = 0;
@@ -276,19 +277,23 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 }
             });
 
-            if ((cert.cert_num || 0) > lastCertNum) {
-                lastCertNum = cert.cert_num;
-                lastCertAmount = certAmount;
-                lastCertDate = cert.cert_date || "";
-            }
-
+            let certRetentionAmount = 0;
             if (!cert.skip_retention) {
                 certItems.forEach((item: any) => {
                     if (item.skip_retention !== true && item.skip_retention !== 'true') {
                         const itemAmt = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-                        totalRetentionDeducted = roundedAmt(totalRetentionDeducted + roundedAmt(itemAmt * 0.05, 2), 2);
+                        const retItem = roundedAmt(itemAmt * 0.05, 2);
+                        certRetentionAmount = roundedAmt(certRetentionAmount + retItem, 2);
+                        totalRetentionDeducted = roundedAmt(totalRetentionDeducted + retItem, 2);
                     }
                 });
+            }
+
+            if ((cert.cert_num || 0) > lastCertNum) {
+                lastCertNum = cert.cert_num;
+                lastCertAmount = certAmount;
+                lastCertDate = cert.cert_date || "";
+                lastCertRetention = certRetentionAmount;
             }
             if (cert.show_retention_return && cert.retention_return_amount) {
                 totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
@@ -392,6 +397,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             },
             retention: {
                 fivePercent: totalRetentionDeducted || 0,
+                lastRetentionAmount: lastCertRetention || 0,
                 extra: totalExtraRetention || 0,
                 priceAdjustment: totalPriceAdjustment || 0,
                 insuranceFines: totalInsuranceFines || 0,
@@ -661,6 +667,18 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="Retencion 5% ($)" value={formatCurrency(metrics.retention.fivePercent)} />
+                        {metrics.cost.lastCertDate && (
+                            <div className="ml-2 pl-2 border-l-2 border-violet-200 dark:border-violet-800 py-1 mb-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Last retention #{metrics.cost.lastCertNum}</span>
+                                    <span className="text-[10px] font-bold text-violet-600">{formatDate(metrics.cost.lastCertDate)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Monto</span>
+                                    <span className="text-[10px] font-bold text-violet-600">{formatCurrency(metrics.retention.lastRetentionAmount)}</span>
+                                </div>
+                            </div>
+                        )}
                         <MetricRow label="Retención Extra ($)" value={formatCurrency(metrics.retention.extra)} color={metrics.retention.extra > 0 ? "text-amber-700 font-bold" : ""} />
                         <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment > 0 ? "text-emerald-700 font-bold" : ""} />
                         <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
