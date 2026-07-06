@@ -219,19 +219,12 @@ export async function generateAct117CExcel(
             // El logo ya viene en la plantilla base64, no lo inyectamos de nuevo para evitar duplicados.
 
             // Header fields 1-8 (left column)
-            // Limpiar celda previa por si tenía valor
-            sheet.getCell('K2').value = '';
 
-            // Texto ACT-117C en la esquina superior derecha (columna P = última columna del header)
-            const actLabelCell = sheet.getCell('P2');
-            actLabelCell.value = 'ACT-117C';
-            actLabelCell.font = { bold: true, size: 10 };
-            actLabelCell.alignment = { horizontal: 'right', vertical: 'middle' };
-
-            const revLabelCell = sheet.getCell('P3');
-            revLabelCell.value = '(Rev. 03/2020)';
-            revLabelCell.font = { bold: false, size: 9 };
-            revLabelCell.alignment = { horizontal: 'right', vertical: 'middle' };
+            // Texto ACT-117C en la esquina superior derecha (merge L2:Q3, celda maestra = L2)
+            const actLabelCell = sheet.getCell('L2');
+            actLabelCell.value = 'ACT-117C / (Rev. 03/2020)';
+            actLabelCell.font = { bold: true, size: 11, color: { argb: 'FFFF0000' }, name: 'Calibri', family: 2 };
+            actLabelCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
             
             sheet.getCell('C7').value = 'Director Regional';
             sheet.getCell('C8').value = projData.name || '';
