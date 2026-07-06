@@ -14,6 +14,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         retention: { fivePercent: 0, extra: 0, priceAdjustment: 0, insuranceFines: 0, otherPenalties: 0, returned: 0, total: 0 },
         cost: {
             original: 0,
+            revisedTotal: 0,
             certTotal: 0,
             lastCertAmount: 0,
             lastCertNum: 0,
@@ -165,6 +166,21 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const pendingCHO = pendingCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
         const approvedDays = approvedCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
         const pendingDays = pendingCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
+
+        // Calcular el total revisado igual que ItemsForm: suma de (qty_contrato + qty_CHO) * precio_unitario por ítem
+        const getCHOQtyForItem = (itemNum: string) =>
+            approvedCHOs.reduce((total, cho) => {
+                if (!Array.isArray(cho.items)) return total;
+                return cho.items.reduce((sum: number, it: any) =>
+                    it.item_num === itemNum ? roundedAmt(sum + (parseFloat(it.quantity) || 0), 2) : sum
+                , total);
+            }, 0);
+
+        const revisedContractTotal = (items || []).reduce((sum, item) => {
+            const choQty = getCHOQtyForItem(item.item_num);
+            const totalQty = (parseFloat(item.quantity) || 0) + choQty;
+            return roundedAmt(sum + roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2), 2);
+        }, 0);
 
         let actTotal = 0;
         let fhwaTotal = 0;
@@ -411,12 +427,13 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             },
             cost: {
                 original: originalCost || 0,
+                revisedTotal: revisedContractTotal || 0,
                 certTotal: certified || 0,
                 lastCertAmount: lastCertAmount || 0,
                 lastCertNum: lastCertNum || 0,
                 lastCertDate: lastCertDate || "",
-                balance: roundedAmt(((originalCost || 0) + (approvedCHO || 0)) - (certified || 0), 2),
-                percentObra: ((originalCost || 0) + (approvedCHO || 0)) > 0 ? roundedAmt(((certified || 0) / ((originalCost || 0) + (approvedCHO || 0))) * 100, 2) : 0,
+                balance: roundedAmt((revisedContractTotal || 0) - (certified || 0), 2),
+                percentObra: (revisedContractTotal || 0) > 0 ? roundedAmt(((certified || 0) / (revisedContractTotal || 0)) * 100, 2) : 0,
                 actTotal: actTotal || 0,
                 fhwaTotal: fhwaTotal || 0,
                 actProjected: actProjected || 0,
@@ -556,7 +573,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
-                        <MetricRow label="Costo Ajustado" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" />
+                        <MetricRow label="Costo Ajustado" value={formatCurrency(metrics.cost.revisedTotal)} color="text-emerald-700 font-bold" />
                         <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" />
                         {metrics.cost.lastCertDate && (
                             <div className="ml-2 pl-2 border-l-2 border-emerald-200 dark:border-emerald-800 py-1">
