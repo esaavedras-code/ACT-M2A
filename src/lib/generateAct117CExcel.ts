@@ -354,8 +354,10 @@ export async function generateAct117CExcel(
             sheet.getCell('D45').value = personnelMap["Director Finanzas"] || '';         // 44. Approved for Payment
 
             // Percentages (45-46)
-            sheet.getCell('C48').value = `${percentWPValue.toFixed(2)}%`;                // 45. % Work Performed
-            sheet.getCell('C50').value = `${percentTimeValue.toFixed(2)}%`;              // 46. % Time
+            sheet.getCell('C48').value = '';
+            sheet.getCell('E48').value = `${percentWPValue.toFixed(2)}%`;                // 45. % Work Performed
+            sheet.getCell('C50').value = '';
+            sheet.getCell('E50').value = `${percentTimeValue.toFixed(2)}%`;              // 46. % Time
         };
 
         // Fill BACK sheet with data
