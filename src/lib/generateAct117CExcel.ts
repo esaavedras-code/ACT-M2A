@@ -393,13 +393,53 @@ export async function generateAct117CExcel(
             if (currentCert?.insurance_fines_notes) remarksArr.push(`Seguros/Multas: ${currentCert.insurance_fines_notes}`);
             if (currentCert?.other_penalties_notes) remarksArr.push(`Otras Penalidades: ${currentCert.other_penalties_notes}`);
 
-            let remarkRow = 23; // Assuming remarks box starts around row 22-23
-            remarksArr.forEach(r => {
-                const cell = sheet.getCell(`B${remarkRow}`);
-                cell.value = r;
-                cell.font = { size: 9, bold: false };
-                remarkRow++;
+            const fullRemarkText = remarksArr.join("\n");
+
+            // Desfusionar dinámicamente cualquier celda combinada que intersecte con B23:R35
+            const targetTop = 23;
+            const targetBottom = 35;
+            const targetLeft = 2; // B
+            const targetRight = 18; // R
+
+            const mergesToUnmerge: any[] = [];
+            // @ts-ignore
+            const activeMerges = sheet._merges || {};
+            for (const key of Object.keys(activeMerges)) {
+                const m = activeMerges[key];
+                const model = m.model || m;
+                if (model) {
+                    const { top, bottom, left, right } = model;
+                    const intersectRow = (top <= targetBottom && bottom >= targetTop);
+                    const intersectCol = (left <= targetRight && right >= targetLeft);
+                    if (intersectRow && intersectCol) {
+                        mergesToUnmerge.push(model);
+                    }
+                }
+            }
+
+            mergesToUnmerge.forEach((m) => {
+                try {
+                    sheet.unMergeCells(m.top, m.left, m.bottom, m.right);
+                } catch (e) {
+                    // Ignorar
+                }
             });
+
+            // Combinar el bloque completo B23:R35
+            try {
+                sheet.mergeCells(targetTop, targetLeft, targetBottom, targetRight);
+            } catch (e) {
+                console.warn("No se pudo combinar B23:R35, tal vez ya estén combinadas:", e);
+            }
+
+            const remarkCell = sheet.getCell('B23');
+            remarkCell.value = fullRemarkText;
+            remarkCell.font = { size: 9, bold: false };
+            remarkCell.alignment = {
+                vertical: 'top',
+                horizontal: 'left',
+                wrapText: true
+            };
 
             // 60. Distribution - leave as template
         };
