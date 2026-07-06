@@ -432,8 +432,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 lastCertAmount: lastCertAmount || 0,
                 lastCertNum: lastCertNum || 0,
                 lastCertDate: lastCertDate || "",
-                balance: roundedAmt((revisedContractTotal || 0) - (certified || 0), 2),
-                percentObra: (revisedContractTotal || 0) > 0 ? roundedAmt(((certified || 0) / (revisedContractTotal || 0)) * 100, 2) : 0,
+                balance: roundedAmt(((originalCost || 0) + (approvedCHO || 0)) - (certified || 0), 2),
+                percentObra: ((originalCost || 0) + (approvedCHO || 0)) > 0 ? roundedAmt(((certified || 0) / ((originalCost || 0) + (approvedCHO || 0))) * 100, 2) : 0,
                 actTotal: actTotal || 0,
                 fhwaTotal: fhwaTotal || 0,
                 actProjected: actProjected || 0,
@@ -573,7 +573,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
-                        <MetricRow label="Costo Ajustado" value={formatCurrency(metrics.cost.revisedTotal)} color="text-emerald-700 font-bold" />
+                        <MetricRow label="Costo Ajustado" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" />
                         <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" />
                         {metrics.cost.lastCertDate && (
                             <div className="ml-2 pl-2 border-l-2 border-emerald-200 dark:border-emerald-800 py-1">

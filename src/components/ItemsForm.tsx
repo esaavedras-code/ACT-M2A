@@ -279,14 +279,18 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 {readOnly ? 'Total del Contrato (Revisado):' : 'Total del Contrato Original:'}
                             </span>
                             <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-extrabold border border-emerald-100 dark:border-emerald-800/50">
-                                {formatCurrency(React.useMemo(() => items.reduce((sum, item) => {
+                                {formatCurrency(React.useMemo(() => {
+                                    const originalTotal = items.reduce((sum, item) =>
+                                        roundedAmt(sum + roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2), 2)
+                                    , 0);
                                     if (readOnly) {
-                                        const choQty = getCHOQty(item.item_num);
-                                        const totalQty = (parseFloat(item.quantity) || 0) + choQty;
-                                        return roundedAmt(sum + roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2), 2);
+                                        const approvedCHOTotal = chos
+                                            .filter((c: any) => c.doc_status === 'Aprobado')
+                                            .reduce((sum: number, c: any) => roundedAmt(sum + (parseFloat(c.proposed_change) || 0), 2), 0);
+                                        return roundedAmt(originalTotal + approvedCHOTotal, 2);
                                     }
-                                    return roundedAmt(sum + roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2), 2);
-                                }, 0), [items, chos, readOnly]))}
+                                    return originalTotal;
+                                }, [items, chos, readOnly]))}
                             </span>
                         </div>
                     </div>
