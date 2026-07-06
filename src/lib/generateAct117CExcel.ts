@@ -220,11 +220,48 @@ export async function generateAct117CExcel(
 
             // Header fields 1-8 (left column)
 
-            // Texto ACT-117C en la esquina superior derecha (merge L2:Q3, celda maestra = L2)
-            const actLabelCell = sheet.getCell('L2');
-            actLabelCell.value = 'ACT-117C / (Rev. 03/2020)';
-            actLabelCell.font = { bold: true, size: 11, color: { argb: 'FFFF0000' }, name: 'Calibri', family: 2 };
-            actLabelCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            // Ajustar merges del header para liberar columna K
+            // Deshacer merges originales que incluyen columna K y columnas L-Q
+            try { sheet.unMergeCells('A2', 'K2'); } catch (e) { /* ignore */ }
+            try { sheet.unMergeCells('A3', 'K3'); } catch (e) { /* ignore */ }
+            try { sheet.unMergeCells('L2', 'Q3'); } catch (e) { /* ignore */ }
+
+            // Re-crear merges del header sin incluir columna K
+            try { sheet.mergeCells('A2', 'J2'); } catch (e) { /* ignore */ }
+            try { sheet.mergeCells('A3', 'J3'); } catch (e) { /* ignore */ }
+
+            // Restaurar valores del header en las celdas maestras
+            const govCell = sheet.getCell('A2');
+            if (!govCell.value) {
+                govCell.value = 'Goverment of Puerto Rico';
+                govCell.font = { size: 12, color: { theme: 1 }, name: 'Calibri', family: 2 };
+                govCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            }
+            const deptCell = sheet.getCell('A3');
+            if (!deptCell.value) {
+                deptCell.value = 'Department of Transportation and Public Works';
+                deptCell.font = { size: 12, color: { theme: 1 }, name: 'Calibri', family: 2 };
+                deptCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            }
+
+            // Texto ACT-117C en la esquina superior derecha - columna K, letra negra
+            const actLabelCell = sheet.getCell('K2');
+            actLabelCell.value = 'ACT-117C';
+            actLabelCell.font = { bold: true, size: 10, color: { argb: 'FF000000' }, name: 'Calibri', family: 2 };
+            actLabelCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+            const revLabelCell = sheet.getCell('K3');
+            revLabelCell.value = '(Rev. 03/2020)';
+            revLabelCell.font = { bold: false, size: 9, color: { argb: 'FF000000' }, name: 'Calibri', family: 2 };
+            revLabelCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+            // Limpiar todas las celdas de columnas L a Q (columnas 12 a 17)
+            for (let row = 1; row <= 50; row++) {
+                for (let col = 12; col <= 17; col++) {
+                    const cell = sheet.getCell(row, col);
+                    cell.value = null;
+                }
+            }
             
             sheet.getCell('C7').value = 'Director Regional';
             sheet.getCell('C8').value = projData.name || '';
