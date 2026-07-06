@@ -219,6 +219,11 @@ export async function generateAct117CExcel(
             // El logo ya viene en la plantilla base64, no lo inyectamos de nuevo para evitar duplicados.
 
             // Header fields 1-8 (left column)
+            const rightCornerCell = sheet.getCell('K2');
+            rightCornerCell.value = 'ACT-117C\n(Rev. 03/2020)';
+            rightCornerCell.font = { bold: true, size: 10 };
+            rightCornerCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            
             sheet.getCell('C7').value = 'Director Regional';
             sheet.getCell('C8').value = projData.name || '';
             sheet.getCell('C9').value = contrData?.name || '';
@@ -317,21 +322,32 @@ export async function generateAct117CExcel(
         // Fill BACK sheet with data
         const fillBackSheet = (sheet: ExcelJS.Worksheet) => {
             // Liquidated Damages section
-            if (ldFromDate) {
-                sheet.getCell('H6').value = formatDate(ldFromDate);     // from date
-                sheet.getCell('K6').value = formatDate(ldToDate);       // to date
+            if (ldTotal > 0 || ldThisPeriod > 0 || ldPrevious > 0) {
+                if (ldFromDate) {
+                    sheet.getCell('H6').value = formatDate(ldFromDate);     // from date
+                    sheet.getCell('K6').value = formatDate(ldToDate);       // to date
+                }
+                sheet.getCell('C8').value = ldDays;                         // total days
+                sheet.getCell('F8').value = ldRatePerDay;                   // per day rate
+                sheet.getCell('N8').value = ldTotal;                        // 51. Total to Date
+                sheet.getCell('D10').value = ldPrevious;                    // 52. Previous
+                sheet.getCell('N10').value = ldThisPeriod;                  // 53. This Period
+            } else {
+                sheet.getCell('H6').value = '';
+                sheet.getCell('K6').value = '';
+                sheet.getCell('C8').value = '';
+                sheet.getCell('F8').value = '';
+                sheet.getCell('N8').value = '';
+                sheet.getCell('D10').value = '';
+                sheet.getCell('N10').value = '';
             }
-            sheet.getCell('C8').value = ldDays;                         // total days
-            sheet.getCell('F8').value = ldRatePerDay;                   // per day rate
-            sheet.getCell('N8').value = ldTotal;                        // 51. Total to Date
-            sheet.getCell('D10').value = ldPrevious;                    // 52. Previous
-            sheet.getCell('N10').value = ldThisPeriod;                  // 53. This Period
 
             // Reimbursement section - values from cert if present
             // 54-56 are typically left blank or manual
 
-            // 59. Remarks - leave as template
+            // 59. Remarks
             const remarksArr: string[] = [];
+            if (currentCert?.notes) remarksArr.push(currentCert.notes);
             if (currentCert?.liquidated_damages_notes) remarksArr.push(`Daños Líquidos: ${currentCert.liquidated_damages_notes}`);
             if (currentCert?.extra_retention_notes) remarksArr.push(`Retención Extra: ${currentCert.extra_retention_notes}`);
             if (currentCert?.price_adjustment_notes) remarksArr.push(`Ajuste Precio: ${currentCert.price_adjustment_notes}`);

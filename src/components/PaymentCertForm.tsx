@@ -1157,6 +1157,21 @@ const PaymentCertForm = React.forwardRef(({
                                             </span>
                                         </div>
                                     </div>
+
+                                    {/* Notas de la Certificación */}
+                                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/50">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1 flex items-center gap-1">
+                                            <FileText size={10} className="text-slate-400" />
+                                            Notas del Pago Mensual
+                                        </label>
+                                        <textarea
+                                            className="w-full input-field text-xs text-slate-600 dark:text-slate-300 bg-amber-50/40 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/50 focus:border-amber-300 resize-none leading-relaxed"
+                                            rows={2}
+                                            value={c.notes ?? ''}
+                                            onChange={(e) => updateCert(certIdx, 'notes', e.target.value)}
+                                            placeholder="Observaciones, referencias a memorandos, acuerdos u otras notas relevantes a este pago..."
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Nueva Sección de Deducciones y Ajustes */}
