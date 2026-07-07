@@ -223,6 +223,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         let totalOtherPenalties = 0;
         let totalRefund = 0;
         let totalLiquidatedDamagesCerts = 0;
+        let totalCertDirecto = 0;
 
         const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
             for (let i = currentCertIdx; i >= 0; i--) {
@@ -259,6 +260,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 fhwaTotal = roundedAmt(fhwaTotal + fhwaShare, 2);
                 actTotal = roundedAmt(actTotal + actShare, 2);
                 certAmount = roundedAmt(certAmount + amount, 2);
+                totalCertDirecto = roundedAmt(totalCertDirecto + amount, 2);
 
                 const manualDeductionQty = parseFloat(item.qty_from_mos) || 0;
                 const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseFloat(item.mos_invoice_total) > 0);
@@ -347,7 +349,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             return acc + (e.balance / pu);
         }, 0);
 
-        const certified = roundedAmt(actTotal + fhwaTotal, 2);
+        const certified = totalCertDirecto;
+        actTotal = roundedAmt(certified - fhwaTotal, 2);
         const startDate = proj?.date_project_start ? new Date(proj.date_project_start + "T00:00:00") : null;
         const origEndDate = proj?.date_orig_completion ? new Date(proj.date_orig_completion + "T00:00:00") : null;
         
