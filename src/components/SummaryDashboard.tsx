@@ -687,7 +687,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <Layers size={16} /> RETENCIONES Y OTROS
                     </div>
                     <div className="space-y-1">
-                        <MetricRow label="Retencion 5% ($)" value={formatCurrency(metrics.retention.fivePercent)} />
+                        <MetricRow label="Retencion 5% ($) (-)" value={formatCurrency(metrics.retention.fivePercent)} />
                         {metrics.cost.lastCertDate && (
                             <div className="ml-2 pl-2 border-l-2 border-violet-200 dark:border-violet-800 py-1 mb-1">
                                 <div className="flex justify-between items-center">
@@ -700,15 +700,15 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 </div>
                             </div>
                         )}
-                        <MetricRow label="Retención Extra ($)" value={formatCurrency(metrics.retention.extra)} color={metrics.retention.extra > 0 ? "text-amber-700 font-bold" : ""} />
-                        <MetricRow label="Ajuste de Precio ($)" value={formatCurrency(metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment > 0 ? "text-emerald-700 font-bold" : ""} />
-                        <MetricRow label="Multas Seguro ($)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Otras Penalidades ($)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Daños Liquidos (DLQ) ($)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
+                        <MetricRow label="Retención Extra ($) (-)" value={formatCurrency(metrics.retention.extra)} color={metrics.retention.extra > 0 ? "text-amber-700 font-bold" : ""} />
+                        <MetricRow label="Ajuste de Precio ($) (+)" value={formatCurrency(metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment > 0 ? "text-emerald-700 font-bold" : ""} />
+                        <MetricRow label="Multas Seguro ($) (-)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
+                        <MetricRow label="Otras Penalidades ($) (-)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
+                        <MetricRow label="Daños Liquidos (DLQ) ($) (-)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
                         
                         <hr className="my-1 border-slate-100 dark:border-slate-800" />
-                        <MetricRow label="Reembolso Retención ($)" value={metrics.retention.returned > 0 ? `+${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
-                        <MetricRow label="Reembolso Penalidades ($)" value={metrics.penalties.dlqReimbursement > 0 ? `+${formatCurrency(metrics.penalties.dlqReimbursement)}` : formatCurrency(0)} color="text-emerald-700" />
+                        <MetricRow label="Reembolso Retención ($) (+)" value={metrics.retention.returned > 0 ? `+${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
+                        <MetricRow label="Reembolso Penalidades ($) (+)" value={metrics.penalties.dlqReimbursement > 0 ? `+${formatCurrency(metrics.penalties.dlqReimbursement)}` : formatCurrency(0)} color="text-emerald-700" />
 
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="Retenciones y Penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />

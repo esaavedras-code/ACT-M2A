@@ -105,7 +105,7 @@ export default function Dashboard() {
             const { data: projectsData } = await projectsQuery;
             const { data: allItems } = await supabase.from("contract_items").select("project_id, quantity, unit_price");
             const { data: allChos } = await supabase.from("chos").select("project_id, proposed_change, doc_status");
-            const { data: allCerts } = await supabase.from("payment_certifications").select("project_id, items");
+            const { data: allCerts } = await supabase.from("payment_certifications").select("project_id, items, excluded");
 
             const projectSummaries = projectsData?.map((proj: any) => {
                 const projectItems = (allItems || []).filter(i => i.project_id === proj.id);
@@ -114,12 +114,13 @@ export default function Dashboard() {
                     .reduce((acc, c) => acc + (parseFloat(c.proposed_change as any) || 0), 0);
                 
                 let certified = 0;
-                (allCerts || []).filter(c => c.project_id === proj.id).forEach(cert => {
+                (allCerts || []).filter(c => c.project_id === proj.id && !c.excluded).forEach(cert => {
                     const cItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
                     cItems.forEach((item: any) => {
-                        certified += (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+                        certified += Math.round(((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0)) * 100) / 100;
                     });
                 });
+                certified = Math.round(certified * 100) / 100;
 
                 const adjustedCost = originalCost + approvedCHO;
                 
