@@ -200,19 +200,48 @@ export async function generateCCMLReport(
         const percentChangeCost = originalCost > 0 ? (totalMods / originalCost) : 0;
         const percentWork = totalRevisedCost > 0 ? (totalCertified / totalRevisedCost) : 0;
 
-        if (startDate) setVal('T8', startDate);
-        setVal('T9', totalDays > 0 ? totalDays : 0);
-        if (origEndDate) setVal('T10', origEndDate);
-        setVal('T11', approvedDays);
-        if (revEnd) setVal('T12', revEnd);
-        setVal('T13', roundedAmt(percentChangeDays * 100, 2) / 100);
-        setVal('T14', roundedAmt(percentTime * 100, 2) / 100);
-        setVal('T15', roundedAmt(percentChangeCost * 100, 2) / 100);
-        setVal('T16', roundedAmt(percentWork * 100, 2) / 100);
-        // T17: Estimated Completion (uses date_est_completion or fallback)
-        const estimatedCompletion = project.date_est_completion ? new Date(project.date_est_completion + "T12:00:00") : (subEndDate || revEnd);
-        if (estimatedCompletion) setVal('T17', estimatedCompletion);
-        if (adminEnd) setVal('T18', adminEnd);
+        // @UNIFICATION_RESUMEN_PACT
+        let summaryMetrics: any = null;
+        if (project?.id) {
+            try {
+                const res = await fetchProjectSummary(project.id);
+                summaryMetrics = res.metrics;
+            } catch (e) {
+                console.error("Error fetching project summary for CCML:", e);
+            }
+        }
+        
+        if (summaryMetrics) {
+            if (summaryMetrics.dates.start) setVal('T8', new Date(summaryMetrics.dates.start + "T12:00:00"));
+            setVal('T9', summaryMetrics.time.total > 0 ? summaryMetrics.time.total : 0);
+            if (summaryMetrics.dates.original) setVal('T10', new Date(summaryMetrics.dates.original + "T12:00:00"));
+            setVal('T11', summaryMetrics.chos.approvedDays);
+            if (summaryMetrics.dates.revised) setVal('T12', new Date(summaryMetrics.dates.revised + "T12:00:00"));
+            setVal('T13', roundedAmt(summaryMetrics.chos.percentDays / 100, 4) || 0);
+            setVal('T14', roundedAmt(summaryMetrics.time.percent / 100, 4) || 0);
+            setVal('T15', roundedAmt(summaryMetrics.chos.percentChange / 100, 4) || 0);
+            setVal('T16', roundedAmt(summaryMetrics.cost.percentObra / 100, 4) || 0);
+            
+            const estimatedCompletion = project.date_est_completion ? new Date(project.date_est_completion + "T12:00:00") : (summaryMetrics.dates.substantial ? new Date(summaryMetrics.dates.substantial + "T12:00:00") : (summaryMetrics.dates.revised ? new Date(summaryMetrics.dates.revised + "T12:00:00") : null));
+            if (estimatedCompletion) setVal('T17', estimatedCompletion);
+            
+            if (summaryMetrics.dates.administrative) setVal('T18', new Date(summaryMetrics.dates.administrative + "T12:00:00"));
+        } else {
+            if (startDate) setVal('T8', startDate);
+            setVal('T9', totalDays > 0 ? totalDays : 0);
+            if (origEndDate) setVal('T10', origEndDate);
+            setVal('T11', approvedDays);
+            if (revEnd) setVal('T12', revEnd);
+            setVal('T13', roundedAmt(percentChangeDays * 100, 2) / 100);
+            setVal('T14', roundedAmt(percentTime * 100, 2) / 100);
+            setVal('T15', roundedAmt(percentChangeCost * 100, 2) / 100);
+            setVal('T16', roundedAmt(percentWork * 100, 2) / 100);
+            // T17: Estimated Completion (uses date_est_completion or fallback)
+            const estimatedCompletion = project.date_est_completion ? new Date(project.date_est_completion + "T12:00:00") : (subEndDate || revEnd);
+            if (estimatedCompletion) setVal('T17', estimatedCompletion);
+            if (adminEnd) setVal('T18', adminEnd);
+        }
+        // @UNIFICATION_RESUMEN_PACT_END
 
         // --- Original Funds (31-63) ---
         let originalTotal = 0;
