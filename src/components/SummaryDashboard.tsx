@@ -482,9 +482,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col gap-2">
                 <div className="w-full flex justify-center mb-2">
-                    <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-50 border border-blue-100 rounded-xl">
-                        <Info size={14} className="text-blue-600 shrink-0" />
-                        <span className="text-sm font-black text-blue-600 uppercase">AQUI SE ENCUENTRA LA PRINCIPAL INFORMACION DEL PROYECTO</span>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-100 rounded-xl">
+                        <Info size={28} className="text-blue-600 shrink-0" />
+                        <span className="text-[28px] font-black text-blue-600 uppercase">AQUI SE ENCUENTRA LA PRINCIPAL INFORMACION DEL PROYECTO</span>
                     </div>
                 </div>
                 <div className="flex items-center justify-between">
