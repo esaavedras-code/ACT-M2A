@@ -2,6 +2,10 @@ import ExcelJS from 'exceljs';
 import { ccmlTemplateB64 } from './ccmlTemplate';
 import { formatDate, getFederalSharePct } from './utils';
 
+// @UNIFICATION_RESUMEN_PACT
+import { fetchProjectSummary } from './projectSummary';
+// @UNIFICATION_RESUMEN_PACT_END
+
 const translateDescription = (text: string) => {
     if (!text) return "";
     let t = text.toUpperCase();

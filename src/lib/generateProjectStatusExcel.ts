@@ -2,6 +2,10 @@ import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
 import { roundedAmt, formatDate, getFederalSharePct, formatProjectNumber } from './utils';
 
+// @UNIFICATION_RESUMEN_PACT
+import { fetchProjectSummary } from './projectSummary';
+// @UNIFICATION_RESUMEN_PACT_END
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function parseNum(val: any): number {
@@ -160,11 +164,12 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
     });
 
     // ── Cálculos financieros ──────────────────────────────────────────────
-    const originalCost = project.cost_original ||
-        allItems.reduce((a, it) => roundedAmt(a + roundedAmt((parseNum(it.quantity) || 0) * (parseNum(it.unit_price) || 0), 2), 2), 0);
+    // @UNIFICATION_RESUMEN_PACT
+    const { metrics } = await fetchProjectSummary(projectId);
 
-    const approvedCHOAmt = approvedCHOs.reduce((a, c) => roundedAmt(a + parseNum(c.proposed_change || '0'), 2), 0);
-    const revisedCost = roundedAmt(originalCost + approvedCHOAmt, 2);
+    const originalCost = metrics.cost.original;
+    const approvedCHOAmt = metrics.chos.approvedTotal;
+    const revisedCost = metrics.cost.revisedTotal;
 
     // Lo certificado por partida (para mostrar en tabla)
     const certByItem: Record<string, { qty: number; amt: number }> = {};
@@ -198,142 +203,49 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         totalRemAmt  = roundedAmt(totalRemAmt + rAmt, 2);
     });
 
-    // Retenciones, Ajustes, Multas, etc. acumulados (Lógica de PACT del SummaryDashboard de la UI)
-    let totalRetDeducted = 0;
-    let totalRetReturned = 0;
-    let totalExtraRetention = 0;
-    let totalPriceAdjustment = 0;
-    let totalInsuranceFines = 0;
-    let totalOtherPenalties = 0;
-    let totalRefund = 0;
+    // Estandarizar valores acumulados usando la sección Resumen
+    const totalRetDeducted = metrics.retention.fivePercent;
+    const totalRetReturned = metrics.retention.returned;
+    const totalExtraRetention = metrics.retention.extra;
+    const totalPriceAdjustment = metrics.retention.priceAdjustment;
+    const totalInsuranceFines = metrics.retention.insuranceFines;
+    const totalOtherPenalties = metrics.retention.otherPenalties;
+    const totalRefund = metrics.penalties.dlqReimbursement;
 
-    // Lógica para Material On Site (MOS) acumulado
+    // MOS unificado
+    const matNetPaid = metrics.cost.materialOnSite;
+    // Para conservar el flujo del reporte, calculamos matPaidTD sumando las facturas en las certificaciones
     let matPaidTD = 0;
-    let matPaidLast = 0;
-    let matNetPaid = 0;
-
-    const perItemMosBalance: Record<string, number> = {};
-    const allReferenceItems = [...allItems];
-    approvedCHOs.forEach(cho => {
-        const choItems = Array.isArray(cho.items) ? cho.items : (cho.items?.list || []);
-        choItems.forEach((it: any) => {
-            const exists = allReferenceItems.find(r => r.item_num === it.item_num);
-            if (!exists) allReferenceItems.push(it);
-        });
-    });
-
-    const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
-        for (let i = currentCertIdx; i >= 0; i--) {
-            if (!certsList[i] || certsList[i].excluded) continue;
-            const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
-            const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseNum(itx.mos_unit_price) > 0);
-            if (match) return parseNum(match.mos_unit_price);
-        }
-        return 0;
-    };
-
-    const sortedCertsAsc = [...allCerts].sort((a, b) => (a.cert_num || 0) - (b.cert_num || 0));
-    let lastCertNumVal = 0;
-    let lastCertMatAdded = 0;
-
-    sortedCertsAsc.forEach((cert, cIdx) => {
+    allCerts.forEach(cert => {
         if (cert.excluded) return;
-
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
-        let certMatAddedThisCert = 0;
-
         certItems.forEach((item: any) => {
-            const itemNum = item.item_num;
-            if (!itemNum) return;
-
-            const qty = parseNum(item.quantity) || 0;
-            const up = parseNum(item.unit_price) || 0;
-            const manualDeductionQty = parseNum(item.qty_from_mos) || 0;
             const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseNum(item.mos_invoice_total) > 0);
-            
-            const currentBalance = perItemMosBalance[itemNum] || 0;
-            const mosPU = getInvoicePU(sortedCertsAsc, itemNum, cIdx);
-            const price = mosPU > 0 ? mosPU : up;
-
-            const additionCostThisCert = hasAddition ? (parseNum(item.mos_invoice_total) || 0) : 0;
             if (hasAddition) {
-                certMatAddedThisCert = roundedAmt(certMatAddedThisCert + additionCostThisCert, 2);
-            }
-            
-            const balanceForDeduction = currentBalance + additionCostThisCert;
-            
-            let deductionQty = 0;
-            if (balanceForDeduction > 0.01) {
-                const availableQty = balanceForDeduction / (price || 1);
-                if (manualDeductionQty > 0) {
-                    deductionQty = Math.min(manualDeductionQty, availableQty);
-                } else if (qty > 0) {
-                    deductionQty = Math.min(qty, availableQty);
-                }
-            }
-
-            if (hasAddition) {
-                perItemMosBalance[itemNum] = roundedAmt(currentBalance + additionCostThisCert, 2);
-            }
-
-            if (deductionQty > 0) {
-                const cost = roundedAmt(deductionQty * price, 2);
-                const newBal = roundedAmt((perItemMosBalance[itemNum] || 0) - cost, 2);
-                perItemMosBalance[itemNum] = Math.max(0, newBal);
-            }
-
-            // Retención del 5%
-            if (!cert.skip_retention && !item.skip_retention) {
-                const itemAmt = roundedAmt(qty * up, 2);
-                totalRetDeducted = roundedAmt(totalRetDeducted + roundedAmt(itemAmt * 0.05, 2), 2);
+                matPaidTD = roundedAmt(matPaidTD + (parseNum(item.mos_invoice_total) || 0), 2);
             }
         });
-
-        matPaidTD = roundedAmt(matPaidTD + certMatAddedThisCert, 2);
-
-        if ((cert.cert_num || 0) > lastCertNumVal) {
-            lastCertNumVal = cert.cert_num;
-            lastCertMatAdded = certMatAddedThisCert;
-        }
-
-        if (cert.show_retention_return && cert.retention_return_amount) {
-            totalRetReturned = roundedAmt(totalRetReturned + parseNum(cert.retention_return_amount || '0'), 2);
-        }
-
-        totalExtraRetention = roundedAmt(totalExtraRetention + (parseNum(cert.extra_retention) || 0), 2);
-        totalPriceAdjustment = roundedAmt(totalPriceAdjustment + (parseNum(cert.price_adjustment) || 0), 2);
-        totalInsuranceFines = roundedAmt(totalInsuranceFines + (parseNum(cert.insurance_fines) || 0), 2);
-        totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseNum(cert.other_penalties) || 0), 2);
-        totalRefund = roundedAmt(totalRefund + (parseNum(cert.refund) || 0), 2);
     });
 
-    matNetPaid = roundedAmt(Object.values(perItemMosBalance).reduce((acc, bal) => acc + bal, 0), 2);
-    matPaidLast = lastCertMatAdded;
-
-    const retentionNet = roundedAmt(totalRetDeducted - totalRetReturned, 2);
-    const retentionTD = roundedAmt(totalRetDeducted - totalRetReturned + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalPriceAdjustment - totalRefund, 2);
-
-    // Última certificación
-    const sortedCerts = [...allCerts].filter(c => !c.excluded).sort((a, b) => (b.cert_num || 0) - (a.cert_num || 0));
-    const lastCert    = sortedCerts[0];
-    const lastCertAmt = lastCert
-        ? (() => {
-               const items2 = Array.isArray(lastCert.items) ? lastCert.items : (lastCert.items?.list || []);
-               return items2.reduce((a: number, ci: any) =>
-                   roundedAmt(a + roundedAmt((parseNum(ci.quantity) || 0) * (parseNum(ci.unit_price) || 0), 2), 2), 0);
-           })()
-        : 0;
-
-    // Retención y penalidades de la última certificación
-    let lastCertRetentionDeducted = 0;
-    if (lastCert && !lastCert.skip_retention) {
+    const lastCert = allCerts.filter(c => !c.excluded).sort((a, b) => (b.cert_num || 0) - (a.cert_num || 0))[0];
+    let lastCertMatAdded = 0;
+    if (lastCert) {
         const lastCertItems = Array.isArray(lastCert.items) ? lastCert.items : (lastCert.items?.list || []);
-        lastCertItems.forEach((ci: any) => {
-            if (!ci.skip_retention) {
-                lastCertRetentionDeducted = roundedAmt(lastCertRetentionDeducted + roundedAmt((parseNum(ci.quantity) || 0) * (parseNum(ci.unit_price) || 0) * 0.05, 2), 2);
+        lastCertItems.forEach((item: any) => {
+            const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseNum(item.mos_invoice_total) > 0);
+            if (hasAddition) {
+                lastCertMatAdded = roundedAmt(lastCertMatAdded + (parseNum(item.mos_invoice_total) || 0), 2);
             }
         });
     }
+    const matPaidLast = lastCertMatAdded;
+
+    const retentionNet = roundedAmt(totalRetDeducted - totalRetReturned, 2);
+    const retentionTD = metrics.retention.total;
+
+    // Última certificación
+    const lastCertAmt = metrics.cost.lastCertAmount;
+    const lastCertRetentionDeducted = metrics.retention.lastRetentionAmount;
     const lastCertRetentionReturned = lastCert && lastCert.show_retention_return ? (parseNum(lastCert.retention_return_amount) || 0) : 0;
     const lastCertRetentionTotal = roundedAmt(
         lastCertRetentionDeducted - lastCertRetentionReturned +
@@ -345,25 +257,16 @@ export async function generateProjectStatusExcel(projectId: string): Promise<Blo
         2
     );
 
-    // Daños líquidos
-    const startDate   = project.date_project_start   ? new Date(project.date_project_start   + 'T00:00:00') : null;
-    const origEndDate = project.date_orig_completion  ? new Date(project.date_orig_completion + 'T23:59:59') : null;
-    const approvedDays = approvedCHOs.reduce((a, c) => a + (c.time_extension_days || 0), 0);
-    let totalDays = 0;
-    if (startDate && origEndDate) {
-        totalDays = Math.floor((origEndDate.getTime() - startDate.getTime()) / 86400000);
-    }
-    const revisedDays = totalDays + approvedDays;
-    let timeEndDate = new Date();
-    if (project.date_substantial_completion) timeEndDate = new Date(project.date_substantial_completion + 'T23:59:59');
-    else if (project.date_real_completion)   timeEndDate = new Date(project.date_real_completion   + 'T23:59:59');
-    let usedDays = startDate ? Math.max(0, Math.floor((timeEndDate.getTime() - startDate.getTime()) / 86400000)) : 0;
-    const damAmt = parseNum(project.liquidated_damages_amount || '500');
-    const liqDamages = Math.max(0, (usedDays - revisedDays) * damAmt);
+    // Días y penalidades
+    const totalDays = metrics.time.total;
+    const revisedDays = metrics.time.revised;
+    const usedDays = metrics.time.used;
+    const liqDamages = metrics.penalties.liquidated;
 
     // Fecha del reporte
     const now = new Date();
     const reportDate = `${now.toLocaleDateString('en-US')} ${now.toLocaleTimeString('en-US')}`;
+    // @UNIFICATION_RESUMEN_PACT_END
 
     // ── Workbook ───────────────────────────────────────────────────────────
     const workbook  = new ExcelJS.Workbook();

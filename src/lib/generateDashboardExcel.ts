@@ -2,6 +2,10 @@ import ExcelJS from 'exceljs';
 import { supabase } from './supabase';
 import { formatDate, formatCurrency, roundedAmt, getFederalSharePct } from './utils';
 
+// @UNIFICATION_RESUMEN_PACT
+import { fetchProjectSummary } from './projectSummary';
+// @UNIFICATION_RESUMEN_PACT_END
+
 export async function generateDashboardExcel(projectId: string): Promise<Blob> {
     const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
     const { data: items } = await supabase.from('contract_items').select('*').eq('project_id', projectId);
@@ -71,181 +75,49 @@ export async function generateDashboardExcel(projectId: string): Promise<Blob> {
     };
 
     // --- CÁLCULOS DE MÉTRICAS ---
-    const originalCost = project.cost_original || items?.reduce((acc, item) => roundedAmt(acc + roundedAmt(item.quantity * item.unit_price, 2), 2), 0) || 0;
-    const approvedCHOs = chos?.filter(c => c.doc_status === 'Aprobado') || [];
-    const approvedCHOAmount = approvedCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
-    const totalRevisedCost = originalCost + approvedCHOAmount;
+    // @UNIFICATION_RESUMEN_PACT
+    const { metrics } = await fetchProjectSummary(projectId);
 
-    // Fondos Proyectados
-    let actProjected = 0;
-    let fhwaProjected = 0;
+    const originalCost = metrics.cost.original;
+    const approvedCHOAmount = metrics.chos.approvedTotal;
+    const totalRevisedCost = metrics.cost.revisedTotal;
 
-    items?.forEach((item: any) => {
-        const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-        if (item.fund_source?.includes('ACT')) {
-            actProjected = roundedAmt(actProjected + amount, 2);
-        } else if (item.fund_source?.includes('FHWA')) {
-            fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
-        }
-    });
+    const actProjected = metrics.cost.actProjected;
+    const fhwaProjected = metrics.cost.fhwaProjected;
 
-    chos?.forEach((cho: any) => {
-        if (cho.items && Array.isArray(cho.items)) {
-            cho.items.forEach((item: any) => {
-                const amount = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-                if (item.fund_source?.includes('ACT')) {
-                    actProjected = roundedAmt(actProjected + amount, 2);
-                } else if (item.fund_source?.includes('FHWA')) {
-                    fhwaProjected = roundedAmt(fhwaProjected + amount, 2);
-                }
-            });
-        }
-    });
+    const actTotal = metrics.cost.actTotal;
+    const fhwaTotal = metrics.cost.fhwaTotal;
 
-    // Fondos Certificados y Retenciones
-    let actTotal = 0, fhwaTotal = 0;
-    let totalRetentionDeducted = 0;
-    let totalRetentionReturned = 0;
-    let totalExtraRetention = 0;
-    let totalPriceAdjustment = 0;
-    let totalInsuranceFines = 0;
-    let totalOtherPenalties = 0;
-    let totalRefund = 0;
+    const mosTotal = metrics.cost.materialOnSite;
+    const totalCertified = metrics.cost.certTotal;
+    const percentObra = metrics.cost.percentObra;
 
-    const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
-        for (let i = currentCertIdx; i >= 0; i--) {
-            if (!certsList[i]) continue;
-            const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
-            const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
-            if (match) return parseFloat(match.mos_unit_price);
-        }
-        return 0;
-    };
+    const totalDays = metrics.time.total;
+    const approvedDays = metrics.chos.approvedDays;
+    const revisedDays = metrics.time.revised;
 
-    const perItemMosBalance: Record<string, number> = {};
+    const usedDays = metrics.time.used;
+    const percentTime = metrics.time.percent;
+    const adminDateStr = metrics.dates.administrative;
 
-    certs?.forEach((cert, cIdx) => {
-        const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
-        certItems.forEach((item: any) => {
-            const itemNum = item.item_num;
-            if (!itemNum) return;
+    const liqDamages = metrics.penalties.liquidated;
+    const totalRetentionNet = metrics.retention.total;
 
-            const qty = parseFloat(item.quantity) || 0;
-            const up = parseFloat(item.unit_price) || 0;
-            const amount = roundedAmt(qty * up, 2);
-            
-            const fedPct = getFederalSharePct(project, item);
-            const fShare = roundedAmt(amount * (fedPct / 100), 2);
-            fhwaTotal = roundedAmt(fhwaTotal + fShare, 2);
-            actTotal = roundedAmt(actTotal + (amount - fShare), 2);
+    const totalRetentionDeducted = metrics.retention.fivePercent;
+    const totalRetentionReturned = metrics.retention.returned;
 
-            const manualDeductionQty = parseFloat(item.qty_from_mos) || 0;
-            const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseFloat(item.mos_invoice_total) > 0);
-            
-            const currentBalance = perItemMosBalance[itemNum] || 0;
-            const mosPU = getInvoicePU(certs || [], itemNum, cIdx);
-            const price = mosPU > 0 ? mosPU : up;
+    const pendingAmount = metrics.chos.pendingTotal;
+    const pendingDays = metrics.chos.pendingDays;
+    const totalCHOsDays = metrics.chos.totalDays;
+    const totalCHOsAmount = metrics.chos.total;
 
-            // Incluir la adición de esta misma cert al balance disponible para deducción
-            const additionCostThisCert = hasAddition ? (parseFloat(item.mos_invoice_total) || 0) : 0;
-            const balanceForDeduction = currentBalance + additionCostThisCert;
-            
-            let deductionQty = 0;
-            if (balanceForDeduction > 0.01) {
-                const availableQty = balanceForDeduction / (price || 1);
-                if (manualDeductionQty > 0) {
-                    deductionQty = Math.min(manualDeductionQty, availableQty);
-                } else if (qty > 0) {
-                    deductionQty = Math.min(qty, availableQty);
-                }
-            }
-
-            if (hasAddition) {
-                const cost = parseFloat(item.mos_invoice_total) || 0;
-                perItemMosBalance[itemNum] = roundedAmt(currentBalance + cost, 2);
-            }
-
-            if (deductionQty > 0) {
-                const cost = roundedAmt(deductionQty * price, 2);
-                const newBal = roundedAmt((perItemMosBalance[itemNum] || 0) - cost, 2);
-                perItemMosBalance[itemNum] = Math.max(0, newBal);
-            }
-        });
-
-        if (!cert.skip_retention) {
-            certItems.forEach((item: any) => {
-                if (!item.skip_retention) {
-                    const itemAmt = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-                    totalRetentionDeducted = roundedAmt(totalRetentionDeducted + roundedAmt(itemAmt * 0.05, 2), 2);
-                }
-            });
-        }
-        if (cert.show_retention_return && cert.retention_return_amount) {
-            totalRetentionReturned = roundedAmt(totalRetentionReturned + (parseFloat(cert.retention_return_amount) || 0), 2);
-        }
-
-        totalExtraRetention = roundedAmt(totalExtraRetention + (parseFloat(cert.extra_retention) || 0), 2);
-        totalPriceAdjustment = roundedAmt(totalPriceAdjustment + (parseFloat(cert.price_adjustment) || 0), 2);
-        totalInsuranceFines = roundedAmt(totalInsuranceFines + (parseFloat(cert.insurance_fines) || 0), 2);
-        totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseFloat(cert.other_penalties) || 0), 2);
-        totalRefund = roundedAmt(totalRefund + (parseFloat(cert.refund) || 0), 2);
-    });
-
-    const mosTotal = roundedAmt(Object.values(perItemMosBalance).reduce((acc, balance) => roundedAmt(acc + balance, 2), 0), 2);
-    const totalCertified = actTotal + fhwaTotal;
-    const percentObra = totalRevisedCost > 0 ? roundedAmt((totalCertified / totalRevisedCost) * 100, 2) : 0;
-
-    // Fechas y Tiempos
-    const startDate = project.date_project_start ? new Date(project.date_project_start + "T00:00:00") : null;
-    const origEndDate = project.date_orig_completion ? new Date(project.date_orig_completion + "T23:59:59") : null;
-    const approvedDays = approvedCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
-    
-    let totalDays = 0;
-    if (startDate && origEndDate) {
-        totalDays = Math.floor((origEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
-    }
-    const revisedDays = totalDays + approvedDays;
-
-    let timeEndDate = new Date();
-    if (project.date_substantial_completion) timeEndDate = new Date(project.date_substantial_completion + "T23:59:59");
-    else if (project.date_real_completion) timeEndDate = new Date(project.date_real_completion + "T23:59:59");
-
-    let usedDays = 0;
-    if (startDate) {
-        usedDays = Math.floor((timeEndDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
-    }
-    if (usedDays < 0) usedDays = 0;
-    const percentTime = revisedDays > 0 ? roundedAmt((usedDays / revisedDays) * 100, 2) : 0;
-
-    let adminDateStr = "";
-    const baseAdminDate = project.date_rev_completion || project.date_orig_completion;
-    if (baseAdminDate) {
-        const revDate = new Date(baseAdminDate + "T23:59:59");
-        if (!isNaN(revDate.getTime())) {
-            revDate.setFullYear(revDate.getFullYear() + 2);
-            adminDateStr = revDate.toISOString().split("T")[0];
-        }
-    }
-
-    const damAmt = parseFloat(project.liquidated_damages_amount || "500");
-    const liqDamages = Math.max(0, (usedDays - revisedDays) * damAmt);
-    const totalRetentionNet = roundedAmt(totalRetentionDeducted - totalRetentionReturned + totalExtraRetention + totalInsuranceFines + totalOtherPenalties - totalPriceAdjustment - totalRefund, 2);
-
-    // CHOs en Trámite y totales
-    const pendingCHOs = chos?.filter(c => c.doc_status === 'En trámite') || [];
-    const pendingAmount = pendingCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
-    const pendingDays = pendingCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
-    const totalCHOsDays = approvedDays + pendingDays;
-    const totalCHOsAmount = approvedCHOAmount + pendingAmount;
-
-    // Liquidación
-    const totalItemsCount = items?.length || 0;
-    const adminCount = project.liquidation_data?.admin_signed_count || 0;
-    const contractorCount = project.liquidation_data?.contractor_signed_count || 0;
-    const liquidatorCount = project.liquidation_data?.liquidator_signed_count || 0;
-    const totalSigned = adminCount + contractorCount + liquidatorCount;
-    const liqPercent = totalItemsCount > 0 ? Math.round((totalSigned / (totalItemsCount * 3)) * 100) : 0;
-    const federalDocs = project.liquidation_data?.federal_docs || [];
+    const totalItemsCount = metrics.liquidation.totalItems;
+    const adminCount = metrics.liquidation.adminSignedCount;
+    const contractorCount = metrics.liquidation.contractorSignedCount;
+    const liquidatorCount = metrics.liquidation.liquidatorSignedCount;
+    const liqPercent = metrics.liquidation.percent;
+    const federalDocs = metrics.liquidation.federalDocs;
+    // @UNIFICATION_RESUMEN_PACT_END
 
     // --- CONSTRUCCIÓN ---
     worksheet.mergeCells('B2:F4');
