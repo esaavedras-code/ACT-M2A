@@ -6,7 +6,7 @@ import {
     FolderOpen, Folder, FileText, Download, Upload, Trash2,
     Search, ChevronRight, ChevronDown, RefreshCw, File,
     Image as ImageIcon, Music, Video, Archive, AlertCircle, Info,
-    Eye, X, ExternalLink, Loader2
+    Eye, X, ExternalLink, Loader2, FolderPlus
 } from "lucide-react";
 
 // --- Secciones del proyecto ----------------------------------------
@@ -76,6 +76,8 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     const [isDragOver, setIsDragOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dropZoneRef = useRef<HTMLDivElement>(null);
+    const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+    const [newFolderName, setNewFolderName] = useState("");
 
     useEffect(() => {
         if (projectId) fetchDocs();
@@ -231,11 +233,18 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     };
 
     const totalFiles = docs.length;
+    
+    const customSectionsFromDocs = Array.from(new Set(docs.map(d => d.section))).filter(s => s && !PROJECT_SECTIONS.find(ps => ps.id === s));
+    const allSections = [
+        ...PROJECT_SECTIONS,
+        ...customSectionsFromDocs.map(s => ({ id: s, label: s, bucket: "project-documents" }))
+    ];
+    
     const availableSections = userRole === 'F' 
-        ? PROJECT_SECTIONS.filter(s => !["general", "presentations", "logs", "inspection", "force", "liquidation", "ccml", "update-tables", "personnel"].includes(s.id)) 
+        ? allSections.filter(s => !["general", "presentations", "logs", "inspection", "force", "liquidation", "ccml", "update-tables", "personnel"].includes(s.id)) 
         : userRole === 'E'
-        ? PROJECT_SECTIONS.filter(s => s.id === "photos" || s.id === "logs")
-        : PROJECT_SECTIONS;
+        ? allSections.filter(s => s.id === "photos" || s.id === "logs")
+        : allSections;
 
     const isPreviewable = (fileName: string) => {
         if (!fileName) return false;
@@ -245,7 +254,32 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
 
     if (!projectId) return <div className="p-10 font-bold">Guarde el proyecto.</div>;
 
-    const currentSectionDocs = getDocsForSection(selectedSection);
+    const currentSectionDocs = getDocsForSection(selectedSection).filter(d => d.file_name !== ".keep");
+
+    const handleCreateFolder = async () => {
+        if (!newFolderName.trim() || !projectId) return;
+        const folderId = newFolderName.trim();
+        if (allSections.find(s => s.label.toLowerCase() === folderId.toLowerCase() || s.id.toLowerCase() === folderId.toLowerCase())) {
+            alert("Ya existe un folder con este nombre.");
+            return;
+        }
+        try {
+            const { error } = await supabase.from("project_documents").insert({
+                project_id: projectId,
+                file_name: ".keep",
+                doc_type: folderId,
+                section: folderId,
+                storage_path: null,
+            });
+            if (error) throw error;
+            await fetchDocs();
+            setNewFolderName("");
+            setShowNewFolderModal(false);
+            setSelectedSection(folderId);
+        } catch(err) {
+            alert("Error creando folder");
+        }
+    };
 
     return (
         <div className="w-full flex flex-col h-[800px] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
@@ -306,6 +340,17 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                                 </button>
                             );
                         })}
+                    </div>
+                    
+                    {/* Add Folder Button */}
+                    <div className="p-3 mt-2 border-t border-slate-200 dark:border-slate-800">
+                        <button 
+                            onClick={() => setShowNewFolderModal(true)}
+                            className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-semibold"
+                        >
+                            <FolderPlus size={16} className="text-emerald-500" />
+                            Nuevo Folder
+                        </button>
                     </div>
                 </div>
 
@@ -430,6 +475,30 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                     </div>
                 )}
             </div>
+
+            {/* Modal for New Folder */}
+            {showNewFolderModal && (
+                <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] shadow-2xl p-6 border border-slate-100 dark:border-slate-800">
+                        <h2 className="text-xl font-black mb-4 flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                            <FolderPlus className="text-emerald-500" /> Nuevo Folder
+                        </h2>
+                        <input 
+                            type="text" 
+                            placeholder="Nombre del folder..." 
+                            value={newFolderName}
+                            onChange={(e) => setNewFolderName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6 font-medium text-slate-800 dark:text-slate-200"
+                            autoFocus
+                        />
+                        <div className="flex gap-3">
+                            <button onClick={() => setShowNewFolderModal(false)} className="flex-1 py-3 px-4 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all">Cancelar</button>
+                            <button onClick={handleCreateFolder} className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md">Crear</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

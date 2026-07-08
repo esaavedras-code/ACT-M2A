@@ -1055,7 +1055,14 @@ const PaymentCertForm = React.forwardRef(({
                                         <div className="flex items-center gap-6">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Certificación #</label>
-                                                <div className={`text-2xl font-black ${c.excluded ? 'text-slate-300 line-through' : 'text-primary'}`}>#{c.cert_num}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`text-2xl font-black ${c.excluded ? 'text-slate-300 line-through' : 'text-primary'}`}>#{c.cert_num}</div>
+                                                    {c.is_paid && (
+                                                        <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" title="Esta certificación ya fue pagada al contratista">
+                                                            <CheckCircle size={10} /> Pagada
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="flex flex-col gap-1">
                                                 <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Fecha Cert.</label>
@@ -1078,8 +1085,20 @@ const PaymentCertForm = React.forwardRef(({
                                                 onChange={(e) => updateCert(certIdx, 'wp_up_to', e.target.value)}
                                             />
                                         </div>
-                                        {/* Checkbox para excluir esta certificación de los resultados */}
-                                        <label className="flex items-center gap-2 cursor-pointer group mt-1" title="Al marcar, esta certificación no se incluirá en los totales y resultados">
+                                        <div className="flex flex-col gap-2 mt-1">
+                                            {/* Checkbox para indicar que ya se pagó al contratista */}
+                                            <label className="flex items-center gap-2 cursor-pointer group" title="Marcar si esta certificación ya fue pagada al contratista">
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-slate-300 text-emerald-500 focus:ring-emerald-400 w-4 h-4"
+                                                    checked={!!c.is_paid}
+                                                    onChange={(e) => updateCert(certIdx, 'is_paid', e.target.checked)}
+                                                />
+                                                <span className={`text-[10px] font-black uppercase tracking-wider leading-none transition-colors ${c.is_paid ? 'text-emerald-600' : 'text-slate-400 group-hover:text-emerald-500'}`}>Ya se pagó al contratista</span>
+                                            </label>
+
+                                            {/* Checkbox para excluir esta certificación de los resultados */}
+                                            <label className="flex items-center gap-2 cursor-pointer group" title="Al marcar, esta certificación no se incluirá en los totales y resultados">
                                             <input
                                                 type="checkbox"
                                                 className="rounded border-slate-300 text-red-500 focus:ring-red-400 w-4 h-4"

@@ -44,13 +44,19 @@ type ComplianceRecord = {
     assigned_items?: any[];
 };
 
-function isExpired(date_expiry: string): boolean {
+function isExpired(date_expiry: string, date_substantial_completion?: string | null): boolean {
     if (!date_expiry || date_expiry === "N/A" || date_expiry.toUpperCase() === "N/A") return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    
+    // Regla A y B
+    const referenceDate = date_substantial_completion ? new Date(date_substantial_completion + "T00:00:00") : new Date();
+    if (!date_substantial_completion) {
+        referenceDate.setHours(0, 0, 0, 0);
+    }
+    
     const expiry = new Date(date_expiry + "T00:00:00");
     if (isNaN(expiry.getTime())) return false;
-    return expiry < today;
+    
+    return expiry < referenceDate;
 }
 
 const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function ComplianceForm({ projectId, numAct, onDirty, onSaved }, ref) {
@@ -61,6 +67,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadTargetIdx, setUploadTargetIdx] = useState<number | null>(null);
     const [activeSubcontractModal, setActiveSubcontractModal] = useState<number | null>(null);
+    const [dateSubstantialCompletion, setDateSubstantialCompletion] = useState<string | null>(null);
 
     const checkUpcomingExpiries = async (docs: any[]) => {
         const registrationStr = getLocalStorageItem("pact_registration");
@@ -148,6 +155,14 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     };
 
     const fetchCompliance = async () => {
+        // Fetch project date_substantial_completion
+        if (projectId) {
+            const { data: projectData } = await supabase.from("projects").select("date_substantial_completion").eq("id", projectId).single();
+            if (projectData?.date_substantial_completion) {
+                setDateSubstantialCompletion(projectData.date_substantial_completion);
+            }
+        }
+
         const { data } = await supabase.from("labor_compliance").select("*").eq("project_id", projectId);
         if (data && data.length > 0) {
             setRecords(data.map(r => ({
@@ -438,7 +453,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                             {records.map((r, idx) => {
                                 if (r.is_sub_doc) return null; // Root items only here
 
-                                const expired = isExpired(r.date_expiry);
+                                const expired = isExpired(r.date_expiry, dateSubstantialCompletion);
                                 const isLast = idx === records.length - 1;
                                 const isSubcontracts = r.doc_type === "Subcontratos";
                                 const isOtros = r.doc_type === "Otros";
@@ -721,7 +736,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                 !records.slice(idx + 1, sidx).some(m => !m.is_sub_doc);
                                             if (!isActualChild) return null;
 
-                                            const subExpired = isExpired(sub.date_expiry);
+                                            const subExpired = isExpired(sub.date_expiry, dateSubstantialCompletion);
                                             const subIsOtros = sub.doc_type === "Otros";
 
                                             return (

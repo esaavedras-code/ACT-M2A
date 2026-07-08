@@ -1640,7 +1640,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded shadow-sm py-2 px-3 text-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                                    className="w-full border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 rounded shadow-sm py-2 px-3 text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
                                     style={getFieldStyle('date_rev_completion')}
                                     value={formData.date_rev_completion || ""}
                                     readOnly

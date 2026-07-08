@@ -376,6 +376,18 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                 </div>
 
+                <div className="card border-t-4 border-t-blue-500">
+                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-4 uppercase text-xs tracking-wider">
+                        <Layers size={16} /> MATERIAL ON SITE
+                    </div>
+                    <div className="space-y-3">
+                        <MetricRow label="Balance Pagado Hasta la Fecha" value={formatCurrency(metrics.cost.mosHistoricalPaid)} color="text-slate-950 dark:text-white font-bold" />
+                        <MetricRow label="Último Material On Site Pagado" value={formatCurrency(metrics.cost.mosLastPaid)} color="text-emerald-700" />
+                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
+                        <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.materialOnSite)} color="text-blue-800 dark:text-blue-400 font-black text-sm" />
+                    </div>
+                </div>
+
                 <div className="card border-t-4 border-t-violet-500">
                     <div className="flex items-center gap-2 text-violet-700 font-bold mb-4 uppercase text-xs tracking-wider">
                         <Layers size={16} /> RETENCIONES Y OTROS

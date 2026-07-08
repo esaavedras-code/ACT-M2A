@@ -70,6 +70,7 @@ import {
     generateProjectStatusReportLogic,
     formatDate
 } from "@/lib/reportLogic";
+import { generateCertificationsSummaryExcel } from "@/lib/generateCertificationsSummary";
 
 import ACT45Form from "@/components/ACT45Form";
 import ACT96Form from "@/components/ACT96Form";
@@ -1048,6 +1049,28 @@ function ReportesContent() {
                                 try {
                                     await generateCertReportLogic(projectId, ids, 'pdf');
                                     setStatus("Reporte(s) generado(s).");
+                                } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
+                            }
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'cert-resumen-excel',
+                            label: 'Resumen de Certificaciones',
+                            description: 'Reporte consolidado de todas las certificaciones de pago y su estado financiero.',
+                            icon: <FileSpreadsheet size={18} className="text-emerald-700" />,
+                            onExcel: async () => {
+                                try {
+                                    const blob = await generateCertificationsSummaryExcel(projectId);
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `Resumen_Certificaciones_${projectId}.xlsx`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                    setStatus("Reporte generado.");
                                 } catch (e: any) { setStatus(`Error: ${e.message}`); } finally { setLoading(false); }
                             }
                         }}

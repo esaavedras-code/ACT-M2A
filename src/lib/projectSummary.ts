@@ -45,6 +45,8 @@ export interface ProjectSummaryMetrics {
         actProjected: number;
         fhwaProjected: number;
         materialOnSite: number;
+        mosHistoricalPaid: number;
+        mosLastPaid: number;
         mosBalances: { item_num: string, balance: number, mosPU?: number }[];
         mosTotalQty: number;
         priceAdjustment: number;
@@ -173,6 +175,9 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
     };
 
     const perItemMosBalance: Record<string, number> = {};
+    let mosHistoricalPaid = 0;
+    let mosLastPaid = 0;
+    let maxCertNumMos = 0;
 
     certs?.forEach((cert: any, cIdx: number) => {
         if (cert.excluded) return;
@@ -229,6 +234,24 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
                 perItemMosBalance[itemNum] = Math.max(0, newBal);
             }
         });
+
+        // Track mos additions
+        let currentCertMosAdded = 0;
+        certItems.forEach((item: any) => {
+            const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseFloat(item.mos_invoice_total) > 0);
+            if (hasAddition) {
+                currentCertMosAdded += parseFloat(item.mos_invoice_total) || 0;
+            }
+        });
+
+        if (currentCertMosAdded > 0) {
+            mosHistoricalPaid = roundedAmt(mosHistoricalPaid + currentCertMosAdded, 2);
+        }
+
+        if ((cert.cert_num || 0) >= maxCertNumMos) {
+            maxCertNumMos = cert.cert_num || 0;
+            mosLastPaid = currentCertMosAdded;
+        }
 
         let certRetentionAmount = 0;
         if (!cert.skip_retention) {
@@ -377,6 +400,8 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
             actProjected: actProjected || 0,
             fhwaProjected: fhwaProjected || 0,
             materialOnSite: mosTotal,
+            mosHistoricalPaid: mosHistoricalPaid,
+            mosLastPaid: mosLastPaid,
             mosBalances: mosEntries,
             mosTotalQty: mosTotalQty,
             priceAdjustment: totalPriceAdjustment || 0,
