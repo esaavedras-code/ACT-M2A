@@ -284,7 +284,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <MetricRow label="Balance actual (remaining)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
                         <MetricRow
                             label="Balance certs. pagadas"
-                            value={formatCurrency(metrics.cost.paidCertsBalance)}
+                            value={formatCurrency(metrics.cost.paidCertsTotal)}
                             color="text-emerald-700 dark:text-emerald-400 font-bold"
                         />
                         
