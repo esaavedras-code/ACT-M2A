@@ -320,39 +320,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             </div>
                         </div>
 
-                        <div className="mt-2">
-                            <button 
-                                onClick={() => setShowMOSDetails(!showMOSDetails)}
-                                className="w-full flex justify-between items-center p-2 rounded bg-amber-50 dark:bg-amber-950/20 text-amber-700 hover:bg-amber-100 transition-colors"
-                            >
-                                <span className="text-[10px] font-black uppercase">Material on Site (MOS):</span>
-                                <span className="text-sm font-black">{formatCurrency(metrics.cost.materialOnSite)}</span>
-                            </button>
-                                                     {showMOSDetails && metrics.cost.mosBalances.length > 0 && (
-                                <div className="mt-2 p-2 bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/30 rounded shadow-inner space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
-                                    {metrics.cost.mosBalances.map((e: any, i: number) => {
-                                        const it = (internalContractItems || []).find((ci: any) => ci.item_num === e.item_num);
-                                        const pu = e.mosPU || it?.unit_price || 1;
-                                        const qty = e.balance / pu;
-                                        const colorClass = e.balance > 0 ? "text-red-600" : "text-slate-900 dark:text-white";
-                                        
-                                        return (
-                                            <div key={i} className="flex justify-between items-center text-[10px] font-bold py-1 border-b border-amber-50 dark:border-amber-900/10 last:border-0">
-                                                <div className="flex gap-2">
-                                                    <span className={`w-12 ${colorClass}`}>Item {e.item_num}</span>
-                                                    <span className={`${e.balance > 0 ? 'text-red-500/70' : 'text-slate-500/70'} font-black`}>({formatNumber(qty, 2)} {it?.unit || 'UN'})</span>
-                                                </div>
-                                                <span className={`font-black ${colorClass}`}>{formatCurrency(e.balance)}</span>
-                                            </div>
-                                        );
-                                    })}
-                                    <div className="pt-2 mt-1 border-t border-amber-100 flex justify-between items-center text-[10px] font-black text-amber-900">
-                                        <span>TOTAL CANTIDADES:</span>
-                                        <span>{formatNumber(metrics.cost.mosTotalQty, 2)} UN</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+
                     </div>
                 </div>
 
