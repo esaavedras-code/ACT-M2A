@@ -111,8 +111,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             const expiry = new Date(doc.date_expiry + "T00:00:00");
             if (isNaN(expiry.getTime())) return false;
 
-            // Si el proyecto tiene aprobada la terminación sustancial, los documentos que expiran después de la terminación sustancial no son considerados vencidos
-            if (proj?.reached_substantial_completion && proj?.date_substantial_completion) {
+            // Si el proyecto tiene fecha de terminación sustancial, los documentos que expiran después de la terminación sustancial no son considerados vencidos
+            if (proj?.date_substantial_completion) {
                 const substantialDate = new Date(proj.date_substantial_completion + "T00:00:00");
                 if (!isNaN(substantialDate.getTime()) && expiry > substantialDate) {
                     return false;
@@ -246,9 +246,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="Comienzo" value={formatDate(metrics.dates.start)} />
-                        <MetricRow label="Original" value={formatDate(metrics.dates.original)} />
-                        <MetricRow label="Revisada" value={formatDate(metrics.dates.revised)} color="text-blue-700 font-bold" />
-                        <MetricRow label="Sustancial" value={formatDate(metrics.dates.substantial)} />
+                        <MetricRow label="Terminacion Original" value={formatDate(metrics.dates.original)} />
+                        <MetricRow label="Terminacion Revisada" value={formatDate(metrics.dates.revised)} color="text-blue-700 font-bold" />
+                        <MetricRow label="Terminacion Sustancial" value={formatDate(metrics.dates.substantial)} />
                         <MetricRow label="Terminacion Administrativa" value={formatDate(metrics.dates.administrative)} color="text-amber-800 font-bold" />
                         <MetricRow label="FMIS End Date" value={formatDate(metrics.dates.fmis)} color="text-emerald-700" />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
