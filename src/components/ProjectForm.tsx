@@ -1641,7 +1641,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                                 <input
                                     type="date"
                                     className="w-full border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 rounded shadow-sm py-2 px-3 text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                    style={getFieldStyle('date_rev_completion')}
+                                    style={{ ...getFieldStyle('date_rev_completion'), backgroundColor: '#FFFFFF' }}
                                     value={formData.date_rev_completion || ""}
                                     readOnly
                                     disabled

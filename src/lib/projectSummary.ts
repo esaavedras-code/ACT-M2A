@@ -50,6 +50,8 @@ export interface ProjectSummaryMetrics {
         mosBalances: { item_num: string, balance: number, mosPU?: number }[];
         mosTotalQty: number;
         priceAdjustment: number;
+        paidCertsTotal: number;
+        paidCertsBalance: number;
     };
     chos: {
         approvedTotal: number;
@@ -162,6 +164,7 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
     let totalRefund = 0;
     let totalLiquidatedDamagesCerts = 0;
     let totalCertDirecto = 0;
+    let paidCertsTotal = 0;
 
     const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
         for (let i = currentCertIdx; i >= 0; i--) {
@@ -281,6 +284,11 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
         totalOtherPenalties = roundedAmt(totalOtherPenalties + (parseFloat(cert.other_penalties) || 0), 2);
         totalRefund = roundedAmt(totalRefund + (parseFloat(String(cert.refund ?? '').replace(/,/g, '')) || 0), 2);
         totalLiquidatedDamagesCerts = roundedAmt(totalLiquidatedDamagesCerts + (parseFloat(String(cert.liquidated_damages ?? '').replace(/,/g, '')) || 0), 2);
+
+        // Sumar el monto de esta certificación si ya fue pagada al contratista
+        if (cert.is_paid) {
+            paidCertsTotal = roundedAmt(paidCertsTotal + certAmount, 2);
+        }
     });
 
     const mosEntries = Object.entries(perItemMosBalance)
@@ -405,6 +413,8 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
             mosBalances: mosEntries,
             mosTotalQty: mosTotalQty,
             priceAdjustment: totalPriceAdjustment || 0,
+            paidCertsTotal: paidCertsTotal || 0,
+            paidCertsBalance: roundedAmt(((originalCost || 0) + (approvedCHO || 0)) - (paidCertsTotal || 0), 2),
         },
         chos: {
             approvedTotal: approvedCHO || 0,

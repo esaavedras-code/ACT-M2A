@@ -160,7 +160,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const { data: certs } = await supabase
             .from("payment_certifications")
-            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund, excluded, liquidated_damages")
+            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund, excluded, liquidated_damages, is_paid")
             .eq("project_id", projectId)
             .order("cert_num", { ascending: true });
 
@@ -282,6 +282,11 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             </div>
                         )}
                         <MetricRow label="Balance actual (remaining)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
+                        <MetricRow
+                            label="Balance certs. pagadas"
+                            value={formatCurrency(metrics.cost.paidCertsBalance)}
+                            color="text-emerald-700 dark:text-emerald-400 font-bold"
+                        />
                         
                         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                             <div className="flex justify-between items-center mb-1">
