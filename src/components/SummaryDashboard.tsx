@@ -382,7 +382,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-3">
                         <MetricRow label="Balance Pagado Hasta la Fecha" value={formatCurrency(metrics.cost.mosHistoricalPaid)} color="text-slate-950 dark:text-white font-bold" />
-                        <MetricRow label="Último Material On Site Pagado" value={formatCurrency(metrics.cost.mosLastPaid)} color="text-emerald-700" />
+                        <MetricRow label="Total MOS Ejecutado" value={formatCurrency(metrics.cost.mosHistoricalPaid - metrics.cost.materialOnSite)} color="text-emerald-700" />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.materialOnSite)} color="text-blue-800 dark:text-blue-400 font-black text-sm" />
                     </div>
