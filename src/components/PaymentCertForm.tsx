@@ -1107,6 +1107,7 @@ const PaymentCertForm = React.forwardRef(({
                                             />
                                             <span className={`text-[10px] font-black uppercase tracking-wider leading-none transition-colors ${c.excluded ? 'text-red-500' : 'text-slate-400 group-hover:text-red-500'}`}>Excluir de resultados</span>
                                         </label>
+                                        </div>
                                     </div>
 
                                     {/* Totales Principales */}
