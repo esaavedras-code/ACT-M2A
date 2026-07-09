@@ -1087,8 +1087,10 @@ export const generateMissingMfgReportLogic = async (projectId: string, format: '
     const { project, items, certs, mfgCerts } = await fetchAllReportData(projectId);
     if (!items) return;
 
+    const norm = (num: any) => num?.toString().replace(/^0+/, '').trim().toUpperCase();
+
     const missingCerts = items.filter((b: any) => b.requires_mfg_cert).map((b: any) => {
-        const itemMfgCerts = mfgCerts?.filter((c: any) => c.item_id === b.id) || [];
+        const itemMfgCerts = mfgCerts?.filter((c: any) => c.item_id === b.id || (c.item_num && norm(c.item_num) === norm(b.item_num))) || [];
         const mfgQty = itemMfgCerts.reduce((acc: number, c: any) => acc + (parseFloat(c.quantity) || 0), 0);
         let baseCertQty = certs?.reduce((acc: number, c: any) => {
             const itemsList = Array.isArray(c.items) ? c.items : (c.items?.list || []);

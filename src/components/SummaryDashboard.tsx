@@ -167,7 +167,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const { data: mfgCertsData } = await supabase
             .from("manufacturing_certificates")
-            .select("item_id, _item_num, quantity, date_approved, status")
+            .select("item_id, item_num, quantity, cert_date, validation_status")
             .eq("project_id", projectId);
 
         // @UNIFICATION_RESUMEN_PACT
@@ -180,7 +180,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         const mfgAlerts: any[] = [];
         const mfgCerts = (mfgCertsData || []).map(cert => {
             const contractItem = allReferenceItems.find((it: any) => it.id === cert.item_id);
-            return { ...cert, _item_num: contractItem?.item_num ?? cert._item_num ?? null };
+            return { ...cert, _item_num: contractItem?.item_num ?? cert.item_num ?? null };
         });
         const certsList = certs || [];
         const unpaidCerts = certsList.filter(c => !c.is_paid);
@@ -220,23 +220,39 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                     const isLS = baseItem.unit?.toUpperCase() === 'LS';
                     let available = 0;
+                    let qtyToPay = parseFloat(it.quantity) || 0;
+                    let missing = 0;
+                    let displayUnit = it.unit;
+                    let isInsufficient = false;
+
                     if (isLS) {
                         const mfgQtyLimit = parseFloat(baseItem.mfg_cert_qty) || 1;
                         const totalMfgApprovedScaled = totalMfgApproved * (100 / mfgQtyLimit);
-                        available = totalMfgApprovedScaled - paidInPrevious;
+                        const availablePct = totalMfgApprovedScaled - paidInPrevious;
+                        
+                        if (qtyToPay > availablePct + 0.001) {
+                            isInsufficient = true;
+                            const missingScaled = qtyToPay - availablePct;
+                            missing = missingScaled * (mfgQtyLimit / 100);
+                            available = totalMfgApproved - (paidInPrevious * (mfgQtyLimit / 100));
+                            qtyToPay = qtyToPay * (mfgQtyLimit / 100);
+                            displayUnit = 'CM';
+                        }
                     } else {
                         available = totalMfgApproved - paidInPrevious;
+                        if (qtyToPay > available + 0.001) {
+                            isInsufficient = true;
+                            missing = qtyToPay - available;
+                        }
                     }
 
-                    const qtyToPay = parseFloat(it.quantity) || 0;
-                    // Allow small float tolerance
-                    if (qtyToPay > available + 0.001) {
+                    if (isInsufficient) {
                         return {
                             item_num: it.item_num,
-                            unit: it.unit,
+                            unit: displayUnit,
                             qtyToPay,
                             available,
-                            missing: qtyToPay - available
+                            missing
                         };
                     }
                     return null;
