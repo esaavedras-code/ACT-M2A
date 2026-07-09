@@ -60,6 +60,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     const [liveIndicator, setLiveIndicator] = useState(false);
     const [showMOSDetails, setShowMOSDetails] = useState(false);
     const [internalContractItems, setInternalContractItems] = useState<any[]>([]);
+    const [mfgBlockedAlerts, setMfgBlockedAlerts] = useState<any[]>([]);
 
     useEffect(() => {
         setMounted(true);
@@ -164,10 +165,89 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             .eq("project_id", projectId)
             .order("cert_num", { ascending: true });
 
+        const { data: mfgCertsData } = await supabase
+            .from("manufacturing_certificates")
+            .select("item_id, _item_num, quantity, date_approved, status")
+            .eq("project_id", projectId);
+
         // @UNIFICATION_RESUMEN_PACT
         const calculatedMetrics = calculateSummaryMetrics(proj, items || [], chos || [], certs || []);
         setMetrics(calculatedMetrics);
         // @UNIFICATION_RESUMEN_PACT_END
+
+        // Calculate missing manufacturing certificates for unpaid certifications
+        const normalizeItemNum = (num: any) => num?.toString().replace(/^0+/, '').trim().toUpperCase();
+        const mfgAlerts: any[] = [];
+        const mfgCerts = mfgCertsData || [];
+        const certsList = certs || [];
+        const unpaidCerts = certsList.filter(c => !c.is_paid);
+
+        if (unpaidCerts.length > 0) {
+            unpaidCerts.forEach(cert => {
+                const certIdx = certsList.findIndex(c => c.cert_num === cert.cert_num);
+                const itemsInCert = cert.items || [];
+                const blockedItems = itemsInCert.map((it: any) => {
+                    const itemNumStr = normalizeItemNum(it.item_num);
+                    if (!itemNumStr) return null;
+                    
+                    const baseItem = allReferenceItems.find(r => normalizeItemNum(r.item_num) === itemNumStr);
+                    if (!baseItem || !baseItem.requires_mfg_cert) return null;
+
+                    const matchingItemIds = new Set(
+                        allReferenceItems
+                            .filter(r => normalizeItemNum(r.item_num) === itemNumStr)
+                            .map(r => r.id)
+                    );
+
+                    let totalMfgApproved = 0;
+                    mfgCerts.forEach((m: any) => {
+                        if (matchingItemIds.has(m.item_id)) {
+                            totalMfgApproved += parseFloat(m.quantity) || 0;
+                        } else if (m._item_num && normalizeItemNum(m._item_num) === itemNumStr) {
+                            totalMfgApproved += parseFloat(m.quantity) || 0;
+                        }
+                    });
+
+                    let paidInPrevious = 0;
+                    for (let i = 0; i < certIdx; i++) {
+                        const prevItems = certsList[i]?.items || [];
+                        const match = prevItems.find((p: any) => normalizeItemNum(p.item_num) === itemNumStr);
+                        if (match) paidInPrevious += parseFloat(match.quantity) || 0;
+                    }
+
+                    const isLS = baseItem.unit?.toUpperCase() === 'LS';
+                    let available = 0;
+                    if (isLS) {
+                        const mfgQtyLimit = parseFloat(baseItem.mfg_cert_qty) || 1;
+                        const totalMfgApprovedScaled = totalMfgApproved * (100 / mfgQtyLimit);
+                        available = totalMfgApprovedScaled - paidInPrevious;
+                    } else {
+                        available = totalMfgApproved - paidInPrevious;
+                    }
+
+                    const qtyToPay = parseFloat(it.quantity) || 0;
+                    // Allow small float tolerance
+                    if (qtyToPay > available + 0.001) {
+                        return {
+                            item_num: it.item_num,
+                            unit: it.unit,
+                            qtyToPay,
+                            available,
+                            missing: qtyToPay - available
+                        };
+                    }
+                    return null;
+                }).filter(Boolean);
+
+                if (blockedItems.length > 0) {
+                    mfgAlerts.push({
+                        cert_num: cert.cert_num,
+                        items: blockedItems
+                    });
+                }
+            });
+        }
+        setMfgBlockedAlerts(mfgAlerts);
     };
 
     if (!mounted) return null;
@@ -239,7 +319,40 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {mfgBlockedAlerts.length > 0 && (
+                <div className="flex flex-col gap-3 p-4 rounded-xl border bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <AlertCircle className="text-orange-600 dark:text-orange-400 shrink-0 animate-pulse" size={22} />
+                        <div className="flex-1">
+                            <p className="text-sm font-black text-orange-900 dark:text-orange-200">
+                                🚨 ¡CERTIFICADOS DE MANUFACTURA INSUFICIENTES!
+                            </p>
+                        </div>
+                    </div>
+                    <div className="pl-9 space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+                        {mfgBlockedAlerts.map((alert, idx) => (
+                            <div key={idx} className="space-y-1.5">
+                                <p className="text-xs font-black text-orange-800 dark:text-orange-300">
+                                    En la Certificación de Pago #{alert.cert_num}:
+                                </p>
+                                {alert.items.map((it: any, i: number) => (
+                                    <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-[10px] font-bold text-orange-700 dark:text-orange-400">
+                                        <span className="bg-orange-100 dark:bg-orange-900/40 px-1.5 py-0.5 rounded font-black whitespace-nowrap">Partida {it.item_num}</span>
+                                        <span className="leading-tight">
+                                            Se quiere pagar <span className="font-black">{formatNumber(it.qtyToPay)} {it.unit}</span>, pero solo hay <span className="font-black">{formatNumber(it.available)} {it.unit}</span> con CM aprobado.
+                                        </span>
+                                        <span className="bg-orange-200 dark:bg-orange-800 px-1.5 py-0.5 rounded font-black text-orange-800 dark:text-orange-200 whitespace-nowrap sm:ml-auto">
+                                            Faltan {formatNumber(it.missing)} {it.unit}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="card border-t-4 border-t-blue-500">
                     <div className="flex items-center gap-2 text-blue-700 font-bold mb-4 uppercase text-xs tracking-wider">
                         <Clock size={16} /> FECHAS CLAVE
@@ -329,6 +442,18 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                 </div>
 
+                <div className="card border-t-4 border-t-blue-500">
+                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-4 uppercase text-xs tracking-wider">
+                        <Layers size={16} /> MATERIAL ON SITE
+                    </div>
+                    <div className="space-y-3">
+                        <MetricRow label="Balance Pagado Hasta la Fecha" value={formatCurrency(metrics.cost.mosHistoricalPaid)} color="text-slate-950 dark:text-white font-bold" />
+                        <MetricRow label="Total MOS Ejecutado" value={formatCurrency(metrics.cost.mosHistoricalPaid - metrics.cost.materialOnSite)} color="text-emerald-700" />
+                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
+                        <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.materialOnSite)} color="text-blue-800 dark:text-blue-400 font-black text-sm" />
+                    </div>
+                </div>
+
                 <div className="card border-t-4 border-t-amber-500">
                     <div className="flex items-center gap-2 text-amber-700 font-bold mb-4 uppercase text-xs tracking-wider">
                         <PieChart size={16} /> CHANGE ORDERS
@@ -346,18 +471,6 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
                         <MetricRow label="% de Cambio (Costo)" value={`${metrics.chos.percentChange}%`} color="text-amber-800 font-bold" />
                         <MetricRow label="% de Cambio (Dias)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" />
-                    </div>
-                </div>
-
-                <div className="card border-t-4 border-t-blue-500">
-                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-4 uppercase text-xs tracking-wider">
-                        <Layers size={16} /> MATERIAL ON SITE
-                    </div>
-                    <div className="space-y-3">
-                        <MetricRow label="Balance Pagado Hasta la Fecha" value={formatCurrency(metrics.cost.mosHistoricalPaid)} color="text-slate-950 dark:text-white font-bold" />
-                        <MetricRow label="Total MOS Ejecutado" value={formatCurrency(metrics.cost.mosHistoricalPaid - metrics.cost.materialOnSite)} color="text-emerald-700" />
-                        <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.materialOnSite)} color="text-blue-800 dark:text-blue-400 font-black text-sm" />
                     </div>
                 </div>
 
