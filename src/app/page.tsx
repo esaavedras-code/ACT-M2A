@@ -166,14 +166,13 @@ export default function Dashboard() {
                     }
                 });
 
-                // Solo certs sin pagar
+                // Todas las certs (pagadas o no) para detectar CM faltantes
                 const projectCerts = (allCerts || []).filter((c: any) => c.project_id === proj.id && !c.excluded);
                 const certsList = projectCerts;
-                const unpaidCerts = certsList.filter((c: any) => !c.is_paid);
-                if (unpaidCerts.length === 0) return;
+                if (certsList.length === 0) return;
 
                 let blockedCount = 0;
-                unpaidCerts.forEach((cert: any) => {
+                certsList.forEach((cert: any) => {
                     const certIdx = certsList.findIndex((c: any) => c.cert_num === cert.cert_num);
                     const itemsInCert = cert.items || [];
                     itemsInCert.forEach((it: any) => {

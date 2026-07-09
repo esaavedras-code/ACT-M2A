@@ -175,7 +175,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         setMetrics(calculatedMetrics);
         // @UNIFICATION_RESUMEN_PACT_END
 
-        // Calculate missing manufacturing certificates for unpaid certifications
+        // Calculate missing manufacturing certificates for ALL certifications (paid or unpaid)
         const normalizeItemNum = (num: any) => num?.toString().replace(/^0+/, '').trim().toUpperCase();
         const mfgAlerts: any[] = [];
         const mfgCerts = (mfgCertsData || []).map(cert => {
@@ -183,10 +183,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             return { ...cert, _item_num: contractItem?.item_num ?? cert.item_num ?? null };
         });
         const certsList = certs || [];
-        const unpaidCerts = certsList.filter(c => !c.is_paid);
 
-        if (unpaidCerts.length > 0) {
-            unpaidCerts.forEach(cert => {
+        if (certsList.length > 0) {
+            certsList.forEach(cert => {
                 const certIdx = certsList.findIndex(c => c.cert_num === cert.cert_num);
                 const itemsInCert = cert.items || [];
                 const blockedItems = itemsInCert.map((it: any) => {
