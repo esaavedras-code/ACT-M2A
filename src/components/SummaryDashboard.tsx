@@ -178,7 +178,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
         // Calculate missing manufacturing certificates for unpaid certifications
         const normalizeItemNum = (num: any) => num?.toString().replace(/^0+/, '').trim().toUpperCase();
         const mfgAlerts: any[] = [];
-        const mfgCerts = mfgCertsData || [];
+        const mfgCerts = (mfgCertsData || []).map(cert => {
+            const contractItem = allReferenceItems.find((it: any) => it.id === cert.item_id);
+            return { ...cert, _item_num: contractItem?.item_num ?? cert._item_num ?? null };
+        });
         const certsList = certs || [];
         const unpaidCerts = certsList.filter(c => !c.is_paid);
 
