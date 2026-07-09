@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { Plus, Search, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign, Download, Info } from "lucide-react";
+import { Plus, Search, ArrowRight, Activity, FileText, User, ShieldCheck, DollarSign, Download, Info, AlertTriangle } from "lucide-react";
 import { formatCurrency, getLocalStorageItem } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -16,6 +16,8 @@ export default function Dashboard() {
         recentProjects: [] as any[],
         pendingRequests: 0
     });
+    // Mapa: projectId -> número de ítems con CM faltantes en certs sin pagar
+    const [cmAlertsByProject, setCmAlertsByProject] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -103,9 +105,10 @@ export default function Dashboard() {
             // Si es 'A', no añadimos filtro de origin para que vea todos.
             
             const { data: projectsData } = await projectsQuery;
-            const { data: allItems } = await supabase.from("contract_items").select("project_id, quantity, unit_price");
-            const { data: allChos } = await supabase.from("chos").select("project_id, proposed_change, doc_status");
-            const { data: allCerts } = await supabase.from("payment_certifications").select("project_id, items, excluded");
+            const { data: allItems } = await supabase.from("contract_items").select("project_id, id, item_num, quantity, unit_price, unit, requires_mfg_cert, mfg_cert_qty");
+            const { data: allChos } = await supabase.from("chos").select("project_id, proposed_change, doc_status, items");
+            const { data: allCerts } = await supabase.from("payment_certifications").select("project_id, items, excluded, is_paid, cert_num");
+            const { data: allMfgCerts } = await supabase.from("manufacturing_certificates").select("project_id, item_id, item_num, quantity");
 
             const projectSummaries = projectsData?.map((proj: any) => {
                 const projectItems = (allItems || []).filter(i => i.project_id === proj.id);
@@ -142,6 +145,83 @@ export default function Dashboard() {
                     project_origin: proj.project_origin || 'ACT'
                 };
             }) || [];
+
+            // ── Calcular alertas de CM faltantes por proyecto ──
+            const normalizeNum = (n: any) => n?.toString().replace(/^0+/, '').trim().toUpperCase();
+            const cmAlerts: Record<string, number> = {};
+
+            (projectsData || []).forEach((proj: any) => {
+                const projectItems = (allItems || []).filter((i: any) => i.project_id === proj.id);
+                const projectChos = (allChos || []).filter((c: any) => c.project_id === proj.id && c.doc_status === 'Aprobado');
+                const mfgCertsForProject = (allMfgCerts || []).filter((m: any) => m.project_id === proj.id);
+
+                // Consolidar todos los ítems de referencia (contrato + CHOs aprobadas)
+                const allRefItems: any[] = [...projectItems];
+                projectChos.forEach((cho: any) => {
+                    if (Array.isArray(cho.items)) {
+                        cho.items.forEach((it: any) => {
+                            const exists = allRefItems.find((r: any) => normalizeNum(r.item_num) === normalizeNum(it.item_num));
+                            if (!exists) allRefItems.push(it);
+                        });
+                    }
+                });
+
+                // Solo certs sin pagar
+                const projectCerts = (allCerts || []).filter((c: any) => c.project_id === proj.id && !c.excluded);
+                const certsList = projectCerts;
+                const unpaidCerts = certsList.filter((c: any) => !c.is_paid);
+                if (unpaidCerts.length === 0) return;
+
+                let blockedCount = 0;
+                unpaidCerts.forEach((cert: any) => {
+                    const certIdx = certsList.findIndex((c: any) => c.cert_num === cert.cert_num);
+                    const itemsInCert = cert.items || [];
+                    itemsInCert.forEach((it: any) => {
+                        const itemNumStr = normalizeNum(it.item_num);
+                        if (!itemNumStr) return;
+                        const baseItem = allRefItems.find((r: any) => normalizeNum(r.item_num) === itemNumStr);
+                        if (!baseItem || !baseItem.requires_mfg_cert) return;
+
+                        const matchingIds = new Set(
+                            allRefItems.filter((r: any) => normalizeNum(r.item_num) === itemNumStr).map((r: any) => r.id)
+                        );
+                        let totalMfgApproved = 0;
+                        mfgCertsForProject.forEach((m: any) => {
+                            if (matchingIds.has(m.item_id)) {
+                                totalMfgApproved += parseFloat(m.quantity) || 0;
+                            } else if (m.item_num && normalizeNum(m.item_num) === itemNumStr) {
+                                totalMfgApproved += parseFloat(m.quantity) || 0;
+                            }
+                        });
+
+                        let paidInPrevious = 0;
+                        for (let i = 0; i < certIdx; i++) {
+                            const prevItems = certsList[i]?.items || [];
+                            const match = prevItems.find((p: any) => normalizeNum(p.item_num) === itemNumStr);
+                            if (match) paidInPrevious += parseFloat(match.quantity) || 0;
+                        }
+
+                        const isLS = baseItem.unit?.toUpperCase() === 'LS';
+                        const qtyToPay = parseFloat(it.quantity) || 0;
+                        let isInsufficient = false;
+
+                        if (isLS) {
+                            const mfgQtyLimit = parseFloat(baseItem.mfg_cert_qty) || 1;
+                            const totalScaled = totalMfgApproved * (100 / mfgQtyLimit);
+                            const availablePct = totalScaled - paidInPrevious;
+                            if (qtyToPay > availablePct + 0.001) isInsufficient = true;
+                        } else {
+                            const available = totalMfgApproved - paidInPrevious;
+                            if (qtyToPay > available + 0.001) isInsufficient = true;
+                        }
+
+                        if (isInsufficient) blockedCount++;
+                    });
+                });
+
+                if (blockedCount > 0) cmAlerts[proj.id] = blockedCount;
+            });
+            setCmAlertsByProject(cmAlerts);
 
             // Fetch pending requests if admin
             let pendingRequests = 0;
@@ -289,7 +369,7 @@ export default function Dashboard() {
                                 <tr key={proj.id} className="group hover:bg-blue-50/30 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
                                     <td className="px-8 py-6">
                                         <div className="flex flex-col gap-1.5">
-                                            <div className="flex items-center gap-2 max-w-[240px]">
+                                            <div className="flex items-center gap-2 max-w-[280px]">
                                                 <span className="text-[10px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-md uppercase tracking-tight shrink-0 shadow-sm">
                                                     {proj.num_act}
                                                 </span>
@@ -297,10 +377,19 @@ export default function Dashboard() {
                                                     {proj.name}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shrink-0 ${proj.project_origin === 'Contratista' ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
                                                     {proj.project_origin}
                                                 </span>
+                                                {cmAlertsByProject[proj.id] && (
+                                                    <span
+                                                        title={`${cmAlertsByProject[proj.id]} partida(s) con CM insuficientes en certificaciones sin pagar`}
+                                                        className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border bg-orange-50 border-orange-300 text-orange-700 animate-pulse shrink-0"
+                                                    >
+                                                        <AlertTriangle size={9} className="shrink-0" />
+                                                        CM faltantes ({cmAlertsByProject[proj.id]})
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </td>
