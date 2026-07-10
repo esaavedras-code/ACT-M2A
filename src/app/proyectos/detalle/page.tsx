@@ -130,14 +130,14 @@ function ProjectDetailContent() {
         { id: "force2",      label: "Force account 2",           icon: <Briefcase size={12} /> },
         { id: "items",       label: "Todas las partidas",         icon: <ListChecks size={12} /> },
         { id: "materials",   label: "Material on site",           icon: <Package size={12} /> },
-        { id: "negotiation", label: "Negociacion",               icon: <Handshake size={12} /> },
-        { id: "minutes",     label: "Minutas",                   icon: <Mic size={12} /> },
-        { id: "liquidation", label: "Liquidacion",               icon: <TrendingUp size={12} /> },
-        { id: "presentations", label: "Presentaciones",          icon: <Presentation size={12} /> },
-        { id: "update-tables", label: "Actualizar tablas",       icon: <RefreshCcw size={12} /> },
+        { id: "negotiation", label: "Negociacion",               icon: <Handshake size={12} />, underConstruction: true },
+        { id: "minutes",     label: "Minutas",                   icon: <Mic size={12} />, underConstruction: true },
+        { id: "liquidation", label: "Liquidacion",               icon: <TrendingUp size={12} />, underConstruction: true },
+        { id: "presentations", label: "Presentaciones",          icon: <Presentation size={12} />, underConstruction: true },
+        { id: "update-tables", label: "Actualizar tablas",       icon: <RefreshCcw size={12} />, underConstruction: true },
         { id: "files",       label: role === 'E' ? "📸 Fotos" : "Archivos", icon: role === 'E' ? <ImageIcon size={12} /> : <FolderOpen size={12} /> },
-        { id: "tasks",       label: "Pendientes",                 icon: <ListChecks size={12} /> },
-        { id: "ps-comparison", label: "Comparación PS",           icon: <ListChecks size={12} /> },
+        { id: "tasks",       label: "Pendientes",                 icon: <ListChecks size={12} />, underConstruction: true },
+        { id: "ps-comparison", label: "Comparación PS",           icon: <ListChecks size={12} />, underConstruction: true },
     ];
 
     // Filtrar pestañas basadas en roles
@@ -180,7 +180,7 @@ function ProjectDetailContent() {
 
     const handleTabChange = (newTab: string) => {
         const targetTab = tabs.find(t => t.id === newTab) || filteredTabs.find(t => t.id === newTab);
-        if (targetTab?.wip) {
+        if (targetTab?.underConstruction || targetTab?.wip) {
             alert(`La sección de '${targetTab.label}' se encuentra actualmente EN CONSTRUCCIÓN.`);
             // No retornamos para dejarle ver qué hay, o podríamos retornar para bloquearlo.
             // Según la instrucción de Enrique, solo pide poner el mensaje.
@@ -485,6 +485,11 @@ function ProjectDetailContent() {
                                         : 'group-hover:translate-x-1'
                                 }`}>
                                     {tab.label}
+                                    {tab.underConstruction && (
+                                        <span className="ml-2 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-normal">
+                                            EN CONSTRUCCION
+                                        </span>
+                                    )}
                                     {tab.wip && <span className="ml-2 bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[7px] font-black uppercase">WIP</span>}
                                 </span>
                             </button>

@@ -47,12 +47,12 @@ export default function BottomNav() {
         { id: "cho",         label: "Change Orders",  icon: FileEdit },
         { id: "payment",     label: "Monthly payments", icon: FileCheck },
         { id: "mfg",         label: "Cert. CM",       icon: Factory },
-        { id: "minutes",     label: "Minutas",        icon: Mic, wip: true },
+        { id: "minutes",     label: "Minutas",        icon: Mic, wip: true, underConstruction: true },
         { id: "logs",        label: "Actividades",   icon: Cloud, wip: true },
         { id: "inspection",  label: "Inspección",    icon: FileCheck, wip: true },
         { id: "force",       label: "Force Account", icon: Calculator, wip: true },
         { id: "force2",      label: "Force account", icon: Briefcase },
-        { id: "liquidation", label: "Liquidación",   icon: TrendingUp },
+        { id: "liquidation", label: "Liquidación",   icon: TrendingUp, underConstruction: true },
         { id: "ccml",        label: "Cambios al CCML", icon: FileEdit },
     ].filter(t => {
         if (role === 'A') return true;
@@ -187,6 +187,11 @@ export default function BottomNav() {
                                                     </div>
                                                     <span className={`text-[11px] font-black uppercase tracking-widest ${isTabActive ? "text-white" : "text-slate-900 dark:text-slate-100"}`}>
                                                         {tab.label}
+                                                        {tab.underConstruction && (
+                                                            <span className="ml-2 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-normal">
+                                                                EN CONSTRUCCION
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 </div>
                                                 {isTabActive ? <ChevronRight size={14} className="opacity-60" /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />}

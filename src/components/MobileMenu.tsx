@@ -68,11 +68,11 @@ import { useUserRole } from "@/hooks/useUserRole";
         { id: "cho",         label: "Change Orders",  icon: FileEdit },
         { id: "payment",     label: "Monthly payments", icon: FileCheck },
         { id: "mfg",         label: "Cert. CM",       icon: FileText },
-        { id: "minutes",     label: "Minutas",        icon: Mic, wip: true },
+        { id: "minutes",     label: "Minutas",        icon: Mic, wip: true, underConstruction: true },
         { id: "logs",        label: "Actividades",   icon: Cloud, wip: true },
         { id: "inspection",  label: "Inspección",    icon: FileCheck, wip: true },
         { id: "force",       label: "Force Account", icon: Calculator, wip: true },
-        { id: "liquidation", label: "Liquidación",   icon: TrendingUp },
+        { id: "liquidation", label: "Liquidación",   icon: TrendingUp, underConstruction: true },
         { id: "ccml",        label: "Cambios al CCML", icon: FileEdit },
     ].filter(t => {
         if (isAdmin) return true;
@@ -176,7 +176,14 @@ import { useUserRole } from "@/hooks/useUserRole";
                                                     <div className={`p-2.5 rounded-xl ${isTabActive ? (role === 'F' ? "bg-[#670010] text-white" : "bg-primary text-white") : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
                                                         <TabIcon size={18} />
                                                     </div>
-                                                    <span className="text-sm font-bold uppercase tracking-tight">{tab.label}</span>
+                                                    <span className="text-sm font-bold uppercase tracking-tight">
+                                                        {tab.label}
+                                                        {tab.underConstruction && (
+                                                            <span className="ml-2 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-normal">
+                                                                EN CONSTRUCCION
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 </div>
                                                 {isTabActive && <ChevronRight size={18} />}
                                             </Link>
