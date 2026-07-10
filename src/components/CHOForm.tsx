@@ -267,7 +267,8 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             }
         }
 
-        // Sincronizar todos los ítems de los CHO en la tabla contract_items (incluyendo requires_mfg_cert)
+        // Sincronizar todos los ítems de los CHO en la tabla contract_items
+        // NOTA: requires_mfg_cert se preserva del contract_item existente para respetar cambios manuales.
         const itemsToUpdate = [];
         const updatedItemNums = new Set();
         for (const cho of chos) {
@@ -289,7 +290,9 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             unit: item.unit || "",
                             unit_price: item.unit_price || 0,
                             fund_source: item.fund_source || FUND_SOURCES[0],
-                            requires_mfg_cert: item.requires_mfg_cert || false,
+                            // Preservamos el valor actual del contract_item, NO el del CHO,
+                            // para respetar cambios manuales que el usuario haya hecho.
+                            requires_mfg_cert: existingItem.requires_mfg_cert ?? (item.requires_mfg_cert || false),
                             mfg_cert_qty: item.mfg_cert_qty || 1,
                             mfg_cert_description: item.mfg_cert_description || ""
                         });

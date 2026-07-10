@@ -397,7 +397,7 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                                             <div className="w-16 h-16 flex items-center justify-center mb-2 bg-slate-100 dark:bg-slate-800 rounded-xl group-hover:scale-105 transition-transform">
                                                 {React.cloneElement(getFileIcon(doc.file_name) as React.ReactElement, { size: 32 })}
                                             </div>
-                                            <span className="text-xs text-center font-medium text-slate-700 dark:text-slate-300 w-full truncate px-1" title={doc.file_name}>
+                                            <span className="text-[11px] text-center font-medium text-slate-700 dark:text-slate-300 w-full truncate px-1" title={doc.file_name}>
                                                 {doc.file_name}
                                             </span>
                                             <span className="text-[9px] text-slate-400 mt-1">{formatDate(doc.uploaded_at)}</span>
