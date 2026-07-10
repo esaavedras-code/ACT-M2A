@@ -1588,7 +1588,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hoy (Automática)</label>
                             <input
                                 type="text"
-                                className="input-field bg-slate-50 dark:bg-slate-800 text-slate-500 cursor-not-allowed font-medium"
+                                className="input-field input-blue-photo cursor-not-allowed"
                                 value={new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
                                 disabled
                             />
@@ -1640,8 +1640,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             <div className="relative">
                                 <input
                                     type="date"
-                                    className="w-full border-gray-300 dark:border-gray-600 dark:bg-slate-900 dark:text-gray-100 rounded shadow-sm py-2 px-3 text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                    style={{ ...getFieldStyle('date_rev_completion'), backgroundColor: '#FFFFFF' }}
+                                    className="input-field input-blue-photo cursor-not-allowed"
                                     value={formData.date_rev_completion || ""}
                                     readOnly
                                     disabled
@@ -1654,7 +1653,7 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
                             </label>
                             <input
                                 type="date"
-                                className="input-field bg-slate-50 dark:bg-slate-800 text-slate-500 cursor-not-allowed"
+                                className="input-field input-blue-photo cursor-not-allowed"
                                 value={terminacionAdministrativa}
                                 disabled
                             />
