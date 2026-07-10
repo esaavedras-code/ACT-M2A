@@ -448,21 +448,42 @@ function ProjectDetailContent() {
                     <div className="flex flex-row md:flex-col flex-wrap md:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
                         {filteredTabs.map(tab => {
                             const isGreen = ['project2', 'compliance', 'mfg', 'payment', 'cho', 'logs', 'inspection', 'force2'].includes(tab.id);
+                            const isDashboard = tab.id === 'dashboard';
                             
                             return (
                             <button
                                 key={tab.id}
                                 onClick={() => handleTabChange(tab.id)}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-[1.4rem] font-black text-[9px] uppercase tracking-[0.1em] transition-all whitespace-nowrap lg:whitespace-normal text-left active:scale-95 group relative overflow-hidden ${
-                                    activeTab === tab.id 
-                                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 ring-1 ring-blue-600 ring-offset-2 ring-offset-white' 
-                                    : isGreen 
-                                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:border-emerald-500 hover:text-emerald-800 hover:bg-emerald-100 shadow-sm hover:shadow-md'
-                                        : 'bg-white/60 dark:bg-slate-800/60 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 hover:bg-white shadow-sm hover:shadow-md'
+                                className={`flex items-center transition-all active:scale-95 group relative overflow-hidden ${
+                                    isDashboard
+                                    ? `justify-center gap-3 px-4 py-3 rounded-[1.4rem] font-black text-[18px] uppercase tracking-[0.1em] text-center w-full ${
+                                        activeTab === tab.id 
+                                        ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 ring-1 ring-blue-600 ring-offset-2 ring-offset-white' 
+                                        : 'bg-blue-50/60 dark:bg-slate-800/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:border-blue-500 hover:bg-blue-100/50 shadow-sm hover:shadow-md'
+                                    }`
+                                    : `gap-3 px-4 py-3 rounded-[1.4rem] font-black text-[9px] uppercase tracking-[0.1em] whitespace-nowrap lg:whitespace-normal text-left ${
+                                        activeTab === tab.id 
+                                        ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 ring-1 ring-blue-600 ring-offset-2 ring-offset-white' 
+                                        : isGreen 
+                                            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:border-emerald-500 hover:text-emerald-800 hover:bg-emerald-100 shadow-sm hover:shadow-md'
+                                            : 'bg-white/60 dark:bg-slate-800/60 text-slate-500 border border-slate-100 dark:border-slate-800 hover:border-blue-500 hover:text-blue-600 hover:bg-white shadow-sm hover:shadow-md'
+                                    }`
                                 }`}
                             >
-                                <span className={`shrink-0 transition-all duration-500 ${activeTab === tab.id ? 'text-white scale-110 rotate-3' : 'text-blue-500 group-hover:scale-125 group-hover:-rotate-3'}`}>{tab.icon}</span>
-                                <span className={`line-clamp-2 transition-all duration-300 ${activeTab === tab.id ? 'translate-x-1 font-black' : 'group-hover:translate-x-1'}`}>
+                                <span className={`shrink-0 transition-all duration-500 ${
+                                    activeTab === tab.id 
+                                    ? 'text-white scale-110 rotate-3' 
+                                    : isDashboard 
+                                        ? 'text-blue-600 dark:text-blue-400 group-hover:scale-125 group-hover:-rotate-3'
+                                        : 'text-blue-500 group-hover:scale-125 group-hover:-rotate-3'
+                                }`}>{tab.icon}</span>
+                                <span className={`line-clamp-2 transition-all duration-300 ${
+                                    activeTab === tab.id 
+                                    ? 'translate-x-1 font-black' 
+                                    : isDashboard
+                                        ? 'group-hover:translate-x-1 font-black text-blue-600 dark:text-blue-400'
+                                        : 'group-hover:translate-x-1'
+                                }`}>
                                     {tab.label}
                                     {tab.wip && <span className="ml-2 bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[7px] font-black uppercase">WIP</span>}
                                 </span>

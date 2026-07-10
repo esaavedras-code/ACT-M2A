@@ -19,7 +19,15 @@ interface FloatingFormActionsProps {
 
 export default function FloatingFormActions({ actions }: FloatingFormActionsProps) {
   const isLector = typeof window !== 'undefined' && (window as any).pact_role === 'D';
-  const visibleActions = actions.filter(a => !(isLector && (a.label.toLowerCase().includes('guardar') || a.label.toLowerCase().includes('save') || a.label.toLowerCase().includes('borrar'))));
+  const visibleActions = actions.filter(a => {
+    if (a.label.toLowerCase() === 'imprimir' || a.label.toLowerCase() === 'print') {
+      return false;
+    }
+    if (isLector && (a.label.toLowerCase().includes('guardar') || a.label.toLowerCase().includes('save') || a.label.toLowerCase().includes('borrar'))) {
+      return false;
+    }
+    return true;
+  });
 
   const bottomActions = visibleActions.filter(a => a.position !== 'middle-right');
   const middleActions = visibleActions.filter(a => a.position === 'middle-right');
