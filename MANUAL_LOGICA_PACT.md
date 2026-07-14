@@ -11,6 +11,7 @@ Este documento detalla las reglas de negocio, validaciones y dependencias entre 
 *   **Relación:** Cada partida (`Item`) en la **Certificación de Pago Mensual** se cruza con la base de datos de **Certificados de Manufactura**.
 *   **Validación:** 
     *   `Cantidad Total Certificada` (Manufactura) ≥ `Cantidad Acumulada a Pagar`.
+*   **Certificados para Múltiples Partidas:** Si un mismo documento (Certificado de Manufactura) cubre varios ítems o partidas, el sistema permite marcarlo como múltiple. Podrás seleccionar todas las partidas que incluye e indicar la cantidad específica correspondiente a cada una. Al guardar los cambios, el sistema se encargará automáticamente de dividir ("expandir") este único certificado en registros individuales para cada partida en la base de datos, facilitando así el rastreo por ítem.
 *   **Advertencia (Warning):** Si intentas pagar una cantidad que supera lo respaldado por los certificados subidos, el sistema mostrará una alerta visual roja en el formulario de pago indicando: *"Advertencia: La cantidad certificada de manufactura para esta partida es insuficiente."*
 
 ## 2. Informes Diarios (ACT-45) y Partidas del Contrato
