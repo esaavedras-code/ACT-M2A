@@ -848,7 +848,9 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     disabled={uploadingCmIdx === idx}
                                     className={`flex items-center justify-center w-9 h-9 rounded-full border transition-all shadow-sm ${
                                         c.cert_file_path
-                                            ? 'border-emerald-400 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-600'
+                                            ? c.cert_file_name?.toLowerCase().endsWith('.pdf')
+                                                ? 'border-red-400 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-600'
+                                                : 'border-emerald-400 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-600'
                                             : 'border-blue-200 text-blue-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-400'
                                     }`}
                                     title={c.cert_file_path ? `CM: ${c.cert_file_name || 'Archivo subido'} — clic para reemplazar` : "Subir archivo CM"}
@@ -856,7 +858,9 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     {uploadingCmIdx === idx
                                         ? <Loader2 size={15} className="animate-spin" />
                                         : c.cert_file_path
-                                            ? <Paperclip size={15} />
+                                            ? c.cert_file_name?.toLowerCase().endsWith('.pdf')
+                                                ? <FileText size={15} />
+                                                : <Paperclip size={15} />
                                             : <Upload size={15} />}
                                 </button>
                                 {c.cert_file_name && (
