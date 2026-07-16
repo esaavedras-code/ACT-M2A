@@ -246,7 +246,7 @@ const PaymentCertForm = React.forwardRef(({
             let mfgQtyLimit = 0;
             const contractIt = contractItems.find(it => normalizeItemNum(it.item_num) === itemNumStr);
             if (contractIt) {
-                mfgQtyLimit += parseFloat(contractIt.mfg_cert_qty) || 1;
+                mfgQtyLimit = parseFloat(contractIt.mfg_cert_qty) || 1;
             }
             
             const changeOrders = projectData?.change_orders || projectData?.chos || [];
@@ -256,9 +256,9 @@ const PaymentCertForm = React.forwardRef(({
                 const coIt = items.find((cit: any) => normalizeItemNum(cit.item_num) === itemNumStr);
                 if (coIt) {
                     if (coIt.mfg_cert_qty !== undefined && coIt.mfg_cert_qty !== null && coIt.mfg_cert_qty !== '') {
-                        mfgQtyLimit += parseFloat(coIt.mfg_cert_qty) || 0;
-                    } else if (!contractIt) {
-                        mfgQtyLimit += 1;
+                        mfgQtyLimit = parseFloat(coIt.mfg_cert_qty) || 0;
+                    } else if (!contractIt && mfgQtyLimit === 0) {
+                        mfgQtyLimit = 1;
                     }
                 }
             });
@@ -295,7 +295,7 @@ const PaymentCertForm = React.forwardRef(({
             if (missingScaled > 0.001) {
                 let mfgQtyLimit = 0;
                 const contractIt = contractItems.find(it => normalizeItemNum(it.item_num) === itemNumStr);
-                if (contractIt) mfgQtyLimit += parseFloat(contractIt.mfg_cert_qty) || 1;
+                if (contractIt) mfgQtyLimit = parseFloat(contractIt.mfg_cert_qty) || 1;
                 
                 const changeOrders = projectData?.change_orders || projectData?.chos || [];
                 const approvedCHOs = changeOrders.filter((c: any) => c.doc_status === 'Aprobado');
@@ -304,9 +304,9 @@ const PaymentCertForm = React.forwardRef(({
                     const coIt = items.find((cit: any) => normalizeItemNum(cit.item_num) === itemNumStr);
                     if (coIt) {
                         if (coIt.mfg_cert_qty !== undefined && coIt.mfg_cert_qty !== null && coIt.mfg_cert_qty !== '') {
-                            mfgQtyLimit += parseFloat(coIt.mfg_cert_qty) || 0;
-                        } else if (!contractIt) {
-                            mfgQtyLimit += 1;
+                            mfgQtyLimit = parseFloat(coIt.mfg_cert_qty) || 0;
+                        } else if (!contractIt && mfgQtyLimit === 0) {
+                            mfgQtyLimit = 1;
                         }
                     }
                 });

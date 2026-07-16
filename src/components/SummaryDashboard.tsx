@@ -237,7 +237,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         let mfgQtyLimit = 0;
                         const contractIt = (items || []).find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
                         if (contractIt) {
-                            mfgQtyLimit += parseFloat(contractIt.mfg_cert_qty) || 1;
+                            mfgQtyLimit = parseFloat(contractIt.mfg_cert_qty) || 1;
                         }
                         
                         const approvedCHOsForMfg = chos?.filter(c => c.doc_status === 'Aprobado') || [];
@@ -246,9 +246,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             const coIt = choItems.find((cit: any) => normalizeItemNum(cit.item_num) === itemNumStr);
                             if (coIt) {
                                 if (coIt.mfg_cert_qty !== undefined && coIt.mfg_cert_qty !== null && coIt.mfg_cert_qty !== '') {
-                                    mfgQtyLimit += parseFloat(coIt.mfg_cert_qty) || 0;
-                                } else if (!contractIt) {
-                                    mfgQtyLimit += 1;
+                                    mfgQtyLimit = parseFloat(coIt.mfg_cert_qty) || 0;
+                                } else if (!contractIt && mfgQtyLimit === 0) {
+                                    mfgQtyLimit = 1;
                                 }
                             }
                         });
