@@ -225,7 +225,26 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     let isInsufficient = false;
 
                     if (isLS) {
-                        const mfgQtyLimit = parseFloat(baseItem.mfg_cert_qty) || 1;
+                        let mfgQtyLimit = 0;
+                        const contractIt = (items || []).find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
+                        if (contractIt) {
+                            mfgQtyLimit += parseFloat(contractIt.mfg_cert_qty) || 1;
+                        }
+                        
+                        const approvedCHOsForMfg = chos?.filter(c => c.doc_status === 'Aprobado') || [];
+                        approvedCHOsForMfg.forEach((cho: any) => {
+                            const choItems = Array.isArray(cho.items) ? cho.items : (cho.items as any)?.list || [];
+                            const coIt = choItems.find((cit: any) => normalizeItemNum(cit.item_num) === itemNumStr);
+                            if (coIt) {
+                                if (coIt.mfg_cert_qty !== undefined && coIt.mfg_cert_qty !== null && coIt.mfg_cert_qty !== '') {
+                                    mfgQtyLimit += parseFloat(coIt.mfg_cert_qty) || 0;
+                                } else if (!contractIt) {
+                                    mfgQtyLimit += 1;
+                                }
+                            }
+                        });
+                        
+                        if (mfgQtyLimit <= 0) mfgQtyLimit = 1;
                         const totalMfgApprovedScaled = totalMfgApproved * (100 / mfgQtyLimit);
                         const availablePct = totalMfgApprovedScaled - paidInPrevious;
                         

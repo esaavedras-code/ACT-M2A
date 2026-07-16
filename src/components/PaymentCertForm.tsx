@@ -236,7 +236,28 @@ const PaymentCertForm = React.forwardRef(({
         let totalMfgApprovedScaled = totalMfgApproved;
 
         if (isLS) {
-            const mfgQtyLimit = parseFloat(baseItem.mfg_cert_qty) || 1;
+            let mfgQtyLimit = 0;
+            const contractIt = contractItems.find(it => normalizeItemNum(it.item_num) === itemNumStr);
+            if (contractIt) {
+                mfgQtyLimit += parseFloat(contractIt.mfg_cert_qty) || 1;
+            }
+            
+            const changeOrders = projectData?.change_orders || projectData?.chos || [];
+            const approvedCHOs = changeOrders.filter((c: any) => c.doc_status === 'Aprobado');
+            approvedCHOs.forEach((cho: any) => {
+                const items = Array.isArray(cho.items) ? cho.items : (cho.items as any)?.list || [];
+                const coIt = items.find((cit: any) => normalizeItemNum(cit.item_num) === itemNumStr);
+                if (coIt) {
+                    if (coIt.mfg_cert_qty !== undefined && coIt.mfg_cert_qty !== null && coIt.mfg_cert_qty !== '') {
+                        mfgQtyLimit += parseFloat(coIt.mfg_cert_qty) || 0;
+                    } else if (!contractIt) {
+                        mfgQtyLimit += 1;
+                    }
+                }
+            });
+            
+            if (mfgQtyLimit <= 0) mfgQtyLimit = 1;
+
             totalMfgApprovedScaled = totalMfgApproved * (100 / mfgQtyLimit);
             available = totalMfgApprovedScaled - paidInPrevious;
         } else {
@@ -265,7 +286,26 @@ const PaymentCertForm = React.forwardRef(({
         if (isLS) {
             const missingScaled = qtyToPay - available;
             if (missingScaled > 0.001) {
-                const mfgQtyLimit = parseFloat(baseItem.mfg_cert_qty) || 1;
+                let mfgQtyLimit = 0;
+                const contractIt = contractItems.find(it => normalizeItemNum(it.item_num) === itemNumStr);
+                if (contractIt) mfgQtyLimit += parseFloat(contractIt.mfg_cert_qty) || 1;
+                
+                const changeOrders = projectData?.change_orders || projectData?.chos || [];
+                const approvedCHOs = changeOrders.filter((c: any) => c.doc_status === 'Aprobado');
+                approvedCHOs.forEach((cho: any) => {
+                    const items = Array.isArray(cho.items) ? cho.items : (cho.items as any)?.list || [];
+                    const coIt = items.find((cit: any) => normalizeItemNum(cit.item_num) === itemNumStr);
+                    if (coIt) {
+                        if (coIt.mfg_cert_qty !== undefined && coIt.mfg_cert_qty !== null && coIt.mfg_cert_qty !== '') {
+                            mfgQtyLimit += parseFloat(coIt.mfg_cert_qty) || 0;
+                        } else if (!contractIt) {
+                            mfgQtyLimit += 1;
+                        }
+                    }
+                });
+                
+                if (mfgQtyLimit <= 0) mfgQtyLimit = 1;
+
                 const missing = missingScaled * (mfgQtyLimit / 100);
                 const availablePhysical = totalMfgApproved - (paidInPrevious * (mfgQtyLimit / 100));
                 return { 
