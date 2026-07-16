@@ -203,10 +203,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                     let totalMfgApproved = 0;
                     mfgCerts.forEach((m: any) => {
-                        if (matchingItemIds.has(m.item_id)) {
-                            totalMfgApproved += parseFloat(m.quantity) || 0;
-                        } else if (m._item_num && normalizeItemNum(m._item_num) === itemNumStr) {
-                            totalMfgApproved += parseFloat(m.quantity) || 0;
+                        if (m.is_multiple) {
+                            let matchedId = m.item_ids?.find((id: string) => matchingItemIds.has(id));
+                            if (matchedId) {
+                                totalMfgApproved += parseFloat(m.multiple_quantities?.[matchedId] ?? m.quantity) || 0;
+                            } else if (m._item_nums && m._item_nums.some((num: string) => normalizeItemNum(num) === itemNumStr)) {
+                                totalMfgApproved += parseFloat(m.quantity) || 0; // Fallback for old items
+                            }
+                        } else {
+                            if (matchingItemIds.has(m.item_id)) {
+                                totalMfgApproved += parseFloat(m.quantity) || 0;
+                            } else if (m._item_num && normalizeItemNum(m._item_num) === itemNumStr) {
+                                totalMfgApproved += parseFloat(m.quantity) || 0;
+                            }
                         }
                     });
 

@@ -212,13 +212,20 @@ const PaymentCertForm = React.forwardRef(({
 
         let totalMfgApproved = 0;
         mfgCerts.forEach(cert => {
-            // Búsqueda primaria: por item_id UUID
-            if (matchingItemIds.has(cert.item_id)) {
-                totalMfgApproved += parseFloat(cert.quantity) || 0;
-            }
-            // Búsqueda fallback: por _item_num enriquecido al cargar (UUID obsoleto)
-            else if (cert._item_num && normalizeItemNum(cert._item_num) === itemNumStr) {
-                totalMfgApproved += parseFloat(cert.quantity) || 0;
+            if (cert.is_multiple) {
+                let matchedId = cert.item_ids?.find((id: string) => matchingItemIds.has(id));
+                if (matchedId) {
+                    totalMfgApproved += parseFloat(cert.multiple_quantities?.[matchedId] ?? cert.quantity) || 0;
+                } else if (cert._item_nums && cert._item_nums.some((num: string) => normalizeItemNum(num) === itemNumStr)) {
+                    totalMfgApproved += parseFloat(cert.quantity) || 0;
+                }
+            } else {
+                if (matchingItemIds.has(cert.item_id)) {
+                    totalMfgApproved += parseFloat(cert.quantity) || 0;
+                }
+                else if (cert._item_num && normalizeItemNum(cert._item_num) === itemNumStr) {
+                    totalMfgApproved += parseFloat(cert.quantity) || 0;
+                }
             }
         });
 
