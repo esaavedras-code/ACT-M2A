@@ -242,6 +242,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             fund_source: item.fund_source || FUND_SOURCES[0],
                             requires_mfg_cert: item.requires_mfg_cert || false,
                             mfg_cert_qty: item.mfg_cert_qty || 1,
+                            mfg_cert_unit: item.mfg_cert_unit || "",
                             mfg_cert_description: item.mfg_cert_description || ""
                         });
                     }
@@ -294,6 +295,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             // para respetar cambios manuales que el usuario haya hecho.
                             requires_mfg_cert: existingItem.requires_mfg_cert ?? (item.requires_mfg_cert || false),
                             mfg_cert_qty: item.mfg_cert_qty || 1,
+                            mfg_cert_unit: item.mfg_cert_unit || "",
                             mfg_cert_description: item.mfg_cert_description || ""
                         });
                     }
@@ -569,6 +571,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 <th className="py-1 px-0.5 w-44 text-right">Amount</th>
                                                 <th className="py-1 px-0.5 w-48">Fondos</th>
                                                 <th className="py-1 px-0.5 w-14 text-center" style={{ backgroundColor: '#66FF99' }}>CM</th>
+                                                <th className="py-1 px-0.5 w-20 text-center">Unidad CM</th>
                                                 <th className="py-1 px-0.5 w-24 text-center">Cant. CM</th>
                                                 <th className="py-1 px-0.5 min-w-[150px]">Descr. CM</th>
                                                 <th className="py-1 px-0.5 w-8"></th>
@@ -652,12 +655,26 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                             title="¿Requiere Certificado de Manufactura?"
                                                         />
                                                     </td>
+                                                     <td className="py-0.5 px-0.5 text-center">
+                                                         {(item.requires_mfg_cert && (item.unit?.toUpperCase().includes('LS') || item.unit?.toUpperCase().includes('LUMP'))) && (
+                                                             <input 
+                                                                 type="text" 
+                                                                 maxLength={10}
+                                                                 className="input-field text-[10px] text-center font-bold h-7 !p-1 border-emerald-300 w-full"
+                                                                 style={{ backgroundColor: '#D1FAE5' }}
+                                                                 value={item.mfg_cert_unit ?? ""}
+                                                                 onChange={(e) => updateCHOItem(idx, itIdx, 'mfg_cert_unit', e.target.value)}
+                                                                 placeholder="Ea"
+                                                                 title="Unidad del Certificado de Manufactura"
+                                                             />
+                                                         )}
+                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-center">
                                                         {(item.requires_mfg_cert && (item.unit?.toUpperCase().includes('LS') || item.unit?.toUpperCase().includes('LUMP'))) && (
                                                             <input 
                                                                 type="number" 
                                                                 className="input-field text-[10px] text-center font-bold h-7 !p-1 border-emerald-300"
-                                                                style={{ backgroundColor: '#D1FAE5' }} // Un verde clarito para que resalte
+                                                                style={{ backgroundColor: '#D1FAE5' }} 
                                                                 value={item.mfg_cert_qty ?? 1}
                                                                 onChange={(e) => updateCHOItem(idx, itIdx, 'mfg_cert_qty', parseFloat(e.target.value) || 1)}
                                                                 title="Cantidad de Certificados de Manufactura Requeridos"

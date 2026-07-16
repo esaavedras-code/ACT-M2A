@@ -3,88 +3,73 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-def main():
+def create_manual():
     doc = Document()
-
-    # Title
-    title = doc.add_heading('Manual de Usuario - Sección Change Orders / Enmiendas', 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    # About
-    about = doc.add_paragraph()
-    about.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = about.add_run('About\nDiseñador: Ing. Enrique Saavedra Sada, PE.')
-    run.bold = True
-    run.italic = True
-
-    doc.add_heading('1. Introducción', level=1)
-    doc.add_paragraph('La sección de "Change Orders / Enmiendas" permite gestionar las órdenes de cambio del contrato, incluyendo modificaciones en partidas existentes, trabajos extra, extensiones de tiempo o enmiendas administrativas.')
-
-    doc.add_heading('2. Panel de Resumen (Dashboard)', level=1)
-    p = doc.add_paragraph()
-    p.add_run('• Total Aprobado ($): ').bold = True
-    p.add_run('Muestra el monto total acumulado de las órdenes de cambio que ya han sido aprobadas.\n')
-    p.add_run('• Total en Trámite ($): ').bold = True
-    p.add_run('Refleja el monto económico de las órdenes de cambio que se encuentran actualmente en proceso o revisión.\n')
-    p.add_run('• Impacto Económico: ').bold = True
-    p.add_run('Muestra el impacto financiero total en el proyecto.\n')
-    p.add_run('• Días de Extensión: ').bold = True
-    p.add_run('Indica la cantidad total de días adicionales otorgados al contrato.')
-
-    doc.add_heading('3. Encabezado de la Enmienda', level=1)
-    p2 = doc.add_paragraph()
-    p2.add_run('• CHO / Enmienda: ').bold = True
-    p2.add_run('Número consecutivo que identifica a la orden de cambio (ej. #15).\n')
-    p2.add_run('• Fecha: ').bold = True
-    p2.add_run('Permite seleccionar o ingresar la fecha de la orden de cambio.\n')
-    p2.add_run('• Ext. Días: ').bold = True
-    p2.add_run('Campo para ingresar los días de extensión de tiempo asociados a esta enmienda específica.\n')
-    p2.add_run('• Estatus Doc.: ').bold = True
-    p2.add_run('Lista desplegable para seleccionar el estado actual del documento (ej. En trámite, Aprobado, etc.).\n')
-    p2.add_run('• Importe Total: ').bold = True
-    p2.add_run('Resumen del costo de la enmienda, desglosado por fuente de fondos (ej. ACT, FHWA).\n')
-    p2.add_run('• Tipos de Enmienda: ').bold = True
-    p2.add_run('Casillas de verificación para clasificar el cambio:\n')
-    p2.add_run('\t- Change of Contract Items (Cambio en Partidas del Contrato)\n')
-    p2.add_run('\t- New Items (Extra Work) (Partidas Nuevas / Trabajo Extra)\n')
-    p2.add_run('\t- Time Extension (Extensión de Tiempo)\n')
-    p2.add_run('\t- Enmienda Administrativa')
-
-    doc.add_heading('4. Detalle de Partidas (Añadir/Modificar)', level=1)
-    p3 = doc.add_paragraph()
-    p3.add_run('Al hacer clic en el botón ')
-    p3.add_run('"+ Añadir item"').bold = True
-    p3.add_run(', se permite agregar una nueva partida a la orden de cambio. Las columnas incluyen:\n')
-    p3.add_run('• Nuevo: ').bold = True
-    p3.add_run('Casilla para marcar si es un ítem completamente nuevo.\n')
-    p3.add_run('• # Item: ').bold = True
-    p3.add_run('Número identificador de la partida.\n')
-    p3.add_run('• Espec.: ').bold = True
-    p3.add_run('Especificación correspondiente al ítem.\n')
-    p3.add_run('• Descripción: ').bold = True
-    p3.add_run('Nombre de la partida y un campo para "Descripción Adicional".\n')
-    p3.add_run('• Unit: ').bold = True
-    p3.add_run('Unidad de medida (ej. LS, Ea, CuM).\n')
-    p3.add_run('• Qty: ').bold = True
-    p3.add_run('Cantidad a incrementar o reducir.\n')
-    p3.add_run('• Unit Price: ').bold = True
-    p3.add_run('Precio unitario de la partida.\n')
-    p3.add_run('• Amount Fondos: ').bold = True
-    p3.add_run('Monto total de la partida calculado.\n')
-    p3.add_run('• Origen de Fondos: ').bold = True
-    p3.add_run('Lista desplegable para asignar la fuente de financiamiento.\n')
-    p3.add_run('• Botón de Borrar (Basurero): ').bold = True
-    p3.add_run('Elimina la partida de la lista.')
-
-    doc.add_heading('5. Justificación Técnica y Legal', level=1)
-    doc.add_paragraph('Un cuadro de texto amplio donde se debe redactar el motivo técnico y/o legal que sustenta la creación de la orden de cambio. Por ejemplo: "Las actividades descritas en el presente documento corresponden al proceso de liquidación parcial de las partidas."')
-
-    output_dir = r"C:\Users\Enrique Saavedra\Documents\PROGRAMAS AI\Programa ACT\Documentos\MANUAL PACT JULIO 2026"
-    os.makedirs(output_dir, exist_ok=True)
     
-    output_path = os.path.join(output_dir, "Manual_Change_Orders.docx")
-    doc.save(output_path)
-    print(f"Documento guardado en: {output_path}")
+    # Title
+    title = doc.add_heading('Manual de Usuario Paso a Paso: PACT', 0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    # Intro
+    doc.add_paragraph('Bienvenido al manual paso a paso de PACT. Esta guía está diseñada para llevarte desde la creación de un proyecto nuevo hasta la gestión de documentos, certificaciones de pago y órdenes de cambio (CHO).')
+    
+    # Paso 1
+    doc.add_heading('Paso 1: Comenzar un Proyecto Nuevo', level=1)
+    doc.add_paragraph('1. Abre el programa PACT.\n'
+                      '2. Dirígete a la sección de "Proyectos" en el menú principal.\n'
+                      '3. Haz clic en el botón "Nuevo Proyecto".\n'
+                      '4. Completa toda la información solicitada, como el nombre del proyecto, número de contrato, y cualquier otro dato básico.\n'
+                      '5. Presiona "Guardar". ¡Listo! Tu proyecto ya está creado y listo para usarse.')
+    
+    # Paso 2
+    doc.add_heading('Paso 2: Registrar los Documentos Necesarios', level=1)
+    doc.add_paragraph('Es muy importante mantener la documentación al día.\n'
+                      '1. Entra a tu proyecto recién creado y ve a la sección de "Documentos".\n'
+                      '2. Haz clic en "Añadir" o "Registrar Documento".\n'
+                      '3. Sube los documentos legales o requeridos para el proyecto.\n'
+                      '4. Verifica cuidadosamente la fecha de expiración de cada documento. Registra únicamente los documentos que no han expirado aún. El sistema puede pedirte que ingreses la fecha de vigencia.\n'
+                      '5. Guarda los registros.')
+
+    # Paso 3
+    doc.add_heading('Paso 3: Registrar Certificados de Manufactura', level=1)
+    doc.add_paragraph('Antes de solicitar ciertos pagos, necesitarás comprobar los materiales.\n'
+                      '1. Dirígete a la sección de "Certificados" o "Manufactura".\n'
+                      '2. Selecciona "Registrar Certificado".\n'
+                      '3. Por cada material utilizado, ingresa los datos correspondientes y adjunta el certificado del fabricante.\n'
+                      '4. Asegúrate de registrar todos los certificados requeridos para evitar bloqueos en tus pagos futuros.')
+
+    # Paso 4
+    doc.add_heading('Paso 4: Hacer y Registrar 5 Certificaciones de Pago', level=1)
+    doc.add_paragraph('A medida que el proyecto avanza, deberás cobrar por el trabajo realizado.\n'
+                      '1. Ve a la pestaña de "Certificaciones de Pago".\n'
+                      '2. Haz clic en "Nueva Certificación".\n'
+                      '3. Certificación #1: Ingresa el porcentaje de avance o la cantidad trabajada en este primer periodo. Verifica que los certificados de manufactura requeridos estén en orden y guarda la certificación.\n'
+                      '4. Certificaciones #2, #3, #4 y #5: Conforme avance el tiempo, repetirás el proceso (pasos 2 y 3) para cada una de las siguientes 4 certificaciones. El programa PACT restará automáticamente lo que ya has cobrado en certificaciones anteriores para mostrarte tu balance correcto.')
+
+    # Paso 5
+    doc.add_heading('Paso 5: Hacer Dos Órdenes de Cambio (CHO)', level=1)
+    doc.add_paragraph('A veces los proyectos necesitan modificaciones (más tiempo o dinero).\n'
+                      '1. Navega a la sección de "Órdenes de Cambio" (CHO).\n'
+                      '2. Haz clic en "Nuevo CHO".\n'
+                      '3. Primer CHO: Detalla qué cambió (por ejemplo, trabajo adicional), pon los nuevos montos y justifica el cambio. Guarda el documento.\n'
+                      '4. Segundo CHO: Repite el proceso para registrar una segunda orden de cambio.\n'
+                      '5. Una vez guardados y aprobados, estos CHO modificarán el monto total de tu contrato y se reflejarán en tus próximas certificaciones de pago.')
+
+    # Nueva seccion: Resumen
+    doc.add_heading('Sección de Resumen (Dashboard)', level=1)
+    doc.add_paragraph('La sección de "Resumen" te permite tener una visión general del estado actual de tu proyecto. Aquí podrás observar:\n'
+                      '• El monto total del contrato original y el monto actual ajustado con los CHO aprobados.\n'
+                      '• El total facturado hasta el momento a través de tus certificaciones de pago.\n'
+                      '• El balance restante disponible en el contrato.\n'
+                      '• El estado de tus documentos (cuáles están vigentes y cuáles están próximos a expirar).\n'
+                      '• Alertas sobre certificados de manufactura pendientes.\n'
+                      'Es una herramienta excelente para monitorear la salud financiera y administrativa de tu proyecto en un solo vistazo.')
+    
+    # Save document
+    # Ensure no .docx extension is repeated if provided, but the user asked for this exact path, adding .docx
+    file_path = r"C:\Users\Enrique Saavedra\Documents\PROGRAMAS AI\Programa ACT\Documentos\MANUAL PACT JULIO 2026.docx"
+    doc.save(file_path)
+    print(f"Document saved to {file_path}")
 
 if __name__ == "__main__":
-    main()
+    create_manual()

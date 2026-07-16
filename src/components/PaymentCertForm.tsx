@@ -1421,7 +1421,7 @@ const PaymentCertForm = React.forwardRef(({
                                                     {blockedItems.map(({ it, status }) => (
                                                         <div key={it.item_num} className="flex items-center gap-2 text-[10px] font-bold text-red-700 dark:text-red-400">
                                                             <span className="bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded font-black">Partida {it.item_num}</span>
-                                                            <span>Quieres pagar <span className="font-black">{formatNumber(status.qtyToPay)} {it.unit}</span>, pero solo hay <span className="font-black">{formatNumber(status.available)} {it.unit}</span> con CM aprobado.</span>
+                                                            <span>Se quiere pagar <span className="font-black">{formatNumber(status.qtyToPay)} {it.unit}</span>, pero solo hay <span className="font-black">{formatNumber(status.available)} {it.unit}</span> con CM aprobado.</span>
                                                             <span className="bg-red-200 dark:bg-red-800 px-1.5 py-0.5 rounded font-black text-red-800 dark:text-red-200">Faltan {formatNumber(status.missing)} {it.unit}</span>
                                                         </div>
                                                     ))}

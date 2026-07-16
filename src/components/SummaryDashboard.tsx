@@ -251,7 +251,8 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             unit: displayUnit,
                             qtyToPay,
                             available,
-                            missing
+                            missing,
+                            isPaid: cert.is_paid || false
                         };
                     }
                     return null;
@@ -357,7 +358,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                     <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-[10px] font-bold text-orange-700 dark:text-orange-400">
                                         <span className="bg-orange-100 dark:bg-orange-900/40 px-1.5 py-0.5 rounded font-black whitespace-nowrap">Partida {it.item_num}</span>
                                         <span className="leading-tight">
-                                            Se quiere pagar <span className="font-black">{formatNumber(it.qtyToPay)} {it.unit}</span>, pero solo hay <span className="font-black">{formatNumber(it.available)} {it.unit}</span> con CM aprobado.
+                                            {it.isPaid ? 'Ya se pagó' : 'Se quiere pagar'} <span className="font-black">{formatNumber(it.qtyToPay)} {it.unit}</span>, pero solo hay <span className="font-black">{formatNumber(it.available)} {it.unit}</span> con CM aprobado.
                                         </span>
                                         <span className="bg-orange-200 dark:bg-orange-800 px-1.5 py-0.5 rounded font-black text-orange-800 dark:text-orange-200 whitespace-nowrap sm:ml-auto">
                                             Faltan {formatNumber(it.missing)} {it.unit}
