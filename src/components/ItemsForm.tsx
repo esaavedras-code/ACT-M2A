@@ -451,7 +451,15 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                         <td className="px-1 py-1.5">
                                             <div className="space-y-1">
                                                 <input type="text" disabled={readOnly} className="input-field text-xs h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'description') }} value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
-                                                <input type="text" disabled={readOnly} className="input-field text-[10px] h-6 !py-0.5 opacity-70" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'additional_description') }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                {readOnly ? (
+                                                    item.additional_description ? (
+                                                        <div className="text-[10px] italic text-emerald-700 font-semibold px-1 leading-tight">
+                                                            ({item.additional_description})
+                                                        </div>
+                                                    ) : null
+                                                ) : (
+                                                    <input type="text" className="input-field text-[10px] h-6 !py-0.5" style={{ backgroundColor: ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'additional_description') }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">

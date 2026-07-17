@@ -540,6 +540,7 @@ const PaymentCertForm = React.forwardRef(({
                     item_num: baseItem.item_num,
                     specification: baseItem.specification,
                     description: baseItem.description,
+                    additional_description: baseItem.additional_description || '',
                     unit: baseItem.unit,
                     unit_price: baseItem.unit_price,
                     fund_source: baseItem.fund_source,
@@ -1636,6 +1637,11 @@ const PaymentCertForm = React.forwardRef(({
                                                                             e.target.style.height = e.target.scrollHeight + 'px';
                                                                         }}
                                                                     />
+                                                                    {item.additional_description ? (
+                                                                        <div className="text-[9px] italic text-emerald-700 font-semibold px-0.5 leading-tight">
+                                                                            ({item.additional_description})
+                                                                        </div>
+                                                                    ) : null}
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <input
