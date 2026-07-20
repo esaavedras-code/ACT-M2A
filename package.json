@@ -1,6 +1,6 @@
 {
     "name": "pact-administradores",
-    "version": "3.26.716",
+    "version": "3.26.720",
     "private": true,
     "main": "electron/main.js",
     "scripts": {
@@ -8,6 +8,7 @@
         "build": "next build",
         "start": "next start",
         "lint": "next lint",
+        "test": "vitest run",
         "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
         "electron:build": "cross-env BUILD_FOR=electron npm run build && cross-env CSC_SKIP_SIGNING=true electron-builder"
     },
@@ -55,6 +56,7 @@
         "postcss": "^8",
         "tailwindcss": "^3.4.1",
         "typescript": "^5",
+        "vitest": "^4.1.10",
         "wait-on": "^9.0.4"
     },
     "build": {
