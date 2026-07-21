@@ -2,6 +2,7 @@
 
 import { BackupGuardProvider } from "@/components/BackupModal";
 import GreenCellPlaceholders from "@/components/GreenCellPlaceholders";
+import { ThemeProvider } from "@/lib/ThemeContext";
 
 /**
  * ClientProviders envuelve todos los providers que requieren ser Client Components.
@@ -9,9 +10,11 @@ import GreenCellPlaceholders from "@/components/GreenCellPlaceholders";
  */
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
     return (
-        <BackupGuardProvider>
-            <GreenCellPlaceholders />
-            {children}
-        </BackupGuardProvider>
+        <ThemeProvider>
+            <BackupGuardProvider>
+                <GreenCellPlaceholders />
+                {children}
+            </BackupGuardProvider>
+        </ThemeProvider>
     );
 }

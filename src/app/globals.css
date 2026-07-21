@@ -9,6 +9,14 @@
   --primary-dark: #004494;
 }
 
+/* Variables de modo nocturno */
+.dark {
+  --background: #0f1117;
+  --foreground: #e2e8f0;
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+}
+
 html {
   scroll-behavior: smooth;
   height: 100%;
@@ -21,7 +29,9 @@ body {
   overflow-x: hidden;
   overflow-y: auto !important;
   min-height: 100%;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
+
 
 .card {
   @apply bg-white dark:bg-slate-900 rounded-[2rem] shadow-md border border-slate-200 dark:border-slate-800 p-4 sm:p-6 md:p-8 transition-all hover:shadow-lg;

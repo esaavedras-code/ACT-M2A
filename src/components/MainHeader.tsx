@@ -10,6 +10,7 @@ import MobileMenu from "@/components/MobileMenu";
 import BrandName from "@/components/BrandName";
 import ExitButton from "@/components/ExitButton";
 import RestoreButton from "@/components/RestoreButton";
+import DarkModeButton from "@/components/DarkModeButton";
 import { useUserRole } from "@/hooks/useUserRole";
 
 export default function MainHeader() {
@@ -54,6 +55,7 @@ export default function MainHeader() {
                         </div>
                     </Suspense>
                     <RestoreButton />
+                    <DarkModeButton />
                     <ExitButton />
                     <UserAccessButton />
                 </div>
