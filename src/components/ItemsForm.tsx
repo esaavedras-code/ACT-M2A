@@ -84,9 +84,10 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
         if (data) setCerts(data);
     };
 
-    const getCHOQty = (itemNum: string) => {
+    const getCHOQty = (itemNum: string, onlyApproved: boolean = false) => {
         let total = 0;
         chos.forEach(cho => {
+            if (onlyApproved && cho.doc_status !== 'Aprobado') return;
             const items = Array.isArray(cho.items) ? cho.items : [];
             items.forEach((it: any) => {
                 if (it.item_num === itemNum) {
@@ -284,10 +285,12 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                         roundedAmt(sum + roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2), 2)
                                     , 0);
                                     if (readOnly) {
-                                        const approvedCHOTotal = chos
-                                            .filter((c: any) => c.doc_status === 'Aprobado')
-                                            .reduce((sum: number, c: any) => roundedAmt(sum + (parseFloat(c.proposed_change) || 0), 2), 0);
-                                        return roundedAmt(originalTotal + approvedCHOTotal, 2);
+                                        const revisedTotal = items.reduce((sum, item) => {
+                                            const approvedChoQty = getCHOQty(item.item_num, true);
+                                            const totalQty = (parseFloat(item.quantity) || 0) + approvedChoQty;
+                                            return roundedAmt(sum + roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2), 2);
+                                        }, 0);
+                                        return revisedTotal;
                                     }
                                     return originalTotal;
                                 }, [items, chos, readOnly]))}
@@ -386,7 +389,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                     return (a.item.item_num || "").localeCompare(b.item.item_num || "");
                                 })
                                 .map(({ item, originalIndex: idx }) => {
-                            const choQty = getCHOQty(item.item_num);
+                            const choQty = getCHOQty(item.item_num, readOnly);
                             const totalQty = (parseFloat(item.quantity) || 0) + choQty;
                             const amountFinal = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
 
