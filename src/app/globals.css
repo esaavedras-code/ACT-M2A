@@ -80,6 +80,17 @@ body {
   border-radius: 8px !important; /* Menos redondeado para evitar que se corten los números */
 }
 
+/* Corregir contraste en campos con fondo blanco forzado para que siempre se vea en modo noche */
+.input-field[style*="background-color: white"],
+.input-field[style*="background-color:white"],
+.input-field[style*="background-color: #ffffff"],
+.input-field[style*="background-color:#ffffff"],
+.input-field[style*="background-color: #FFFFFF"],
+.input-field[style*="background-color:#FFFFFF"],
+.input-field[style*="background-color: rgb(255, 255, 255)"] {
+  color: #020617 !important;
+}
+
 input[type="date"]::-webkit-calendar-picker-indicator {
     display: none !important;
 }
