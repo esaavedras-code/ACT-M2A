@@ -24,6 +24,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
     const [items, setItems] = useState<any[]>([]);
     const [chos, setChos] = useState<any[]>([]);
     const [certs, setCerts] = useState<any[]>([]);
+    const [project, setProject] = useState<any>(null);
     const [priceSuggestions, setPriceSuggestions] = useState<Record<string, number[]>>({});
     const [expandedItem, setExpandedItem] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
@@ -31,6 +32,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
     useEffect(() => {
         if (projectId) {
+            fetchProject();
             fetchItems();
             fetchCHOs();
             fetchCerts();
@@ -77,6 +79,11 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
     const fetchCHOs = async () => {
         const { data } = await supabase.from("chos").select("*").eq("project_id", projectId);
         if (data) setChos(data);
+    };
+
+    const fetchProject = async () => {
+        const { data } = await supabase.from("projects").select("*").eq("id", projectId).single();
+        if (data) setProject(data);
     };
 
     const fetchCerts = async () => {
@@ -281,19 +288,18 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             </span>
                             <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-extrabold border border-emerald-100 dark:border-emerald-800/50">
                                 {formatCurrency(React.useMemo(() => {
-                                    const originalTotal = items.reduce((sum, item) =>
+                                    const computedOriginal = items.reduce((sum, item) =>
                                         roundedAmt(sum + roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2), 2)
                                     , 0);
+                                    const originalTotal = project?.cost_original || computedOriginal;
                                     if (readOnly) {
-                                        const revisedTotal = items.reduce((sum, item) => {
-                                            const approvedChoQty = getCHOQty(item.item_num, true);
-                                            const totalQty = (parseFloat(item.quantity) || 0) + approvedChoQty;
-                                            return roundedAmt(sum + roundedAmt(totalQty * (parseFloat(item.unit_price) || 0), 2), 2);
-                                        }, 0);
-                                        return revisedTotal;
+                                        const approvedCHOTotal = chos
+                                            .filter((c: any) => c.doc_status === 'Aprobado')
+                                            .reduce((sum: number, c: any) => roundedAmt(sum + (parseFloat(c.proposed_change) || 0), 2), 0);
+                                        return roundedAmt(originalTotal + approvedCHOTotal, 2);
                                     }
                                     return originalTotal;
-                                }, [items, chos, readOnly]))}
+                                }, [items, chos, readOnly, project]))}
                             </span>
                         </div>
                     </div>
