@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>6. CHANGE ORDER (ÓRDENES DE CAMBIO CHO / ACT-122 / ACT-123) - Sistema PACT</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0F172A;
+            color: #F8FAFC;
+            padding: 30px;
+            margin: 0;
+        }
+        .card {
+            background: #1E293B;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #334155;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h2 {
+            color: #38BDF8;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .author {
+            color: #93C5FD;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .mermaid {
+            background: #0B0F19;
+            padding: 20px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>6. CHANGE ORDER (ÓRDENES DE CAMBIO CHO / ACT-122 / ACT-123)</h2>
+        <div class="author">Diseño de Proceso PACT: Ing. Enrique Saavedra Sada, PE</div>
+        <div class="mermaid">
+        
+        graph TD
+            A[Identificación de Necesidad de Cambio en Obra] --> B[Crear Borrador de Orden de Cambio CHO / ACT-122]
+            B --> C[Definir Tipo: Ajuste Cantidad / Extra Work / Extensión Tiempo]
+            C --> D[Desglosar Costos de Mano de Obra, Equipos & Materiales ACT-123]
+            D --> E[Comprobación de Asignación de Fondos Presupuestarios en PACT]
+            E --> F{¿El Monto Excede el Techo de Asignación?}
+            F -- Sí --> G[Emitir Bloqueo Presupuestario & Requerir Re-asignación]
+            F -- No --> H[Completar Check List de Orden de Cambio ACT-124]
+            H --> I[Ruta de Firmas Autorizadas: Residente, Director & Agencia]
+            I --> J[Aprobación Formal de CHO en PACT]
+            J --> K[Inyección Automática de Nuevas Partidas & Ajuste de Calendario]
+            K --> L[Fin: Contrato Vigente Actualizado]
+
+            style A fill:#1F4E78,stroke:#38BDF8,color:#fff
+            style F fill:#D97706,stroke:#FBBF24,color:#fff
+            style G fill:#991B1B,stroke:#F87171,color:#fff
+            style K fill:#065F46,stroke:#10B981,color:#fff
+        
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
+</body>
+</html>

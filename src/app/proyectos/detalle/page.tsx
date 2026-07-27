@@ -54,6 +54,7 @@ function ProjectDetailContent() {
     const [isSaving, setIsSaving] = useState(false);
     const [selectedSection, setSelectedSection] = useState("info");
     const [selectedMfgSection, setSelectedMfgSection] = useState("mfg");
+    const [underConstructionOpen, setUnderConstructionOpen] = useState(false);
 
     // Refs para guardado unificado
     const projectFormRef = useRef<any>(null);
@@ -125,9 +126,9 @@ function ProjectDetailContent() {
         { id: "mfg",         label: "Certificados de manufactura", icon: <Factory size={12} /> },
         { id: "payment",     label: "Monthly payment",            icon: <FileCheck size={12} /> },
         { id: "cho",         label: "Change order",               icon: <FileEdit size={12} /> },
-        { id: "logs",        label: "Actividades",               icon: <Cloud size={12} /> },
-        { id: "inspection",  label: "Inspección",                icon: <FileCheck size={12} /> },
-        { id: "force2",      label: "Force account 2",           icon: <Briefcase size={12} /> },
+        { id: "logs",        label: "Actividades",               icon: <Cloud size={12} />, underConstruction: true },
+        { id: "inspection",  label: "Inspección",                icon: <FileCheck size={12} />, underConstruction: true },
+        { id: "force2",      label: "Force account 2",           icon: <Briefcase size={12} />, underConstruction: true },
         { id: "items",       label: "Todas las partidas",         icon: <ListChecks size={12} /> },
         { id: "materials",   label: "Material on site",           icon: <Package size={12} /> },
         { id: "negotiation", label: "Negociacion",               icon: <Handshake size={12} />, underConstruction: true },
@@ -446,8 +447,8 @@ function ProjectDetailContent() {
                 {/* Botones de Navegación Lateral (Flotantes - Fixed) */}
                 <div className="md:fixed md:top-[128px] md:left-4 z-[90] w-full md:w-[200px] lg:w-[220px] shrink-0 transition-all duration-300">
                     <div className="flex flex-row md:flex-col flex-wrap md:flex-nowrap gap-2 bg-white/80 dark:bg-slate-900/90 backdrop-blur-2xl p-3 rounded-[2rem] border border-white dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] dark:shadow-none max-h-[calc(100vh-160px)] overflow-y-auto custom-scrollbar">
-                        {filteredTabs.map(tab => {
-                            const isGreen = ['project2', 'compliance', 'mfg', 'payment', 'cho', 'logs', 'inspection', 'force2'].includes(tab.id);
+                        {filteredTabs.filter(tab => !tab.underConstruction).map(tab => {
+                            const isGreen = ['project2', 'compliance', 'mfg', 'payment', 'cho'].includes(tab.id);
                             const isDashboard = tab.id === 'dashboard';
                             
                             return (
@@ -485,16 +486,64 @@ function ProjectDetailContent() {
                                         : 'group-hover:translate-x-1'
                                 }`}>
                                     {tab.label}
-                                    {tab.underConstruction && (
-                                        <span className="ml-2 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-normal">
-                                            EN CONSTRUCCION
-                                        </span>
-                                    )}
                                     {tab.wip && <span className="ml-2 bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded text-[7px] font-black uppercase">WIP</span>}
                                 </span>
                             </button>
                             );
                         })}
+
+                        {/* ── Botón agrupador: En Construcción ─────────────────────────── */}
+                        {filteredTabs.some(tab => tab.underConstruction) && (
+                            <>
+                                <div className="w-full h-px bg-slate-200 dark:bg-slate-700 my-1" />
+                                <button
+                                    onClick={() => setUnderConstructionOpen(prev => !prev)}
+                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-[1.4rem] font-black text-[9px] uppercase tracking-[0.1em] w-full transition-all ${
+                                        underConstructionOpen
+                                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
+                                        : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 hover:bg-amber-100'
+                                    }`}
+                                >
+                                    <span className="text-base">🚧</span>
+                                    <span className="flex-1 text-left">En Construcción</span>
+                                    <svg
+                                        className={`w-3 h-3 transition-transform duration-300 ${underConstructionOpen ? 'rotate-180' : ''}`}
+                                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {underConstructionOpen && (
+                                    <div className="flex flex-col gap-1 pl-2 border-l-2 border-amber-300 dark:border-amber-700 ml-2">
+                                        {filteredTabs.filter(tab => tab.underConstruction).map(tab => {
+                                            const isDashboard = tab.id === 'dashboard';
+                                            return (
+                                                <button
+                                                    key={tab.id}
+                                                    onClick={() => handleTabChange(tab.id)}
+                                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-[1.2rem] font-black text-[9px] uppercase tracking-[0.1em] whitespace-nowrap lg:whitespace-normal text-left transition-all active:scale-95 group ${
+                                                        activeTab === tab.id
+                                                        ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30'
+                                                        : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700 hover:bg-amber-100 hover:border-amber-400'
+                                                    }`}
+                                                >
+                                                    <span className={`shrink-0 transition-all duration-500 ${
+                                                        activeTab === tab.id ? 'text-white scale-110 rotate-3' : 'text-amber-500 group-hover:scale-125 group-hover:-rotate-3'
+                                                    }`}>{tab.icon}</span>
+                                                    <span className="line-clamp-2">
+                                                        {tab.label}
+                                                        <span className="ml-1.5 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-1 py-0.5 rounded text-[6px] font-black uppercase">
+                                                            En construcción
+                                                        </span>
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
 

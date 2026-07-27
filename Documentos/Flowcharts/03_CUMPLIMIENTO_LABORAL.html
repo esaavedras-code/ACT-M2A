@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>3. CUMPLIMIENTO LABORAL (CERTIFIED PAYROLL & DAVIS-BACON) - Sistema PACT</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0F172A;
+            color: #F8FAFC;
+            padding: 30px;
+            margin: 0;
+        }
+        .card {
+            background: #1E293B;
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid #334155;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h2 {
+            color: #38BDF8;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .author {
+            color: #93C5FD;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .mermaid {
+            background: #0B0F19;
+            padding: 20px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>3. CUMPLIMIENTO LABORAL (CERTIFIED PAYROLL & DAVIS-BACON)</h2>
+        <div class="author">Diseño de Proceso PACT: Ing. Enrique Saavedra Sada, PE</div>
+        <div class="mermaid">
+        
+        graph TD
+            A[Recepción de Nómina Semanal Contratista] --> B[Carga de Certificación de Nómina en PACT]
+            B --> C[Auditoría de Clasificaciones de Puestos de Trabajo]
+            C --> D[Verificación de Tarifa Horaria vs. Scale de Salarios Mínimos]
+            D --> E{¿Cumple con la Tarifa Salarial Obligatoria?}
+            E -- No --> F[Generar Alerta de Incumplimiento & Requerimiento de Restitución]
+            F --> G[Bloquear Aprobación de Cumplimiento Laboral]
+            E -- Sí --> H[Auditar Horas Regulares & Horas Extra Overtime]
+            H --> I[Validar Declaración Jurada del Patrono]
+            I --> J[Aprobar Certificación Laboral Semanal en PACT]
+            J --> K[Fin: Habilitar Avance para Certificación de Pago]
+
+            style A fill:#1F4E78,stroke:#38BDF8,color:#fff
+            style E fill:#D97706,stroke:#FBBF24,color:#fff
+            style F fill:#991B1B,stroke:#F87171,color:#fff
+            style J fill:#065F46,stroke:#10B981,color:#fff
+        
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
+</body>
+</html>

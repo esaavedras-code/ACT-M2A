@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagramas de Flujo de Procesos - Sistema PACT</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --primary: #1F4E78;
+            --secondary: #2F5597;
+            --bg-dark: #0F172A;
+            --card-bg: #1E293B;
+            --text-light: #F8FAFC;
+            --accent: #38BDF8;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0B0F19;
+            color: #E2E8F0;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header-box {
+            background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+            border: 1px solid #334155;
+            border-left: 6px solid #38BDF8;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        h1 {
+            color: #F8FAFC;
+            font-size: 2.2rem;
+            margin: 0 0 10px 0;
+        }
+        .subtitle {
+            color: #94A3B8;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+        .author-tag {
+            display: inline-block;
+            background: #1E3A8A;
+            color: #93C5FD;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .section-card {
+            background-color: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .section-card h2 {
+            color: #38BDF8;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 12px;
+            margin-top: 0;
+        }
+        .description {
+            color: #CBD5E1;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+        .mermaid {
+            background-color: #0F172A;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-box">
+            <h1>SISTEMA PACT - DIAGRAMAS DE FLUJO DE PROCESOS (FLOWCHARTS)</h1>
+            <div class="subtitle">Flujos de Trabajo Operativos, Control Presupuestario y Auditoría Gubernamental</div>
+            <div class="author-tag">Diseñado por: Ing. Enrique Saavedra Sada, PE</div>
+        </div>
+
+        <!-- 1. RESUMEN -->
+        <div class="section-card">
+            <h2>1. SECCIÓN: RESUMEN (DASHBOARD & CONSOLIDACIÓN EJECUTIVA)</h2>
+            <div class="description">
+                El módulo de Resumen centraliza los datos maestros del contrato, consolidando el progreso físico de campo (ACT-45), 
+                los desembolsos acumulados (ACT-117C) y las modificaciones contractuales (CHO) para alimentar los indicadores ejecutivos (KPIs) 
+                y el informe maestro ACT-32.
+            </div>
+            <div class="mermaid">
+            graph TD
+                A[Inicio: Carga de Datos del Proyecto] --> B[Lectura de Contrato Original & CHOs Aprobadas]
+                B --> C[Consolidación de Registros Acumulados]
+                C --> D1[Progreso Físico en Campo - ACT-45]
+                C --> D2[Histórico de Certificaciones - ACT-117C]
+                C --> D3[Balance de Retenciones & MOS - ACT-117B]
+                D1 --> E[Cálculo de Indicadores KPIs en Tiempo Real]
+                D2 --> E
+                D3 --> E
+                E --> F[Generación de Tableros Visuales & Dashboard]
+                F --> G[Exportación de Reporte Ejecutivo Maestro ACT-32]
+                G --> H[Fin: Monitoreo & Auditoría Continua]
+                
+                style A fill:#1F4E78,stroke:#38BDF8,color:#fff
+                style E fill:#065F46,stroke:#10B981,color:#fff
+                style G fill:#1E3A8A,stroke:#60A5FA,color:#fff
+            </div>
+        </div>
+
+        <!-- 2. ENTRADA DE DATOS -->
+        <div class="section-card">
+            <h2>2. SECCIÓN: ENTRADA DE DATOS (INFORMES DIARIOS ACT-45 E INSPECCIÓN ACT-96)</h2>
+            <div class="description">
+                Gobierna la recolección de evidencia primaria en el sitio de construcción. Captura las jornadas laborales, condiciones 
+                climáticas, recursos consumidos, cantidades ejecutadas por partida y hallazgos ambientales/seguridad (ACT-96).
+            </div>
+            <div class="mermaid">
+            graph TD
+                A[Inicio Jornada de Inspección] --> B[Crear Nuevo Informe Diario ACT-45]
+                B --> C[Registrar Datos Ambientales, Mano de Obra & Equipos]
+                C --> D[Seleccionar Partidas Contractuales Activas]
+                D --> E[Ingresar Cantidades Físicas Instaladas en el Día]
+                E --> F{¿Ocurrió Incidencia / Inspección Específica?}
+                F -- Sí --> G[Abrir & Llenar Formulario ACT-96]
+                G --> H[Vincular Hallazgo u Orden de Corrección]
+                F -- No --> I[Adjuntar Evidencia Fotográfica Anclada]
+                H --> I
+                I --> J[Firma Digital del Inspector de Campo]
+                J --> K[Actualización Automática del Progreso en Campo en PACT]
+                K --> L[Fin: Registro Validado en BD]
+
+                style A fill:#1F4E78,stroke:#38BDF8,color:#fff
+                style F fill:#D97706,stroke:#FBBF24,color:#fff
+                style K fill:#065F46,stroke:#10B981,color:#fff
+            </div>
+        </div>
+
+        <!-- 3. CUMPLIMIENTO LABORAL -->
+        <div class="section-card">
+            <h2>3. SECCIÓN: CUMPLIMIENTO LABORAL (CERTIFIED PAYROLL & DAVIS-BACON)</h2>
+            <div class="description">
+                Módulo fiscalizador de la legislación laboral federal (Davis-Bacon Act) y estatal. Valida las clasificaciones de puestos, 
+                tarifas salariales por hora, pago de horas extra y retenciones de nómina de contratistas y subcontratistas.
+            </div>
+            <div class="mermaid">
+            graph TD
+                A[Recepción de Nómina Semanal Contratista] --> B[Carga de Certificación de Nómina en PACT]
+                B --> C[Auditoría de Clasificaciones de Puestos de Trabajo]
+                C --> D[Verificación de Tarifa Horaria vs. Scale de Salarios Mínimos]
+                D --> E{¿Cumple con la Tarifa Salarial Obligatoria?}
+                E -- No --> F[Generar Alerta de Incumplimiento & Requerimiento de Restitución]
+                F --> G[Bloquear Aprobación de Cumplimiento Laboral]
+                E -- Sí --> H[Auditar Horas Regulares & Horas Extra (Overtime)]
+                H --> I[Validar Declaración Jurada del Patrono]
+                I --> J[Aprobar Certificación Laboral Semanal en PACT]
+                J --> K[Fin: Habilitar Avance para Certificación de Pago]
+
+                style A fill:#1F4E78,stroke:#38BDF8,color:#fff
+                style E fill:#D97706,stroke:#FBBF24,color:#fff
+                style F fill:#991B1B,stroke:#F87171,color:#fff
+                style J fill:#065F46,stroke:#10B981,color:#fff
+            </div>
+        </div>
+
+        <!-- 4. CERTIFICADOS DE MANUFACTURA -->
+        <div class="section-card">
+            <h2>4. SECCIÓN: CERTIFICADOS DE MANUFACTURA (CM & CUMPLIMIENTO BABA)</h2>
+            <div class="description">
+                Aplica la 'Regla de Oro' de PACT. Asegura que ninguna partida de hierro, acero o producto manufacturado BABA sea certifiable 
+                para cobro sin contar con el respaldo documental de procedencia y calidad cargado en el sistema.
+            </div>
+            <div class="mermaid">
+            graph TD
+                A[Carga de Certificado de Manufactura en PACT] --> B[Asociar Documento a Partidas Contractuales]
+                B --> C{¿El Documento Ampara Múltiples Partidas?}
+                C -- Sí --> D[Marcar Opción 'Múltiple' & Asignar Cantidad por Ítem]
+                D --> E[Expansión Automática de Registros en Base de Datos]
+                C -- No --> F[Registro Directo de Cantidad Respaldada por Ítem]
+                E --> G[Verificación de Balance: CM Respaldado vs Cantidad a Pagar]
+                F --> G
+                G --> H{¿Cantidad CM >= Cantidad Acumulada a Pagar?}
+                H -- No --> I[Mapear Alerta Roja: Cantidad de Manufactura Insuficiente]
+                I --> J[Bloqueo / Advertencia en Formulario de Pago Mensual]
+                H -- Sí --> K[Validar Respaldos Documentales en Verde]
+                K --> L[Fin: Partida Habilitada para Cobro 100% Auditado]
+
+                style A fill:#1F4E78,stroke:#38BDF8,color:#fff
+                style C fill:#D97706,stroke:#FBBF24,color:#fff
+                style I fill:#991B1B,stroke:#F87171,color:#fff
+                style K fill:#065F46,stroke:#10B981,color:#fff
+            </div>
+        </div>
+
+        <!-- 5. MONTHLY PAYMENT -->
+        <div class="section-card">
+            <h2>5. SECCIÓN: MONTHLY PAYMENT (CERTIFICACIÓN DE PAGO MENSUAL ACT-117C)</h2>
+            <div class="description">
+                Gestiona la liquidación financiera del periodo. Integra el progreso medido en campo, los respaldos de manufactura, 
+                el balance de Material On Site (ACT-117B) y aplica automáticamente la retención contractual.
+            </div>
+            <div class="mermaid">
+            graph TD
+                A[Inicio de Periodo de Certificación Mensual] --> B[Conciliar Cantidades Instaladas con Informes ACT-45]
+                B --> C[Verificar Validación en Verde de Certificados de Manufactura]
+                C --> D[Incorporar Balance de Material On Site ACT-117B]
+                D --> E[Ingresar Cantidades a Certificar en el Periodo]
+                E --> F[Cálculo Automático del Monto Bruto Acumulado]
+                F --> G[Aplicación Automática de Retención Contractual Retainage 5%/10%]
+                G --> H[Descuento de Pagos Anteriores & Cálculo de Neto a Pagar]
+                H --> I[Revisiones & Firmas: Inspector, Residente & Asesor Legal]
+                I --> J[Exportación Oficial de Formulario ACT-117C Excel/PDF]
+                J --> K[Fin: Certificación Procesada para Desembolso]
+
+                style A fill:#1F4E78,stroke:#38BDF8,color:#fff
+                style F fill:#1E3A8A,stroke:#60A5FA,color:#fff
+                style J fill:#065F46,stroke:#10B981,color:#fff
+            </div>
+        </div>
+
+        <!-- 6. CHANGE ORDER -->
+        <div class="section-card">
+            <h2>6. SECCIÓN: CHANGE ORDER (ÓRDENES DE CAMBIO CHO / ACT-122 / ACT-123)</h2>
+            <div class="description">
+                Mecanismo formal y legal para modificar el contrato original. Gestiona partidas extra, ajustes de cantidades, 
+                extensiones de plazo y validación presupuestaria federal/estatal.
+            </div>
+            <div class="mermaid">
+            graph TD
+                A[Identificación de Necesidad de Cambio en Obra] --> B[Crear Borrador de Orden de Cambio CHO / ACT-122]
+                B --> C[Definir Tipo: Ajuste Cantidad / Extra Work / Extensión Tiempo]
+                C --> D[Desglosar Costos de Mano de Obra, Equipos & Materiales ACT-123]
+                D --> E[Comprobación de Asignación de Fondos Presupuestarios en PACT]
+                E --> F{¿El Monto Excede el Techo de Asignación?}
+                F -- Sí --> G[Emitir Bloqueo Presupuestario & Requerir Re-asignación]
+                F -- No --> H[Completar Check List de Orden de Cambio ACT-124]
+                H --> I[Ruta de Firmas Autorizadas: Residente, Director & Agencia]
+                I --> J[Aprobación Formal de CHO en PACT]
+                J --> K[Inyección Automática de Nuevas Partidas & Ajuste de Calendario]
+                K --> L[Fin: Contrato Vigente Actualizado]
+
+                style A fill:#1F4E78,stroke:#38BDF8,color:#fff
+                style F fill:#D97706,stroke:#FBBF24,color:#fff
+                style G fill:#991B1B,stroke:#F87171,color:#fff
+                style K fill:#065F46,stroke:#10B981,color:#fff
+            </div>
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>
