@@ -33,7 +33,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="es" suppressHydrationWarning>
-            <body className="antialiased min-h-screen relative font-sans text-slate-900 bg-slate-50" suppressHydrationWarning>
+            <body className="antialiased min-h-screen relative font-sans text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-[#0f1117] transition-colors duration-300" suppressHydrationWarning>
                 <ClientProviders>
                 <TranslationProvider>
                     <BeforeUnloadBackup />

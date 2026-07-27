@@ -297,7 +297,7 @@ export default function Dashboard() {
                 <div className="flex flex-col">
                     <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight uppercase">PROYECTOS ACT</h1>
                     <div className="flex items-center gap-3 mt-4">
-                        <p className="text-slate-500 dark:text-slate-400 font-medium">Gestiona y supervisa todas las obras.</p>
+                        <p className="text-slate-600 dark:text-slate-400 font-medium">Gestiona y supervisa todas las obras.</p>
                     </div>
                 </div>
                 <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group mr-[2in]">
@@ -330,7 +330,7 @@ export default function Dashboard() {
                 <input 
                     type="text" 
                     placeholder="BUSCAR PROYECTO POR NOMBRE O NÚMERO DE AC..." 
-                    className="w-full bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 shadow-xl shadow-blue-500/5 rounded-[2rem] py-5 pl-16 pr-8 text-sm font-black uppercase tracking-widest outline-none ring-2 ring-transparent focus:ring-blue-600/20 text-slate-900 dark:text-white transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl shadow-blue-500/5 rounded-[2rem] py-5 pl-16 pr-8 text-sm font-black uppercase tracking-widest outline-none ring-2 ring-transparent focus:ring-blue-600/20 text-slate-900 dark:text-white transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -345,27 +345,27 @@ export default function Dashboard() {
                     <Activity className="text-blue-600 dark:text-blue-400" size={20} />
                     Resumen de Proyectos
                 </h2>
-                <div className="overflow-x-auto card p-0 border-none shadow-sm rounded-[2rem]">
+                <div className="overflow-x-auto card p-0 border border-slate-200 dark:border-slate-800 shadow-sm rounded-[2rem]">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Proyecto / ACT</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-right">Terminación revisada</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-right">Costo ajustado</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-right">Remaining</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-right">Certified to date (WP)</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Progreso</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-center">Acciones</th>
+                            <tr className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Proyecto / ACT</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Terminación revisada</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Costo ajustado</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Remaining</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Certified to date (WP)</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Progreso</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {!loading && stats.recentProjects
                                 .filter((p: any) => 
                                     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                     p.num_act?.toLowerCase().includes(searchTerm.toLowerCase())
                                 )
                                 .map((proj: any) => (
-                                <tr key={proj.id} className="group hover:bg-blue-50/30 dark:hover:bg-slate-800/40 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
+                                <tr key={proj.id} className="group hover:bg-blue-50/50 dark:hover:bg-slate-800/60 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
                                     <td className="px-8 py-6">
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2 max-w-[280px]">
@@ -392,11 +392,11 @@ export default function Dashboard() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-8 py-6 text-right font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                    <td className="px-8 py-6 text-right font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                                         {proj.date_rev_completion ? new Date(proj.date_rev_completion).toLocaleDateString() : 'N/A'}
                                     </td>
-                                    <td className="px-8 py-6 text-right font-bold text-slate-700 dark:text-slate-200">{formatCurrency(proj.adjustedCost)}</td>
-                                    <td className={`px-8 py-6 text-right font-bold ${(proj.adjustedCost - proj.certified) < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    <td className="px-8 py-6 text-right font-bold text-slate-900 dark:text-slate-100">{formatCurrency(proj.adjustedCost)}</td>
+                                    <td className={`px-8 py-6 text-right font-bold ${(proj.adjustedCost - proj.certified) < 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
                                         {formatCurrency(proj.adjustedCost - proj.certified)}
                                     </td>
                                     <td className="px-8 py-6 text-right font-bold text-blue-600 dark:text-blue-400 underline decoration-blue-200 dark:decoration-blue-800 hover:decoration-blue-600 dark:hover:decoration-blue-400 transition-all">
@@ -406,8 +406,8 @@ export default function Dashboard() {
                                     </td>
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2 min-w-[80px]"><div className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full" style={{ width: `${proj.progress}%` }}></div></div>
-                                            <span className="text-[10px] font-black text-slate-700 dark:text-slate-300">{proj.progress}%</span>
+                                            <div className="flex-1 bg-slate-200 dark:bg-slate-800 rounded-full h-2 min-w-[80px]"><div className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full" style={{ width: `${proj.progress}%` }}></div></div>
+                                            <span className="text-[10px] font-black text-slate-900 dark:text-slate-100">{proj.progress}%</span>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-center">
@@ -432,11 +432,11 @@ export default function Dashboard() {
 function StatCard({ icon, title, value, subtitle }: { icon: React.ReactNode, title: string, value: string, subtitle: string }) {
     return (
         <div className="card flex items-start gap-4 hover:shadow-xl transition-all rounded-[2rem]">
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60">{icon}</div>
+            <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60">{icon}</div>
             <div>
-                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">{title}</h3>
+                <h3 className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{title}</h3>
                 <p className="text-2xl font-black text-slate-900 dark:text-white my-0.5 tracking-tight">{value}</p>
-                <span className="text-[10px] text-slate-400 dark:text-slate-400 font-medium italic">{subtitle}</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium italic">{subtitle}</span>
             </div>
         </div>
     );
