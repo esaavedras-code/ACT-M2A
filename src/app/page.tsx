@@ -295,9 +295,9 @@ export default function Dashboard() {
         <div className="py-8 space-y-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex flex-col">
-                    <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight uppercase">PROYECTOS ACT</h1>
+                    <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight uppercase">PROYECTOS ACT</h1>
                     <div className="flex items-center gap-3 mt-4">
-                        <p className="text-slate-500 font-medium">Gestiona y supervisa todas las obras.</p>
+                        <p className="text-slate-500 dark:text-slate-400 font-medium">Gestiona y supervisa todas las obras.</p>
                     </div>
                 </div>
                 <Link href="/proyectos/nuevo" className="btn-primary px-6 py-3 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 group mr-[2in]">
@@ -308,17 +308,17 @@ export default function Dashboard() {
 
             {/* Notification for pending requests */}
             {isAdmin && stats.pendingRequests > 0 && (
-                <Link href="/admin/requests" className="flex items-center justify-between bg-amber-50 border-2 border-amber-200 p-6 rounded-[2rem] hover:bg-amber-100 transition-all shadow-lg shadow-amber-500/10 group">
+                <Link href="/admin/requests" className="flex items-center justify-between bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800 p-6 rounded-[2rem] hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all shadow-lg shadow-amber-500/10 group">
                     <div className="flex items-center gap-4">
                         <div className="bg-amber-500 text-white p-3 rounded-2xl">
                             <User size={24} />
                         </div>
                         <div>
-                            <h3 className="font-black text-amber-900 uppercase tracking-tight">Solicitudes Pendientes</h3>
-                            <p className="text-amber-700 font-medium text-sm">Hay {stats.pendingRequests} personas esperando que apruebes su solicitud de acceso.</p>
+                            <h3 className="font-black text-amber-900 dark:text-amber-200 uppercase tracking-tight">Solicitudes Pendientes</h3>
+                            <p className="text-amber-700 dark:text-amber-400 font-medium text-sm">Hay {stats.pendingRequests} personas esperando que apruebes su solicitud de acceso.</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 text-amber-600 font-black text-xs uppercase tracking-widest group-hover:translate-x-1 transition-transform">
+                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-black text-xs uppercase tracking-widest group-hover:translate-x-1 transition-transform">
                         Gestionar <ArrowRight size={16} />
                     </div>
                 </Link>
@@ -326,64 +326,64 @@ export default function Dashboard() {
 
             {/* Search Box */}
             <div className="relative group">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={22} />
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 dark:group-focus-within:text-blue-400 transition-colors" size={22} />
                 <input 
                     type="text" 
                     placeholder="BUSCAR PROYECTO POR NOMBRE O NÚMERO DE AC..." 
-                    className="w-full bg-white border-none shadow-xl shadow-blue-500/5 rounded-[2rem] py-5 pl-16 pr-8 text-sm font-black uppercase tracking-widest outline-none ring-2 ring-transparent focus:ring-blue-600/20 transition-all placeholder:text-slate-300"
+                    className="w-full bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 shadow-xl shadow-blue-500/5 rounded-[2rem] py-5 pl-16 pr-8 text-sm font-black uppercase tracking-widest outline-none ring-2 ring-transparent focus:ring-blue-600/20 text-slate-900 dark:text-white transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <StatCard icon={<FileText className="text-blue-600" />} title="Proyectos" value={loading ? "..." : stats.totalProjects.toString()} subtitle="Obras registradas" />
+                <StatCard icon={<FileText className="text-blue-600 dark:text-blue-400" />} title="Proyectos" value={loading ? "..." : stats.totalProjects.toString()} subtitle="Obras registradas" />
             </div>
 
             <div className="space-y-6">
-                <h2 className="text-xl font-black flex items-center gap-2 uppercase tracking-tight">
-                    <Activity className="text-blue-600" size={20} />
+                <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2 uppercase tracking-tight">
+                    <Activity className="text-blue-600 dark:text-blue-400" size={20} />
                     Resumen de Proyectos
                 </h2>
                 <div className="overflow-x-auto card p-0 border-none shadow-sm rounded-[2rem]">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50 border-b border-slate-100">
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Proyecto / ACT</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Terminación revisada</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Costo ajustado</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Remaining</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Certified to date (WP)</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Progreso</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Acciones</th>
+                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Proyecto / ACT</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-right">Terminación revisada</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-right">Costo ajustado</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-right">Remaining</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-right">Certified to date (WP)</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Progreso</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-400 text-center">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                             {!loading && stats.recentProjects
                                 .filter((p: any) => 
                                     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                     p.num_act?.toLowerCase().includes(searchTerm.toLowerCase())
                                 )
                                 .map((proj: any) => (
-                                <tr key={proj.id} className="group hover:bg-blue-50/30 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
+                                <tr key={proj.id} className="group hover:bg-blue-50/30 dark:hover:bg-slate-800/40 cursor-pointer" onClick={() => window.location.href = `/proyectos/detalle?id=${proj.id}`}>
                                     <td className="px-8 py-6">
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2 max-w-[280px]">
                                                 <span className="text-[10px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-md uppercase tracking-tight shrink-0 shadow-sm">
                                                     {proj.num_act}
                                                 </span>
-                                                <span className="font-bold text-slate-900 group-hover:text-blue-600 leading-tight truncate overflow-hidden whitespace-nowrap" title={proj.name}>
+                                                <span className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 leading-tight truncate overflow-hidden whitespace-nowrap" title={proj.name}>
                                                     {proj.name}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shrink-0 ${proj.project_origin === 'Contratista' ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
+                                                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border shrink-0 ${proj.project_origin === 'Contratista' ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400' : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400'}`}>
                                                     {proj.project_origin}
                                                 </span>
                                                 {cmAlertsByProject[proj.id] && (
                                                     <span
                                                         title={`${cmAlertsByProject[proj.id]} partida(s) con CM insuficientes en certificaciones sin pagar`}
-                                                        className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border bg-orange-50 border-orange-300 text-orange-700 animate-pulse shrink-0"
+                                                        className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border bg-orange-50 dark:bg-orange-950/40 border-orange-300 dark:border-orange-800 text-orange-700 dark:text-orange-400 animate-pulse shrink-0"
                                                     >
                                                         <AlertTriangle size={9} className="shrink-0" />
                                                         CM faltantes ({cmAlertsByProject[proj.id]})
@@ -392,28 +392,28 @@ export default function Dashboard() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-8 py-6 text-right font-bold text-slate-500 whitespace-nowrap">
+                                    <td className="px-8 py-6 text-right font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
                                         {proj.date_rev_completion ? new Date(proj.date_rev_completion).toLocaleDateString() : 'N/A'}
                                     </td>
-                                    <td className="px-8 py-6 text-right font-bold text-slate-700">{formatCurrency(proj.adjustedCost)}</td>
-                                    <td className={`px-8 py-6 text-right font-bold ${(proj.adjustedCost - proj.certified) < 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                                    <td className="px-8 py-6 text-right font-bold text-slate-700 dark:text-slate-200">{formatCurrency(proj.adjustedCost)}</td>
+                                    <td className={`px-8 py-6 text-right font-bold ${(proj.adjustedCost - proj.certified) < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
                                         {formatCurrency(proj.adjustedCost - proj.certified)}
                                     </td>
-                                    <td className="px-8 py-6 text-right font-bold text-blue-600 underline decoration-blue-200 hover:decoration-blue-600 transition-all">
+                                    <td className="px-8 py-6 text-right font-bold text-blue-600 dark:text-blue-400 underline decoration-blue-200 dark:decoration-blue-800 hover:decoration-blue-600 dark:hover:decoration-blue-400 transition-all">
                                         <Link href={`/proyectos/detalle?id=${proj.id}&tab=payment`} onClick={(e) => e.stopPropagation()}>
                                             {formatCurrency(proj.certified)}
                                         </Link>
                                     </td>
                                     <td className="px-8 py-6">
                                         <div className="flex items-center gap-3">
-                                            <div className="flex-1 bg-slate-100 rounded-full h-2 min-w-[80px]"><div className="bg-blue-600 h-2 rounded-full" style={{ width: `${proj.progress}%` }}></div></div>
-                                            <span className="text-[10px] font-black">{proj.progress}%</span>
+                                            <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2 min-w-[80px]"><div className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full" style={{ width: `${proj.progress}%` }}></div></div>
+                                            <span className="text-[10px] font-black text-slate-700 dark:text-slate-300">{proj.progress}%</span>
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-center">
                                         <button 
                                             onClick={(e) => handleDownloadProjectJSON(e, proj.id, proj.name)}
-                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                            className="p-2 text-slate-400 hover:text-primary dark:hover:text-blue-400 hover:bg-primary/10 dark:hover:bg-blue-500/10 rounded-xl transition-all"
                                             title="Descargar Respaldo JSON"
                                         >
                                             <Download size={18} />
@@ -432,11 +432,11 @@ export default function Dashboard() {
 function StatCard({ icon, title, value, subtitle }: { icon: React.ReactNode, title: string, value: string, subtitle: string }) {
     return (
         <div className="card flex items-start gap-4 hover:shadow-xl transition-all rounded-[2rem]">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">{icon}</div>
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60">{icon}</div>
             <div>
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</h3>
-                <p className="text-2xl font-black text-slate-900 my-0.5 tracking-tight">{value}</p>
-                <span className="text-[10px] text-slate-400 font-medium italic">{subtitle}</span>
+                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest">{title}</h3>
+                <p className="text-2xl font-black text-slate-900 dark:text-white my-0.5 tracking-tight">{value}</p>
+                <span className="text-[10px] text-slate-400 dark:text-slate-400 font-medium italic">{subtitle}</span>
             </div>
         </div>
     );
