@@ -706,7 +706,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     </table>
                                 </div>
                                 <div className="mt-8 space-y-4">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Justificación Técnica y Legal</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Justificación</label>
                                     <textarea className="w-full min-h-[120px] input-field text-xs p-3" value={cho.justification || ""} onChange={(e) => updateCHO(idx, 'justification', e.target.value)} />
                                 </div>
                             </div>
