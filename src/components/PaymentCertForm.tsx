@@ -44,6 +44,39 @@ export const normalizeItemNum = (num: any): string => {
     return str;
 };
 
+export const processCertsData = (certsList: any[], itemsList: any[]) => {
+    if (!Array.isArray(certsList)) return certsList;
+    return certsList.map(cert => {
+        if (!cert.items || !Array.isArray(cert.items)) return cert;
+        
+        const processedItems = cert.items.map((item: any) => {
+            const itemNumStr = normalizeItemNum(item.item_num);
+            const baseItem = itemsList.find(it => normalizeItemNum(it.item_num) === itemNumStr);
+            if (baseItem) {
+                return {
+                    ...item,
+                    unit_price: baseItem.unit_price,
+                    specification: baseItem.specification || item.specification,
+                    description: baseItem.description || item.description,
+                    unit: baseItem.unit || item.unit
+                };
+            }
+            return item;
+        });
+
+        const sortedItems = [...processedItems].sort((a: any, b: any) => {
+            const numA = (a.item_num || "").toString().replace(/[^0-9]/g, '');
+            const numB = (b.item_num || "").toString().replace(/[^0-9]/g, '');
+            const parsedA = parseInt(numA || '0', 10);
+            const parsedB = parseInt(numB || '0', 10);
+            if (parsedA !== parsedB) return parsedA - parsedB;
+            return (a.item_num || "").localeCompare(b.item_num || "");
+        });
+
+        return { ...cert, items: sortedItems };
+    });
+};
+
 const FUND_SOURCES = ["FHWA:100%", "FHWA:80.25", "ACT:100%"];
 
 /** Parsea un valor que puede tener comas de miles (ej: "4,885.00" => 4885) */
@@ -141,7 +174,10 @@ const PaymentCertForm = React.forwardRef(({
                 .eq('project_id', projectId)
                 .order('cert_num', { ascending: false });
             
-            if (!cError) setInternalCerts(certs || []);
+            if (!cError) {
+                const processed = processCertsData(certs || [], items || []);
+                setInternalCerts(processed);
+            }
 
             // 4. Cargar certificados de manufactura
             const { data: mfg, error: mError } = await supabase
@@ -171,10 +207,20 @@ const PaymentCertForm = React.forwardRef(({
 
     const certs = externalSetCerts ? initialCerts || [] : internalCerts;
     const setCerts = (newVal: any) => {
+        let processedVal = newVal;
+        if (typeof newVal === 'function') {
+            processedVal = (prev: any) => {
+                const res = newVal(prev);
+                return Array.isArray(res) ? processCertsData(res, contractItems) : res;
+            };
+        } else if (Array.isArray(newVal)) {
+            processedVal = processCertsData(newVal, contractItems);
+        }
+
         if (externalSetCerts) {
-            externalSetCerts(newVal);
+            externalSetCerts(processedVal);
         } else {
-            setInternalCerts(newVal);
+            setInternalCerts(processedVal);
         }
         if (onDirty) onDirty();
     };
