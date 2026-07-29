@@ -1699,7 +1699,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="number"
-                                                                        step="0.01"
+                                                                        step="any"
                                                                         className="input-field text-right text-[11px] font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.unit_price ?? ""}
