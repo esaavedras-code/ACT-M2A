@@ -38,7 +38,8 @@ export const normalizeItemNum = (num: any): string => {
     if (num === undefined || num === null) return "";
     const str = num.toString().trim();
     if (/^\d+$/.test(str)) {
-        return str.padStart(3, '0');
+        const n = parseInt(str, 10);
+        return n.toString().padStart(3, '0').slice(0, 3);
     }
     return str;
 };
@@ -531,7 +532,8 @@ const PaymentCertForm = React.forwardRef(({
         const newItems = [...(newCerts[certIdx].items || [])];
         
         if (field === 'item_num') {
-            const paddedValue = value.toString().padStart(3, '0');
+            const numVal = parseInt(value.toString().trim(), 10);
+            const paddedValue = !isNaN(numVal) ? numVal.toString().padStart(3, '0').slice(0, 3) : value.toString().trim();
             const baseItem = contractItems.find(it => it.item_num === paddedValue || it.item_num === value);
             if (baseItem) {
                 const is888 = (baseItem.specification || "").toString().trim() === "888-150" || (baseItem.item_num || "").toString().trim() === "888-150";
@@ -1610,7 +1612,8 @@ const PaymentCertForm = React.forwardRef(({
                                                                         onBlur={(e) => {
                                                                             const val = e.target.value;
                                                                             if (val !== "" && !isNaN(parseInt(val))) {
-                                                                                updateCertItem(certIdx, itIdx, 'item_num', val.padStart(3, '0'));
+                                                                                const n = parseInt(val, 10);
+                                                                                updateCertItem(certIdx, itIdx, 'item_num', n.toString().padStart(3, '0').slice(0, 3));
                                                                             }
                                                                         }}
                                                                         placeholder="000"
