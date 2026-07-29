@@ -56,19 +56,24 @@ export const processCertsData = (certsList: any[], itemsList: any[]) => {
     return certsList.map(cert => {
         if (!cert.items || !Array.isArray(cert.items)) return cert;
         
-        const processedItems = cert.items.map((item: any) => {
+        const processedItems = cert.items.map((item: any, idx: number) => {
             const itemNumStr = normalizeItemNum(item.item_num);
             const baseItem = itemsList.find(it => normalizeItemNum(it.item_num) === itemNumStr);
+            const stableId = item._uniqueId || `${cert.id || cert.cert_num}-${itemNumStr || idx}-${idx}`;
             if (baseItem) {
                 return {
                     ...item,
+                    _uniqueId: stableId,
                     unit_price: baseItem.unit_price,
                     specification: baseItem.specification || item.specification,
                     description: baseItem.description || item.description,
                     unit: baseItem.unit || item.unit
                 };
             }
-            return item;
+            return {
+                ...item,
+                _uniqueId: stableId
+            };
         });
 
         const sortedItems = [...processedItems].sort((a: any, b: any) => {
@@ -124,6 +129,22 @@ const PaymentCertForm = React.forwardRef(({
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
+    const activeInputIdRef = React.useRef<string | null>(null);
+
+    useEffect(() => {
+        if (activeInputIdRef.current) {
+            const el = document.getElementById(activeInputIdRef.current);
+            if (el) {
+                const input = el as HTMLInputElement | HTMLTextAreaElement;
+                const val = input.value;
+                input.focus();
+                if (typeof input.selectionStart === 'number') {
+                    input.selectionStart = input.selectionEnd = val.length;
+                }
+            }
+        }
+    });
 
     useEffect(() => {
         if (projectId) {
@@ -528,6 +549,7 @@ const PaymentCertForm = React.forwardRef(({
         const newCerts = [...certs];
         const newItems = [...(newCerts[certIdx].items || [])];
         newItems.push({
+            _uniqueId: crypto.randomUUID(),
             item_num: '',
             specification: '',
             description: '',
@@ -552,6 +574,7 @@ const PaymentCertForm = React.forwardRef(({
         const newCerts = [...certs];
         const newItems = [...(newCerts[certIdx].items || [])];
         newItems.splice(itIdx + 1, 0, {
+            _uniqueId: crypto.randomUUID(),
             item_num: '',
             specification: '',
             description: '',
@@ -1538,12 +1561,6 @@ const PaymentCertForm = React.forwardRef(({
                                             Partidas de esta Certificación
                                         </h4>
                                         <div className="flex items-center gap-6">
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-[9px] uppercase font-bold text-slate-400 leading-none">Balance MOS Acumulado</span>
-                                                <span className="text-xs font-black text-amber-600">
-                                                    {formatCurrency(getCertMOSBalance(certIdx))}
-                                                </span>
-                                            </div>
                                             <div className="flex gap-3">
                                                 <button onClick={() => addCertItem(certIdx)} className="text-[11px] font-bold text-slate-600 hover:bg-slate-100/50 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 transition-colors">
                                                     <Plus size={14} /> Añadir Partida
@@ -1648,12 +1665,15 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
+                                                                        id={`cert-${certIdx}-item-${item._uniqueId}-item_num`}
                                                                         className="input-field w-full text-center text-xs font-black p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200 rounded-lg"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.item_num}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'item_num', e.target.value)}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
+                                                                        onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
                                                                         onBlur={(e) => {
+                                                                            activeInputIdRef.current = null;
                                                                             const val = e.target.value;
                                                                             if (val !== "" && !isNaN(parseInt(val))) {
                                                                                 const n = parseInt(val, 10);
@@ -1666,20 +1686,26 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
+                                                                        id={`cert-${certIdx}-item-${item._uniqueId}-specification`}
                                                                         className="input-field w-full text-center text-xs font-mono p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200 rounded-lg"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.specification}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'specification', e.target.value)}
+                                                                        onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
+                                                                        onBlur={() => { activeInputIdRef.current = null; }}
                                                                         placeholder="000-000"
                                                                     />
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <textarea
+                                                                        id={`cert-${certIdx}-item-${item._uniqueId}-description`}
                                                                         className="w-full bg-transparent border-none text-[10px] font-medium leading-tight resize-none min-h-[24px] h-auto outline-none scrollbar-none py-1"
                                                                         value={item.description}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'description', e.target.value)}
                                                                         rows={1}
+                                                                        onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
                                                                         onBlur={(e) => {
+                                                                            activeInputIdRef.current = null;
                                                                             e.target.style.height = 'auto';
                                                                             e.target.style.height = e.target.scrollHeight + 'px';
                                                                         }}
@@ -1693,10 +1719,13 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="text"
+                                                                        id={`cert-${certIdx}-item-${item._uniqueId}-unit`}
                                                                         className="input-field text-center text-xs p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200 rounded-lg"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={item.unit}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'unit', e.target.value)}
+                                                                        onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
+                                                                        onBlur={() => { activeInputIdRef.current = null; }}
                                                                         placeholder="U"
                                                                     />
                                                                 </td>
@@ -1723,13 +1752,16 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="number"
+                                                                        id={`cert-${certIdx}-item-${item._uniqueId}-quantity`}
                                                                         step="0.0001"
                                                                         className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${isQtyExceeded || isMfgBlocked ? 'text-red-600 border-red-300' : ''}`}
                                                                         style={{ backgroundColor: isQtyExceeded || isMfgBlocked ? '#fee2e2' : '#66FF99' }}
                                                                         value={item.quantity ?? ""}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'quantity', e.target.value)}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
+                                                                        onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
                                                                         onBlur={(e) => {
+                                                                            activeInputIdRef.current = null;
                                                                             const entered = parseFloat(e.target.value) || 0;
                                                                             if (isKnownItem && entered > availableBalance + 0.0001 && availableBalance >= 0) {
                                                                                 alert(`La cantidad ingresada (${entered.toFixed(4)}) excede el balance disponible de la partida ${item.item_num} (${availableBalance.toFixed(4)}). Se ajustará al balance máximo disponible.`);
@@ -1752,12 +1784,15 @@ const PaymentCertForm = React.forwardRef(({
                                                                 <td className="py-1 px-0.5">
                                                                     <input
                                                                         type="number"
+                                                                        id={`cert-${certIdx}-item-${item._uniqueId}-unit_price`}
                                                                         step="any"
                                                                         className="input-field text-right text-[11px] font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={formatUnitPrice(item.unit_price)}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
+                                                                        onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
+                                                                        onBlur={() => { activeInputIdRef.current = null; }}
                                                                         placeholder="0.00"
                                                                     />
                                                                 </td>
