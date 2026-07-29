@@ -44,6 +44,13 @@ export const normalizeItemNum = (num: any): string => {
     return str;
 };
 
+export const formatUnitPrice = (val: any): string => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = parseFloat(val);
+    if (isNaN(num)) return val;
+    return Number(num.toFixed(6)).toString();
+};
+
 export const processCertsData = (certsList: any[], itemsList: any[]) => {
     if (!Array.isArray(certsList)) return certsList;
     return certsList.map(cert => {
@@ -1748,7 +1755,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         step="any"
                                                                         className="input-field text-right text-[11px] font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
-                                                                        value={item.unit_price ?? ""}
+                                                                        value={formatUnitPrice(item.unit_price)}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         placeholder="0.00"
