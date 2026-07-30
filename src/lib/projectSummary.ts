@@ -187,6 +187,7 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
 
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         let certAmount = 0;
+        let certRetentionAmount = 0;
 
         certItems.forEach((item: any) => {
             const itemNum = item.item_num;
@@ -206,6 +207,12 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
             actTotal = roundedAmt(actTotal + actShare, 2);
             certAmount = roundedAmt(certAmount + amount, 2);
             totalCertDirecto = roundedAmt(totalCertDirecto + amount, 2);
+
+            if (!cert.skip_retention && item.skip_retention !== true && item.skip_retention !== 'true') {
+                const retItem = roundedAmt(amount * 0.05, 2);
+                certRetentionAmount = roundedAmt(certRetentionAmount + retItem, 2);
+                totalRetentionDeducted = roundedAmt(totalRetentionDeducted + retItem, 2);
+            }
 
             const manualDeductionQty = parseFloat(item.qty_from_mos) || 0;
             const hasAddition = !!item.has_material_on_site || (item.mos_invoice_total && parseFloat(item.mos_invoice_total) > 0);
@@ -258,17 +265,7 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
             mosLastPaid = currentCertMosAdded;
         }
 
-        let certRetentionAmount = 0;
-        if (!cert.skip_retention) {
-            certItems.forEach((item: any) => {
-                if (item.skip_retention !== true && item.skip_retention !== 'true') {
-                    const itemAmt = roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2);
-                    const retItem = roundedAmt(itemAmt * 0.05, 2);
-                    certRetentionAmount = roundedAmt(certRetentionAmount + retItem, 2);
-                    totalRetentionDeducted = roundedAmt(totalRetentionDeducted + retItem, 2);
-                }
-            });
-        }
+
 
         if ((cert.cert_num || 0) > lastCertNum) {
             lastCertNum = cert.cert_num;
