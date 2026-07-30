@@ -61,6 +61,9 @@ import {
     generateSubcontractsReportLogic,
     generateSignedItemsReportLogic,
     generateMissingSignaturesReportLogic,
+    generateUnexecutedItemsReportLogic,
+    generateMfgItemsReportLogic,
+    generateSpec888ItemsReportLogic,
     generateFaResumenAnualLogic,
     generateFaResumenMensualLogic,
     generateFaInformeDiarioLogic,
@@ -647,6 +650,60 @@ function ReportesContent() {
                             onExcel: () => generateMobilizationReportLogic(projectId)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => setStatus(`Error: ${e.message}`))
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'unexecuted-items',
+                            label: 'Partidas No Ejecutadas',
+                            description: 'Lista de partidas del contrato (originales y por CHO) que nunca han sido certificadas durante el proyecto.',
+                            icon: <BadgeAlert size={18} className="text-orange-500" />,
+                            onExcel: () => generateUnexecutedItemsReportLogic(projectId, 'excel')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onPdf: () => generateUnexecutedItemsReportLogic(projectId, 'pdf')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'mfg-items-report',
+                            label: 'Partidas con Manufactura (CM)',
+                            description: 'Listado consolidado y único de partidas que poseen certificados de manufactura registrados.',
+                            icon: <Package size={18} className="text-blue-500" />,
+                            onExcel: () => generateMfgItemsReportLogic(projectId, 'excel')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onPdf: () => generateMfgItemsReportLogic(projectId, 'pdf')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'spec888-items-report',
+                            label: 'Partidas con Especificación 888',
+                            description: 'Listado de partidas que pertenecen a la especificación técnica 888.',
+                            icon: <FileText size={18} className="text-purple-500" />,
+                            onExcel: () => generateSpec888ItemsReportLogic(projectId, 'excel')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onPdf: () => generateSpec888ItemsReportLogic(projectId, 'pdf')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
                         }}
                     />

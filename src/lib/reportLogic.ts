@@ -2228,3 +2228,507 @@ export const generateProjectStatusReportLogic = async (projectId: string) => {
     await downloadBlob(blob, `ProjectStatus_${project?.num_act || projectId}.xlsx`, project?.num_act);
 };
 
+
+// ---------------------------------------------------------------------------
+// REPORTE: PARTIDAS NO EJECUTADAS
+// Muestra únicamente las partidas del proyecto que tienen certQty === 0
+// (nunca han sido certificadas) durante todo el período del proyecto.
+// ---------------------------------------------------------------------------
+export const generateUnexecutedItemsReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'excel') => {
+    const { project, items, chos, certs } = await fetchAllReportData(projectId);
+    if (!items) return;
+
+    const allChos = chos || [];
+    const allCerts = certs || [];
+
+    // Recolectar todos los números de partidas (contrato original + añadidas por CHO)
+    const allItemNums = new Set(items.map((i: any) => i.item_num));
+    allChos.forEach((c: any) => {
+        const choItems = Array.isArray(c.items) ? c.items : [];
+        choItems.forEach((ci: any) => {
+            if (ci.item_num) allItemNums.add(ci.item_num);
+        });
+    });
+
+    const sortedItemNums = Array.from(allItemNums).sort((a: any, b: any) =>
+        a.localeCompare(b, undefined, { numeric: true })
+    );
+
+    // Calcular certQty por partida (total certificado en toda la vida del proyecto)
+    const certQtyMap = new Map<string, number>();
+    allCerts.forEach((c: any) => {
+        const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
+        certItems.forEach((it: any) => {
+            if (it.item_num) {
+                const prev = certQtyMap.get(it.item_num) || 0;
+                certQtyMap.set(it.item_num, prev + (parseFloat(it.quantity) || 0));
+            }
+        });
+    });
+
+    // Filtrar partidas NO ejecutadas (certQty === 0)
+    const unexecutedItems = sortedItemNums.filter((itemNum: string) => {
+        const certQty = certQtyMap.get(itemNum) || 0;
+        return certQty === 0;
+    });
+
+    if (unexecutedItems.length === 0) {
+        alert("¡Todas las partidas del proyecto han sido ejecutadas! No hay partidas sin ejecución.");
+        return;
+    }
+
+    // Agrupar por fuente de fondos
+    const grouped = new Map<string, any[]>();
+
+    unexecutedItems.forEach((itemNum: string) => {
+        const baseItem = items.find((i: any) => i.item_num === itemNum);
+
+        let description = "";
+        let unit = "UN";
+        let unitPrice = 0;
+        let origQty = 0;
+        let choQty = 0;
+        let fundSource = "N/A";
+        let spec = "";
+
+        if (baseItem) {
+            description = [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ');
+            unit = baseItem.unit || "UN";
+            unitPrice = parseFloat(baseItem.unit_price) || 0;
+            origQty = parseFloat(baseItem.quantity) || 0;
+            fundSource = normalizeFundSource(baseItem.fund_source);
+            spec = baseItem.specification || "";
+        }
+
+        // Sumar cambios de CHO
+        allChos.forEach((c: any) => {
+            const choItems = Array.isArray(c.items) ? c.items : [];
+            const match = choItems.find((ci: any) => ci.item_num === itemNum);
+            if (match) {
+                choQty += (parseFloat(match.proposed_change !== undefined ? match.proposed_change : match.quantity) || 0);
+                if (!description && match.description) {
+                    description = [match.description, match.additional_description].filter(Boolean).join(' - ');
+                }
+                if (!unitPrice && match.unit_price) unitPrice = parseFloat(match.unit_price) || 0;
+                if (!unit || unit === "UN") unit = match.unit || "UN";
+                if (fundSource === "N/A" && match.fund_source) fundSource = normalizeFundSource(match.fund_source);
+            }
+        });
+
+        if (!description) description = "Ítem nuevo por CHO";
+
+        const totalQty = origQty + choQty;
+        const totalAmount = totalQty * unitPrice;
+
+        const key = fundSource;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push({
+            item_num: itemNum,
+            spec,
+            description,
+            unit,
+            origQty,
+            choQty,
+            totalQty,
+            unitPrice,
+            totalAmount,
+            fundSource
+        });
+    });
+
+    // Construir filas del reporte
+    const reportRows: any[][] = [];
+    reportRows.push([
+        'Partida',
+        'Especif.',
+        'Descripción',
+        'Unidad',
+        'Cant. Original',
+        'Cambio CHO',
+        'Cant. Total',
+        'Precio Unit.',
+        'Monto Total'
+    ]);
+
+    let grandTotal = 0;
+    let grandTotalItems = 0;
+
+    grouped.forEach((groupItems, source) => {
+        const cleanSource = source.startsWith('AC:') ? source.replace(/^AC:/, ':') : source;
+        reportRows.push([`FUENTE DE FONDOS: ${cleanSource}`, '', '', '', '', '', '', '', '']);
+
+        let subtotal = 0;
+        groupItems.forEach((row: any) => {
+            reportRows.push([
+                row.item_num,
+                row.spec || '',
+                row.description,
+                row.unit,
+                formatNum(row.origQty),
+                formatNum(row.choQty),
+                formatNum(row.totalQty),
+                formatCurrency(row.unitPrice),
+                formatCurrency(row.totalAmount)
+            ]);
+            subtotal += row.totalAmount;
+            grandTotal += row.totalAmount;
+            grandTotalItems++;
+        });
+
+        reportRows.push([`SUBTOTAL ${cleanSource}:`, '', '', '', '', '', '', 'Total:', formatCurrency(subtotal)]);
+        reportRows.push(['', '', '', '', '', '', '', '', '']);
+    });
+
+    reportRows.push(['', '', '', '', '', '', '', '', '']);
+    reportRows.push([
+        `TOTAL PARTIDAS NO EJECUTADAS: ${grandTotalItems}`,
+        '', '', '', '', '', '',
+        'MONTO TOTAL:',
+        formatCurrency(grandTotal)
+    ]);
+
+    const title = 'PARTIDAS NO EJECUTADAS DURANTE EL PROYECTO';
+
+    if (format === 'excel') {
+        const blob = await createExcelBlob(title, reportRows, project);
+        await downloadBlob(blob, `Partidas_No_Ejecutadas_${project?.num_act || projectId}.xlsx`, project?.num_act);
+        return;
+    }
+
+    await generateReport(
+        title,
+        reportRows,
+        project,
+        [55, 45, 210, 45, 60, 60, 60, 70, 80],
+        'landscape',
+        'pdf',
+        `Partidas_No_Ejecutadas_${project?.num_act || projectId}.pdf`
+    );
+};
+
+// ---------------------------------------------------------------------------
+// REPORTE: PARTIDAS CON CERTIFICADOS DE MANUFACTURA
+// Muestra las partidas que cuentan con certificados de manufactura sin repetirse.
+// ---------------------------------------------------------------------------
+export const generateMfgItemsReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'excel') => {
+    const { project, items, mfgCerts, chos } = await fetchAllReportData(projectId);
+    if (!items || !mfgCerts) return;
+
+    const norm = (num: any) => num?.toString().replace(/^0+/, '').trim().toUpperCase();
+
+    // Determinar qué ítems tienen certificados de manufactura
+    const itemsWithMfg = new Set<string>();
+    mfgCerts.forEach((c: any) => {
+        if (c.item_id) {
+            const matchedItem = items.find((i: any) => i.id === c.item_id);
+            if (matchedItem) itemsWithMfg.add(matchedItem.item_num);
+        } else if (c.item_num) {
+            const itemNumNorm = norm(c.item_num);
+            const matchedItem = items.find((i: any) => norm(i.item_num) === itemNumNorm);
+            if (matchedItem) {
+                itemsWithMfg.add(matchedItem.item_num);
+            } else {
+                itemsWithMfg.add(c.item_num); // Si es un ítem nuevo por CHO no sincronizado aún
+            }
+        }
+    });
+
+    const sortedItemNums = Array.from(itemsWithMfg).sort((a: any, b: any) =>
+        a.localeCompare(b, undefined, { numeric: true })
+    );
+
+    if (sortedItemNums.length === 0) {
+        alert("No se encontraron partidas con certificados de manufactura.");
+        return;
+    }
+
+    const reportRows: any[][] = [];
+    reportRows.push([
+        'Partida',
+        'Especif.',
+        'Descripción',
+        'Unidad',
+        'Cant. Original',
+        'Cambio CHO',
+        'Cant. Total',
+        'Precio Unit.',
+        'Monto Total'
+    ]);
+
+    const grouped = new Map<string, any[]>();
+    const allChos = chos || [];
+
+    sortedItemNums.forEach((itemNum: string) => {
+        const baseItem = items.find((i: any) => i.item_num === itemNum);
+
+        let description = "";
+        let unit = "UN";
+        let unitPrice = 0;
+        let origQty = 0;
+        let choQty = 0;
+        let fundSource = "N/A";
+        let spec = "";
+
+        if (baseItem) {
+            description = [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ');
+            unit = baseItem.unit || "UN";
+            unitPrice = parseFloat(baseItem.unit_price) || 0;
+            origQty = parseFloat(baseItem.quantity) || 0;
+            fundSource = normalizeFundSource(baseItem.fund_source);
+            spec = baseItem.specification || "";
+        }
+
+        allChos.forEach((c: any) => {
+            const choItems = Array.isArray(c.items) ? c.items : [];
+            const match = choItems.find((ci: any) => ci.item_num === itemNum);
+            if (match) {
+                choQty += (parseFloat(match.proposed_change !== undefined ? match.proposed_change : match.quantity) || 0);
+                if (!description && match.description) {
+                    description = [match.description, match.additional_description].filter(Boolean).join(' - ');
+                }
+                if (!unitPrice && match.unit_price) unitPrice = parseFloat(match.unit_price) || 0;
+                if (!unit || unit === "UN") unit = match.unit || "UN";
+                if (fundSource === "N/A" && match.fund_source) fundSource = normalizeFundSource(match.fund_source);
+            }
+        });
+
+        if (!description) description = "Ítem nuevo por CHO";
+
+        const totalQty = origQty + choQty;
+        const totalAmount = totalQty * unitPrice;
+
+        const key = fundSource;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push({
+            item_num: itemNum,
+            spec,
+            description,
+            unit,
+            origQty,
+            choQty,
+            totalQty,
+            unitPrice,
+            totalAmount,
+            fundSource
+        });
+    });
+
+    let grandTotal = 0;
+    let grandTotalItems = 0;
+
+    grouped.forEach((groupItems, source) => {
+        const cleanSource = source.startsWith('AC:') ? source.replace(/^AC:/, ':') : source;
+        reportRows.push([`FUENTE DE FONDOS: ${cleanSource}`, '', '', '', '', '', '', '', '']);
+
+        let subtotal = 0;
+        groupItems.forEach((row: any) => {
+            reportRows.push([
+                row.item_num,
+                row.spec || '',
+                row.description,
+                row.unit,
+                formatNum(row.origQty),
+                formatNum(row.choQty),
+                formatNum(row.totalQty),
+                formatCurrency(row.unitPrice),
+                formatCurrency(row.totalAmount)
+            ]);
+            subtotal += row.totalAmount;
+            grandTotal += row.totalAmount;
+            grandTotalItems++;
+        });
+
+        reportRows.push([`SUBTOTAL ${cleanSource}:`, '', '', '', '', '', '', 'Total:', formatCurrency(subtotal)]);
+        reportRows.push(['', '', '', '', '', '', '', '', '']);
+    });
+
+    reportRows.push(['', '', '', '', '', '', '', '', '']);
+    reportRows.push([
+        `TOTAL PARTIDAS CON CM: ${grandTotalItems}`,
+        '', '', '', '', '', '',
+        'MONTO TOTAL:',
+        formatCurrency(grandTotal)
+    ]);
+
+    const title = 'PARTIDAS CON CERTIFICADOS DE MANUFACTURA (CM)';
+
+    if (format === 'excel') {
+        const blob = await createExcelBlob(title, reportRows, project);
+        await downloadBlob(blob, `Partidas_Con_CM_${project?.num_act || projectId}.xlsx`, project?.num_act);
+        return;
+    }
+
+    await generateReport(
+        title,
+        reportRows,
+        project,
+        [55, 45, 210, 45, 60, 60, 60, 70, 80],
+        'landscape',
+        'pdf',
+        `Partidas_Con_CM_${project?.num_act || projectId}.pdf`
+    );
+};
+
+// ---------------------------------------------------------------------------
+// REPORTE: PARTIDAS CON ESPECIFICACIÓN 888
+// Muestra únicamente las partidas del proyecto que tienen la especificación 888.
+// ---------------------------------------------------------------------------
+export const generateSpec888ItemsReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'excel') => {
+    const { project, items, chos } = await fetchAllReportData(projectId);
+    if (!items) return;
+
+    const allChos = chos || [];
+    const allItemNums = new Set<string>();
+
+    // Filtrar partidas que tienen la especificación "888"
+    items.forEach((i: any) => {
+        if (i.specification?.toString().includes("888")) {
+            allItemNums.add(i.item_num);
+        }
+    });
+
+    allChos.forEach((c: any) => {
+        const choItems = Array.isArray(c.items) ? c.items : [];
+        choItems.forEach((ci: any) => {
+            if (ci.specification?.toString().includes("888") && ci.item_num) {
+                allItemNums.add(ci.item_num);
+            }
+        });
+    });
+
+    const sortedItemNums = Array.from(allItemNums).sort((a: any, b: any) =>
+        a.localeCompare(b, undefined, { numeric: true })
+    );
+
+    if (sortedItemNums.length === 0) {
+        alert("No se encontraron partidas con la especificación 888.");
+        return;
+    }
+
+    const reportRows: any[][] = [];
+    reportRows.push([
+        'Partida',
+        'Especif.',
+        'Descripción',
+        'Unidad',
+        'Cant. Original',
+        'Cambio CHO',
+        'Cant. Total',
+        'Precio Unit.',
+        'Monto Total'
+    ]);
+
+    const grouped = new Map<string, any[]>();
+
+    sortedItemNums.forEach((itemNum: string) => {
+        const baseItem = items.find((i: any) => i.item_num === itemNum);
+
+        let description = "";
+        let unit = "UN";
+        let unitPrice = 0;
+        let origQty = 0;
+        let choQty = 0;
+        let fundSource = "N/A";
+        let spec = "";
+
+        if (baseItem) {
+            description = [baseItem.description, baseItem.additional_description].filter(Boolean).join(' - ');
+            unit = baseItem.unit || "UN";
+            unitPrice = parseFloat(baseItem.unit_price) || 0;
+            origQty = parseFloat(baseItem.quantity) || 0;
+            fundSource = normalizeFundSource(baseItem.fund_source);
+            spec = baseItem.specification || "";
+        }
+
+        allChos.forEach((c: any) => {
+            const choItems = Array.isArray(c.items) ? c.items : [];
+            const match = choItems.find((ci: any) => ci.item_num === itemNum);
+            if (match) {
+                choQty += (parseFloat(match.proposed_change !== undefined ? match.proposed_change : match.quantity) || 0);
+                if (!description && match.description) {
+                    description = [match.description, match.additional_description].filter(Boolean).join(' - ');
+                }
+                if (!unitPrice && match.unit_price) unitPrice = parseFloat(match.unit_price) || 0;
+                if (!unit || unit === "UN") unit = match.unit || "UN";
+                if (fundSource === "N/A" && match.fund_source) fundSource = normalizeFundSource(match.fund_source);
+                if (match.specification) spec = match.specification;
+            }
+        });
+
+        if (!description) description = "Ítem nuevo por CHO";
+
+        const totalQty = origQty + choQty;
+        const totalAmount = totalQty * unitPrice;
+
+        const key = fundSource;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push({
+            item_num: itemNum,
+            spec,
+            description,
+            unit,
+            origQty,
+            choQty,
+            totalQty,
+            unitPrice,
+            totalAmount,
+            fundSource
+        });
+    });
+
+    let grandTotal = 0;
+    let grandTotalItems = 0;
+
+    grouped.forEach((groupItems, source) => {
+        const cleanSource = source.startsWith('AC:') ? source.replace(/^AC:/, ':') : source;
+        reportRows.push([`FUENTE DE FONDOS: ${cleanSource}`, '', '', '', '', '', '', '', '']);
+
+        let subtotal = 0;
+        groupItems.forEach((row: any) => {
+            reportRows.push([
+                row.item_num,
+                row.spec || '',
+                row.description,
+                row.unit,
+                formatNum(row.origQty),
+                formatNum(row.choQty),
+                formatNum(row.totalQty),
+                formatCurrency(row.unitPrice),
+                formatCurrency(row.totalAmount)
+            ]);
+            subtotal += row.totalAmount;
+            grandTotal += row.totalAmount;
+            grandTotalItems++;
+        });
+
+        reportRows.push([`SUBTOTAL ${cleanSource}:`, '', '', '', '', '', '', 'Total:', formatCurrency(subtotal)]);
+        reportRows.push(['', '', '', '', '', '', '', '', '']);
+    });
+
+    reportRows.push(['', '', '', '', '', '', '', '', '']);
+    reportRows.push([
+        `TOTAL PARTIDAS ESPECIFICACIÓN 888: ${grandTotalItems}`,
+        '', '', '', '', '', '',
+        'MONTO TOTAL:',
+        formatCurrency(grandTotal)
+    ]);
+
+    const title = 'PARTIDAS CON ESPECIFICACIÓN 888';
+
+    if (format === 'excel') {
+        const blob = await createExcelBlob(title, reportRows, project);
+        await downloadBlob(blob, `Partidas_Especif_888_${project?.num_act || projectId}.xlsx`, project?.num_act);
+        return;
+    }
+
+    await generateReport(
+        title,
+        reportRows,
+        project,
+        [55, 45, 210, 45, 60, 60, 60, 70, 80],
+        'landscape',
+        'pdf',
+        `Partidas_Especif_888_${project?.num_act || projectId}.pdf`
+    );
+};
+
