@@ -113,14 +113,27 @@ export default function Dashboard() {
             const projectSummaries = projectsData?.map((proj: any) => {
                 const projectItems = (allItems || []).filter(i => i.project_id === proj.id);
                 const originalCost = proj.cost_original || projectItems.reduce((acc, i) => acc + (i.quantity * i.unit_price), 0) || 0;
-                const approvedCHO = (allChos || []).filter(c => c.project_id === proj.id && c.doc_status === "Aprobado")
-                    .reduce((acc, c) => acc + (parseFloat(c.proposed_change as any) || 0), 0);
+                const projectChos = (allChos || []).filter(c => c.project_id === proj.id && c.doc_status === "Aprobado");
+                const approvedCHO = projectChos.reduce((acc, c) => acc + (parseFloat(c.proposed_change as any) || 0), 0);
                 
+                const normalizeNumLocal = (n: any) => n?.toString().replace(/^0+/, '').trim().toUpperCase();
+                const allRefItems: any[] = [...projectItems];
+                projectChos.forEach((cho: any) => {
+                    if (Array.isArray(cho.items)) {
+                        cho.items.forEach((it: any) => {
+                            const exists = allRefItems.find((r: any) => normalizeNumLocal(r.item_num) === normalizeNumLocal(it.item_num));
+                            if (!exists) allRefItems.push(it);
+                        });
+                    }
+                });
+
                 let certified = 0;
                 (allCerts || []).filter(c => c.project_id === proj.id && !c.excluded).forEach(cert => {
                     const cItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
                     cItems.forEach((item: any) => {
-                        certified += Math.round(((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0)) * 100) / 100;
+                        const baseItem = allRefItems.find((r: any) => normalizeNumLocal(r.item_num) === normalizeNumLocal(item.item_num));
+                        const up = baseItem ? (parseFloat(baseItem.unit_price) || 0) : (parseFloat(item.unit_price) || 0);
+                        certified += Math.round(((parseFloat(item.quantity) || 0) * up) * 100) / 100;
                     });
                 });
                 certified = Math.round(certified * 100) / 100;

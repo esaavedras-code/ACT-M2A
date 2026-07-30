@@ -193,7 +193,9 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
             if (!itemNum) return;
 
             const qty = parseFloat(item.quantity) || 0;
-            const up = parseFloat(item.unit_price) || 0;
+            const normalizeNumLocal = (n: any) => n?.toString().replace(/^0+/, '').trim().toUpperCase();
+            const baseItem = allReferenceItems.find((r: any) => normalizeNumLocal(r.item_num) === normalizeNumLocal(itemNum));
+            const up = baseItem ? (parseFloat(baseItem.unit_price) || 0) : (parseFloat(item.unit_price) || 0);
             const amount = roundedAmt(qty * up, 2);
 
             const fedPct = getFederalSharePct(proj, item);
