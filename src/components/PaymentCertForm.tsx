@@ -46,19 +46,8 @@ export const normalizeItemNum = (num: any): string => {
 
 export const formatUnitPrice = (val: any): string => {
     if (val === undefined || val === null || val === "") return "";
-    // Si ya viene como string (p.e. mientras el usuario escribe), devolverlo sin modificar.
-    if (typeof val === 'string') {
-        // Si no tiene punto decimal, no agregar ceros. Si tiene, respetar lo que hay.
-        const num = parseFloat(val);
-        if (isNaN(num)) return val;
-        // Si termina en punto o tiene ceros significativos al final (en escritura), preservar.
-        if (val.endsWith('.') || /\.[0-9]*0$/.test(val)) return val;
-        // Número limpio: quitar ceros finales innecesarios
-        return Number(num.toFixed(6)).toString();
-    }
-    // Si es número directo (cargado desde DB)
     const num = parseFloat(val);
-    if (isNaN(num)) return "";
+    if (isNaN(num)) return val;
     return Number(num.toFixed(6)).toString();
 };
 
@@ -72,13 +61,10 @@ export const processCertsData = (certsList: any[], itemsList: any[]) => {
             const baseItem = itemsList.find(it => normalizeItemNum(it.item_num) === itemNumStr);
             const stableId = item._uniqueId || `${cert.id || cert.cert_num}-${itemNumStr || idx}-${idx}`;
             if (baseItem) {
-                // Preservar el unit_price de la certificación si ya tiene valor guardado.
-                // Solo heredar del contrato si la certificación no trae precio propio.
-                const certHasPrice = item.unit_price !== undefined && item.unit_price !== null && item.unit_price !== '' && parseFloat(item.unit_price) > 0;
                 return {
                     ...item,
                     _uniqueId: stableId,
-                    unit_price: certHasPrice ? item.unit_price : baseItem.unit_price,
+                    unit_price: baseItem.unit_price,
                     specification: baseItem.specification || item.specification,
                     description: baseItem.description || item.description,
                     unit: baseItem.unit || item.unit
@@ -1856,27 +1842,16 @@ const PaymentCertForm = React.forwardRef(({
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <input
-                                                                        type="text"
-                                                                        inputMode="decimal"
+                                                                        type="number"
                                                                         id={`cert-${certIdx}-item-${item._uniqueId}-unit_price`}
-                                                                        className="input-field text-right text-[11px] font-geist p-0 h-6 border-transparent group-hover/row:border-transparent"
+                                                                        step="any"
+                                                                        className="input-field text-right text-[11px] font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={formatUnitPrice(item.unit_price)}
-                                                                        onChange={(e) => {
-                                                                            const raw = e.target.value;
-                                                                            // Permitir solo dígitos, punto y signo negativo
-                                                                            if (/^-?[0-9]*\.?[0-9]*$/.test(raw) || raw === '' || raw === '-') {
-                                                                                updateCertItem(certIdx, itIdx, 'unit_price', raw);
-                                                                            }
-                                                                        }}
+                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
-                                                                        onBlur={(e) => {
-                                                                            activeInputIdRef.current = null;
-                                                                            // Al salir, normalizar (quitar punto flotante colgante)
-                                                                            const v = parseFloat(e.target.value);
-                                                                            if (!isNaN(v)) updateCertItem(certIdx, itIdx, 'unit_price', v.toString());
-                                                                        }}
+                                                                        onBlur={() => { activeInputIdRef.current = null; }}
                                                                         placeholder="0.00"
                                                                     />
                                                                 </td>
