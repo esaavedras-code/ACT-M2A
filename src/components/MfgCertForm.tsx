@@ -521,7 +521,11 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     const selectedItem = contractItems.find(it => it.id === sumSearchItemId);
                     const total = calculateTotalForItemId(sumSearchItemId);
                     const { totalPaid, breakdown: paidBreakdown } = calculatePaidForItemNum(selectedItem?.item_num);
-                    const balance = total - totalPaid;
+                    
+                    const isLS = selectedItem?.unit === 'LS' || selectedItem?.unit === 'LUMP SUM';
+                    const targetQty = isLS ? (parseFloat(selectedItem?.mfg_cert_qty) || 1) : totalPaid;
+                    const balance = total - targetQty;
+
                     const matchingCerts = certs.filter(c => {
                         if (c.is_multiple) return c.item_ids?.includes(sumSearchItemId);
                         return c.item_id === sumSearchItemId;
@@ -537,11 +541,17 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     <p className="text-xl font-black text-white leading-tight">{total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                     <p className="text-[9px] font-bold text-emerald-200">{selectedItem?.unit} • {matchingCerts.length} doc{matchingCerts.length !== 1 ? 's' : '.'}</p>
                                 </div>
-                                {/* Ya Pagado */}
+                                {/* Ya Pagado / Requerido */}
                                 <div className="bg-blue-600 px-4 py-4 flex flex-col gap-0.5">
-                                    <p className="text-[9px] font-black text-blue-100 uppercase tracking-widest">Ya Pagado (Certs. Pago)</p>
-                                    <p className="text-xl font-black text-white leading-tight">{totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                    <p className="text-[9px] font-bold text-blue-200">{selectedItem?.unit} • {paidBreakdown.length} cert{paidBreakdown.length !== 1 ? 's.' : '.'}</p>
+                                    <p className="text-[9px] font-black text-blue-100 uppercase tracking-widest">
+                                        {isLS ? "Requerido (Partida)" : "Ya Pagado (Certs. Pago)"}
+                                    </p>
+                                    <p className="text-xl font-black text-white leading-tight">
+                                        {targetQty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                    <p className="text-[9px] font-bold text-blue-200">
+                                        {isLS ? "Cantidad requerida de CM" : `${selectedItem?.unit} • ${paidBreakdown.length} cert${paidBreakdown.length !== 1 ? 's.' : '.'}`}
+                                    </p>
                                 </div>
                                 {/* Balance */}
                                 <div className={`px-4 py-4 flex flex-col gap-0.5 ${balance < 0 ? 'bg-red-600' : balance === 0 ? 'bg-slate-600' : 'bg-teal-600'}`}>
