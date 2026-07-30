@@ -1331,6 +1331,65 @@ const PaymentCertForm = React.forwardRef(({
                                             onChange={(e) => updateCert(certIdx, 'notes', e.target.value)}
                                             placeholder="Observaciones, referencias a memorandos, acuerdos u otras notas relevantes a este pago..."
                                         />
+
+                                        {/* Adjuntos de imágenes */}
+                                        <div className="mt-2">
+                                            {/* Miniaturas existentes */}
+                                            {Array.isArray(c.notes_images) && c.notes_images.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                    {c.notes_images.map((imgUrl: string, imgIdx: number) => (
+                                                        <div key={imgIdx} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-amber-200 dark:border-amber-800 shadow-sm cursor-pointer">
+                                                            <img
+                                                                src={imgUrl}
+                                                                alt={`Adjunto ${imgIdx + 1}`}
+                                                                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                                                onClick={() => setLightboxImg(imgUrl)}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => { e.stopPropagation(); removeNoteImage(certIdx, imgUrl); }}
+                                                                className="absolute top-0.5 right-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                                                                title="Eliminar imagen"
+                                                            >
+                                                                <X size={9} />
+                                                            </button>
+                                                            <div
+                                                                className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center"
+                                                                onClick={() => setLightboxImg(imgUrl)}
+                                                            >
+                                                                <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-80 transition-opacity" />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Botón para adjuntar foto */}
+                                            <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors select-none">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    disabled={uploadingImage === certIdx}
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) uploadNoteImage(certIdx, file);
+                                                        e.target.value = '';
+                                                    }}
+                                                />
+                                                {uploadingImage === certIdx ? (
+                                                    <>
+                                                        <Loader2 size={11} className="animate-spin" />
+                                                        Subiendo...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Image size={11} />
+                                                        Adjuntar foto
+                                                    </>
+                                                )}
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
 
