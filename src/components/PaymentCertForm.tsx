@@ -46,6 +46,9 @@ export const normalizeItemNum = (num: any): string => {
 
 export const formatUnitPrice = (val: any): string => {
     if (val === undefined || val === null || val === "") return "";
+    if (typeof val === 'string') {
+        return val;
+    }
     const num = parseFloat(val);
     if (isNaN(num)) return val;
     return Number(num.toFixed(6)).toString();
@@ -1842,16 +1845,25 @@ const PaymentCertForm = React.forwardRef(({
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <input
-                                                                        type="number"
+                                                                        type="text"
+                                                                        inputMode="decimal"
                                                                         id={`cert-${certIdx}-item-${item._uniqueId}-unit_price`}
-                                                                        step="any"
                                                                         className="input-field text-right text-[11px] font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={formatUnitPrice(item.unit_price)}
-                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'unit_price', e.target.value)}
+                                                                        onChange={(e) => {
+                                                                            const raw = e.target.value;
+                                                                            if (/^-?[0-9]*\.?[0-9]{0,6}$/.test(raw) || raw === '' || raw === '-') {
+                                                                                updateCertItem(certIdx, itIdx, 'unit_price', raw);
+                                                                            }
+                                                                        }}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
-                                                                        onBlur={() => { activeInputIdRef.current = null; }}
+                                                                        onBlur={(e) => {
+                                                                            activeInputIdRef.current = null;
+                                                                            const v = parseFloat(e.target.value);
+                                                                            if (!isNaN(v)) updateCertItem(certIdx, itIdx, 'unit_price', Number(v.toFixed(6)).toString());
+                                                                        }}
                                                                         placeholder="0.00"
                                                                     />
                                                                 </td>
