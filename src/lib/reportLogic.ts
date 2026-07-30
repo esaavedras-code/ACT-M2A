@@ -1513,7 +1513,7 @@ export const generateDashboardReportLogic = async (projectId: string, format: 'p
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
 export const generateFundSourceReportLogic = async (projectId: string, format: 'pdf' | 'excel' = 'pdf', endDate?: string) => {
-    const { project, certs } = await fetchAllReportData(projectId);
+    const { project, certs, items, chos } = await fetchAllReportData(projectId);
     if (!project) return;
     
     const cutOff = endDate ? new Date(`${endDate}T23:59:59`) : new Date();
@@ -1541,11 +1541,19 @@ export const generateFundSourceReportLogic = async (projectId: string, format: '
         }
     };
 
+    const allReferenceItems = [
+        ...(items || []),
+        ...(chos || []).filter(c => c.status === 'Approved').flatMap(c => c.items || [])
+    ];
+
     filteredCerts.forEach((cert: any) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         certItems.forEach((item: any) => {
             const qty = parseFloat(item.quantity) || 0;
-            const up = parseFloat(item.unit_price) || 0;
+            const normalizeNumLocal = (n: any) => n?.toString().replace(/^0+/, '').trim().toUpperCase();
+            const baseItem = allReferenceItems.find((r: any) => normalizeNumLocal(r.item_num) === normalizeNumLocal(item.item_num));
+            const up = baseItem ? (parseFloat(baseItem.unit_price) || 0) : (parseFloat(item.unit_price) || 0);
+
             const total = roundedAmt(qty * up, 2);
             const source = (item.fund_source || '').trim();
 
@@ -1556,14 +1564,14 @@ export const generateFundSourceReportLogic = async (projectId: string, format: '
                 const fhwaAmt = roundedAmt(total * (fedPct / 100), 2);
                 const fhwaQty = roundedAmt(qty * (fedPct / 100), 4);
                 const label = fedPct === 100 ? "" : ` [${fedPct}%]`;
-                addToMap(fhwaMap, { ...item, description: `${item.description || ''}${label}` }, fhwaAmt, fhwaQty);
+                addToMap(fhwaMap, { ...item, unit_price: up, description: `${item.description || ''}${label}` }, fhwaAmt, fhwaQty);
             }
 
             if (statePct > 0) {
                 const actAmt = roundedAmt(total * (statePct / 100), 2);
                 const actQty = roundedAmt(qty * (statePct / 100), 4);
                 const label = statePct === 100 ? "" : ` [${statePct}%]`;
-                addToMap(actMap, { ...item, description: `${item.description || ''}${label}` }, actAmt, actQty);
+                addToMap(actMap, { ...item, unit_price: up, description: `${item.description || ''}${label}` }, actAmt, actQty);
             }
         });
     });
