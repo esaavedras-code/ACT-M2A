@@ -433,14 +433,23 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             <div className="sticky top-0 z-40 bg-[#F8FAFC]/95 dark:bg-[#020617]/95 backdrop-blur-md pt-6 pb-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <Factory className="text-primary" /> Certificados de Manufactura
-                    {certs.length > 0 && (
-                        <span
-                            title={`${certs.filter(c => c.id || c.item_id).length} certificado(s) de manufactura único(s)`}
-                            className="ml-1 inline-flex items-center justify-center min-w-[1.75rem] h-7 px-2 rounded-full bg-primary text-white text-sm font-bold shadow-md shadow-primary/30 select-none"
-                        >
-                            {certs.filter(c => c.id || c.item_id).length}
-                        </span>
-                    )}
+                    {(() => {
+                        const uniqueItems = new Set(
+                            certs.flatMap(c =>
+                                c.is_multiple
+                                    ? (c.item_ids || [])
+                                    : (c.item_id ? [c.item_id] : [])
+                            )
+                        );
+                        return uniqueItems.size > 0 ? (
+                            <span
+                                title={`${uniqueItems.size} partida(s) con certificado(s) de manufactura`}
+                                className="ml-1 inline-flex items-center justify-center min-w-[1.75rem] h-7 px-2 rounded-full bg-primary text-white text-sm font-bold shadow-md shadow-primary/30 select-none"
+                            >
+                                {uniqueItems.size}
+                            </span>
+                        ) : null;
+                    })()}
                 </h2>
                 <div className="flex-1 max-w-md mx-6 hidden md:block">
                     <div className="relative group">
