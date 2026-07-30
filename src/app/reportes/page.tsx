@@ -675,24 +675,6 @@ function ReportesContent() {
                         onAction={handleAction}
                         loading={loading}
                         option={{
-                            id: 'mfg-items-report',
-                            label: 'Partidas con Manufactura (CM)',
-                            description: 'Listado consolidado y único de partidas que poseen certificados de manufactura registrados.',
-                            icon: <Package size={18} className="text-blue-500" />,
-                            onExcel: () => generateMfgItemsReportLogic(projectId, 'excel')
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false)),
-                            onPdf: () => generateMfgItemsReportLogic(projectId, 'pdf')
-                                .then(() => setStatus("Reporte generado."))
-                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
-                                .finally(() => setLoading(false))
-                        }}
-                    />
-                    <StandardReportItem
-                        onAction={handleAction}
-                        loading={loading}
-                        option={{
                             id: 'spec888-items-report',
                             label: 'Partidas con Especificación 888',
                             description: 'Listado de partidas que pertenecen a la especificación técnica 888.',
@@ -758,6 +740,24 @@ function ReportesContent() {
                             icon: <ShieldCheckIcon size={18} className="text-blue-500" />,
 
                             onExcel: () => generateIccReportLogic(projectId, 'excel')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false))
+                        }}
+                    />
+                    <StandardReportItem
+                        onAction={handleAction}
+                        loading={loading}
+                        option={{
+                            id: 'mfg-items-report',
+                            label: 'Partidas con Certificado de Manufactura',
+                            description: 'Listado consolidado y único de partidas que poseen certificados de manufactura registrados.',
+                            icon: <Package size={18} className="text-blue-500" />,
+                            onExcel: () => generateMfgItemsReportLogic(projectId, 'excel')
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
+                                .finally(() => setLoading(false)),
+                            onPdf: () => generateMfgItemsReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => { console.error(e); setStatus(`Error: ${e.message}`); })
                                 .finally(() => setLoading(false))
