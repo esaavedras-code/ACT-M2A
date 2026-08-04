@@ -518,6 +518,11 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
+                                    {expandedCHO === cho.id && (
+                                        <button type="button" onClick={() => addCHOItem(idx)} className="text-[11px] font-bold text-slate-600 hover:bg-slate-100/50 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 transition-colors flex items-center gap-1">
+                                            <Plus size={14} /> Añadir Partida
+                                        </button>
+                                    )}
                                     <button onClick={() => toggleExpand(cho.id)} className="bg-slate-200/50 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
                                         {expandedCHO === cho.id ? "Cerrar Partidas" : "Ver / Añadir Partidas"}
                                     </button>
@@ -552,13 +557,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse">
                                         <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
-                                            <tr>
-                                                <td colSpan={13} className="py-2">
-                                                    <button onClick={() => addCHOItem(idx)} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                                                        <Plus size={14} /> Añadir item
-                                                    </button>
-                                                </td>
-                                            </tr>
                                             <tr>
                                                 <th className="py-1 px-0.5 w-10 text-center text-blue-600">Nuevo</th>
 
