@@ -409,7 +409,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                     qty: parseFloat(itemInCert.quantity) || 0,
                                     amount: roundedAmt((parseFloat(itemInCert.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2)
                                 };
-                            }).filter(Boolean);
+                            }).filter(Boolean).filter((b: any) => b.qty !== 0);
 
                             const choBreakdown = chos.map(cho => {
                                 const choItems = Array.isArray(cho.items) ? cho.items : [];
@@ -669,11 +669,12 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                         </div>
 
                                                         {/* Certifications Horizontal Breakdown */}
-                                                        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                                                        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm">
                                                             <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 p-2 px-3">
                                                                 <span className="text-[10px] font-bold text-slate-400 uppercase">Monthly payments Registrados (Certificaciones)</span>
                                                             </div>
-                                                            <div className="p-4 overflow-x-auto flex flex-nowrap gap-8 min-w-max items-center">
+                                                            <div className="p-4 overflow-x-auto">
+                                                                <div className="flex flex-nowrap gap-8 items-center w-max">
                                                                 {paidBreakdown.length > 0 ? (
                                                                     <>
                                                                         {paidBreakdown.map((b, i) => (
@@ -693,6 +694,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                 ) : (
                                                                     <div className="text-xs font-bold text-slate-400 italic">Esta partida no ha sido cobrada en ninguna certificación todavía.</div>
                                                                 )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
