@@ -459,10 +459,10 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                 });
                 return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                        <SummaryItem label="Total Aprobado ($)" value={approvedTotal} icon={<DollarSign size={16} />} color="text-emerald-600" bgColor="bg-emerald-50 dark:bg-emerald-900/20" breakdown={{ fed: approvedFed, act: approvedAct }} />
-                        <SummaryItem label="Total en Trámite ($)" value={pendingTotal} icon={<DollarSign size={16} />} color="text-amber-600" bgColor="bg-amber-50 dark:bg-amber-900/20" />
-                        <SummaryItem label="Impacto Económico" value={approvedTotal} icon={<Activity size={16} />} color="text-primary" bgColor="bg-blue-50 dark:bg-blue-900/20" breakdown={{ fed: approvedFed, act: approvedAct }} />
-                        <SummaryItem label="Días de Extensión" value={approvedDays} icon={<Timer size={16} />} color="text-slate-600" bgColor="bg-slate-100 dark:bg-slate-800" isCurrency={false} />
+                        <SummaryItem label="Total Aprobado en CHO ($)" value={approvedTotal} icon={<DollarSign size={16} />} color="text-emerald-600" bgColor="bg-emerald-50 dark:bg-emerald-900/20" breakdown={{ fed: approvedFed, act: approvedAct }} />
+                        <SummaryItem label="Total en Trámite en CHO ($)" value={pendingTotal} icon={<DollarSign size={16} />} color="text-amber-600" bgColor="bg-amber-50 dark:bg-amber-900/20" />
+                        <SummaryItem label="Impacto Económico en CHO" value={approvedTotal} icon={<Activity size={16} />} color="text-primary" bgColor="bg-blue-50 dark:bg-blue-900/20" breakdown={{ fed: approvedFed, act: approvedAct }} />
+                        <SummaryItem label="Días de Extensión en CHO" value={approvedDays} icon={<Timer size={16} />} color="text-slate-600" bgColor="bg-slate-100 dark:bg-slate-800" isCurrency={false} />
                     </div>
                 );
             })()}
