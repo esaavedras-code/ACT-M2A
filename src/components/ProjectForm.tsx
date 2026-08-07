@@ -1782,6 +1782,13 @@ const ProjectForm = forwardRef<FormRef, { projectId?: string, userRole?: string,
             <FloatingFormActions 
                 actions={[
                     {
+                        label: loading ? "Guardando..." : "Guardar Proyecto",
+                        icon: loading ? <Loader2 className="animate-spin" /> : <Save />,
+                        onClick: () => saveData(false),
+                        description: "Guarda la información general del proyecto",
+                        variant: 'primary' as const,
+                    },
+                    {
                         label: "Imprimir",
                         icon: <Printer />,
                         onClick: () => window.print(),
