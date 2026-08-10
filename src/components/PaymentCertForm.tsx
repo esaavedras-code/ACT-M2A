@@ -46,28 +46,42 @@ export const normalizeItemNum = (num: any): string => {
 
 export const formatUnitPrice = (val: any): string => {
     if (val === undefined || val === null || val === "") return "";
-    if (typeof val === 'string') {
-        return val;
-    }
-    const num = parseFloat(val);
-    if (isNaN(num)) return val;
+    const strVal = String(val).replace(/,/g, '');
+    const num = parseFloat(strVal);
+    if (isNaN(num)) return typeof val === 'string' ? val : "";
     return Number(num.toFixed(6)).toString();
 };
 
-export const processCertsData = (certsList: any[], itemsList: any[]) => {
+export const processCertsData = (certsList: any[], itemsList: any[], choList: any[] = []) => {
     if (!Array.isArray(certsList)) return certsList;
     return certsList.map(cert => {
         if (!cert.items || !Array.isArray(cert.items)) return cert;
         
         const processedItems = cert.items.map((item: any, idx: number) => {
             const itemNumStr = normalizeItemNum(item.item_num);
-            const baseItem = itemsList.find(it => normalizeItemNum(it.item_num) === itemNumStr);
+            let baseItem = itemsList.find(it => normalizeItemNum(it.item_num) === itemNumStr);
+            
+            if (!baseItem && Array.isArray(choList)) {
+                for (const cho of choList) {
+                    if (Array.isArray(cho.items)) {
+                        const found = cho.items.find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
+                        if (found) {
+                            baseItem = found;
+                            break;
+                        }
+                    }
+                }
+            }
+
             const stableId = item._uniqueId || `${cert.id || cert.cert_num}-${itemNumStr || idx}-${idx}`;
             if (baseItem) {
+                const updatedUnitPrice = (baseItem.unit_price !== undefined && baseItem.unit_price !== null && baseItem.unit_price !== "")
+                    ? baseItem.unit_price
+                    : item.unit_price;
                 return {
                     ...item,
                     _uniqueId: stableId,
-                    unit_price: baseItem.unit_price,
+                    unit_price: updatedUnitPrice,
                     specification: baseItem.specification || item.specification,
                     description: baseItem.description || item.description,
                     unit: baseItem.unit || item.unit
@@ -206,7 +220,8 @@ const PaymentCertForm = React.forwardRef(({
                 .order('cert_num', { ascending: false });
             
             if (!cError) {
-                const processed = processCertsData(certs || [], items || []);
+                const chosList = project?.chos || project?.change_orders || [];
+                const processed = processCertsData(certs || [], items || [], chosList);
                 setInternalCerts(processed);
             }
 
@@ -239,13 +254,14 @@ const PaymentCertForm = React.forwardRef(({
     const certs = externalSetCerts ? initialCerts || [] : internalCerts;
     const setCerts = (newVal: any) => {
         let processedVal = newVal;
+        const chosList = projectData?.chos || projectData?.change_orders || [];
         if (typeof newVal === 'function') {
             processedVal = (prev: any) => {
                 const res = newVal(prev);
-                return Array.isArray(res) ? processCertsData(res, contractItems) : res;
+                return Array.isArray(res) ? processCertsData(res, contractItems, chosList) : res;
             };
         } else if (Array.isArray(newVal)) {
-            processedVal = processCertsData(newVal, contractItems);
+            processedVal = processCertsData(newVal, contractItems, chosList);
         }
 
         if (externalSetCerts) {

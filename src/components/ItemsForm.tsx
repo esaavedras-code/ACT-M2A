@@ -437,7 +437,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                 type="text"
                                                 maxLength={3}
                                                 disabled={readOnly}
-                                                className={`input-field text-xs text-center font-bold h-8 !py-1 transition-all ${readOnly ? 'bg-transparent border-none' : 'bg-white shadow-sm'} ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
+                                                className={`input-field text-xs text-center font-bold h-8 !py-1 transition-all ${readOnly ? 'bg-transparent border-none' : ''} ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
+                                                style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'item_num') }}
                                                 value={item.item_num || ""}
                                                 onChange={(e) => updateItem(idx, 'item_num', e.target.value)}
                                                 onBlur={(e) => {
