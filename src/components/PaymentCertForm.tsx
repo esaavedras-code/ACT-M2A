@@ -46,10 +46,14 @@ export const normalizeItemNum = (num: any): string => {
 
 export const formatUnitPrice = (val: any): string => {
     if (val === undefined || val === null || val === "") return "";
-    const strVal = String(val).replace(/,/g, '');
+    // Si ya es un string numérico válido, preservarlo tal cual (evita imprecisión de float64)
+    const strVal = String(val).replace(/,/g, '').trim();
     const num = parseFloat(strVal);
     if (isNaN(num)) return typeof val === 'string' ? val : "";
-    return Number(num.toFixed(6)).toString();
+    // Retornar el string original si representa el mismo número (evita 697.8246 → 697.82459999...)
+    if (String(num) === strVal || strVal === String(num)) return strVal;
+    // Fallback: limpiar ceros trailing sin perder decimales significativos
+    return num.toPrecision(10).replace(/\.?0+$/, '');
 };
 
 export const processCertsData = (certsList: any[], itemsList: any[], choList: any[] = []) => {
@@ -75,9 +79,13 @@ export const processCertsData = (certsList: any[], itemsList: any[], choList: an
 
             const stableId = item._uniqueId || `${cert.id || cert.cert_num}-${itemNumStr || idx}-${idx}`;
             if (baseItem) {
-                const updatedUnitPrice = (baseItem.unit_price !== undefined && baseItem.unit_price !== null && baseItem.unit_price !== "")
-                    ? baseItem.unit_price
-                    : item.unit_price;
+                // Dar prioridad al unit_price guardado en la certificación (conserva todos los decimales).
+                // Solo usar el del contractItem si el precio de la cert está ausente o es cero.
+                const certPrice = item.unit_price;
+                const certPriceNum = parseFloat(String(certPrice ?? ''));
+                const certHasPrice = certPrice !== undefined && certPrice !== null && certPrice !== '' && !isNaN(certPriceNum) && certPriceNum !== 0;
+                const updatedUnitPrice = certHasPrice ? certPrice : baseItem.unit_price;
+
                 return {
                     ...item,
                     _uniqueId: stableId,
@@ -105,6 +113,7 @@ export const processCertsData = (certsList: any[], itemsList: any[], choList: an
         return { ...cert, items: sortedItems };
     });
 };
+
 
 const FUND_SOURCES = ["FHWA:100%", "FHWA:80.25", "ACT:100%"];
 
@@ -1869,7 +1878,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         value={formatUnitPrice(item.unit_price)}
                                                                         onChange={(e) => {
                                                                             const raw = e.target.value;
-                                                                            if (/^-?[0-9]*\.?[0-9]{0,6}$/.test(raw) || raw === '' || raw === '-') {
+                                                                            if (/^-?[0-9]*\.?[0-9]{0,10}$/.test(raw) || raw === '' || raw === '-') {
                                                                                 updateCertItem(certIdx, itIdx, 'unit_price', raw);
                                                                             }
                                                                         }}
@@ -1877,8 +1886,10 @@ const PaymentCertForm = React.forwardRef(({
                                                                         onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
                                                                         onBlur={(e) => {
                                                                             activeInputIdRef.current = null;
-                                                                            const v = parseFloat(e.target.value);
-                                                                            if (!isNaN(v)) updateCertItem(certIdx, itIdx, 'unit_price', Number(v.toFixed(6)).toString());
+                                                                            const raw = e.target.value.trim();
+                                                                            const v = parseFloat(raw);
+                                                                            // Guardar el string exacto si es un número válido (preserva todos los decimales)
+                                                                            if (!isNaN(v) && raw !== '') updateCertItem(certIdx, itIdx, 'unit_price', v);
                                                                         }}
                                                                         placeholder="0.00"
                                                                     />

@@ -355,7 +355,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800">
                         <tr>
-                            <th className="px-1 py-2 min-w-[64px] text-center">#</th>
+                            <th className="px-1 py-2 min-w-[64px] text-center"># Item</th>
                             <th className="px-1 py-2 min-w-[96px] text-center">Espec.</th>
                             <th className="px-1 py-2 min-w-[200px]">Descripción</th>
                             <th className="px-1 py-2 min-w-[80px] text-right">Cant. Orig.</th>
@@ -489,22 +489,32 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             <input type="text" disabled={readOnly} className="input-field uppercase h-8 !py-1 text-center px-1" style={{ fontSize: '9px', backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'unit') }} value={item.unit || ""} onChange={(e) => updateItem(idx, 'unit', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input 
-                                                type="number" 
-                                                step="0.0001" 
-                                                disabled={readOnly}
-                                                className="input-field text-xs text-right font-medium h-8 !py-1" 
-                                                style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'unit_price') }} 
-                                                list={`prices-${idx}`}
-                                                value={isNaN(item.unit_price) ? "" : item.unit_price} 
-                                                onChange={(e) => updateItem(idx, 'unit_price', e.target.value === "" ? 0 : parseFloat(e.target.value))} 
-                                            />
-                                            <datalist id={`prices-${idx}`}>
-                                                {(priceSuggestions[item.specification?.trim()] || []).map(p => (
-                                                    <option key={p} value={p} />
-                                                ))}
-                                            </datalist>
-                                        </td>
+                                             <input 
+                                                 type="text" 
+                                                 inputMode="decimal"
+                                                 disabled={readOnly}
+                                                 className="input-field text-xs text-right font-medium h-8 !py-1" 
+                                                 style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'unit_price') }} 
+                                                 list={`prices-${idx}`}
+                                                 value={(item.unit_price === 0 || item.unit_price === "0") ? "" : (item.unit_price ?? "")} 
+                                                 onChange={(e) => {
+                                                     const raw = e.target.value;
+                                                     if (raw === '' || raw === '-' || /^-?[0-9]*\.?[0-9]*$/.test(raw)) {
+                                                         updateItem(idx, 'unit_price', raw === '' ? 0 : raw);
+                                                     }
+                                                 }}
+                                                 onBlur={(e) => {
+                                                     const v = parseFloat(e.target.value);
+                                                     if (!isNaN(v)) updateItem(idx, 'unit_price', v);
+                                                     else if (e.target.value === '' || e.target.value === '-') updateItem(idx, 'unit_price', 0);
+                                                 }}
+                                             />
+                                             <datalist id={`prices-${idx}`}>
+                                                 {(priceSuggestions[item.specification?.trim()] || []).map(p => (
+                                                     <option key={p} value={p} />
+                                                 ))}
+                                             </datalist>
+                                         </td>
                                         <td className="px-1 py-1.5 text-right font-black text-xs text-primary pr-4">
                                             {formatCurrency(amountFinal)}
                                         </td>
