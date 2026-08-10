@@ -86,8 +86,9 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
     };
 
     const addCHO = (silent = false) => {
-        const lastNum = chos.length > 0 ? Math.max(...chos.map(c => c.cho_num)) : 0;
-        const lastLetter = chos.length > 0 ? chos[chos.length - 1].amendment_letter : "";
+        const lastNum = chos.length > 0 ? Math.max(...chos.map(c => c.cho_num || 0)) : 0;
+        const letters = chos.map(c => c.amendment_letter || "").filter(Boolean).sort();
+        const lastLetter = letters.length > 0 ? letters[letters.length - 1] : "";
         const nextLetter = lastLetter ? String.fromCharCode(lastLetter.charCodeAt(0) + 1) : "A";
 
         const newId = crypto.randomUUID();
