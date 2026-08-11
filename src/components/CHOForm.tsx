@@ -517,6 +517,39 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                             })()}
                                         </div>
                                     </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">% COST</label>
+                                        <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex flex-col justify-center px-3 h-auto min-h-[30px] border-emerald-500/30 text-slate-700 dark:text-slate-300 min-w-[80px] py-1 text-center">
+                                            {(() => {
+                                                const { act, fed } = calculateChoBreakdown(cho.items, projectData);
+                                                const total = roundedAmt(act + fed, 2);
+                                                const costOriginal = projectData?.cost_original || 0;
+                                                if (costOriginal === 0) return "N/A";
+                                                const pct = (total / costOriginal) * 100;
+                                                const sign = pct > 0 ? '+' : '';
+                                                const color = pct > 0 ? 'text-red-500' : (pct < 0 ? 'text-emerald-500' : 'text-slate-500');
+                                                return <span className={color}>{sign}{pct.toFixed(2)}%</span>;
+                                            })()}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">% TIME</label>
+                                        <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex flex-col justify-center px-3 h-auto min-h-[30px] border-emerald-500/30 text-slate-700 dark:text-slate-300 min-w-[80px] py-1 text-center">
+                                            {(() => {
+                                                const extDays = parseInt(cho.time_extension_days as any) || 0;
+                                                if (!projectData?.date_project_start || !projectData?.date_orig_completion) return "N/A";
+                                                const start = new Date(projectData.date_project_start);
+                                                const end = new Date(projectData.date_orig_completion);
+                                                const diffTime = end.getTime() - start.getTime();
+                                                const originalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                                if (originalDays <= 0) return "N/A";
+                                                const pct = (extDays / originalDays) * 100;
+                                                const sign = pct > 0 ? '+' : '';
+                                                const color = pct > 0 ? 'text-red-500' : (pct < 0 ? 'text-emerald-500' : 'text-slate-500');
+                                                return <span className={color}>{sign}{pct.toFixed(2)}%</span>;
+                                            })()}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     {expandedCHO === cho.id && (
