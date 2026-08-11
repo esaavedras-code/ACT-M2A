@@ -45,7 +45,7 @@ export default function BottomNav() {
         { id: "materials",   label: "Mat. on Site",   icon: Package },
         { id: "compliance",  label: "Cumplimiento laboral",   icon: ShieldCheck },
         { id: "cho",         label: "Change Orders",  icon: FileEdit },
-        { id: "payment",     label: "Monthly payments", icon: FileCheck },
+        { id: "payment",     label: "Certificaciones de pago", icon: FileCheck },
         { id: "mfg",         label: "Cert. CM",       icon: Factory },
         { id: "minutes",     label: "Minutas",        icon: Mic, wip: true, underConstruction: true },
         { id: "logs",        label: "Actividades",   icon: Cloud, wip: true, underConstruction: true },

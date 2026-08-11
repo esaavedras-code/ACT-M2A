@@ -124,7 +124,7 @@ function ProjectDetailContent() {
         { id: "project2",    label: "Entrada de datos",           icon: <FileText size={12} /> },
         { id: "compliance",  label: "Cumplimiento Laboral",       icon: <ShieldCheck size={12} /> },
         { id: "mfg",         label: "Certificados de manufactura", icon: <Factory size={12} /> },
-        { id: "payment",     label: "Monthly payment",            icon: <FileCheck size={12} /> },
+        { id: "payment",     label: "Certificaciones de pago",            icon: <FileCheck size={12} /> },
         { id: "cho",         label: "Change order",               icon: <FileEdit size={12} /> },
         { id: "logs",        label: "Actividades",               icon: <Cloud size={12} />, underConstruction: true },
         { id: "inspection",  label: "Inspección",                icon: <FileCheck size={12} />, underConstruction: true },
