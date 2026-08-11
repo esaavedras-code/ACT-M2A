@@ -527,7 +527,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 if (costOriginal === 0) return "N/A";
                                                 const pct = (total / costOriginal) * 100;
                                                 const sign = pct > 0 ? '+' : '';
-                                                const color = pct > 0 ? 'text-red-500' : (pct < 0 ? 'text-emerald-500' : 'text-slate-500');
+                                                const color = pct > 0 ? 'text-emerald-500' : (pct < 0 ? 'text-red-500' : 'text-slate-500');
                                                 return <span className={color}>{sign}{pct.toFixed(2)}%</span>;
                                             })()}
                                         </div>
@@ -545,7 +545,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 if (originalDays <= 0) return "N/A";
                                                 const pct = (extDays / originalDays) * 100;
                                                 const sign = pct > 0 ? '+' : '';
-                                                const color = pct > 0 ? 'text-red-500' : (pct < 0 ? 'text-emerald-500' : 'text-slate-500');
+                                                const color = pct > 0 ? 'text-emerald-500' : (pct < 0 ? 'text-red-500' : 'text-slate-500');
                                                 return <span className={color}>{sign}{pct.toFixed(2)}%</span>;
                                             })()}
                                         </div>
