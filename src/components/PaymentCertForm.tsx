@@ -157,6 +157,10 @@ const PaymentCertForm = React.forwardRef(({
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
     const activeInputIdRef = React.useRef<string | null>(null);
+    // Refs que siempre apuntan a los valores más recientes de certs y contractItems,
+    // para evitar stale-closures en onBlur y otros event handlers.
+    const certsRef = React.useRef<any[]>([]);
+    const contractItemsRef = React.useRef<any[]>([]);
 
     useEffect(() => {
         if (activeInputIdRef.current) {
@@ -284,6 +288,10 @@ const PaymentCertForm = React.forwardRef(({
     const projectData = initialProjectData || internalProjectData;
     const contractItems = initialContractItems || internalContractItems || [];
     const mfgCerts = initialMfgCerts || internalMfgCerts || [];
+
+    // Mantener refs actualizados en cada render para uso en event handlers
+    certsRef.current = certs;
+    contractItemsRef.current = contractItems;
 
     const getInvoicePUFromList = (allCerts: any[], itemNum: string, currentCertIdx: number) => {
         if (!allCerts) return 0;
@@ -863,16 +871,31 @@ const PaymentCertForm = React.forwardRef(({
 
     /**
      * Recalcula el balance disponible de un ítem para una certificación
-     * usando el estado MÁS RECIENTE de certs y contractItems.
-     * Esto evita el stale-closure del render que causaba availableBalance=0 erróneo.
+     * usando los refs MÁS RECIENTES de certs y contractItems.
+     * Esto evita CUALQUIER tipo de stale-closure en event handlers (onBlur, etc.).
      */
     const computeAvailableBalanceFresh = (certIdx: number, itemNum: string): number => {
-        const totalRevisedQty = getItemTotalRevisedQty(itemNum);
+        const latestCerts = certsRef.current;
+        const latestContractItems = contractItemsRef.current;
+        const normalized = normalizeItemNum(itemNum);
+
+        // Calcular totalRevisedQty con datos frescos
+        const baseItem = latestContractItems.find((it: any) => normalizeItemNum(it.item_num) === normalized);
+        let totalRevisedQty = Number(baseItem?.quantity) || 0;
+        const changeOrders = projectData?.change_orders || projectData?.chos || [];
+        changeOrders.forEach((co: any) => {
+            const items = Array.isArray(co.items) ? co.items : (co.items as any)?.list || [];
+            const coItem = items.find((it: any) => normalizeItemNum(it.item_num) === normalized);
+            if (coItem) {
+                totalRevisedQty += parseFloat(coItem.proposed_change !== undefined ? coItem.proposed_change : coItem.quantity) || 0;
+            }
+        });
+
+        // Calcular paidInPrevious con datos frescos
         let paidInPrevious = 0;
-        // certs está en orden descendente; las certs anteriores (cronológicamente) están en índices mayores
-        for (let k = certIdx + 1; k < certs.length; k++) {
-            const prevItems = certs[k]?.items || [];
-            const match = prevItems.find((p: any) => normalizeItemNum(p.item_num) === normalizeItemNum(itemNum));
+        for (let k = certIdx + 1; k < latestCerts.length; k++) {
+            const prevItems = latestCerts[k]?.items || [];
+            const match = prevItems.find((p: any) => normalizeItemNum(p.item_num) === normalized);
             if (match) paidInPrevious += parseFloat(match.quantity) || 0;
         }
         return totalRevisedQty - paidInPrevious;
