@@ -861,6 +861,23 @@ const PaymentCertForm = React.forwardRef(({
         return baseQty + extra;
     };
 
+    /**
+     * Recalcula el balance disponible de un ítem para una certificación
+     * usando el estado MÁS RECIENTE de certs y contractItems.
+     * Esto evita el stale-closure del render que causaba availableBalance=0 erróneo.
+     */
+    const computeAvailableBalanceFresh = (certIdx: number, itemNum: string): number => {
+        const totalRevisedQty = getItemTotalRevisedQty(itemNum);
+        let paidInPrevious = 0;
+        // certs está en orden descendente; las certs anteriores (cronológicamente) están en índices mayores
+        for (let k = certIdx + 1; k < certs.length; k++) {
+            const prevItems = certs[k]?.items || [];
+            const match = prevItems.find((p: any) => normalizeItemNum(p.item_num) === normalizeItemNum(itemNum));
+            if (match) paidInPrevious += parseFloat(match.quantity) || 0;
+        }
+        return totalRevisedQty - paidInPrevious;
+    };
+
     const getCertMOSBalance = (certIdx: number) => {
         let balance = 0;
         // Las certificaciones están en orden descendente, para el balance necesitamos desde la #1 hasta la actual
@@ -1850,9 +1867,11 @@ const PaymentCertForm = React.forwardRef(({
                                                                         onBlur={(e) => {
                                                                             activeInputIdRef.current = null;
                                                                             const entered = parseFloat(e.target.value) || 0;
-                                                                            if (isKnownItem && entered > availableBalance + 0.0001 && availableBalance >= 0) {
-                                                                                alert(`La cantidad ingresada (${entered.toFixed(4)}) excede el balance disponible de la partida ${item.item_num} (${availableBalance.toFixed(4)}). Se ajustará al balance máximo disponible.`);
-                                                                                updateCertItem(certIdx, itIdx, 'quantity', availableBalance.toFixed(4));
+                                                                            // Recalcular el balance con el estado más reciente para evitar stale-closure
+                                                                            const freshBalance = computeAvailableBalanceFresh(certIdx, item.item_num);
+                                                                            if (isKnownItem && entered > freshBalance + 0.0001 && freshBalance >= 0) {
+                                                                                alert(`La cantidad ingresada (${entered.toFixed(4)}) excede el balance disponible de la partida ${item.item_num} (${freshBalance.toFixed(4)}). Se ajustará al balance máximo disponible.`);
+                                                                                updateCertItem(certIdx, itIdx, 'quantity', freshBalance.toFixed(4));
                                                                             }
                                                                         }}
                                                                         placeholder="0.00"
