@@ -353,7 +353,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
             <div className="card overflow-x-auto overflow-y-auto p-0 border-none shadow-sm" style={{ maxHeight: '70vh' }}>
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-900 text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20">
+                    <thead className="text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20" style={{ backgroundColor: '#0f172a' }}>
                         <tr>
                             <th className="px-1 py-2 min-w-[64px] text-center"># Item</th>
                             <th className="px-1 py-2 min-w-[96px] text-center">Espec.</th>
