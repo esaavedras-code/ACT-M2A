@@ -588,9 +588,9 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
 
                         {expandedCHO === cho.id && (
                             <div className="p-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '60vh' }}>
                                     <table className="w-full text-left border-collapse">
-                                        <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800">
+                                        <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800 sticky top-0 z-20" style={{ backgroundColor: '#0f172a' }}>
                                             <tr>
                                                 <th className="py-1 px-0.5 w-10 text-center text-blue-600">Nuevo</th>
 
