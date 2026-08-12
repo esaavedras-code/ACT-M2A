@@ -849,7 +849,7 @@ const PaymentCertForm = React.forwardRef(({
         setExpandedCert(expandedCert === num ? null : num);
     };
 
-    const getItemTotalRevisedQty = (itemNum: string) => {
+    const getItemTotalRevisedQty = (itemNum: string, certDate?: string) => {
         const normalized = normalizeItemNum(itemNum);
         const baseItem = contractItems.find(it => normalizeItemNum(it.item_num) === normalized);
         let baseQty = Number(baseItem?.quantity) || 0;
@@ -857,6 +857,10 @@ const PaymentCertForm = React.forwardRef(({
         const changeOrders = projectData?.change_orders || projectData?.chos || [];
         let extra = 0;
         changeOrders.forEach((co: any) => {
+            if (certDate && co.cho_date) {
+                // Consideramos solo CHOs aprobados hasta la fecha de la certificación
+                if (co.cho_date > certDate) return;
+            }
             const items = Array.isArray(co.items) ? co.items : (co.items as any)?.list || [];
             const coItem = items.find((it: any) => normalizeItemNum(it.item_num) === normalized);
             if (coItem) {
@@ -883,7 +887,9 @@ const PaymentCertForm = React.forwardRef(({
         const baseItem = latestContractItems.find((it: any) => normalizeItemNum(it.item_num) === normalized);
         let totalRevisedQty = Number(baseItem?.quantity) || 0;
         const changeOrders = projectData?.change_orders || projectData?.chos || [];
+        const certDate = latestCerts[certIdx]?.cert_date;
         changeOrders.forEach((co: any) => {
+            if (certDate && co.cho_date && co.cho_date > certDate) return;
             const items = Array.isArray(co.items) ? co.items : (co.items as any)?.list || [];
             const coItem = items.find((it: any) => normalizeItemNum(it.item_num) === normalized);
             if (coItem) {
@@ -1717,7 +1723,7 @@ const PaymentCertForm = React.forwardRef(({
                                             <tbody>
                                                 {(c.items || [])
                                                     .map((item: any, itIdx: number) => {
-                                                    const totalRevisedQty = getItemTotalRevisedQty(item.item_num);
+                                                    const totalRevisedQty = getItemTotalRevisedQty(item.item_num, c.cert_date);
                                                     let paidInPrevious = 0;
                                                     // Las certificaciones están en orden descendente (Index 0 = Cert Reciente)
                                                     // Necesitamos sumar desde certIdx + 1 hasta el final para pagos PREVIOS
