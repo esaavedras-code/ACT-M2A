@@ -261,9 +261,9 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
 
 
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '70vh' }}>
                     <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50/50 dark:bg-slate-800/50">
+                        <thead className="bg-slate-800 sticky top-0 z-20">
                             <tr className="text-[10px] uppercase font-black text-slate-400 tracking-wider">
                                 <th className="py-4 px-6 w-32 border-b border-slate-200 dark:border-slate-700"># Item / Espec.</th>
                                 <th className="py-4 px-4 w-64 border-b border-slate-200 dark:border-slate-700">Descripción</th>
