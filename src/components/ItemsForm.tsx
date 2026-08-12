@@ -716,18 +716,20 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 </React.Fragment>
                             );
                         })}
-                        <tr>
-                            <td colSpan={12} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
-                                <button
-                                    type="button"
-                                    onClick={addItem}
-                                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                                >
-                                    <Plus size={14} />
-                                    Añadir Item
-                                </button>
-                            </td>
-                        </tr>
+                        {!readOnly && (
+                            <tr>
+                                <td colSpan={12} className="px-4 py-3 border-t border-slate-100 dark:border-slate-800">
+                                    <button
+                                        type="button"
+                                        onClick={addItem}
+                                        className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                                    >
+                                        <Plus size={14} />
+                                        Añadir Item
+                                    </button>
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>
