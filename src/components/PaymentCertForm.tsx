@@ -1890,9 +1890,12 @@ const PaymentCertForm = React.forwardRef(({
                                                                         onBlur={(e) => {
                                                                             activeInputIdRef.current = null;
                                                                             const entered = parseFloat(e.target.value) || 0;
-                                                                            // Recalcular el balance con el estado más reciente para evitar stale-closure
+                                                                            // Recalcular el balance con el estado más reciente para evitar stale-closure.
+                                                                            // IMPORTANTE: solo bloquear si freshBalance > 0 (dato válido y excedido).
+                                                                            // Si freshBalance = 0 puede significar que los contractItems aún no cargaron
+                                                                            // y sería un falso positivo bloquear al usuario.
                                                                             const freshBalance = computeAvailableBalanceFresh(certIdx, item.item_num);
-                                                                            if (isKnownItem && entered > freshBalance + 0.0001 && freshBalance >= 0) {
+                                                                            if (isKnownItem && freshBalance > 0 && entered > freshBalance + 0.0001) {
                                                                                 alert(`La cantidad ingresada (${entered.toFixed(4)}) excede el balance disponible de la partida ${item.item_num} (${freshBalance.toFixed(4)}). Se ajustará al balance máximo disponible.`);
                                                                                 updateCertItem(certIdx, itIdx, 'quantity', freshBalance.toFixed(4));
                                                                             }
