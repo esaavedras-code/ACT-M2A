@@ -449,7 +449,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
             {(() => {
                 const approvedTotal = chos.filter(c => c.doc_status === "Aprobado").reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
                 const pendingTotal = chos.filter(c => c.doc_status === "En trámite").reduce((sum, c) => sum + (c.items || []).reduce((s: number, it: any) => roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0), 0);
-                const approvedDays = chos.filter(c => c.doc_status === "Aprobado").reduce((sum, c) => sum + (c.time_extension_days || 0), 0);
+                const approvedDays = chos.filter(c => c.doc_status === "Aprobado").reduce((sum, c) => sum + (parseFloat(c.time_extension_days as any) || 0), 0);
                 let approvedFed = 0, approvedAct = 0;
                 const pFedPct = projectData?.federal_share_pct ?? 80.25;
 

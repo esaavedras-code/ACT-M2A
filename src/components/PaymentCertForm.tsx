@@ -79,12 +79,9 @@ export const processCertsData = (certsList: any[], itemsList: any[], choList: an
 
             const stableId = item._uniqueId || `${cert.id || cert.cert_num}-${itemNumStr || idx}-${idx}`;
             if (baseItem) {
-                // Dar prioridad al unit_price guardado en la certificación (conserva todos los decimales).
-                // Solo usar el del contractItem si el precio de la cert está ausente o es cero.
-                const certPrice = item.unit_price;
-                const certPriceNum = parseFloat(String(certPrice ?? ''));
-                const certHasPrice = certPrice !== undefined && certPrice !== null && certPrice !== '' && !isNaN(certPriceNum) && certPriceNum !== 0;
-                const updatedUnitPrice = certHasPrice ? certPrice : baseItem.unit_price;
+                // Siempre usar el precio unitario del contractItem (master) si existe, 
+                // para que refleje actualizaciones como el precio real de $55 en lugar de quedarse con un valor obsoleto ($52).
+                const updatedUnitPrice = baseItem.unit_price;
 
                 return {
                     ...item,
@@ -1884,13 +1881,18 @@ const PaymentCertForm = React.forwardRef(({
                                                                 </td>
                                                                 <td className="py-1 px-0.5">
                                                                     <input
-                                                                        type="number"
+                                                                        type="text"
+                                                                        inputMode="decimal"
                                                                         id={`cert-${certIdx}-item-${item._uniqueId}-quantity`}
-                                                                        step="0.0001"
                                                                         className={`input-field text-right text-[11px] font-black p-0 h-6 border-transparent group-hover/row:border-slate-200 ${isQtyExceeded || isMfgBlocked ? 'text-red-600 border-red-300' : ''}`}
                                                                         style={{ backgroundColor: isQtyExceeded || isMfgBlocked ? '#fee2e2' : '#66FF99' }}
                                                                         value={item.quantity ?? ""}
-                                                                        onChange={(e) => updateCertItem(certIdx, itIdx, 'quantity', e.target.value)}
+                                                                        onChange={(e) => {
+                                                                            const raw = e.target.value;
+                                                                            if (/^-?[0-9]*\.?[0-9]{0,10}$/.test(raw) || raw === '' || raw === '-') {
+                                                                                updateCertItem(certIdx, itIdx, 'quantity', raw);
+                                                                            }
+                                                                        }}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
                                                                         onBlur={(e) => {

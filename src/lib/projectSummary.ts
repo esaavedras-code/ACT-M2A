@@ -105,8 +105,8 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
 
     const approvedCHO = approvedCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
     const pendingCHO = pendingCHOs.reduce((acc, c) => roundedAmt(acc + parseFloat(c.proposed_change || '0'), 2), 0);
-    const approvedDays = approvedCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
-    const pendingDays = pendingCHOs.reduce((acc, c) => acc + (c.time_extension_days || 0), 0);
+    const approvedDays = approvedCHOs.reduce((acc, c) => acc + (parseFloat(c.time_extension_days as any) || 0), 0);
+    const pendingDays = pendingCHOs.reduce((acc, c) => acc + (parseFloat(c.time_extension_days as any) || 0), 0);
 
     const getCHOQtyForItem = (itemNum: string) =>
         approvedCHOs.reduce((total, cho) => {
