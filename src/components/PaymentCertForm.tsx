@@ -68,8 +68,10 @@ export const processCertsData = (certsList: any[], itemsList: any[], choList: an
             let choItem = null;
             if (Array.isArray(choList)) {
                 for (const cho of choList) {
-                    if (Array.isArray(cho.items)) {
-                        const found = cho.items.find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
+                    if (cho.doc_status && cho.doc_status !== 'Aprobado') continue;
+                    const choItemsList = Array.isArray(cho.items) ? cho.items : cho.items?.list || [];
+                    if (Array.isArray(choItemsList)) {
+                        const found = choItemsList.find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
                         if (found) {
                             choItem = found;
                         }
