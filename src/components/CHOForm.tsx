@@ -243,7 +243,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             fund_source: item.fund_source || FUND_SOURCES[0],
                             requires_mfg_cert: item.requires_mfg_cert || false,
                             mfg_cert_qty: item.mfg_cert_qty || 1,
-                            mfg_cert_unit: item.mfg_cert_unit || "",
                             mfg_cert_description: item.mfg_cert_description || ""
                         });
                     }
@@ -296,7 +295,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             // para respetar cambios manuales que el usuario haya hecho.
                             requires_mfg_cert: existingItem.requires_mfg_cert ?? (item.requires_mfg_cert || false),
                             mfg_cert_qty: item.mfg_cert_qty || 1,
-                            mfg_cert_unit: item.mfg_cert_unit || "",
                             mfg_cert_description: item.mfg_cert_description || ""
                         });
                     }

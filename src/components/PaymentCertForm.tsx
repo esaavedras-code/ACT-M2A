@@ -65,18 +65,25 @@ export const processCertsData = (certsList: any[], itemsList: any[], choList: an
             const itemNumStr = normalizeItemNum(item.item_num);
             let baseItem = itemsList.find(it => normalizeItemNum(it.item_num) === itemNumStr);
             
-            if (!baseItem && Array.isArray(choList)) {
+            let choItem = null;
+            if (Array.isArray(choList)) {
                 for (const cho of choList) {
                     if (Array.isArray(cho.items)) {
                         const found = cho.items.find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
                         if (found) {
-                            baseItem = found;
-                            break;
+                            choItem = found;
                         }
                     }
                 }
             }
 
+            if (choItem) {
+                if (baseItem) {
+                    baseItem = { ...baseItem, unit_price: choItem.unit_price, specification: choItem.specification || baseItem.specification, description: choItem.description || baseItem.description, unit: choItem.unit || baseItem.unit };
+                } else {
+                    baseItem = choItem;
+                }
+            }
             const stableId = item._uniqueId || `${cert.id || cert.cert_num}-${itemNumStr || idx}-${idx}`;
             if (baseItem) {
                 // Siempre usar el precio unitario del contractItem (master) si existe, 
