@@ -60,15 +60,28 @@ export const processCertsData = (certsList: any[], itemsList: any[], choList: an
     if (!Array.isArray(certsList)) return certsList;
     return certsList.map(cert => {
         if (!cert.items || !Array.isArray(cert.items)) return cert;
-        
+        const sortedCHOs = [...choList].sort((a, b) => {
+            const dA = a.cho_date ? new Date(a.cho_date).getTime() : 0;
+            const dB = b.cho_date ? new Date(b.cho_date).getTime() : 0;
+            return dA - dB;
+        });
+
+        const certDateMs = cert.cert_date ? new Date(cert.cert_date).getTime() : null;
+
         const processedItems = cert.items.map((item: any, idx: number) => {
             const itemNumStr = normalizeItemNum(item.item_num);
             let baseItem = itemsList.find(it => normalizeItemNum(it.item_num) === itemNumStr);
             
             let choItem = null;
-            if (Array.isArray(choList)) {
-                for (const cho of choList) {
+            if (Array.isArray(sortedCHOs)) {
+                for (const cho of sortedCHOs) {
                     if (cho.doc_status && cho.doc_status !== 'Aprobado') continue;
+
+                    if (certDateMs && cho.cho_date) {
+                        const choDateMs = new Date(cho.cho_date).getTime();
+                        if (choDateMs > certDateMs) continue; // Skip future CHOs
+                    }
+
                     const choItemsList = Array.isArray(cho.items) ? cho.items : cho.items?.list || [];
                     if (Array.isArray(choItemsList)) {
                         const found = choItemsList.find((it: any) => normalizeItemNum(it.item_num) === itemNumStr);
