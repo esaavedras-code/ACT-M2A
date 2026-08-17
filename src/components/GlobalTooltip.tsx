@@ -9,49 +9,51 @@ export default function GlobalTooltip() {
 
     useEffect(() => {
         const handleMouseOver = (e: MouseEvent) => {
-            // Find closest element with a title attribute
-            const target = (e.target as HTMLElement).closest('[title]') as HTMLElement;
+            const target = (e.target as HTMLElement).closest('[title], [data-original-title]') as HTMLElement;
             if (!target) return;
             
-            const titleText = target.getAttribute('title');
+            if (activeElementRef.current === target) return;
+
+            const titleText = target.getAttribute('title') || target.getAttribute('data-original-title');
             if (!titleText) return;
 
-            // Save original title and remove it to prevent native OS tooltip
-            originalTitleRef.current = titleText;
-            target.setAttribute('data-original-title', titleText);
-            target.removeAttribute('title');
+            if (target.hasAttribute('title')) {
+                target.setAttribute('data-original-title', titleText);
+                target.removeAttribute('title');
+            }
             activeElementRef.current = target;
 
-            // Clear any existing timeout
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
-            // Set 2 second delay (2000ms)
             timeoutRef.current = setTimeout(() => {
                 const rect = target.getBoundingClientRect();
                 setTooltipData({
-                    text: originalTitleRef.current,
+                    text: titleText,
                     x: rect.left + rect.width / 2,
-                    y: rect.bottom + 8 // offset below the element
+                    y: rect.bottom + 8
                 });
-            }, 2000);
+            }, 1000);
         };
 
         const handleMouseOut = (e: MouseEvent) => {
-            if (activeElementRef.current) {
-                // Restore original title so it can trigger again
-                if (originalTitleRef.current) {
-                    activeElementRef.current.setAttribute('title', originalTitleRef.current);
-                }
+            if (!activeElementRef.current) return;
+            
+            if (activeElementRef.current.contains(e.relatedTarget as Node)) {
+                return;
+            }
+
+            const originalTitle = activeElementRef.current.getAttribute('data-original-title');
+            if (originalTitle) {
+                activeElementRef.current.setAttribute('title', originalTitle);
                 activeElementRef.current.removeAttribute('data-original-title');
             }
+            
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             setTooltipData(null);
             activeElementRef.current = null;
-            originalTitleRef.current = "";
         };
 
         const handleMouseDown = () => {
-            // Hide tooltip when clicking
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             setTooltipData(null);
         };
