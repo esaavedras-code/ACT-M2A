@@ -355,7 +355,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 <table className="w-full text-left border-collapse">
                     <thead className="text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20" style={{ backgroundColor: '#0f172a' }}>
                         <tr>
-                            <th className="px-1 py-2 min-w-[52px] text-center"># Item</th>
+                            <th className="pl-3 pr-1 py-2 min-w-[68px] text-center"># Item</th>
                             <th className="px-1 py-2 min-w-[88px] text-center">Espec.</th>
                             <th className="px-1 py-2 min-w-[200px]">Descripción</th>
                             <th className="px-1 py-2 min-w-[90px] text-right">Cant. Orig.</th>
@@ -431,7 +431,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                             return (
                                 <React.Fragment key={idx}>
                                     <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                                        <td className="px-1 py-1.5">
+                                        <td className="pl-3 pr-1 py-1.5">
                                             <div className="relative group flex justify-center">
                                                 <input
                                                 type="text"
@@ -439,12 +439,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                 disabled={readOnly}
                                                 className={`input-field text-[10px] text-center font-bold h-8 !py-1 transition-all ${readOnly ? 'bg-transparent border-none' : ''} ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
                                                 style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'item_num') }}
-                                                value={item.item_num || ""}
+                                                value={readOnly
+                                                    ? (item.item_num ? String(parseInt(item.item_num, 10)) : "")
+                                                    : (item.item_num || "")}
                                                 onChange={(e) => updateItem(idx, 'item_num', e.target.value)}
                                                 onBlur={(e) => {
                                                     const val = e.target.value;
                                                     if (val !== "" && !isNaN(parseInt(val))) {
-                                                        updateItem(idx, 'item_num', val.padStart(3, '0'));
+                                                        updateItem(idx, 'item_num', String(parseInt(val, 10)));
                                                     }
                                                 }}
                                                 />
