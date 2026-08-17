@@ -629,7 +629,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     </td>
 
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" maxLength={20} className="input-field text-[10px] text-center !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} onBlur={(e) => {
+                                                        <input type="text" maxLength={20} className="input-field text-[10px] text-center !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num ? String(parseInt(item.item_num, 10) || item.item_num) : ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} onBlur={(e) => {
                                                             const val = e.target.value;
                                                             if (val !== "" && !isNaN(parseInt(val))) {
                                                                 updateCHOItem(idx, itIdx, 'item_num', String(parseInt(val, 10)));
