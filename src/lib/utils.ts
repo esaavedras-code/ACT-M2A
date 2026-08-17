@@ -48,6 +48,26 @@ export function roundedAmt(value: number | string | null | undefined, digits: nu
     }
 }
 
+/**
+ * Elimina los ceros a la izquierda de un número de item para su visualización.
+ * Maneja casos simples ("007" → "7") y con prefijo de texto ("pt. 004" → "pt. 4").
+ * No modifica el valor almacenado en BD, solo es para mostrar en pantalla.
+ */
+export function stripLeadingZeros(itemNum: string | number | null | undefined): string {
+    if (itemNum === null || itemNum === undefined) return '';
+    const str = String(itemNum).trim();
+    if (!str) return str;
+    // Si tiene prefijo de texto (ej: "pt. 004", "Pt. 002"), preserva el prefijo
+    const match = str.match(/^([a-zA-Z\s.]*?)(\d+)(.*)$/);
+    if (match) {
+        const prefix = match[1];
+        const num = parseInt(match[2], 10);
+        const suffix = match[3];
+        return `${prefix}${isNaN(num) ? match[2] : num}${suffix}`;
+    }
+    return str;
+}
+
 export function formatCurrency(value: number | string | null | undefined, decimals = 2): string {
     const numericValue = typeof value === 'string' ? parseFloat(value) : value;
     if (numericValue === null || numericValue === undefined || isNaN(numericValue)) {

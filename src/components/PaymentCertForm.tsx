@@ -1820,7 +1820,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         id={`cert-${certIdx}-item-${item._uniqueId}-item_num`}
                                                                         className="input-field w-full text-center text-xs font-black p-0 px-1 h-6 border-transparent group-hover/row:border-slate-200 rounded-lg"
                                                                         style={{ backgroundColor: '#66FF99' }}
-                                                                        value={item.item_num}
+                                                                        value={item.item_num ? String(parseInt(item.item_num, 10) || item.item_num) : ''}
                                                                         onChange={(e) => updateCertItem(certIdx, itIdx, 'item_num', e.target.value)}
                                                                         onKeyDown={(e) => e.key === 'Enter' && sortCertItems(certIdx)}
                                                                         onFocus={(e) => { activeInputIdRef.current = e.target.id; }}
@@ -1829,10 +1829,10 @@ const PaymentCertForm = React.forwardRef(({
                                                                             const val = e.target.value;
                                                                             if (val !== "" && !isNaN(parseInt(val))) {
                                                                                 const n = parseInt(val, 10);
-                                                                                updateCertItem(certIdx, itIdx, 'item_num', n.toString().padStart(3, '0').slice(0, 3));
+                                                                                updateCertItem(certIdx, itIdx, 'item_num', String(n));
                                                                             }
                                                                         }}
-                                                                        placeholder="000"
+                                                                        placeholder="#"
                                                                     />
                                                                 </td>
                                                                 <td className="py-1 px-0.5">

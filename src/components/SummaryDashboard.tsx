@@ -7,7 +7,7 @@ import { calculateSummaryMetrics } from "@/lib/projectSummary";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Clock, DollarSign, PieChart, Activity, AlertCircle, Layers, ShieldAlert, Info } from "lucide-react";
-import { formatCurrency, roundedAmt, formatDate, formatNumber, getFederalSharePct } from "@/lib/utils";
+import { formatCurrency, roundedAmt, formatDate, formatNumber, getFederalSharePct, stripLeadingZeros } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
 
 export default function SummaryDashboard({ projectId, numAct }: { projectId?: string, numAct?: string }) {
@@ -384,7 +384,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 </p>
                                 {alert.items.map((it: any, i: number) => (
                                     <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-[10px] font-bold text-orange-700 dark:text-orange-400">
-                                        <span className="bg-orange-100 dark:bg-orange-900/40 px-1.5 py-0.5 rounded font-black whitespace-nowrap">Partida {it.item_num}</span>
+                                        <span className="bg-orange-100 dark:bg-orange-900/40 px-1.5 py-0.5 rounded font-black whitespace-nowrap">Partida {stripLeadingZeros(it.item_num)}</span>
                                         <span className="leading-tight">
                                             {it.isPaid ? 'Ya se pagó' : 'Se quiere pagar'} <span className="font-black">{formatNumber(it.qtyToPay)} {it.unit}</span>, pero solo hay <span className="font-black">{formatNumber(it.available)} {it.unit}</span> con CM aprobado.
                                         </span>

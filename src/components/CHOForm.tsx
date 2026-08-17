@@ -632,7 +632,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         <input type="text" maxLength={20} className="input-field text-[10px] text-center !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} onBlur={(e) => {
                                                             const val = e.target.value;
                                                             if (val !== "" && !isNaN(parseInt(val))) {
-                                                                updateCHOItem(idx, itIdx, 'item_num', val.padStart(3, '0'));
+                                                                updateCHOItem(idx, itIdx, 'item_num', String(parseInt(val, 10)));
                                                             }
                                                         }} disabled={item.is_admin_amendment} />
                                                     </td>

@@ -4,7 +4,7 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from "rea
 import { supabase } from "@/lib/supabase";
 import { Package, Info, Save, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { formatCurrency, roundedAmt } from "@/lib/utils";
+import { formatCurrency, roundedAmt, stripLeadingZeros } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 
 const FUND_SOURCES = ["ACT:100%", "FHWA:80.25", "FHWA:100%"];
@@ -285,7 +285,7 @@ const MaterialsForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                                     <>
                                                         <td className="py-4 px-6 align-top border-r border-slate-100 dark:border-slate-800" rowSpan={rowSpan}>
                                                             <div className="font-bold text-sm text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 rounded px-2 py-1 inline-block mb-1">
-                                                                {group.item_num}
+                                                                {stripLeadingZeros(group.item_num)}
                                                             </div>
                                                             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">
                                                                 {group.specification}

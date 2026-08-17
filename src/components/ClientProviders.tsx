@@ -3,6 +3,7 @@
 import { BackupGuardProvider } from "@/components/BackupModal";
 import GreenCellPlaceholders from "@/components/GreenCellPlaceholders";
 import { ThemeProvider } from "@/lib/ThemeContext";
+import GlobalTooltip from "@/components/GlobalTooltip";
 
 /**
  * ClientProviders envuelve todos los providers que requieren ser Client Components.
@@ -13,6 +14,7 @@ export default function ClientProviders({ children }: { children: React.ReactNod
         <ThemeProvider>
             <BackupGuardProvider>
                 <GreenCellPlaceholders />
+                <GlobalTooltip />
                 {children}
             </BackupGuardProvider>
         </ThemeProvider>

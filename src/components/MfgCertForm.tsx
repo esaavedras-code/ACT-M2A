@@ -7,7 +7,7 @@ import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
 import { parsePdfClient } from "@/lib/pdfClientParser";
 
-import { sortItemsNaturally } from "@/lib/utils";
+import { sortItemsNaturally, stripLeadingZeros } from "@/lib/utils";
 import { TodayButton } from "./TodayButton";
 
 interface ValidationResult {
@@ -519,10 +519,10 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     <button
                                         key={it.id}
                                         className="w-full text-left px-5 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors flex items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 last:border-0"
-                                        onMouseDown={(e) => { e.preventDefault(); setSumSearchItemId(it.id); setSumSearchText(`Pt. ${it.item_num}: ${it.description}`); setIsSumDropdownOpen(false); }}
+                                        onMouseDown={(e) => { e.preventDefault(); setSumSearchItemId(it.id); setSumSearchText(`Pt. ${stripLeadingZeros(it.item_num)}: ${it.description}`); setIsSumDropdownOpen(false); }}
                                     >
                                         <div className="flex flex-col min-w-0">
-                                            <span className="text-xs font-black text-slate-800 dark:text-slate-100">Pt. {it.item_num}: {it.description}</span>
+                                            <span className="text-xs font-black text-slate-800 dark:text-slate-100">Pt. {stripLeadingZeros(it.item_num)}: {it.description}</span>
                                             <span className="text-[10px] text-slate-400 font-medium">{certCount} documento{certCount !== 1 ? 's' : ''} • {it.unit}</span>
                                         </div>
                                         <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap">{itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {it.unit}</span>
@@ -580,7 +580,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
 
                             {/* Descripción de la partida */}
                             <div className="px-5 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Partida {selectedItem?.item_num}</p>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Partida {stripLeadingZeros(selectedItem?.item_num)}</p>
                                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">{selectedItem?.description}</p>
                             </div>
 
@@ -698,7 +698,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                                                 setCerts(newList);
                                                             }} 
                                                         /> 
-                                                        <span className="text-[11px] font-bold">Pt. {item.item_num}: {item.description}</span>
+                                                        <span className="text-[11px] font-bold">Pt. {stripLeadingZeros(item.item_num)}: {item.description}</span>
                                                     </label>
                                                 ))}
                                             </div>
@@ -708,7 +708,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     <div className="relative group/single">
                                         <div className={`w-full bg-[#66FF99] text-emerald-900 rounded-full px-4 py-2.5 text-xs font-black flex items-center gap-2 border border-emerald-400 transition-all ${!c.item_id ? 'opacity-90' : ''}`}>
                                             <span className="truncate flex-1">
-                                                {selectedItem ? `Pt. ${selectedItem.item_num}: ${selectedItem.description}` : "SELECCIONAR PARTIDA..."}
+                                                {selectedItem ? `Pt. ${stripLeadingZeros(selectedItem.item_num)}: ${selectedItem.description}` : "SELECCIONAR PARTIDA..."}
                                             </span>
                                             {c.item_id ? (
                                                 <Trash2 size={14} className="cursor-pointer hover:text-red-600 transition-colors" onClick={() => updateCert(idx, 'item_id', "")} />
@@ -729,7 +729,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                         >
                                             <option value="">SELECCIONAR PARTIDA...</option>
                                             {contractItems.filter(it => it.requires_mfg_cert).map(it => (
-                                                <option key={it.id} value={it.id}>Pt. {it.item_num}: {it.description}</option>
+                                                <option key={it.id} value={it.id}>Pt. {stripLeadingZeros(it.item_num)}: {it.description}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -777,7 +777,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                             return (
                                                 <div key={iId} className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
                                                     <div className="flex flex-col min-w-0 pr-2">
-                                                        <span className="text-[10px] font-black text-slate-800 truncate">Pt. {it?.item_num}</span>
+                                                        <span className="text-[10px] font-black text-slate-800 truncate">Pt. {stripLeadingZeros(it?.item_num)}</span>
                                                         <span className="text-[8px] font-bold text-slate-400 truncate uppercase">{it?.description}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">

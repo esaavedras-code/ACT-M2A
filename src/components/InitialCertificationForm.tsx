@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Save, ShieldCheck, Plus, Trash2, Upload, Loader2, CheckCircle2, AlertCircle, Info, Download, FileText, Printer, Calendar, X, FileCheck, Paperclip } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
 import type { FormRef } from "./ProjectForm";
-import { formatDate, sortItemsNaturally } from "@/lib/utils";
+import { formatDate, sortItemsNaturally, stripLeadingZeros } from "@/lib/utils";
 
 const InitialCertificationForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDirty?: () => void, onSaved?: () => void }>(function InitialCertificationForm({ projectId, numAct, onDirty, onSaved }, ref) {
     const [certs, setCerts] = useState<any[]>([]);
@@ -399,12 +399,12 @@ if (!mounted) return null;
                                                 >
                                                     <option value="">Seleccionar Partida...</option>
                                                     {contractItems.map(it => (
-                                                        <option key={it.id} value={it.id}>Pt. {it.item_num}: {it.description}</option>
+                                                        <option key={it.id} value={it.id}>Pt. {stripLeadingZeros(it.item_num)}: {it.description}</option>
                                                     ))}
                                                 </select>
                                                 <div className="bg-[#A7FFC3] dark:bg-[#1E5128] text-[#1D3A20] dark:text-[#A7FFC3] px-6 py-3 rounded-full flex items-center gap-3 font-black text-sm min-w-[280px] border border-[#7DFFB3]">
                                                     <span className="truncate">
-                                                        {selectedItem ? `Pt. ${selectedItem.item_num}: ${selectedItem.description}` : "Seleccionar Partida"}
+                                                        {selectedItem ? `Pt. ${stripLeadingZeros(selectedItem.item_num)}: ${selectedItem.description}` : "Seleccionar Partida"}
                                                     </span>
                                                     {c.item_id && <Trash2 size={14} className="ml-auto cursor-pointer hover:scale-110 text-red-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); updateCert(idx, 'item_id', null); }} />}
                                                 </div>
@@ -595,7 +595,7 @@ if (!mounted) return null;
                                                                         const it = contractItems.find(i => i.id === itemId);
                                                                         return (
                                                                             <span key={itemId} className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded-lg text-[9px] font-black flex items-center gap-1">
-                                                                                Pt. {it?.item_num}
+                                                                                Pt. {stripLeadingZeros(it?.item_num)}
                                                                                 <X size={10} className="cursor-pointer hover:text-red-500" onClick={() => {
                                                                                     const updatedIds = row.item_ids.filter((id: string) => id !== itemId);
                                                                                     updateChildRow(idx, rIdx, 'item_ids', updatedIds);
@@ -621,7 +621,7 @@ if (!mounted) return null;
                                                                         <option value="">Añadir...</option>
                                                                         {contractItems.map(it => (
                                                                             <option key={it.id} value={it.id} disabled={row.item_ids?.includes(it.id)}>
-                                                                                Pt. {it.item_num}: {it.description}
+                                                                                Pt. {stripLeadingZeros(it.item_num)}: {it.description}
                                                                             </option>
                                                                         ))}
                                                                     </select>
