@@ -1725,13 +1725,13 @@ const PaymentCertForm = React.forwardRef(({
                     <thead className="text-[8px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800 sticky top-0 z-20" style={{ backgroundColor: '#0f172a' }}>
                                                 <tr>
                                                     <th className="py-1 px-0.5 w-[35px] text-center" title="No aplicar 5% de retención">N.R.</th>
-                                                    <th className="py-1 px-0.5 w-[65px] text-center"># Item</th>
-                                                    <th className="py-1 px-0.5 w-[100px] text-center">Espec.</th>
+                                                    <th className="py-1 px-0.5 w-[75px] text-center"># Item</th>
+                                                    <th className="py-1 px-0.5 w-[110px] text-center">Espec.</th>
                                                     <th className="py-1 px-0.5">Descripción</th>
                                                     <th className="py-1 px-0.5 w-[40px] text-center">Un.</th>
                                                     <th className="py-1 px-0.5 w-[40px] text-center" title="Certificado de Manufactura">CM</th>
                                                     <th className="py-1 px-0.5 w-[80px] text-right">Cant. WP</th>
-                                                    <th className="py-1 px-0.5 w-[90px] text-right">P. Unitario</th>
+                                                    <th className="py-1 px-0.5 w-[100px] text-right">P. Unitario</th>
                                                     <th className="py-1 px-0.5 w-[90px] text-right">Total WP</th>
                                                     <th className="py-1 px-0.5 w-[70px] text-right">Cant. MOS</th>
                                                     <th className="py-1 px-0.5 w-[85px] text-right">Ded. MOS</th>
@@ -1948,7 +1948,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         type="text"
                                                                         inputMode="decimal"
                                                                         id={`cert-${certIdx}-item-${item._uniqueId}-unit_price`}
-                                                                        className="input-field text-right text-[11px] font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
+                                                                        className="input-field text-right text-[10px] font-geist p-0 h-6 border-transparent group-hover/row:border-slate-200"
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={formatUnitPrice(item.unit_price)}
                                                                         onChange={(e) => {

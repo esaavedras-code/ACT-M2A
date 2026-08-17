@@ -629,7 +629,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     </td>
 
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" maxLength={20} className="input-field text-xs text-center !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} onBlur={(e) => {
+                                                        <input type="text" maxLength={20} className="input-field text-[10px] text-center !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.item_num || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'item_num', e.target.value)} onBlur={(e) => {
                                                             const val = e.target.value;
                                                             if (val !== "" && !isNaN(parseInt(val))) {
                                                                 updateCHOItem(idx, itIdx, 'item_num', val.padStart(3, '0'));
@@ -637,7 +637,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         }} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" className="input-field text-xs text-center !px-2 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} disabled={item.is_admin_amendment} />
+                                                        <input type="text" className="input-field text-[10px] text-center !px-2 h-7" style={{ backgroundColor: item.is_new ? '#66FF99' : undefined }} value={item.specification || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'specification', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
                                                          <div className="space-y-1">
@@ -663,10 +663,10 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         <input type="text" className="input-field text-xs !px-2 h-7 text-center" value={item.unit || ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="text" className="input-field text-xs text-right !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.quantity ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'quantity', e.target.value)} disabled={item.is_admin_amendment} />
+                                                        <input type="text" className="input-field text-[10px] text-right !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.quantity ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'quantity', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="number" step="0.0001" className="input-field text-xs text-right !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.unit_price ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)} disabled={item.is_admin_amendment} />
+                                                        <input type="number" step="0.0001" className="input-field text-[10px] text-right !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.unit_price ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5 text-right text-xs font-black text-primary !pr-4">
                                                         {formatCurrency(roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2))}

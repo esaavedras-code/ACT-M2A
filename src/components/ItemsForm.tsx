@@ -355,14 +355,14 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                 <table className="w-full text-left border-collapse">
                     <thead className="text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20" style={{ backgroundColor: '#0f172a' }}>
                         <tr>
-                            <th className="px-1 py-2 min-w-[64px] text-center"># Item</th>
-                            <th className="px-1 py-2 min-w-[96px] text-center">Espec.</th>
+                            <th className="px-1 py-2 min-w-[52px] text-center"># Item</th>
+                            <th className="px-1 py-2 min-w-[88px] text-center">Espec.</th>
                             <th className="px-1 py-2 min-w-[200px]">Descripción</th>
-                            <th className="px-1 py-2 min-w-[80px] text-right">Cant. Orig.</th>
-                            {readOnly && <th className="px-1 py-2 min-w-[80px] text-right text-blue-600">Cant. CHO</th>}
-                            {readOnly && <th className="px-1 py-2 min-w-[80px] text-right font-black">Cant. Total</th>}
-                            <th className="px-1 py-2 min-w-[80px] text-center" style={{fontSize:'9px'}}>Unid.</th>
-                            <th className="px-1 py-2 min-w-[96px] text-right">U.P. ($)</th>
+                            <th className="px-1 py-2 min-w-[90px] text-right">Cant. Orig.</th>
+                            {readOnly && <th className="px-1 py-2 min-w-[90px] text-right text-blue-600">Cant. CHO</th>}
+                            {readOnly && <th className="px-1 py-2 min-w-[90px] text-right font-black">Cant. Total</th>}
+                            <th className="px-1 py-2 min-w-[70px] text-center" style={{fontSize:'9px'}}>Unid.</th>
+                            <th className="px-1 py-2 min-w-[110px] text-right">U.P. ($)</th>
                             <th className="px-1 py-2 min-w-[120px] text-right">{readOnly ? 'Amount Final ($)' : 'Amount ($)'}</th>
                             <th className="px-1 py-2 min-w-[110px] text-center">Fondos</th>
                             <th className="px-1 py-2 min-w-[48px] text-center" title="Requiere Cert. Manufactura">CM</th>
@@ -437,7 +437,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                 type="text"
                                                 maxLength={3}
                                                 disabled={readOnly}
-                                                className={`input-field text-xs text-center font-bold h-8 !py-1 transition-all ${readOnly ? 'bg-transparent border-none' : ''} ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
+                                                className={`input-field text-[10px] text-center font-bold h-8 !py-1 transition-all ${readOnly ? 'bg-transparent border-none' : ''} ${parseFloat(item.quantity) === 0 && choQty > 0 ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
                                                 style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'item_num') }}
                                                 value={item.item_num || ""}
                                                 onChange={(e) => updateItem(idx, 'item_num', e.target.value)}
@@ -456,7 +456,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="text" disabled={readOnly} className="input-field text-xs text-center h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
+                                            <input type="text" disabled={readOnly} className="input-field text-[9px] text-center h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <div className="space-y-1">
@@ -473,15 +473,15 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="number" disabled={readOnly} className="input-field text-xs text-right h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'quantity') }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
+                                            <input type="number" disabled={readOnly} className="input-field text-[9px] text-right h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'quantity') }} value={isNaN(item.quantity) ? "" : item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value === "" ? 0 : parseFloat(e.target.value))} />
                                         </td>
                                         {readOnly && (
-                                            <td className="px-1 py-1.5 text-right text-xs font-bold text-blue-600 pr-4">
+                                            <td className="px-1 py-1.5 text-right text-[10px] font-bold text-blue-600 pr-4">
                                                 {choQty !== 0 ? formatNumber(choQty) : "-"}
                                             </td>
                                         )}
                                         {readOnly && (
-                                            <td className="px-1 py-1.5 text-right text-xs font-black pr-4">
+                                            <td className="px-1 py-1.5 text-right text-[10px] font-black pr-4">
                                                 {formatNumber(totalQty)}
                                             </td>
                                         )}
@@ -493,7 +493,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                  type="text" 
                                                  inputMode="decimal"
                                                  disabled={readOnly}
-                                                 className="input-field text-xs text-right font-medium h-8 !py-1" 
+                                                 className="input-field text-[10px] text-right font-medium h-8 !py-1" 
                                                  style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'unit_price') }} 
                                                  list={`prices-${idx}`}
                                                  value={(item.unit_price === 0 || item.unit_price === "0") ? "" : (item.unit_price ?? "")} 
@@ -657,7 +657,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                     <>
                                                                         {choBreakdown.map((b, i) => (
                                                                             <div key={`cho-${i}`} className="flex flex-col items-center min-w-[70px]">
-                                                                                <span className="text-[11px] font-bold text-blue-600 mb-2 whitespace-nowrap">CHO #{b?.choNum}{b?.amendmentLetter}</span>
+                                                                                <span className="text-[11px] font-bold text-blue-600 whitespace-nowrap">CHO #{b?.choNum}{b?.amendmentLetter}</span>
+                                                                                {b?.date && <span className="text-[9px] text-slate-400 mb-1 whitespace-nowrap">{new Date(b.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: '2-digit' })}</span>}
                                                                                 <span className={`text-sm font-black ${b?.qty && b.qty > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                                                                                     {b?.qty && b.qty > 0 ? `+${formatNumber(b.qty)}` : formatNumber(b?.qty)}
                                                                                 </span>
@@ -690,7 +691,8 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                     <>
                                                                         {paidBreakdown.map((b, i) => (
                                                                             <div key={`cert-${i}`} className="flex flex-col items-center min-w-[70px]">
-                                                                                <span className="text-[11px] font-bold text-emerald-600 mb-2 whitespace-nowrap">CERT #{b?.certNum}</span>
+                                                                                <span className="text-[11px] font-bold text-emerald-600 whitespace-nowrap">CERT #{b?.certNum}</span>
+                                                                                {b?.periodTo && <span className="text-[9px] text-slate-400 mb-1 whitespace-nowrap">{new Date(b.periodTo + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: '2-digit' })}</span>}
                                                                                 <span className="text-sm font-black text-slate-700">{formatNumber(b?.qty)}</span>
                                                                                 <span className="text-[10px] font-medium text-slate-400 mt-1">{b?.amount ? formatCurrency(b.amount) : formatCurrency(0)}</span>
                                                                             </div>
