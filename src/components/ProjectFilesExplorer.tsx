@@ -232,9 +232,85 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
         return filtered.filter(d => (d.section || d.doc_type || "general") === sectionId);
     };
 
+    const getSubfoldersForSection = (sectionId: string) => {
+        if (sectionId === "photos") return [];
+        const subfoldersSet = new Set<string>();
+        docs.forEach(d => {
+            const sec = d.section || d.doc_type || "general";
+            if (sec.startsWith(sectionId + "/")) {
+                const suffix = sec.substring(sectionId.length + 1);
+                const firstPart = suffix.split("/")[0];
+                if (firstPart) {
+                    subfoldersSet.add(`${sectionId}/${firstPart}`);
+                }
+            }
+        });
+        return Array.from(subfoldersSet).map(path => {
+            const parts = path.split("/");
+            const name = parts[parts.length - 1];
+            return { path, name };
+        });
+    };
+
+    const handleDeleteSubfolder = async (subfolderPath: string) => {
+        const parts = subfolderPath.split("/");
+        const folderName = parts[parts.length - 1];
+        if (!confirm(`¿Eliminar la carpeta "${folderName}" y todo su contenido? Esta acción no se puede deshacer.`)) return;
+        
+        setLoading(true);
+        try {
+            const docsToDelete = docs.filter(d => {
+                const sec = d.section || d.doc_type || "general";
+                return sec === subfolderPath || sec.startsWith(subfolderPath + "/");
+            });
+
+            const pathsToRemove = docsToDelete
+                .map(d => d.storage_path)
+                .filter((p): p is string => p !== null);
+            
+            if (pathsToRemove.length > 0) {
+                const { error: storageErr } = await supabase.storage.from("project-documents").remove(pathsToRemove);
+                if (storageErr) console.error("Error removing subfolder files from storage:", storageErr);
+            }
+
+            const idsToRemove = docsToDelete.map(d => d.id);
+            if (idsToRemove.length > 0) {
+                const { error: dbErr } = await supabase.from("project_documents").delete().in("id", idsToRemove);
+                if (dbErr) throw dbErr;
+            }
+
+            await fetchDocs();
+            setSelectedDoc(null);
+            setPreviewUrl(null);
+            
+            if (selectedSection === subfolderPath || selectedSection.startsWith(subfolderPath + "/")) {
+                const parentPath = subfolderPath.substring(0, subfolderPath.lastIndexOf("/"));
+                setSelectedSection(parentPath || "general");
+            }
+        } catch (err: any) {
+            console.error("Error deleting subfolder:", err);
+            alert("Error al eliminar la carpeta");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getSectionCount = (sectionId: string) => {
+        if (sectionId === "photos") {
+            return docs.filter(d => {
+                const ext = (d.file_name.split(".").pop() || "").toLowerCase();
+                return ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
+            }).length;
+        }
+        return docs.filter(d => {
+            const sec = d.section || d.doc_type || "general";
+            return (sec === sectionId || sec.startsWith(sectionId + "/")) && d.file_name !== ".keep";
+        }).length;
+    };
+
     const totalFiles = docs.length;
     
-    const customSectionsFromDocs = Array.from(new Set(docs.map(d => d.section))).filter(s => s && !PROJECT_SECTIONS.find(ps => ps.id === s));
+    const customSectionsFromDocs = Array.from(new Set(docs.map(d => d.section))).filter(s => s && !s.includes("/") && !PROJECT_SECTIONS.find(ps => ps.id === s));
     const allSections = [
         ...PROJECT_SECTIONS,
         ...customSectionsFromDocs.map(s => ({ id: s, label: s, bucket: "project-documents" }))
@@ -257,12 +333,27 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     const currentSectionDocs = getDocsForSection(selectedSection).filter(d => d.file_name !== ".keep");
 
     const handleCreateFolder = async () => {
-        if (!newFolderName.trim() || !projectId) return;
-        const folderId = newFolderName.trim();
-        if (allSections.find(s => s.label.toLowerCase() === folderId.toLowerCase() || s.id.toLowerCase() === folderId.toLowerCase())) {
-            alert("Ya existe un folder con este nombre.");
+        const cleanName = newFolderName.trim().replace(/[/\\?%*:|"<>]/g, '-');
+        if (!cleanName || !projectId) return;
+
+        if (selectedSection === "photos") {
+            alert("No se pueden crear subcarpetas dentro de la Galería de Fotos.");
             return;
         }
+
+        const folderId = `${selectedSection}/${cleanName}`;
+        
+        // Validar si ya existe la subcarpeta en esta sección
+        const alreadyExists = docs.some(d => {
+            const sec = d.section || d.doc_type || "general";
+            return sec.toLowerCase() === folderId.toLowerCase();
+        });
+        
+        if (alreadyExists) {
+            alert("Ya existe un folder con este nombre en la ubicación actual.");
+            return;
+        }
+
         try {
             const { error } = await supabase.from("project_documents").insert({
                 project_id: projectId,
@@ -300,13 +391,71 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                 </div>
                 
                 <div className="flex-1 max-w-xl flex items-center gap-2">
-                    <div className="flex-1 flex items-center px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600">
-                        <FolderOpen size={14} className="text-amber-500 mr-2" />
-                        <span className="font-medium">Proyecto</span>
-                        <ChevronRight size={14} className="mx-1 text-slate-400" />
-                        <span className="font-bold">{availableSections.find(s => s.id === selectedSection)?.label || "Carpeta"}</span>
+                    <div className="flex-1 flex items-center px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 overflow-x-auto whitespace-nowrap">
+                        <FolderOpen size={14} className="text-amber-500 mr-2 shrink-0" />
+                        <span className="font-medium text-slate-400 shrink-0">Proyecto</span>
+                        {(() => {
+                            const parts = selectedSection.split("/");
+                            let currentPath = "";
+                            return parts.map((part, idx) => {
+                                const isLast = idx === parts.length - 1;
+                                if (idx === 0) {
+                                    currentPath = part;
+                                    const sectionObj = allSections.find(s => s.id === part);
+                                    const label = sectionObj ? sectionObj.label : part;
+                                    return (
+                                        <React.Fragment key={currentPath}>
+                                            <ChevronRight size={14} className="mx-1 text-slate-400 shrink-0" />
+                                            {isLast ? (
+                                                <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[150px]" title={label}>
+                                                    {label}
+                                                </span>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => {
+                                                        setSelectedSection(part);
+                                                        setSelectedDoc(null);
+                                                        setPreviewUrl(null);
+                                                    }}
+                                                    className="font-medium text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[150px]"
+                                                    title={label}
+                                                >
+                                                    {label}
+                                                </button>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                } else {
+                                    currentPath = `${currentPath}/${part}`;
+                                    const label = part;
+                                    const thisPath = currentPath;
+                                    return (
+                                        <React.Fragment key={thisPath}>
+                                            <ChevronRight size={14} className="mx-1 text-slate-400 shrink-0" />
+                                            {isLast ? (
+                                                <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[150px]" title={label}>
+                                                    {label}
+                                                </span>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => {
+                                                        setSelectedSection(thisPath);
+                                                        setSelectedDoc(null);
+                                                        setPreviewUrl(null);
+                                                    }}
+                                                    className="font-medium text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[150px]"
+                                                    title={label}
+                                                >
+                                                    {label}
+                                                </button>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                }
+                            });
+                        })()}
                     </div>
-                    <div className="relative w-64">
+                    <div className="relative w-64 shrink-0">
                         <input 
                             type="text" 
                             placeholder="Buscar archivo..." 
@@ -324,12 +473,16 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                 <div className="w-64 bg-[#F8FAFC] dark:bg-slate-900/50 border-r border-slate-200 dark:border-slate-800 overflow-y-auto p-2">
                     <div className="space-y-0.5">
                         {availableSections.map(section => {
-                            const count = getDocsForSection(section.id).length;
-                            const isSelected = selectedSection === section.id;
+                            const count = getSectionCount(section.id);
+                            const isSelected = selectedSection === section.id || selectedSection.startsWith(section.id + "/");
                             return (
                                 <button 
                                     key={section.id} 
-                                    onClick={() => setSelectedSection(section.id)}
+                                    onClick={() => {
+                                        setSelectedSection(section.id);
+                                        setSelectedDoc(null);
+                                        setPreviewUrl(null);
+                                    }}
                                     className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors text-left ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold' : 'hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                                 >
                                     <div className="flex items-center gap-2 truncate">
@@ -373,44 +526,81 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                                 </div>
                             </div>
                         )}
-                        {currentSectionDocs.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                                <FolderOpen size={48} className="text-slate-200 dark:text-slate-800 mb-4" />
-                                <p className="text-sm font-bold">Esta carpeta está vacía</p>
-                                <p className="text-xs mt-1">Arrastre archivos aquí o use el botón Subir Archivos</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 content-start">
-                                {currentSectionDocs.map(doc => {
-                                    const isSelected = selectedDoc?.id === doc.id;
-                                    return (
+                        {(() => {
+                            const currentSubfolders = getSubfoldersForSection(selectedSection);
+                            const hasItems = currentSectionDocs.length > 0 || currentSubfolders.length > 0;
+
+                            if (!hasItems) {
+                                return (
+                                    <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                                        <FolderOpen size={48} className="text-slate-200 dark:text-slate-800 mb-4" />
+                                        <p className="text-sm font-bold">Esta carpeta está vacía</p>
+                                        <p className="text-xs mt-1">Arrastre archivos aquí o use el botón Subir Archivos</p>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 content-start">
+                                    {/* Renderizar Subcarpetas */}
+                                    {currentSubfolders.map(sub => (
                                         <div 
-                                            key={doc.id} 
-                                            onClick={() => setSelectedDoc(doc)}
+                                            key={sub.path} 
                                             onDoubleClick={() => {
-                                                if (!isPreviewable(doc.file_name)) {
-                                                    handleDownload(doc);
-                                                }
+                                                setSelectedSection(sub.path);
+                                                setSelectedDoc(null);
+                                                setPreviewUrl(null);
                                             }}
-                                            className={`group relative flex flex-col items-center p-3 rounded-lg border-2 border-transparent cursor-pointer transition-all ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/50 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-slate-200 dark:hover:border-slate-700'}`}
+                                            className="group relative flex flex-col items-center p-3 rounded-lg border-2 border-transparent cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-slate-200 dark:hover:border-slate-700"
                                         >
-                                            <div className="w-16 h-16 flex items-center justify-center mb-2 bg-slate-100 dark:bg-slate-800 rounded-xl group-hover:scale-105 transition-transform">
-                                                {React.cloneElement(getFileIcon(doc.file_name) as React.ReactElement, { size: 32 })}
+                                            <div className="w-16 h-16 flex items-center justify-center mb-2 bg-amber-50 dark:bg-amber-950/20 rounded-xl group-hover:scale-105 transition-transform">
+                                                <Folder size={32} className="text-amber-500 fill-amber-500/20" />
                                             </div>
-                                            <span className="text-[11px] text-center font-medium text-slate-700 dark:text-slate-300 w-full truncate px-1" title={doc.file_name}>
-                                                {doc.file_name}
+                                            <span className="text-[11px] text-center font-bold text-slate-700 dark:text-slate-300 w-full truncate px-1" title={sub.name}>
+                                                {sub.name}
                                             </span>
-                                            <span className="text-[9px] text-slate-400 mt-1">{formatDate(doc.uploaded_at)}</span>
+                                            <span className="text-[9px] text-slate-400 mt-1">Carpeta</span>
                                             
                                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
-                                                <button onClick={(e) => { e.stopPropagation(); handleDownload(doc); }} className="p-1.5 bg-white dark:bg-slate-700 rounded-md shadow-sm text-slate-600 hover:text-blue-500" title="Descargar"><Download size={12}/></button>
-                                                <button onClick={(e) => { e.stopPropagation(); handleDelete(doc); }} className="p-1.5 bg-white dark:bg-slate-700 rounded-md shadow-sm text-slate-600 hover:text-red-500" title="Eliminar"><Trash2 size={12}/></button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteSubfolder(sub.path); }} className="p-1.5 bg-white dark:bg-slate-700 rounded-md shadow-sm text-slate-600 hover:text-red-500" title="Eliminar Carpeta">
+                                                    <Trash2 size={12}/>
+                                                </button>
                                             </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        )}
+                                    ))}
+
+                                    {/* Renderizar Archivos */}
+                                    {currentSectionDocs.map(doc => {
+                                        const isSelected = selectedDoc?.id === doc.id;
+                                        return (
+                                            <div 
+                                                key={doc.id} 
+                                                onClick={() => setSelectedDoc(doc)}
+                                                onDoubleClick={() => {
+                                                    if (!isPreviewable(doc.file_name)) {
+                                                        handleDownload(doc);
+                                                    }
+                                                }}
+                                                className={`group relative flex flex-col items-center p-3 rounded-lg border-2 border-transparent cursor-pointer transition-all ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/50 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:border-slate-200 dark:hover:border-slate-700'}`}
+                                            >
+                                                <div className="w-16 h-16 flex items-center justify-center mb-2 bg-slate-100 dark:bg-slate-800 rounded-xl group-hover:scale-105 transition-transform">
+                                                    {React.cloneElement(getFileIcon(doc.file_name) as React.ReactElement<any>, { size: 32 })}
+                                                </div>
+                                                <span className="text-[11px] text-center font-medium text-slate-700 dark:text-slate-300 w-full truncate px-1" title={doc.file_name}>
+                                                    {doc.file_name}
+                                                </span>
+                                                <span className="text-[9px] text-slate-400 mt-1">{formatDate(doc.uploaded_at)}</span>
+                                                
+                                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDownload(doc); }} className="p-1.5 bg-white dark:bg-slate-700 rounded-md shadow-sm text-slate-600 hover:text-blue-500" title="Descargar"><Download size={12}/></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(doc); }} className="p-1.5 bg-white dark:bg-slate-700 rounded-md shadow-sm text-slate-600 hover:text-red-500" title="Eliminar"><Trash2 size={12}/></button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
 
@@ -433,7 +623,7 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                                     <iframe src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0`} className="w-full h-full border-0 pointer-events-none" /> : 
                                     <img src={previewUrl} className="w-full h-full object-cover" />
                                 ) : (
-                                    React.cloneElement(getFileIcon(selectedDoc.file_name) as React.ReactElement, { size: 64, className: "opacity-20" })
+                                    React.cloneElement(getFileIcon(selectedDoc.file_name) as React.ReactElement<any>, { size: 64, className: "opacity-20" })
                                 )}
                                 
                                 {previewUrl && (
