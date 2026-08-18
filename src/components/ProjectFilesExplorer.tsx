@@ -78,6 +78,10 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
     const dropZoneRef = useRef<HTMLDivElement>(null);
     const [showNewFolderModal, setShowNewFolderModal] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
+    const [uploadQueue, setUploadQueue] = useState<File[]>([]);
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<Record<string, 'pending' | 'uploading' | 'done' | 'error'>>({});
+    const [uploadSummary, setUploadSummary] = useState<{ ok: number; fail: number } | null>(null);
 
     useEffect(() => {
         if (projectId) fetchDocs();
@@ -130,12 +134,27 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
         });
     };
 
-    const handleUpload = async (files: FileList | null) => {
-        if (!files || !projectId) return;
-        setUploading(true);
-        let uploaded = 0;
+    const handleSelectFiles = (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        const fileArray = Array.from(files);
+        setUploadQueue(fileArray);
+        const initialProgress: Record<string, 'pending' | 'uploading' | 'done' | 'error'> = {};
+        fileArray.forEach(f => { initialProgress[f.name + f.size] = 'pending'; });
+        setUploadProgress(initialProgress);
+        setUploadSummary(null);
+        setShowUploadModal(true);
+        // Resetear el input para que se puedan volver a seleccionar los mismos archivos
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
-        for (const file of Array.from(files)) {
+    const handleUpload = async () => {
+        if (!uploadQueue.length || !projectId) return;
+        setUploading(true);
+        let ok = 0; let fail = 0;
+
+        for (const file of uploadQueue) {
+            const key = file.name + file.size;
+            setUploadProgress(prev => ({ ...prev, [key]: 'uploading' }));
             try {
                 const dateFolder = new Date().toISOString().split('T')[0];
                 const timestamp = Date.now();
@@ -143,7 +162,6 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                 const storagePath = `${projectId}/${selectedSection}/${dateFolder}/${timestamp}_${safeName}`;
 
                 const { error: storageErr } = await supabase.storage.from("project-documents").upload(storagePath, file);
-
                 const { error: dbErr } = await supabase.from("project_documents").insert({
                     project_id: projectId,
                     file_name: file.name,
@@ -153,19 +171,23 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                 });
 
                 if (!dbErr) {
-                    uploaded++;
+                    ok++;
+                    setUploadProgress(prev => ({ ...prev, [key]: 'done' }));
                     setExpandedSections(prev => new Set([...prev, selectedSection]));
+                } else {
+                    fail++;
+                    setUploadProgress(prev => ({ ...prev, [key]: 'error' }));
                 }
             } catch (err: any) {
+                fail++;
                 console.error("Upload error:", err);
+                setUploadProgress(prev => ({ ...prev, [file.name + file.size]: 'error' }));
             }
         }
 
-        if (uploaded > 0) {
-            alert(`Archivos subidos correctamente`);
-            await fetchDocs();
-        }
+        setUploadSummary({ ok, fail });
         setUploading(false);
+        if (ok > 0) await fetchDocs();
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -189,7 +211,7 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
         setIsDragOver(false);
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
-            handleUpload(files);
+            handleSelectFiles(files);
         }
     };
 
@@ -386,7 +408,7 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                             <Upload size={16} />
                             {uploading ? "Subiendo..." : "Subir Archivos"}
                         </button>
-                        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={e => handleUpload(e.target.files)} />
+                        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={e => handleSelectFiles(e.target.files)} />
                     </div>
                 </div>
                 
@@ -685,6 +707,102 @@ export default function ProjectFilesExplorer({ projectId, userRole }: Props) {
                         <div className="flex gap-3">
                             <button onClick={() => setShowNewFolderModal(false)} className="flex-1 py-3 px-4 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all">Cancelar</button>
                             <button onClick={handleCreateFolder} className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md">Crear</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Carga Múltiple de Archivos */}
+            {showUploadModal && (
+                <div className="fixed inset-0 z-[100] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[80vh]">
+                        {/* Header del modal */}
+                        <div className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950 rounded-2xl flex items-center justify-center">
+                                    <Upload size={20} className="text-blue-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-black text-slate-800 dark:text-slate-200">Subir Archivos</h2>
+                                    <p className="text-xs text-slate-400 font-medium">{uploadQueue.length} archivo{uploadQueue.length !== 1 ? 's' : ''} seleccionado{uploadQueue.length !== 1 ? 's' : ''}</p>
+                                </div>
+                            </div>
+                            {!uploading && (
+                                <button onClick={() => { setShowUploadModal(false); setUploadQueue([]); setUploadSummary(null); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400">
+                                    <X size={18} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Lista de archivos con progreso */}
+                        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
+                            {uploadQueue.map((file) => {
+                                const key = file.name + file.size;
+                                const status = uploadProgress[key] || 'pending';
+                                const ext = (file.name.split('.').pop() || '').toLowerCase();
+                                const sizeKB = (file.size / 1024).toFixed(1);
+                                return (
+                                    <div key={key} className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all ${
+                                        status === 'done'      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' :
+                                        status === 'error'     ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800' :
+                                        status === 'uploading' ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' :
+                                        'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                                    }`}>
+                                        <div className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                            {React.cloneElement(getFileIcon(file.name) as React.ReactElement<any>, { size: 18 })}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate" title={file.name}>{file.name}</p>
+                                            <p className="text-[10px] text-slate-400">{sizeKB} KB · {ext.toUpperCase()}</p>
+                                        </div>
+                                        <div className="shrink-0">
+                                            {status === 'pending'   && <span className="text-[10px] font-bold text-slate-400 uppercase">En espera</span>}
+                                            {status === 'uploading' && <Loader2 size={16} className="animate-spin text-blue-500" />}
+                                            {status === 'done'      && <span className="text-[10px] font-black text-emerald-600 uppercase">✓ Listo</span>}
+                                            {status === 'error'     && <span className="text-[10px] font-black text-red-500 uppercase">✗ Error</span>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Resumen final */}
+                        {uploadSummary && (
+                            <div className={`mx-6 mb-4 p-3 rounded-2xl text-sm font-bold text-center ${uploadSummary.fail === 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400'}`}>
+                                {uploadSummary.fail === 0
+                                    ? `✓ ${uploadSummary.ok} archivo${uploadSummary.ok !== 1 ? 's' : ''} subido${uploadSummary.ok !== 1 ? 's' : ''} correctamente`
+                                    : `${uploadSummary.ok} subido${uploadSummary.ok !== 1 ? 's' : ''} · ${uploadSummary.fail} con error`
+                                }
+                            </div>
+                        )}
+
+                        {/* Botones de acción */}
+                        <div className="px-6 pb-6 flex gap-3">
+                            {!uploadSummary ? (
+                                <>
+                                    <button
+                                        onClick={() => { setShowUploadModal(false); setUploadQueue([]); }}
+                                        disabled={uploading}
+                                        className="flex-1 py-3 px-4 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-all disabled:opacity-50"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleUpload}
+                                        disabled={uploading}
+                                        className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md disabled:opacity-60 flex items-center justify-center gap-2"
+                                    >
+                                        {uploading ? <><Loader2 size={16} className="animate-spin" /> Subiendo...</> : <><Upload size={16} /> Subir {uploadQueue.length} Archivo{uploadQueue.length !== 1 ? 's' : ''}</>}
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => { setShowUploadModal(false); setUploadQueue([]); setUploadSummary(null); }}
+                                    className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-md"
+                                >
+                                    Cerrar
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
