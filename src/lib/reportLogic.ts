@@ -1700,6 +1700,7 @@ import { generateBalancesExcel } from "./generateBalancesExcel";
 import { generateDetailExcel } from "./generateDetailExcel";
 import { generateMobilizationReport } from "./generateMobilizationReport";
 import { generateSolicitudMaterialCertDocx } from "./generateSolicitudMaterialCertDocx";
+import { generateSolicitudMaterialCertPdf } from "./generateSolicitudMaterialCertPdf";
 
 export const generateAct117CReportLogic = async (projectId: string, certId?: string, format: 'excel' = 'excel', isFinal?: boolean) => {
     const { project, certs } = await fetchAllReportData(projectId);
@@ -2226,6 +2227,14 @@ export const generateSolicitudMaterialCertDocxLogic = async (projectId: string) 
     const { data: project } = await supabase.from('projects').select('num_act').eq('id', projectId).single();
     if (blob) {
         await downloadBlob(blob, `Solicitud_Material_Certification_${project?.num_act || projectId}.docx`);
+    }
+};
+
+export const generateSolicitudMaterialCertPdfLogic = async (projectId: string) => {
+    const blob = await generateSolicitudMaterialCertPdf(projectId);
+    const { data: project } = await supabase.from('projects').select('num_act').eq('id', projectId).single();
+    if (blob) {
+        await downloadBlob(blob, `Solicitud_Material_Certification_${project?.num_act || projectId}.pdf`);
     }
 };
 

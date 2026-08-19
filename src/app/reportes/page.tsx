@@ -57,6 +57,7 @@ import {
     generatePayrollCertificationReportLogic,
     generateMaterialCertificationReportLogic,
     generateSolicitudMaterialCertDocxLogic,
+    generateSolicitudMaterialCertPdfLogic,
     generateDbeCertificationReportLogic,
     generateSubcontractsReportLogic,
     generateSignedItemsReportLogic,
@@ -1161,10 +1162,14 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'solicitud-material-cert',
-                            label: 'Solicitud de Material Certification (Word)',
-                            description: 'Documento Word con la plantilla oficial para solicitar la certificacion de materiales.',
+                            label: 'Solicitud de Material Certification',
+                            description: 'Documento Word/PDF con la plantilla oficial para solicitar la certificacion de materiales consolidando la informacion necesaria.',
                             icon: <FileText size={18} className="text-blue-600" />,
                             onWord: () => generateSolicitudMaterialCertDocxLogic(projectId)
+                                .then(() => setStatus("Reporte generado."))
+                                .catch(e => setStatus(`Error: ${e.message}`))
+                                .finally(() => setLoading(false)),
+                            onPdf: () => generateSolicitudMaterialCertPdfLogic(projectId)
                                 .then(() => setStatus("Reporte generado."))
                                 .catch(e => setStatus(`Error: ${e.message}`))
                                 .finally(() => setLoading(false))

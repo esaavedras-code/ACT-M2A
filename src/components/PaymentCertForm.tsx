@@ -1191,14 +1191,14 @@ const PaymentCertForm = React.forwardRef(({
                             <div key={idx} className="flex items-center gap-2">
                                 {/* Ítem selector */}
                                 <select
-                                    className="input-field text-xs h-8 w-28 shrink-0"
+                                    className="input-field text-xs h-8 w-44 shrink-0 truncate"
                                     value={row.item_num}
                                     onChange={e => updateRow(idx, 'item_num', e.target.value)}
                                 >
-                                    <option value="">-- Ítem --</option>
+                                    <option value="">-- Item --</option>
                                     {certItems.map((it: any, i: number) => (
                                         <option key={i} value={String(it.item_num)}>
-                                            {it.item_num}
+                                            {it.item_num} - {it.description || it.specification || ''}
                                         </option>
                                     ))}
                                 </select>
