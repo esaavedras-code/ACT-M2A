@@ -174,6 +174,9 @@ const PaymentCertForm = React.forwardRef(({
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
     const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+    // Modal de desglose de retención extra
+    const [retBreakdownModal, setRetBreakdownModal] = useState<{ certIdx: number } | null>(null);
+    const [retBreakdownRows, setRetBreakdownRows] = useState<{ item_num: string; description: string; amount: string }[]>([]);
 
     const activeInputIdRef = React.useRef<string | null>(null);
     // Refs que siempre apuntan a los valores más recientes de certs y contractItems,
@@ -1102,6 +1105,195 @@ const PaymentCertForm = React.forwardRef(({
         setCerts(newCerts);
     };
 
+    // ─── Helpers para abrir/cerrar el modal de desglose ──────────────────────
+    const openRetBreakdown = (certIdx: number) => {
+        const cert = certs[certIdx];
+        // Si ya hay filas guardadas, las cargamos; si no, creamos una vacía
+        const existing: { item_num: string; description: string; amount: string }[] = 
+            Array.isArray(cert.extra_retention_breakdown) && cert.extra_retention_breakdown.length > 0
+                ? cert.extra_retention_breakdown.map((r: any) => ({
+                    item_num: String(r.item_num ?? ''),
+                    description: String(r.description ?? ''),
+                    amount: String(r.amount ?? '')
+                }))
+                : [{ item_num: '', description: '', amount: '' }];
+        setRetBreakdownRows(existing);
+        setRetBreakdownModal({ certIdx });
+    };
+
+    const saveRetBreakdown = () => {
+        if (!retBreakdownModal) return;
+        const { certIdx } = retBreakdownModal;
+        const cert = certs[certIdx];
+        const total = parseFmtNum(cert.extra_retention);
+        const sumRows = retBreakdownRows.reduce((s, r) => s + (parseFloat(r.amount.replace(/,/g, '')) || 0), 0);
+        const diff = Math.abs(roundedAmt(total - sumRows, 2));
+        if (diff > 0.01) {
+            alert(`⚠️ El total del desglose ($${sumRows.toLocaleString('en-US', { minimumFractionDigits: 2 })}) no coincide con la retención extra anotada ($${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}). Por favor, ajusta los montos antes de guardar.`);
+            return;
+        }
+        updateCert(certIdx, 'extra_retention_breakdown', retBreakdownRows.filter(r => r.item_num || r.amount));
+        setRetBreakdownModal(null);
+    };
+
+    // ─── Modal de desglose de retención extra ─────────────────────────────────
+    const RetBreakdownModal = retBreakdownModal !== null ? (() => {
+        const { certIdx } = retBreakdownModal;
+        const cert = certs[certIdx];
+        const certItems = Array.isArray(cert.items) ? cert.items : [];
+        const total = parseFmtNum(cert.extra_retention);
+        const sumRows = retBreakdownRows.reduce((s, r) => s + (parseFloat(r.amount.replace(/,/g, '')) || 0), 0);
+        const diff = roundedAmt(total - sumRows, 2);
+        const isBalanced = Math.abs(diff) <= 0.01;
+
+        const addRow = () => setRetBreakdownRows(prev => [...prev, { item_num: '', description: '', amount: '' }]);
+        const removeRow = (idx: number) => setRetBreakdownRows(prev => prev.filter((_, i) => i !== idx));
+        const updateRow = (idx: number, field: 'item_num' | 'description' | 'amount', val: string) => {
+            setRetBreakdownRows(prev => {
+                const next = [...prev];
+                if (field === 'item_num') {
+                    // Auto-fill description from cert items
+                    const found = certItems.find((it: any) => String(it.item_num) === val);
+                    next[idx] = { ...next[idx], item_num: val, description: found ? (found.description || found.specification || '') : next[idx].description };
+                } else {
+                    next[idx] = { ...next[idx], [field]: val };
+                }
+                return next;
+            });
+        };
+
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-amber-200 dark:border-amber-800">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-amber-100 dark:border-amber-900">
+                        <div>
+                            <h3 className="text-base font-black text-slate-800 dark:text-white">Desglose de Retención Extra</h3>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Certificación #{cert.cert_num}</p>
+                        </div>
+                        <button
+                            onClick={() => setRetBreakdownModal(null)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    {/* Total ref */}
+                    <div className="px-6 pt-3 pb-2 bg-amber-50/60 dark:bg-amber-950/20 border-b border-amber-100 dark:border-amber-900 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Retención Extra a Desglosar</span>
+                        <span className="text-lg font-black text-amber-700 font-geist">{formatCurrency(total)}</span>
+                    </div>
+
+                    {/* Rows */}
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+                        {retBreakdownRows.map((row, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                                {/* Ítem selector */}
+                                <select
+                                    className="input-field text-xs h-8 w-28 shrink-0"
+                                    value={row.item_num}
+                                    onChange={e => updateRow(idx, 'item_num', e.target.value)}
+                                >
+                                    <option value="">-- Ítem --</option>
+                                    {certItems.map((it: any, i: number) => (
+                                        <option key={i} value={String(it.item_num)}>
+                                            {it.item_num}
+                                        </option>
+                                    ))}
+                                </select>
+                                {/* Descripción */}
+                                <input
+                                    type="text"
+                                    className="input-field text-xs h-8 flex-1 min-w-0"
+                                    placeholder="Descripción / Razón"
+                                    value={row.description}
+                                    onChange={e => updateRow(idx, 'description', e.target.value)}
+                                />
+                                {/* Monto */}
+                                <input
+                                    type="text"
+                                    className="input-field text-xs h-8 w-28 shrink-0 font-bold text-amber-700"
+                                    placeholder="0.00"
+                                    value={row.amount}
+                                    onChange={e => {
+                                        const raw = e.target.value.replace(/,/g, '');
+                                        if (/^-?\d*\.?\d*$/.test(raw)) updateRow(idx, 'amount', raw);
+                                    }}
+                                    onBlur={e => {
+                                        const num = parseFloat(e.target.value.replace(/,/g, ''));
+                                        if (!isNaN(num)) updateRow(idx, 'amount', num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                                    }}
+                                />
+                                {/* Eliminar fila */}
+                                <button
+                                    onClick={() => removeRow(idx)}
+                                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                                    title="Eliminar fila"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        ))}
+                        <button
+                            onClick={addRow}
+                            className="flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-700 mt-1 px-2 py-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                        >
+                            <Plus size={13} /> Agregar ítem
+                        </button>
+                    </div>
+
+                    {/* Totals + validation */}
+                    <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-500">Suma del desglose:</span>
+                            <span className={`text-sm font-black font-geist ${isBalanced ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatCurrency(sumRows)}
+                            </span>
+                        </div>
+                        {!isBalanced && (
+                            <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
+                                <AlertTriangle size={14} className="text-red-500 shrink-0" />
+                                <span className="text-[11px] font-bold text-red-600 dark:text-red-400">
+                                    {diff > 0
+                                        ? `Faltan ${formatCurrency(diff)} por asignar`
+                                        : `El desglose excede en ${formatCurrency(Math.abs(diff))} el total`
+                                    }
+                                </span>
+                            </div>
+                        )}
+                        {isBalanced && (
+                            <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-3 py-2">
+                                <CheckCircle size={14} className="text-green-500 shrink-0" />
+                                <span className="text-[11px] font-bold text-green-600 dark:text-green-400">El desglose cuadra con el total de retención extra ✓</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer actions */}
+                    <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+                        <button
+                            onClick={() => setRetBreakdownModal(null)}
+                            className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={saveRetBreakdown}
+                            className={`px-4 py-2 text-sm font-bold rounded-xl transition-colors ${
+                                isBalanced
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
+                            }`}
+                        >
+                            Guardar desglose
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    })() : null;
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -1526,13 +1718,28 @@ const PaymentCertForm = React.forwardRef(({
                                                 placeholder="0.00"
                                             />
                                             {parseFloat(String(c.extra_retention).replace(/,/g, '')) > 0 && (
-                                                <input
-                                                    type="text"
-                                                    className="input-field text-[10px] w-full mt-1 bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800 focus:border-amber-300 h-7"
-                                                    value={c.extra_retention_notes ?? ""}
-                                                    onChange={(e) => updateCert(certIdx, 'extra_retention_notes', e.target.value)}
-                                                    placeholder="Nota/Razón"
-                                                />
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        className="input-field text-[10px] w-full mt-1 bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800 focus:border-amber-300 h-7"
+                                                        value={c.extra_retention_notes ?? ""}
+                                                        onChange={(e) => updateCert(certIdx, 'extra_retention_notes', e.target.value)}
+                                                        placeholder="Nota/Razón"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openRetBreakdown(certIdx)}
+                                                        className="w-full mt-1 flex items-center justify-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-lg py-1 transition-colors"
+                                                    >
+                                                        <Settings2 size={11} />
+                                                        Ver desglose ítems
+                                                        {Array.isArray(c.extra_retention_breakdown) && c.extra_retention_breakdown.length > 0 && (
+                                                            <span className="ml-1 bg-amber-500 text-white rounded-full text-[9px] font-black px-1.5 py-0.5 leading-none">
+                                                                {c.extra_retention_breakdown.length}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                </>
                                             )}
                                         </div>
                                         <div className="space-y-1">
@@ -2116,7 +2323,9 @@ const PaymentCertForm = React.forwardRef(({
             )}
 
             <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
+            {RetBreakdownModal}
         </div>
+
     );
 });
 
