@@ -88,6 +88,22 @@ export const generateSolicitudMaterialCertPdf = async (projectId: string): Promi
     // Section 4: Materiales rechazados (None for now as per ACT schema, display N/A)
     const rejectedData: any[] = [];
 
+    const extractItemJustification = (fullJustification: string, itemNum: string) => {
+        if (!fullJustification) return 'Sin justificación provista.';
+        const blocks = fullJustification.split(/(?:^|\.\s+|\n+)(?=(?:Item|Partida)\s*#?\s*\d+)/gi);
+        const validBlocks = blocks.map(b => b.trim()).filter(b => b.length > 0);
+        if (validBlocks.length === 0) return fullJustification;
+        
+        const escapedItemNum = String(itemNum).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(?:^|\\W)${escapedItemNum}(?:\\W|$)`);
+        const targetBlock = validBlocks.find(b => regex.test(b));
+        
+        if (targetBlock) {
+            return targetBlock + (targetBlock.endsWith('.') ? '' : '.');
+        }
+        return fullJustification;
+    };
+
     // Section 5: Partidas con trabajos adicionales (888)
     const extraWorkData: any[] = [];
     (chos || []).forEach((c: any) => {
@@ -97,7 +113,7 @@ export const generateSolicitudMaterialCertPdf = async (projectId: string): Promi
                 extraWorkData.push({
                     item_num: ci.item_num,
                     description: ci.description || '',
-                    justification: c.justification || 'Sin justificación provista.'
+                    justification: extractItemJustification(c.justification, ci.item_num)
                 });
             }
         });
