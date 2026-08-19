@@ -1191,26 +1191,28 @@ const PaymentCertForm = React.forwardRef(({
                             <div key={idx} className="flex items-center gap-2">
                                 {/* Ítem selector */}
                                 <select
-                                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs px-2 h-8 w-56 shrink-0"
+                                    className={`bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs px-2 h-8 shrink-0 ${row.item_num ? 'flex-1' : 'w-56'}`}
                                     value={row.item_num}
                                     title={row.item_num ? `${row.item_num} - ${certItems.find((it: any) => String(it.item_num) === row.item_num)?.description || certItems.find((it: any) => String(it.item_num) === row.item_num)?.specification || ''}` : '-- Item --'}
                                     onChange={e => updateRow(idx, 'item_num', e.target.value)}
                                 >
-                                    <option value="">-- Item --</option>
+                                    <option value="">-- Item (o custom) --</option>
                                     {certItems.map((it: any, i: number) => (
                                         <option key={i} value={String(it.item_num)}>
                                             {it.item_num} - {it.description || it.specification || ''}
                                         </option>
                                     ))}
                                 </select>
-                                {/* Descripción */}
-                                <input
-                                    type="text"
-                                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs px-2 h-8 flex-1 min-w-0"
-                                    placeholder="Descripción / Razón"
-                                    value={row.description}
-                                    onChange={e => updateRow(idx, 'description', e.target.value)}
-                                />
+                                {/* Descripción (Solo si no hay ítem seleccionado) */}
+                                {!row.item_num && (
+                                    <input
+                                        type="text"
+                                        className="bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs px-2 h-8 flex-1 min-w-0"
+                                        placeholder="Descripción / Razón"
+                                        value={row.description}
+                                        onChange={e => updateRow(idx, 'description', e.target.value)}
+                                    />
+                                )}
                                 {/* Monto */}
                                 <input
                                     type="text"
