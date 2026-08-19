@@ -1191,7 +1191,7 @@ const PaymentCertForm = React.forwardRef(({
                             <div key={idx} className="flex items-center gap-2">
                                 {/* Ítem selector */}
                                 <select
-                                    className="input-field text-xs h-8 w-56 shrink-0 !py-1 !px-2"
+                                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs px-2 h-8 w-56 shrink-0"
                                     value={row.item_num}
                                     title={row.item_num ? `${row.item_num} - ${certItems.find((it: any) => String(it.item_num) === row.item_num)?.description || certItems.find((it: any) => String(it.item_num) === row.item_num)?.specification || ''}` : '-- Item --'}
                                     onChange={e => updateRow(idx, 'item_num', e.target.value)}
@@ -1206,7 +1206,7 @@ const PaymentCertForm = React.forwardRef(({
                                 {/* Descripción */}
                                 <input
                                     type="text"
-                                    className="input-field text-xs h-8 flex-1 min-w-0 !py-1 !px-2"
+                                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs px-2 h-8 flex-1 min-w-0"
                                     placeholder="Descripción / Razón"
                                     value={row.description}
                                     onChange={e => updateRow(idx, 'description', e.target.value)}
@@ -1214,7 +1214,7 @@ const PaymentCertForm = React.forwardRef(({
                                 {/* Monto */}
                                 <input
                                     type="text"
-                                    className="input-field text-xs h-8 w-28 shrink-0 font-bold text-amber-700 !py-1 !px-2"
+                                    className="bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg text-amber-700 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 text-xs px-2 h-8 w-28 shrink-0 font-bold text-right"
                                     placeholder="0.00"
                                     value={row.amount}
                                     onChange={e => {
