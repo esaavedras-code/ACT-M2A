@@ -661,6 +661,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                                 {b?.date && <span className="text-[9px] text-slate-400 mb-1 whitespace-nowrap">{new Date(b.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: '2-digit' })}</span>}
                                                                                 <span className={`text-sm font-black ${b?.qty && b.qty > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                                                                                     {b?.qty && b.qty > 0 ? `+${formatNumber(b.qty)}` : formatNumber(b?.qty)}
+                                                                                    <span className="text-[9px] font-bold ml-1 opacity-70">{item.unit}</span>
                                                                                 </span>
                                                                                 <span className="text-[10px] font-medium text-slate-400 mt-1">{b?.amount ? formatCurrency(b.amount) : formatCurrency(0)}</span>
                                                                             </div>
@@ -670,6 +671,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                             <span className="text-[11px] font-bold text-blue-600 mb-2 whitespace-nowrap">TOTAL CHO</span>
                                                                             <span className={`text-sm font-black ${choQty > 0 ? 'text-emerald-600' : (choQty < 0 ? 'text-red-500' : 'text-slate-700')}`}>
                                                                                 {choQty > 0 ? `+${formatNumber(choQty)}` : formatNumber(choQty)}
+                                                                                <span className="text-[9px] font-bold ml-1 opacity-70">{item.unit}</span>
                                                                             </span>
                                                                             <span className="text-[10px] font-bold text-slate-400 mt-1">{formatCurrency(roundedAmt(choQty * (parseFloat(item.unit_price) || 0), 2))}</span>
                                                                         </div>
@@ -693,14 +695,20 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                                                             <div key={`cert-${i}`} className="flex flex-col items-center min-w-[70px]">
                                                                                 <span className="text-[11px] font-bold text-emerald-600 whitespace-nowrap">CERT #{b?.certNum}</span>
                                                                                 {b?.periodTo && <span className="text-[9px] text-slate-400 mb-1 whitespace-nowrap">{new Date(b.periodTo + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: '2-digit' })}</span>}
-                                                                                <span className="text-sm font-black text-slate-700">{formatNumber(b?.qty)}</span>
+                                                                                <span className="text-sm font-black text-slate-700">
+                                                                                    {formatNumber(b?.qty)}
+                                                                                    <span className="text-[9px] font-bold ml-1 opacity-70">{item.unit}</span>
+                                                                                </span>
                                                                                 <span className="text-[10px] font-medium text-slate-400 mt-1">{b?.amount ? formatCurrency(b.amount) : formatCurrency(0)}</span>
                                                                             </div>
                                                                         ))}
                                                                         <div className="border-l-2 border-slate-100 dark:border-slate-700 h-10 mx-2"></div>
                                                                         <div className="flex flex-col items-center min-w-[70px]">
                                                                             <span className="text-[11px] font-bold text-emerald-600 mb-2 whitespace-nowrap">PAGADO</span>
-                                                                            <span className="text-sm font-black text-emerald-600">{formatNumber(paidQty)}</span>
+                                                                            <span className="text-sm font-black text-emerald-600">
+                                                                                {formatNumber(paidQty)}
+                                                                                <span className="text-[9px] font-bold ml-1 opacity-70">{item.unit}</span>
+                                                                            </span>
                                                                             <span className="text-[10px] font-bold text-emerald-600 mt-1">{formatCurrency(roundedAmt(paidQty * (parseFloat(item.unit_price) || 0), 2))}</span>
                                                                         </div>
                                                                     </>
