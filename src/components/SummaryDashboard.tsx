@@ -427,7 +427,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
-                        <MetricRow label="Costo Ajustado" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" />
+                        <MetricRow label="Costo ajustado (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" />
                         <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" />
                         {metrics.cost.lastCertDate && (
                             <div className="ml-2 pl-2 border-l-2 border-emerald-200 dark:border-emerald-800 py-1">
