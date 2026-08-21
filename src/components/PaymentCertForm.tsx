@@ -2341,7 +2341,7 @@ function SummaryItem({ label, value, icon, color, bgColor, description }: { labe
                 {icon}
             </div>
             <div className="min-w-0">
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 truncate">{label}</div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</div>
                 <div className={`text-[13px] font-black ${value < 0 ? 'text-red-500' : color} truncate`}>
                     {formatCurrency(value)}
                 </div>
