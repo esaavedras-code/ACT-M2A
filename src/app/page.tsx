@@ -364,7 +364,7 @@ export default function Dashboard() {
                             <tr className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Proyecto / ACT</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Terminación revisada</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Costo ajustado</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Costo ajustado (revisado)</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Remaining</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Certified to date (WP)</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Progreso</th>
