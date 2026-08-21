@@ -356,7 +356,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                     <thead className="text-slate-500 uppercase text-[10px] font-extrabold border-b border-slate-100 dark:border-slate-800 sticky top-0 z-20" style={{ backgroundColor: '#0f172a' }}>
                         <tr>
                             <th className="pl-3 pr-1 py-2 min-w-[68px] text-center"># Item</th>
-                            <th className="px-1 py-2 min-w-[88px] text-center">Espec.</th>
+                            <th className="px-1 py-2 min-w-[100px] text-center">Espec.</th>
                             <th className="px-1 py-2 min-w-[200px]">Descripción</th>
                             <th className="px-1 py-2 min-w-[90px] text-right">Cant. Orig.</th>
                             {readOnly && <th className="px-1 py-2 min-w-[90px] text-right text-blue-600">Cant. CHO</th>}
@@ -405,7 +405,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                 if (!itemInCert) return null;
                                 return {
                                     certNum: cert.cert_num,
-                                    periodTo: cert.period_to,
+                                    periodTo: cert.wp_up_to || cert.cert_date,
                                     qty: parseFloat(itemInCert.quantity) || 0,
                                     amount: roundedAmt((parseFloat(itemInCert.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2)
                                 };
@@ -456,7 +456,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="text" disabled={readOnly} className="input-field text-[9px] text-center h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
+                                            <input type="text" disabled={readOnly} className="input-field text-[8px] tracking-tighter text-center h-8 !py-1 !px-0.5" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <div className="space-y-1">
