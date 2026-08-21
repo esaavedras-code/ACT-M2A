@@ -498,7 +498,15 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Importe Total</label>
-                                        <div className="input-field text-xs font-black bg-white dark:bg-slate-900 flex flex-col justify-center px-3 h-auto min-h-[30px] border-emerald-500/30 text-emerald-600 min-w-[200px] py-1">
+                                        <div className={`input-field text-xs font-black bg-white dark:bg-slate-900 flex flex-col justify-center px-3 h-auto min-h-[30px] border-emerald-500/30 min-w-[200px] py-1 ${
+                                            (() => {
+                                                const { act, fed } = calculateChoBreakdown(cho.items, projectData);
+                                                const total = roundedAmt(act + fed, 2);
+                                                if (total < 0) return 'text-red-500';
+                                                if (total > 0) return 'text-emerald-600';
+                                                return 'text-slate-500';
+                                            })()
+                                        }`}>
                                             {(() => {
                                                 const pFedPct = projectData?.federal_share_pct ?? 80.25;
                                                 const { act, fed } = calculateChoBreakdown(cho.items, projectData);
@@ -636,7 +644,14 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     <td className="py-0.5 px-0.5">
                                                         <input type="number" step="0.0001" className="input-field text-[10px] text-right !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.unit_price ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
-                                                    <td className="py-0.5 px-0.5 text-right text-xs font-black text-primary !pr-4">
+                                                    <td className={`py-0.5 px-0.5 text-right text-xs font-black !pr-4 ${
+                                                        (() => {
+                                                          const amt = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
+                                                          if (amt < 0) return 'text-red-400';
+                                                          if (amt > 0) return 'text-emerald-400';
+                                                          return 'text-primary';
+                                                        })()
+                                                    }`}>
                                                         {formatCurrency(roundedAmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0), 2))}
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
