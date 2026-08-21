@@ -456,19 +456,19 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
                                             </div>
                                         </td>
                                         <td className="px-1 py-1.5">
-                                            <input type="text" disabled={readOnly} className="input-field text-[8px] tracking-tighter text-center h-8 !py-1 !px-0.5" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
+                                            <input type="text" title={item.specification || ""} disabled={readOnly} className="input-field text-[8px] tracking-tighter text-center h-8 !py-1 !px-0.5" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'specification') }} value={item.specification || ""} onChange={(e) => updateItem(idx, 'specification', e.target.value)} />
                                         </td>
                                         <td className="px-1 py-1.5">
                                             <div className="space-y-1">
-                                                <input type="text" disabled={readOnly} className="input-field text-xs h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'description') }} value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
+                                                <input type="text" title={item.description || ""} disabled={readOnly} className="input-field text-xs h-8 !py-1" style={{ backgroundColor: readOnly ? 'white' : ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'description') }} value={item.description || ""} onChange={(e) => updateItem(idx, 'description', e.target.value)} />
                                                 {readOnly ? (
                                                     item.additional_description ? (
-                                                        <div className="text-[10px] italic text-emerald-700 font-semibold px-1 leading-tight">
+                                                        <div title={item.additional_description} className="text-[10px] italic text-emerald-700 font-semibold px-1 leading-tight">
                                                             ({item.additional_description})
                                                         </div>
                                                     ) : null
                                                 ) : (
-                                                    <input type="text" className="input-field text-[10px] h-6 !py-0.5" style={{ backgroundColor: ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'additional_description') }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
+                                                    <input type="text" title={item.additional_description || ""} className="input-field text-[10px] h-6 !py-0.5" style={{ backgroundColor: ((parseFloat(item.quantity) === 0 && choQty > 0) ? 'white' : '#66FF99'), ...getFieldStyle(item, 'additional_description') }} value={item.additional_description || ""} onChange={(e) => updateItem(idx, 'additional_description', e.target.value)} placeholder="Descripción Adicional..." />
                                                 )}
                                             </div>
                                         </td>
