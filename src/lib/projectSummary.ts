@@ -38,6 +38,7 @@ export interface ProjectSummaryMetrics {
         lastCertAmount: number;
         lastCertNum: number;
         lastCertDate: string;
+        lastCertWPDate: string;
         balance: number;
         percentObra: number;
         actTotal: number;
@@ -155,6 +156,7 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
     let lastCertRetention = 0;
     let lastCertNum = 0;
     let lastCertDate = "";
+    let lastCertWPDate = "";
     let totalRetentionDeducted = 0;
     let totalRetentionReturned = 0;
     let totalExtraRetention = 0;
@@ -271,6 +273,7 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
             lastCertNum = cert.cert_num;
             lastCertAmount = certAmount;
             lastCertDate = cert.cert_date || "";
+            lastCertWPDate = cert.wp_up_to || cert.cert_date || "";
             lastCertRetention = certRetentionAmount;
         }
         if (cert.show_retention_return && cert.retention_return_amount) {
@@ -400,6 +403,7 @@ export function calculateSummaryMetrics(proj: any, items: any[], chos: any[], ce
             lastCertAmount: lastCertAmount || 0,
             lastCertNum: lastCertNum || 0,
             lastCertDate: lastCertDate || "",
+            lastCertWPDate: lastCertWPDate || "",
             balance: roundedAmt(((originalCost || 0) + (approvedCHO || 0)) - (certified || 0), 2),
             percentObra: ((originalCost || 0) + (approvedCHO || 0)) > 0 ? roundedAmt(((certified || 0) / ((originalCost || 0) + (approvedCHO || 0))) * 100, 2) : 0,
             actTotal: actTotal || 0,

@@ -15,7 +15,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     const [metrics, setMetrics] = useState({
         time: { total: 0, used: 0, revised: 0, balance: 0, percent: 0 },
         dates: { start: "", original: "", revised: "", fmis: "", substantial: "", administrative: "" },
-        retention: { fivePercent: 0, extra: 0, priceAdjustment: 0, insuranceFines: 0, otherPenalties: 0, returned: 0, total: 0 },
+        retention: { fivePercent: 0, lastRetentionAmount: 0, extra: 0, priceAdjustment: 0, insuranceFines: 0, otherPenalties: 0, returned: 0, total: 0 },
         cost: {
             original: 0,
             revisedTotal: 0,
@@ -23,6 +23,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             lastCertAmount: 0,
             lastCertNum: 0,
             lastCertDate: "",
+            lastCertWPDate: "",
             balance: 0,
             percentObra: 0,
             actTotal: 0,
@@ -30,9 +31,13 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
             actProjected: 0,
             fhwaProjected: 0,
             materialOnSite: 0,
+            mosHistoricalPaid: 0,
+            mosLastPaid: 0,
             mosBalances: [] as { item_num: string, balance: number, mosPU?: number }[],
             mosTotalQty: 0,
             priceAdjustment: 0,
+            paidCertsTotal: 0,
+            paidCertsBalance: 0,
         },
         chos: {
             approvedTotal: 0,
@@ -161,7 +166,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
         const { data: certs } = await supabase
             .from("payment_certifications")
-            .select("cert_num, cert_date, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund, excluded, liquidated_damages, is_paid")
+            .select("cert_num, cert_date, wp_up_to, items, skip_retention, show_retention_return, retention_return_amount, extra_retention, price_adjustment, insurance_fines, other_penalties, refund, excluded, liquidated_damages, is_paid")
             .eq("project_id", projectId)
             .order("cert_num", { ascending: true });
 
@@ -436,7 +441,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                     <span className="text-[10px] font-bold text-emerald-600">{formatDate(metrics.cost.lastCertDate)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Monto</span>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                        MONTO (WP) {metrics.cost.lastCertWPDate ? formatDate(metrics.cost.lastCertWPDate) : ''}
+                                    </span>
                                     <span className="text-[10px] font-bold text-emerald-600">{formatCurrency(metrics.cost.lastCertAmount)}</span>
                                 </div>
                             </div>
