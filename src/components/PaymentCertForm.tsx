@@ -94,7 +94,7 @@ export const processCertsData = (certsList: any[], itemsList: any[], choList: an
 
             if (choItem) {
                 if (baseItem) {
-                    baseItem = { ...baseItem, unit_price: choItem.unit_price, specification: choItem.specification || baseItem.specification, description: choItem.description || baseItem.description, unit: choItem.unit || baseItem.unit };
+                    baseItem = { ...baseItem, specification: choItem.specification || baseItem.specification, description: choItem.description || baseItem.description, unit: choItem.unit || baseItem.unit };
                 } else {
                     baseItem = choItem;
                 }
