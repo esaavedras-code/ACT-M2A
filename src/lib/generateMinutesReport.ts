@@ -70,6 +70,10 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
     let latestPaidCertDate = '';
     let latestCertRetention = 0;
     let latestPaidRetention = 0;
+    // Variables de Material on Site (MOS)
+    let totalMOS = 0;          // neto acumulado de MOS (pagado - deducido) a la fecha
+    let latestCertMOS = 0;     // neto de MOS en la última cert sometida
+    let latestPaidMOS = 0;     // neto de MOS en la última cert pagada
 
     certs?.forEach(c => {
         const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
@@ -89,9 +93,20 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
         const net = roundedAmt(certGross - retention, 2);
         totalNetCertified = roundedAmt(totalNetCertified + net, 2);
 
+        // Cálculo de MOS neto para esta cert
+        let certMOSNet = 0;
+        certItems.forEach((it: any) => {
+            const added    = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
+            const mosPU    = parseFloat(it.mos_unit_price) || parseFloat(it.unit_price) || 0;
+            const deducted = (parseFloat(it.qty_from_mos) || 0) * mosPU;
+            certMOSNet = roundedAmt(certMOSNet + added - deducted, 2);
+        });
+        totalMOS = roundedAmt(totalMOS + certMOSNet, 2);
+
         latestCertNum = c.cert_num;
         latestCertDate = c.cert_date;
         latestCertRetention = retention;
+        latestCertMOS = certMOSNet;
 
         // Simulate paid if it's not the latest (or logic depends on DB)
         if (c.cert_num < Math.max(0, (certs.length))) {
@@ -100,6 +115,7 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
             latestPaidCertNum = c.cert_num;
             latestPaidCertDate = c.cert_date;
             latestPaidRetention = retention;
+            latestPaidMOS = certMOSNet;
         }
     });
 
@@ -334,7 +350,7 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
     const totalRetenido = totalGrossCertified - totalNetCertified;
     drawCertRow("5% Retenido Total", formatCurrency(roundedAmt(totalRetenido, 2)), "5% Retenido última cert. sometida", formatCurrency(latestCertRetention), "5% Retenido última cert. pagada", formatCurrency(latestPaidRetention));
     
-    drawCertRow("Total MOS (Material on Site)", formatCurrency(0), "MOS (deducido)", formatCurrency(0), "MOS (deducido)", formatCurrency(0));
+    drawCertRow("Total MOS (Material on Site)", formatCurrency(totalMOS), "MOS últ. cert. sometida", formatCurrency(latestCertMOS), "MOS últ. cert. pagada", formatCurrency(latestPaidMOS));
     
     drawCertRow("Total Neto Certificado:", formatCurrency(totalNetCertified), "Total Neto Sometido:", "N/A", "Total Neto Pagado:", formatCurrency(totalPaidNet));
 
