@@ -74,19 +74,41 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
     let totalMOS = 0;          // neto acumulado de MOS (pagado - deducido) a la fecha
     let latestCertMOS = 0;     // neto de MOS en la última cert sometida
     let latestPaidMOS = 0;     // neto de MOS en la última cert pagada
-
-    certs?.forEach(c => {
+    const { data: contractItems } = await supabase.from('contract_items').select('*').eq('project_id', projectId);
+    
+    certs?.forEach((c: any) => {
+        if (c.excluded) return;
         const certItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
         let certGross = 0;
         certItems.forEach((it: any) => {
-            certGross = roundedAmt(certGross + (parseFloat(it.quantity) * parseFloat(it.unit_price)), 2);
+            let liveUP = parseFloat(it.unit_price) || 0;
+            if (contractItems) {
+                const normIt = (n: any) => {
+                    const s = String(n || '').trim();
+                    if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                    return s;
+                };
+                const masterIt = contractItems.find(m => normIt(m.item_num) === normIt(it.item_num));
+                if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+            }
+            certGross = roundedAmt(certGross + (parseFloat(it.quantity) * liveUP), 2);
         });
         
         totalGrossCertified = roundedAmt(totalGrossCertified + certGross, 2);
         const retention = c.skip_retention ? 0 : roundedAmt(
             certItems.reduce((acc: number, it: any) => {
                 if (it.skip_retention === true || it.skip_retention === 'true') return acc;
-                const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
+                let liveUP = parseFloat(it.unit_price) || 0;
+                if (contractItems) {
+                    const normIt = (n: any) => {
+                        const s = String(n || '').trim();
+                        if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                        return s;
+                    };
+                    const masterIt = contractItems.find(m => normIt(m.item_num) === normIt(it.item_num));
+                    if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+                }
+                const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * liveUP, 2);
                 return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
             }, 0), 2
         );
@@ -96,8 +118,18 @@ export const generateMinutesReport = async (projectId: string, minuteData: any) 
         // Cálculo de MOS neto para esta cert
         let certMOSNet = 0;
         certItems.forEach((it: any) => {
+            let liveUP = parseFloat(it.unit_price) || 0;
+            if (contractItems) {
+                const normIt = (n: any) => {
+                    const s = String(n || '').trim();
+                    if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                    return s;
+                };
+                const masterIt = contractItems.find(m => normIt(m.item_num) === normIt(it.item_num));
+                if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+            }
             const added    = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
-            const mosPU    = parseFloat(it.mos_unit_price) || parseFloat(it.unit_price) || 0;
+            const mosPU    = parseFloat(it.mos_unit_price) || liveUP;
             const deducted = (parseFloat(it.qty_from_mos) || 0) * mosPU;
             certMOSNet = roundedAmt(certMOSNet + added - deducted, 2);
         });

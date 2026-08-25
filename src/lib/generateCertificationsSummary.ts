@@ -53,20 +53,45 @@ export async function generateCertificationsSummaryExcel(projectId: string): Pro
         }
     };
 
+    const { data: contractItems } = await supabase
+        .from('contract_items')
+        .select('*')
+        .eq('project_id', projectId);
+
     const allCerts = certs || [];
 
     allCerts.forEach((cert) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         let certAmount = 0;
         certItems.forEach((it: any) => {
-            certAmount += (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0);
+            let liveUP = parseFloat(it.unit_price) || 0;
+            if (contractItems) {
+                const normIt = (n: any) => {
+                    const s = String(n || '').trim();
+                    if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                    return s;
+                };
+                const masterIt = contractItems.find(m => normIt(m.item_num) === normIt(it.item_num));
+                if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+            }
+            certAmount += (parseFloat(it.quantity) || 0) * liveUP;
         });
 
         let retention = 0;
         if (!cert.skip_retention) {
             certItems.forEach((it: any) => {
                 if (it.skip_retention !== true && it.skip_retention !== 'true') {
-                    retention += ((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0)) * 0.05;
+                    let liveUP = parseFloat(it.unit_price) || 0;
+                    if (contractItems) {
+                        const normIt = (n: any) => {
+                            const s = String(n || '').trim();
+                            if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                            return s;
+                        };
+                        const masterIt = contractItems.find(m => normIt(m.item_num) === normIt(it.item_num));
+                        if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+                    }
+                    retention += ((parseFloat(it.quantity) || 0) * liveUP) * 0.05;
                 }
             });
         }
@@ -86,12 +111,20 @@ export async function generateCertificationsSummaryExcel(projectId: string): Pro
         const totalRetAndPen = retention + extraRet + insFines + penalties + dlq - priceAdj - refund - retReturn;
 
         // --- Cálculo de MOS (Material on Site) ---
-        // mosCertNet positivo = pago neto al contratista por material on site incorporado
-        // mosCertNet negativo = descuento por uso/liquidación de material on site previamente pagado
         let mosCertNet = 0;
         certItems.forEach((it: any) => {
+            let liveUP = parseFloat(it.unit_price) || 0;
+            if (contractItems) {
+                const normIt = (n: any) => {
+                    const s = String(n || '').trim();
+                    if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                    return s;
+                };
+                const masterIt = contractItems.find(m => normIt(m.item_num) === normIt(it.item_num));
+                if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+            }
             const added    = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
-            const mosPU    = parseFloat(it.mos_unit_price) || parseFloat(it.unit_price) || 0;
+            const mosPU    = parseFloat(it.mos_unit_price) || liveUP;
             const deducted = (parseFloat(it.qty_from_mos) || 0) * mosPU;
             mosCertNet += added - deducted;
         });

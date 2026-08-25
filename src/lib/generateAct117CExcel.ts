@@ -61,10 +61,19 @@ export async function generateAct117CExcel(
             let certGross = 0;
             let certMOS = 0;
             itemsList.forEach((it: any) => {
+                let liveUP = parseFloat(it.unit_price) || 0;
+                if (items) {
+                    const normIt = (n: any) => {
+                        const s = String(n || '').trim();
+                        if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                        return s;
+                    };
+                    const masterIt = items.find((m: any) => normIt(m.item_num) === normIt(it.item_num));
+                    if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+                }
                 const q = parseFloat(it.quantity) || 0;
-                const p = parseFloat(it.unit_price) || 0;
-                certGross += q * p;
-                certMOS += (it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0) - ((parseFloat(it.qty_from_mos) || 0) * (parseFloat(it.mos_unit_price) || p));
+                certGross += q * liveUP;
+                certMOS += (it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0) - ((parseFloat(it.qty_from_mos) || 0) * (parseFloat(it.mos_unit_price) || liveUP));
             });
             runningWP += certGross;
             runningMOS += certMOS;
@@ -93,7 +102,17 @@ export async function generateAct117CExcel(
                 const itemsList = Array.isArray(c.items) ? c.items : (c.items?.list || []);
                 const cRet = itemsList.reduce((acc: number, it: any) => {
                     if (it.skip_retention === true || it.skip_retention === 'true') return acc;
-                    const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2);
+                    let liveUP = parseFloat(it.unit_price) || 0;
+                    if (items) {
+                        const normIt = (n: any) => {
+                            const s = String(n || '').trim();
+                            if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                            return s;
+                        };
+                        const masterIt = items.find((m: any) => normIt(m.item_num) === normIt(it.item_num));
+                        if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+                    }
+                    const itemWork = roundedAmt((parseFloat(it.quantity) || 0) * liveUP, 2);
                     return roundedAmt(acc + roundedAmt(itemWork * 0.05, 2), 2);
                 }, 0);
                 const returnAmount = parseFloat(c.retention_return_amount as any) || 0;
@@ -124,7 +143,17 @@ export async function generateAct117CExcel(
             let cMOS = 0;
             const cItems = Array.isArray(c.items) ? c.items : (c.items?.list || []);
             cItems.forEach((it: any) => {
-                cMOS += (it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0) - ((parseFloat(it.qty_from_mos) || 0) * (parseFloat(it.mos_unit_price) || (parseFloat(it.unit_price) || 0)));
+                let liveUP = parseFloat(it.unit_price) || 0;
+                if (items) {
+                    const normIt = (n: any) => {
+                        const s = String(n || '').trim();
+                        if (/^\d+$/.test(s)) return parseInt(s, 10).toString().padStart(3, '0').slice(0, 3);
+                        return s;
+                    };
+                    const masterIt = items.find((m: any) => normIt(m.item_num) === normIt(it.item_num));
+                    if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
+                }
+                cMOS += (it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0) - ((parseFloat(it.qty_from_mos) || 0) * (parseFloat(it.mos_unit_price) || liveUP));
             });
             return acc + cMOS;
         }, 0);
