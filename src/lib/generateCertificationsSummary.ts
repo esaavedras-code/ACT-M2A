@@ -58,9 +58,21 @@ export async function generateCertificationsSummaryExcel(projectId: string): Pro
         .select('*')
         .eq('project_id', projectId);
 
+    const getInvoicePU = (certsList: any[], itemNum: string, currentCertIdx: number) => {
+        for (let i = currentCertIdx; i >= 0; i--) {
+            if (!certsList[i]) continue;
+            if (certsList[i].excluded) continue;
+            const its = Array.isArray(certsList[i].items) ? certsList[i].items : (certsList[i].items?.list || []);
+            const match = its.find((itx: any) => itx.item_num === itemNum && itx.has_material_on_site && parseFloat(itx.mos_unit_price) > 0);
+            if (match) return parseFloat(match.mos_unit_price);
+        }
+        return 0;
+    };
+    const perItemMosBalance: Record<string, number> = {};
+
     const allCerts = certs || [];
 
-    allCerts.forEach((cert) => {
+    allCerts.forEach((cert, cIdx) => {
         const certItems = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
         let certAmount = 0;
         certItems.forEach((it: any) => {
@@ -113,6 +125,9 @@ export async function generateCertificationsSummaryExcel(projectId: string): Pro
         // --- Cálculo de MOS (Material on Site) ---
         let mosCertNet = 0;
         certItems.forEach((it: any) => {
+            const itemNum = it.item_num;
+            if (!itemNum) return;
+
             let liveUP = parseFloat(it.unit_price) || 0;
             if (contractItems) {
                 const normIt = (n: any) => {
@@ -123,10 +138,41 @@ export async function generateCertificationsSummaryExcel(projectId: string): Pro
                 const masterIt = contractItems.find(m => normIt(m.item_num) === normIt(it.item_num));
                 if (masterIt) liveUP = parseFloat(masterIt.unit_price) || 0;
             }
-            const added    = it.has_material_on_site ? (parseFloat(it.mos_invoice_total) || 0) : 0;
-            const mosPU    = parseFloat(it.mos_unit_price) || liveUP;
-            const deducted = (parseFloat(it.qty_from_mos) || 0) * mosPU;
-            mosCertNet += added - deducted;
+
+            const qty = parseFloat(it.quantity) || 0;
+            const manualDeductionQty = parseFloat(it.qty_from_mos) || 0;
+            const hasAddition = !!it.has_material_on_site || (it.mos_invoice_total && parseFloat(it.mos_invoice_total) > 0);
+            
+            const currentBalance = perItemMosBalance[itemNum] || 0;
+            const mosPU = getInvoicePU(allCerts, itemNum, cIdx);
+            const price = mosPU > 0 ? mosPU : liveUP;
+
+            const additionCostThisCert = hasAddition ? (parseFloat(it.mos_invoice_total) || 0) : 0;
+            const balanceForDeduction = currentBalance + additionCostThisCert;
+            
+            let deductionQty = 0;
+            if (balanceForDeduction > 0.01) {
+                const availableQty = balanceForDeduction / (price || 1);
+                if (manualDeductionQty > 0) {
+                    deductionQty = Math.min(manualDeductionQty, availableQty);
+                } else if (qty > 0) {
+                    deductionQty = Math.min(qty, availableQty);
+                }
+            }
+
+            if (hasAddition) {
+                const cost = parseFloat(it.mos_invoice_total) || 0;
+                perItemMosBalance[itemNum] = currentBalance + cost;
+            }
+
+            let deductedCost = 0;
+            if (deductionQty > 0) {
+                deductedCost = deductionQty * price;
+                const newBal = (perItemMosBalance[itemNum] || 0) - deductedCost;
+                perItemMosBalance[itemNum] = Math.max(0, newBal);
+            }
+
+            mosCertNet += additionCostThisCert - deductedCost;
         });
 
         const netPaid = certAmount - totalRetAndPen + mosCertNet;
