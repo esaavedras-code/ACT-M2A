@@ -410,17 +410,17 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <Clock size={16} /> FECHAS CLAVE
                     </div>
                     <div className="space-y-1">
-                        <MetricRow label="Comienzo" value={formatDate(metrics.dates.start)} />
-                        <MetricRow label="Terminacion Original" value={formatDate(metrics.dates.original)} />
-                        <MetricRow label="Terminacion Revisada" value={formatDate(metrics.dates.revised)} color="text-blue-700 font-bold" />
-                        <MetricRow label="Terminacion Sustancial" value={formatDate(metrics.dates.substantial)} />
-                        <MetricRow label="Terminacion Administrativa" value={formatDate(metrics.dates.administrative)} color="text-amber-800 font-bold" />
-                        <MetricRow label="FMIS End Date" value={formatDate(metrics.dates.fmis)} color="text-emerald-700" />
+                        <MetricRow label="Comienzo" value={formatDate(metrics.dates.start)} tooltip="Fecha oficial en que inician los trabajos del proyecto." />
+                        <MetricRow label="Terminacion Original" value={formatDate(metrics.dates.original)} tooltip="Fecha prevista de finalización según el contrato original." />
+                        <MetricRow label="Terminacion Revisada" value={formatDate(metrics.dates.revised)} color="text-blue-700 font-bold" tooltip="Nueva fecha de finalización incluyendo extensiones de tiempo aprobadas." />
+                        <MetricRow label="Terminacion Sustancial" value={formatDate(metrics.dates.substantial)} tooltip="Fecha en que la obra está suficientemente completa para ser utilizada para su propósito previsto." />
+                        <MetricRow label="Terminacion Administrativa" value={formatDate(metrics.dates.administrative)} color="text-amber-800 font-bold" tooltip="Fecha en que se completan todos los trámites y cierre de documentos del proyecto." />
+                        <MetricRow label="FMIS End Date" value={formatDate(metrics.dates.fmis)} color="text-emerald-700" tooltip="Fecha límite del sistema financiero federal (FMIS) para los fondos del proyecto." />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Dias Contrato" value={`${formatNumber(metrics.time.total, 0)} dias`} />
-                        <MetricRow label="Dias Revisados (Original + CHO)" value={`${formatNumber(metrics.time.revised, 0)} dias`} />
-                        <MetricRow label="Tiempo transcurrido a la fecha" value={`${formatNumber(metrics.time.used, 0)} dias`} />
-                        <MetricRow label="Balance de dias" value={`${formatNumber(metrics.time.balance, 0)} dias`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} />
+                        <MetricRow label="Dias Contrato" value={`${formatNumber(metrics.time.total, 0)} dias`} tooltip="Número total de días establecidos en el contrato original." />
+                        <MetricRow label="Dias Revisados (Original + CHO)" value={`${formatNumber(metrics.time.revised, 0)} dias`} tooltip="Días totales del contrato sumando los días originales más los días otorgados por órdenes de cambio (CHO)." />
+                        <MetricRow label="Tiempo transcurrido a la fecha" value={`${formatNumber(metrics.time.used, 0)} dias`} tooltip="Cantidad de días que han pasado desde la fecha de comienzo hasta el día de hoy." />
+                        <MetricRow label="Balance de dias" value={`${formatNumber(metrics.time.balance, 0)} dias`} color={metrics.time.balance < 0 ? "text-red-700 font-bold" : "text-emerald-700 font-bold"} tooltip="Días restantes para la terminación del proyecto (Días revisados menos tiempo transcurrido)." />
                     </div>
                 </div>
 
@@ -431,9 +431,9 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} />
-                        <MetricRow label="Costo ajustado (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" />
-                        <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" />
+                        <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} tooltip="Monto total del contrato según fue adjudicado originalmente." />
+                        <MetricRow label="Costo ajustado (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" tooltip="Costo original más el total de órdenes de cambio (CHO) aprobadas." />
+                        <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" tooltip="Monto total certificado para pago hasta la fecha según el Work Program (WP)." />
                         {metrics.cost.lastCertDate && (
                             <div className="ml-2 pl-2 border-l-2 border-emerald-200 dark:border-emerald-800 py-1">
                                 <div className="flex justify-between items-center">
@@ -448,16 +448,17 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 </div>
                             </div>
                         )}
-                        <MetricRow label="Balance actual (remaining)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" />
+                        <MetricRow label="Balance actual (remaining)" value={formatCurrency(metrics.cost.balance)} color="text-blue-800 dark:text-blue-300 font-black" tooltip="Diferencia entre el costo revisado y el monto ya certificado. Lo que falta por certificar." />
                         <MetricRow
                             label="Balance certs. pagadas"
                             value={formatCurrency(metrics.cost.paidCertsTotal)}
                             color="text-emerald-700 dark:text-emerald-400 font-bold"
+                            tooltip="Suma total de las certificaciones que ya han sido marcadas como pagadas."
                         />
                         
                         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">% DE OBRA EJECUTADA:</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-help" title="Porcentaje del monto de obra ejecutado respecto al costo revisado total del contrato.">% DE OBRA EJECUTADA:</span>
                                 <span className="text-sm font-black text-emerald-600">{metrics.cost.percentObra}%</span>
                             </div>
                             <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -470,7 +471,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                         <div className="mt-4">
                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Progreso del tiempo transcurrido:</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-help" title="Porcentaje de tiempo transcurrido del contrato respecto a los días revisados totales.">Progreso del tiempo transcurrido:</span>
                                 <span className="text-sm font-black text-blue-600">{metrics.time.percent}%</span>
                             </div>
                             <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -483,16 +484,14 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
 
                         <div className="mt-2 text-[10px] font-bold flex flex-col gap-1 text-slate-500 bg-slate-50 dark:bg-slate-900/50 p-2 rounded">
                             <div className="flex justify-between">
-                                <span>TOTAL FHWA:</span>
+                                <span className="cursor-help" title="Monto certificado y proyectado correspondiente a fondos federales FHWA.">TOTAL FHWA:</span>
                                 <span>{formatCurrency(metrics.cost.fhwaTotal)} / {formatCurrency(metrics.cost.fhwaProjected)}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span>TOTAL ACT:</span>
+                                <span className="cursor-help" title="Monto certificado y proyectado correspondiente a fondos locales ACT.">TOTAL ACT:</span>
                                 <span>{formatCurrency(metrics.cost.actTotal)} / {formatCurrency(metrics.cost.actProjected)}</span>
                             </div>
                         </div>
-
-
                     </div>
                 </div>
 
@@ -501,10 +500,10 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <Layers size={16} /> MATERIAL ON SITE
                     </div>
                     <div className="space-y-3">
-                        <MetricRow label="Balance Pagado Hasta la Fecha" value={formatCurrency(metrics.cost.mosHistoricalPaid)} color="text-slate-950 dark:text-white font-bold" />
-                        <MetricRow label="Total MOS Ejecutado" value={formatCurrency(metrics.cost.mosHistoricalPaid - metrics.cost.materialOnSite)} color="text-emerald-700" />
+                        <MetricRow label="Balance Pagado Hasta la Fecha" value={formatCurrency(metrics.cost.mosHistoricalPaid)} color="text-slate-950 dark:text-white font-bold" tooltip="Total histórico pagado como Material on Site (materiales almacenados en obra antes de ser instalados)." />
+                        <MetricRow label="Total MOS Ejecutado" value={formatCurrency(metrics.cost.mosHistoricalPaid - metrics.cost.materialOnSite)} color="text-emerald-700" tooltip="Monto de Material on Site que ya fue incorporado a la obra y certificado en trabajo ejecutado." />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.materialOnSite)} color="text-blue-800 dark:text-blue-400 font-black text-sm" />
+                        <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.materialOnSite)} color="text-blue-800 dark:text-blue-400 font-black text-sm" tooltip="Saldo de materiales almacenados en sitio que aún no se han incorporado a la obra (pendiente de ejecutar)." />
                     </div>
                 </div>
 
@@ -515,16 +514,16 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     <div className="space-y-3">
                         <div className="grid grid-cols-[24%_12%_16%_48%] gap-1 items-end text-[9px] font-black text-slate-500 uppercase pb-1 border-b border-slate-200 dark:border-slate-800">
                             <span></span>
-                            <span className="text-center">#</span>
-                            <span className="text-center leading-tight">Dias<br/>Otorg.</span>
-                            <span className="text-right">$</span>
+                            <span className="text-center" title="Número de órdenes de cambio">#</span>
+                            <span className="text-center leading-tight cursor-help" title="Días de extensión de tiempo otorgados por las órdenes de cambio.">Dias<br/>Otorg.</span>
+                            <span className="text-right cursor-help" title="Monto económico total de las órdenes de cambio.">$</span>
                         </div>
-                        <CHORow label="Aprobados" count={metrics.chos.approvedCount} days={metrics.chos.approvedDays} amount={formatCurrency(metrics.chos.approvedTotal)} color="text-emerald-800 dark:text-emerald-400" />
-                        <CHORow label="En Tramite" count={metrics.chos.pendingCount} days={metrics.chos.pendingDays} amount={formatCurrency(metrics.chos.pendingTotal)} color="text-amber-800 dark:text-amber-400" />
-                        <CHORow label="Resumen" count={metrics.chos.approvedCount + metrics.chos.pendingCount} days={metrics.chos.totalDays} amount={formatCurrency(metrics.chos.total)} color="font-black text-slate-950 dark:text-white" />
+                        <CHORow label="Aprobados" count={metrics.chos.approvedCount} days={metrics.chos.approvedDays} amount={formatCurrency(metrics.chos.approvedTotal)} color="text-emerald-800 dark:text-emerald-400" tooltip="Órdenes de cambio formalmente aprobadas que ya forman parte del contrato revisado." />
+                        <CHORow label="En Tramite" count={metrics.chos.pendingCount} days={metrics.chos.pendingDays} amount={formatCurrency(metrics.chos.pendingTotal)} color="text-amber-800 dark:text-amber-400" tooltip="Órdenes de cambio propuestas que están en proceso de revisión y aprobación." />
+                        <CHORow label="Resumen" count={metrics.chos.approvedCount + metrics.chos.pendingCount} days={metrics.chos.totalDays} amount={formatCurrency(metrics.chos.total)} color="font-black text-slate-950 dark:text-white" tooltip="Total combinado de todas las órdenes de cambio (aprobadas + en trámite)." />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="% de Cambio (Costo)" value={`${metrics.chos.percentChange}%`} color="text-amber-800 font-bold" />
-                        <MetricRow label="% de Cambio (Dias)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" />
+                        <MetricRow label="% de Cambio (Costo)" value={`${metrics.chos.percentChange}%`} color="text-amber-800 font-bold" tooltip="Porcentaje que representan las CHO aprobadas respecto al costo original del contrato." />
+                        <MetricRow label="% de Cambio (Dias)" value={`${metrics.chos.percentDays}%`} color="text-amber-700" tooltip="Porcentaje que representan los días de extensión otorgados respecto a los días originales del contrato." />
                     </div>
                 </div>
 
@@ -533,7 +532,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <Layers size={16} /> RETENCIONES Y OTROS
                     </div>
                     <div className="space-y-1">
-                        <MetricRow label="Retencion 5% ($) (-)" value={formatCurrency(metrics.retention.fivePercent)} />
+                        <MetricRow label="Retencion 5% ($) (-)" value={formatCurrency(metrics.retention.fivePercent)} tooltip="Monto total retenido al contratista (5% del monto certificado) como garantía de calidad de la obra." />
                         {metrics.cost.lastCertDate && (
                             <div className="ml-2 pl-2 border-l-2 border-violet-200 dark:border-violet-800 py-1 mb-1">
                                 <div className="flex justify-between items-center">
@@ -546,19 +545,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 </div>
                             </div>
                         )}
-                        <MetricRow label="Retención Extra ($) (-)" value={formatCurrency(metrics.retention.extra)} color={metrics.retention.extra > 0 ? "text-amber-700 font-bold" : ""} />
-                        <MetricRow label="Ajuste de Precio ($) (+)" value={formatCurrency(metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment > 0 ? "text-emerald-700 font-bold" : ""} />
-                        <MetricRow label="Multas Seguro ($) (-)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Otras Penalidades ($) (-)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} />
-                        <MetricRow label="Daños Liquidos (DLQ) ($) (-)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} />
+                        <MetricRow label="Retención Extra ($) (-)" value={formatCurrency(metrics.retention.extra)} color={metrics.retention.extra > 0 ? "text-amber-700 font-bold" : ""} tooltip="Retención adicional aplicada por encima del 5% estándar, según condiciones especiales del contrato." />
+                        <MetricRow label="Ajuste de Precio ($) (+)" value={formatCurrency(metrics.retention.priceAdjustment)} color={metrics.retention.priceAdjustment > 0 ? "text-emerald-700 font-bold" : ""} tooltip="Compensación por variación en costos de materiales u otros factores económicos reconocidos en el contrato." />
+                        <MetricRow label="Multas Seguro ($) (-)" value={formatCurrency(metrics.retention.insuranceFines)} color={metrics.retention.insuranceFines > 0 ? "text-red-700" : ""} tooltip="Penalidades aplicadas por incumplimiento en los requisitos de seguro del contratista." />
+                        <MetricRow label="Otras Penalidades ($) (-)" value={formatCurrency(metrics.retention.otherPenalties)} color={metrics.retention.otherPenalties > 0 ? "text-red-700" : ""} tooltip="Penalidades diversas no clasificadas en otra categoría, aplicadas al contratista." />
+                        <MetricRow label="Daños Liquidos (DLQ) ($) (-)" value={formatCurrency(metrics.penalties.liquidated)} color={metrics.penalties.liquidated > 0 ? "text-red-700 font-bold" : ""} tooltip="Multas por atraso en la terminación del proyecto, calculadas diariamente según el contrato." />
                         
                         <hr className="my-1 border-slate-100 dark:border-slate-800" />
-                        <MetricRow label="Reembolso Retención ($) (+)" value={metrics.retention.returned > 0 ? `+${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" />
-                        <MetricRow label="Reembolso Penalidades ($) (+)" value={metrics.penalties.dlqReimbursement > 0 ? `+${formatCurrency(metrics.penalties.dlqReimbursement)}` : formatCurrency(0)} color="text-emerald-700" />
+                        <MetricRow label="Reembolso Retención ($) (+)" value={metrics.retention.returned > 0 ? `+${formatCurrency(metrics.retention.returned)}` : formatCurrency(0)} color="text-emerald-700" tooltip="Monto de retención devuelto al contratista, usualmente al completar hitos importantes de la obra." />
+                        <MetricRow label="Reembolso Penalidades ($) (+)" value={metrics.penalties.dlqReimbursement > 0 ? `+${formatCurrency(metrics.penalties.dlqReimbursement)}` : formatCurrency(0)} color="text-emerald-700" tooltip="Devolución de daños líquidos u otras penalidades previamente cobradas, aprobadas mediante resolución." />
 
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Retenciones y Penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" />
-                        <MetricRow label="Net Paid" value={formatCurrency(roundedAmt(metrics.cost.certTotal - metrics.retention.total, 2))} color="text-emerald-700 dark:text-emerald-400 font-bold" />
+                        <MetricRow label="Retenciones y Penalidades" value={formatCurrency(metrics.retention.total)} color="text-violet-800 dark:text-violet-400 font-bold" tooltip="Suma neta de todas las retenciones y penalidades aplicadas, menos los reembolsos recibidos." />
+                        <MetricRow label="Net Paid" value={formatCurrency(roundedAmt(metrics.cost.certTotal - metrics.retention.total, 2))} color="text-emerald-700 dark:text-emerald-400 font-bold" tooltip="Monto neto efectivamente pagado al contratista (monto certificado menos retenciones y penalidades)." />
                     </div>
                 </div>
 
@@ -568,12 +567,12 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                     <div className="space-y-1">
                         <div className="flex justify-between items-center py-1">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Items con Cierre:</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block cursor-help" title="Número de partidas del contrato que ya tienen las tres firmas de cierre requeridas (Admin, Contratista y Liquidador).">Items con Cierre:</span>
                             <span className="text-sm font-black">{metrics.liquidation.adminSigned} / {metrics.liquidation.totalItems}</span>
                         </div>
                         <div className="mt-2 mb-4">
                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">% FIRMAS RECOLECTADAS:</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-help" title="Porcentaje de firmas de liquidación recolectadas sobre el total requerido (3 firmas × total de items).">% FIRMAS RECOLECTADAS:</span>
                                 <span className="text-sm font-black text-emerald-600">{metrics.liquidation.percent}%</span>
                             </div>
                             <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -588,20 +587,20 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-100 dark:border-slate-800">
                             <div className="text-center">
                                 <div className="text-[10px] font-black text-emerald-600">{metrics.liquidation.adminSignedCount}</div>
-                                <div className="text-[7px] font-bold text-slate-400 uppercase">Admin</div>
+                                <div className="text-[7px] font-bold text-slate-400 uppercase cursor-help" title="Número de items firmados por el Administrador del contrato.">Admin</div>
                             </div>
                             <div className="text-center border-x border-slate-100 dark:border-slate-800">
                                 <div className="text-[10px] font-black text-emerald-600">{metrics.liquidation.contractorSignedCount}</div>
-                                <div className="text-[7px] font-bold text-slate-400 uppercase">Contr</div>
+                                <div className="text-[7px] font-bold text-slate-400 uppercase cursor-help" title="Número de items firmados por el Contratista.">Contr</div>
                             </div>
                             <div className="text-center">
                                 <div className="text-[10px] font-black text-emerald-600">{metrics.liquidation.liquidatorSignedCount}</div>
-                                <div className="text-[7px] font-bold text-slate-400 uppercase">Liq</div>
+                                <div className="text-[7px] font-bold text-slate-400 uppercase cursor-help" title="Número de items firmados por el Liquidador.">Liq</div>
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Documentos de Cierre Recibidos:</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1 cursor-help" title="Lista de documentos de cierre federal que han sido marcados como recibidos en el proyecto.">Documentos de Cierre Recibidos:</span>
                             <div className="max-h-32 overflow-y-auto space-y-1 custom-scrollbar pr-1">
                                 {metrics.liquidation.federalDocs.length > 0 ? (
                                     metrics.liquidation.federalDocs.map((doc, i) => (
@@ -652,19 +651,19 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     );
 }
 
-function MetricRow({ label, value, color }: { label: string, value: string | number, color?: string }) {
+function MetricRow({ label, value, color, tooltip }: { label: string, value: string | number, color?: string, tooltip?: string }) {
     return (
         <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
-            <span className="text-[11px] font-black text-slate-800 dark:text-slate-300 uppercase tracking-tight">{label}</span>
+            <span className={`text-[11px] font-black text-slate-800 dark:text-slate-300 uppercase tracking-tight ${tooltip ? 'cursor-help' : ''}`} title={tooltip}>{label}</span>
             <span className={`text-sm font-black ${color || 'text-slate-950 dark:text-white'}`}>{value}</span>
         </div>
     );
 }
 
-function CHORow({ label, count, days, amount, color }: { label: string, count: number, days: number, amount: string, color?: string }) {
+function CHORow({ label, count, days, amount, color, tooltip }: { label: string, count: number, days: number, amount: string, color?: string, tooltip?: string }) {
     return (
         <div className={`grid grid-cols-[24%_12%_16%_48%] gap-1 items-center py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0 ${color || 'text-slate-950 dark:text-white'}`}>
-            <span className="text-[10px] font-black text-slate-800 dark:text-slate-300 uppercase tracking-tighter leading-none break-words">{label}</span>
+            <span className={`text-[10px] font-black text-slate-800 dark:text-slate-300 uppercase tracking-tighter leading-none break-words ${tooltip ? 'cursor-help' : ''}`} title={tooltip}>{label}</span>
             <span className="text-sm font-black text-center">{count}</span>
             <span className="text-sm font-black text-center">{days}</span>
             <span className="text-[13px] font-black text-right tracking-tight truncate">{amount}</span>
