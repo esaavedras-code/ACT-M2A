@@ -26,7 +26,7 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: 'Inter', sans-serif;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: auto !important;
   min-height: 100%;
   transition: background-color 0.3s ease, color 0.3s ease;

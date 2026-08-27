@@ -53,7 +53,7 @@ export default function RootLayout({
                         </Suspense>
 
                         <main className="flex-grow pt-24 pb-24 lg:pb-12 sm:pt-24 md:pt-28">
-                            <div className="max-w-[1600px] mx-auto px-4 md:px-8 relative overflow-x-hidden">
+                            <div className="max-w-[1600px] mx-auto px-4 md:px-8 relative overflow-x-auto custom-scrollbar">
                                 <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div></div>}>
                                     {children}
                                 </Suspense>
