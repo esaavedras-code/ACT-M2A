@@ -433,7 +433,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     <div className="space-y-1">
                         <MetricRow label="Costo Original" value={formatCurrency(metrics.cost.original)} tooltip="Monto total del contrato según fue adjudicado originalmente." />
                         <MetricRow label="Costo ajustado (Revisado)" value={formatCurrency(metrics.cost.original + metrics.chos.approvedTotal)} color="text-emerald-700 font-bold" tooltip="Costo original más el total de órdenes de cambio (CHO) aprobadas." />
-                        <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" tooltip="Monto total certificado para pago hasta la fecha según el Work Program (WP)." />
+                        <MetricRow label="Certified to date (WP)" value={formatCurrency(metrics.cost.certTotal)} color="text-emerald-700" tooltip="Monto total certificado para pago hasta la fecha según el Work Performed (WP)." />
                         {metrics.cost.lastCertDate && (
                             <div className="ml-2 pl-2 border-l-2 border-emerald-200 dark:border-emerald-800 py-1">
                                 <div className="flex justify-between items-center">
