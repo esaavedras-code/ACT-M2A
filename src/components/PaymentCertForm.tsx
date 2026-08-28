@@ -448,13 +448,21 @@ const PaymentCertForm = React.forwardRef(({
 
                 const missing = missingScaled * (mfgQtyLimit / 100);
                 const availablePhysical = totalMfgApproved - (paidInPrevious * (mfgQtyLimit / 100));
+                
+                let mfgDesc = contractIt?.mfg_cert_description;
+                if (!mfgDesc) {
+                    const coIt = approvedCHOs.map((cho: any) => (Array.isArray(cho.items) ? cho.items : cho.items?.list || [])?.find((cit: any) => normalizeItemNum(cit.item_num) === itemNumStr)).find(Boolean);
+                    mfgDesc = coIt?.mfg_cert_description;
+                }
+
                 return { 
                     status: 'INSUFFICIENT', 
                     available: availablePhysical, 
                     used: paidInPrevious, 
                     missing, 
                     approved: totalMfgApproved, 
-                    qtyToPay 
+                    qtyToPay: qtyToPay * (mfgQtyLimit / 100),
+                    displayUnit: mfgDesc || 'CM'
                 };
             }
         } else {
@@ -1044,9 +1052,9 @@ const PaymentCertForm = React.forwardRef(({
 
         if (insufficientItems.length > 0) {
             const detail = insufficientItems.map(({ it, status }) =>
-                `• Partida ${it.item_num}: quieres pagar ${formatNumber(status.qtyToPay)} ${it.unit}, disponible con CM: ${formatNumber(status.available)} ${it.unit}, FALTAN: ${formatNumber(status.missing)} ${it.unit}`
+                `• Partida ${it.item_num}: quieres pagar ${formatNumber(status.qtyToPay)} ${status.displayUnit || it.unit}, disponible con CM: ${formatNumber(status.available)} ${status.displayUnit || it.unit}, FALTAN: ${formatNumber(status.missing)} ${status.displayUnit || it.unit}`
             ).join('\n');
-            if (!confirm(`🚫 NO SE PUEDE IMPRIMIR: CERTIFICADOS DE MANUFACTURA INSUFICIENTES\n\n${detail}\n\n¿Deseas imprimir de todos modos sin corregirlo?`)) {
+            if (!confirm(`⚠️ NO SE PUEDE IMPRIMIR: CERTIFICADOS DE MANUFACTURA INSUFICIENTES\n\n${detail}\n\n¿Deseas imprimir de todos modos sin corregirlo?`)) {
                 return;
             }
         }
@@ -1909,8 +1917,8 @@ const PaymentCertForm = React.forwardRef(({
                                                     {blockedItems.map(({ it, status }) => (
                                                         <div key={it.item_num} className="flex items-center gap-2 text-[10px] font-bold text-red-700 dark:text-red-400">
                                                             <span className="bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded font-black">Partida {it.item_num}</span>
-                                                            <span>Se quiere pagar <span className="font-black">{formatNumber(status.qtyToPay)} {it.unit}</span>, pero solo hay <span className="font-black">{formatNumber(status.available)} {it.unit}</span> con CM aprobado.</span>
-                                                            <span className="bg-red-200 dark:bg-red-800 px-1.5 py-0.5 rounded font-black text-red-800 dark:text-red-200">Faltan {formatNumber(status.missing)} {it.unit}</span>
+                                                            <span>Se quiere pagar <span className="font-black">{formatNumber(status.qtyToPay)} {status.displayUnit || it.unit}</span>, pero solo hay <span className="font-black">{formatNumber(status.available)} {status.displayUnit || it.unit}</span> con CM aprobado.</span>
+                                                            <span className="bg-red-200 dark:bg-red-800 px-1.5 py-0.5 rounded font-black text-red-800 dark:text-red-200">Faltan {formatNumber(status.missing)} {status.displayUnit || it.unit}</span>
                                                         </div>
                                                     ))}
                                                 </div>

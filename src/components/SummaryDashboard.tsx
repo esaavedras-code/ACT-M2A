@@ -268,7 +268,13 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                             missing = missingScaled * (mfgQtyLimit / 100);
                             available = totalMfgApproved - (paidInPrevious * (mfgQtyLimit / 100));
                             qtyToPay = qtyToPay * (mfgQtyLimit / 100);
-                            displayUnit = 'CM';
+                            
+                            let mfgDesc = contractIt?.mfg_cert_description;
+                            if (!mfgDesc) {
+                                const coIt = approvedCHOsForMfg.map((cho: any) => (Array.isArray(cho.items) ? cho.items : cho.items?.list || [])?.find((cit: any) => normalizeItemNum(cit.item_num) === itemNumStr)).find(Boolean);
+                                mfgDesc = coIt?.mfg_cert_description;
+                            }
+                            displayUnit = mfgDesc || 'CM';
                         }
                     } else {
                         available = totalMfgApproved - paidInPrevious;

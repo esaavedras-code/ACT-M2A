@@ -70,9 +70,15 @@ body {
 }
 
 /* Corregir contraste en campos verdes obligatorios en móvil y desktop */
-.input-field[style*="background-color: #66FF99"],
-.input-field[style*="background-color:#66FF99"],
-.input-field[style*="background-color: rgb(102, 255, 153)"] {
+.input-field[style*="background-color: #66FF99" i],
+.input-field[style*="background-color:#66FF99" i],
+.input-field[style*="102, 255, 153"],
+.input-field[style*="102,255,153"],
+.input-field[style*="102, 255,153"],
+.input-field[style*="background-color: #D1FAE5" i],
+.input-field[style*="background-color:#D1FAE5" i],
+.input-field[style*="209, 250, 229"],
+.input-field[style*="209,250,229"] {
   color: #020617 !important;
   font-weight: 800 !important;
   padding-left: 8px !important;
