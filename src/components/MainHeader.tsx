@@ -35,8 +35,7 @@ export default function MainHeader() {
                     </Link>
                     <nav className="hidden lg:flex gap-2 xl:gap-6 items-center border-l border-white/20 pl-4 xl:pl-6 ml-1 xl:ml-2">
                         <Link href="/" className="flex flex-col items-center justify-center text-[20px] xl:text-[23px] font-black uppercase tracking-[0.05em] xl:tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0 leading-none">
-                            <span>DASHBOARD</span>
-                            <span className="text-[17px] xl:text-[20px] opacity-70 normal-case mt-[-2px]">(Proyectos)</span>
+                            <span>Selección de Proyecto</span>
                         </Link>
 
                         <Suspense fallback={null}>
