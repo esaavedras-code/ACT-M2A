@@ -6,6 +6,7 @@ import ProjectHeaderActions from "@/components/ProjectHeaderActions";
 import ReportesMenu from "@/components/ReportesMenu";
 import Image from "next/image";
 import Link from "next/link";
+import { FolderOpen } from "lucide-react";
 import MobileMenu from "@/components/MobileMenu";
 import BrandName from "@/components/BrandName";
 import ExitButton from "@/components/ExitButton";
@@ -34,8 +35,12 @@ export default function MainHeader() {
                         <BrandName />
                     </Link>
                     <nav className="hidden lg:flex gap-2 xl:gap-6 items-center border-l border-white/20 pl-4 xl:pl-6 ml-1 xl:ml-2">
-                        <Link href="/" className="flex flex-col items-center justify-center text-[20px] xl:text-[23px] font-black uppercase tracking-[0.05em] xl:tracking-[0.1em] hover:text-blue-200 transition-colors shrink-0 leading-none">
-                            <span>Selección de Proyecto</span>
+                        <Link
+                            href="/"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-300 font-bold text-sm uppercase tracking-wider bg-amber-400/20 hover:bg-amber-400/35 text-amber-100 border border-amber-300/30 shrink-0"
+                        >
+                            <FolderOpen size={18} />
+                            Selección de Proyectos
                         </Link>
 
                         <Suspense fallback={null}>
