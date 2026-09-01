@@ -200,6 +200,32 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         if (!projectId) return;
         setUploadingCmIdx(idx);
         try {
+            // Intentar extraer información si es PDF
+            let parsedMfg = "";
+            let parsedMaterial = "";
+            let parsedDate = "";
+            
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                try {
+                    const reader = new FileReader();
+                    const base64 = await new Promise<string>((resolve, reject) => {
+                        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    
+                    const data = await parsePdfClient(base64);
+                    if (data.success && data.text) {
+                        const extracted = extractData(data.text);
+                        parsedMfg = extracted.manufacturer_name || "Detectado en PDF";
+                        parsedMaterial = extracted.material_description || "Descripción identificada";
+                        parsedDate = extracted.cert_date;
+                    }
+                } catch (e) {
+                    console.error("Error extrayendo datos del PDF", e);
+                }
+            }
+
             const dateFolder = new Date().toISOString().split('T')[0];
             const timestamp = Date.now();
             
@@ -237,10 +263,21 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                 storage_path: storagePath,
             });
 
-            // Guardar ruta en el cert
+            // Guardar ruta y datos extraídos en el cert
             const newList = [...certs];
             newList[idx].cert_file_path = storagePath;
             newList[idx].cert_file_name = safeName;
+            
+            if (parsedMfg && !newList[idx].manufacturer_name) {
+                newList[idx].manufacturer_name = parsedMfg;
+            }
+            if (parsedMaterial && !newList[idx].material_description) {
+                newList[idx].material_description = parsedMaterial;
+            }
+            if (parsedDate && !newList[idx].cert_date) {
+                newList[idx].cert_date = parsedDate;
+            }
+            
             setCerts(newList);
             if (onDirty) onDirty();
             
