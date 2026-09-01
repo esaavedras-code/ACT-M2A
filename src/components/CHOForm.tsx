@@ -573,7 +573,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 <th className="py-1 px-0.5 min-w-[350px]">Descripción</th>
                                                 <th className="py-1 px-0.5 w-28 text-center">Unit</th>
                                                 <th className="py-1 px-0.5 w-36 text-right">Qty</th>
-                                                <th className="py-1 px-0.5 w-40 text-right">Unit Price</th>
+                                                <th className="py-1 px-0.5 w-52 text-right">Unit Price</th>
                                                 <th className="py-1 px-0.5 w-44 text-right">Amount</th>
                                                 <th className="py-1 px-0.5 w-48">Fondos</th>
                                                 <th className="py-1 px-0.5 w-14 text-center" style={{ backgroundColor: '#66FF99' }}>CM</th>
@@ -644,7 +644,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                         <input type="text" className="input-field text-[10px] text-right !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.quantity ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'quantity', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className="py-0.5 px-0.5">
-                                                        <input type="number" step="0.0001" className="input-field text-[10px] text-right !px-2 h-7" style={{ backgroundColor: '#66FF99' }} value={item.unit_price ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)} disabled={item.is_admin_amendment} />
+                                                        <input type="number" step="0.0001" className="input-field text-[10px] text-right !px-2 h-7 w-full" style={{ backgroundColor: '#66FF99' }} value={item.unit_price ?? ""} onChange={(e) => updateCHOItem(idx, itIdx, 'unit_price', e.target.value)} disabled={item.is_admin_amendment} />
                                                     </td>
                                                     <td className={`py-0.5 px-0.5 text-right text-xs font-black !pr-4 ${
                                                         (() => {

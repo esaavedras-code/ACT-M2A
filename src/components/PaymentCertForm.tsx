@@ -46,14 +46,19 @@ export const normalizeItemNum = (num: any): string => {
 
 export const formatUnitPrice = (val: any): string => {
     if (val === undefined || val === null || val === "") return "";
-    // Si ya es un string numérico válido, preservarlo tal cual (evita imprecisión de float64)
+    // Eliminar comas existentes para procesar el número limpio
     const strVal = String(val).replace(/,/g, '').trim();
     const num = parseFloat(strVal);
     if (isNaN(num)) return typeof val === 'string' ? val : "";
-    // Retornar el string original si representa el mismo número (evita 697.8246 → 697.82459999...)
-    if (String(num) === strVal || strVal === String(num)) return strVal;
-    // Fallback: limpiar ceros trailing sin perder decimales significativos
-    return num.toPrecision(10).replace(/\.?0+$/, '');
+    // Separar parte entera y decimal del string original (para preservar decimales exactos)
+    const dotIdx = strVal.indexOf('.');
+    const sign = num < 0 ? '-' : '';
+    const intAbsStr = Math.floor(Math.abs(num)).toLocaleString('en-US'); // con comas de miles
+    if (dotIdx >= 0) {
+        const decPart = strVal.substring(dotIdx + 1);
+        return `${sign}${intAbsStr}.${decPart}`;
+    }
+    return `${sign}${intAbsStr}`;
 };
 
 export const processCertsData = (certsList: any[], itemsList: any[], choList: any[] = []) => {
@@ -1533,7 +1538,7 @@ const PaymentCertForm = React.forwardRef(({
                                     </div>
 
                                     {/* Totales Principales */}
-                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 flex-1 items-start bg-white dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
+                                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-6 gap-y-4 flex-1 items-start bg-white dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">Trabajo ejec. (WP)</span>
                                             <span className="text-xl xl:text-2xl font-black text-emerald-600 font-geist tracking-tight">{formatCurrency(certWork)}</span>
@@ -1586,6 +1591,84 @@ const PaymentCertForm = React.forwardRef(({
                                                 )}
                                             </div>
                                         </div>
+                                        {/* Bloque % Tiempo y % WP para la fecha de esta certificación */}
+                                        {(() => {
+                                            const certDate = c.cert_date;
+                                            const startStr = projectData?.date_project_start;
+                                            const origEndStr = projectData?.date_orig_completion;
+                                            let timePct: number | null = null;
+                                            if (certDate && startStr && origEndStr) {
+                                                const startMs = new Date(startStr + "T00:00:00").getTime();
+                                                const certMs = new Date(certDate + "T00:00:00").getTime();
+                                                const origEndMs = new Date(origEndStr + "T00:00:00").getTime();
+                                                if (!isNaN(startMs) && !isNaN(certMs) && !isNaN(origEndMs)) {
+                                                    const totalDays = Math.round((origEndMs - startMs) / (1000 * 3600 * 24)) + 1;
+                                                    const extraDays = (projectData?.change_orders || projectData?.chos || [])
+                                                        .filter((cho: any) => cho.doc_status === 'Aprobado')
+                                                        .reduce((acc: number, cho: any) => acc + (parseFloat(cho.time_extension_days) || 0), 0);
+                                                    const revisedDays = totalDays + extraDays;
+                                                    const usedDays = Math.round((certMs - startMs) / (1000 * 3600 * 24)) + 1;
+                                                    if (revisedDays > 0) {
+                                                        timePct = Math.min(100, roundedAmt((usedDays / revisedDays) * 100, 1));
+                                                    }
+                                                }
+                                            }
+                                            // % WP acumulado hasta esta cert
+                                            // certs está en orden descendente: índice 0 = cert más reciente
+                                            let accWork = 0;
+                                            for (let k = certIdx; k < certs.length; k++) {
+                                                const ck = certs[k];
+                                                if (ck.excluded) continue;
+                                                (ck.items || []).forEach((it: any) => {
+                                                    accWork = roundedAmt(accWork + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2);
+                                                });
+                                            }
+                                            // Total revisado = contractItems + CHOs aprobados
+                                            const chosList = projectData?.change_orders || projectData?.chos || [];
+                                            const approvedCHOs = chosList.filter((cho: any) => cho.doc_status === 'Aprobado');
+                                            const contractTotal = (contractItems || []).reduce((sum: number, it: any) =>
+                                                roundedAmt(sum + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0);
+                                            const choTotal = approvedCHOs.reduce((sum: number, cho: any) =>
+                                                sum + (Array.isArray(cho.items) ? cho.items.reduce((s: number, it: any) =>
+                                                    roundedAmt(s + roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2), 2), 0) : 0), 0);
+                                            const revisedTotal = roundedAmt(contractTotal + choTotal, 2);
+                                            const wpPct = revisedTotal > 0 ? Math.min(100, roundedAmt((accWork / revisedTotal) * 100, 1)) : null;
+                                            return (
+                                                <div className="space-y-2">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">% al día de la Cert.</span>
+                                                    <div className="flex flex-col gap-2">
+                                                        {timePct !== null ? (
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">% Tiempo</span>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className={`text-xl font-black font-geist tracking-tight ${timePct >= 100 ? 'text-red-500' : timePct >= 80 ? 'text-amber-500' : 'text-sky-500'}`}>
+                                                                        {timePct.toFixed(1)}%
+                                                                    </span>
+                                                                </div>
+                                                                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 mt-0.5">
+                                                                    <div className={`h-1.5 rounded-full ${timePct >= 100 ? 'bg-red-500' : timePct >= 80 ? 'bg-amber-400' : 'bg-sky-400'}`} style={{ width: `${Math.min(100, timePct)}%` }} />
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-[9px] text-slate-300 italic">Sin fechas de contrato</div>
+                                                        )}
+                                                        {wpPct !== null ? (
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">% WP</span>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className={`text-xl font-black font-geist tracking-tight ${wpPct >= 100 ? 'text-primary' : wpPct >= 80 ? 'text-emerald-600' : 'text-emerald-500'}`}>
+                                                                        {wpPct.toFixed(1)}%
+                                                                    </span>
+                                                                </div>
+                                                                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 mt-0.5">
+                                                                    <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${Math.min(100, wpPct)}%` }} />
+                                                                </div>
+                                                            </div>
+                                                        ) : null}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">MOS Neto (M)</span>
                                             <span className={`text-xl xl:text-2xl font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
@@ -1598,6 +1681,7 @@ const PaymentCertForm = React.forwardRef(({
                                                 {formatCurrency(certNetChange)}
                                             </span>
                                         </div>
+
                                     </div>
 
                                     {/* Notas de la Certificación */}
@@ -2170,7 +2254,7 @@ const PaymentCertForm = React.forwardRef(({
                                                                         style={{ backgroundColor: '#66FF99' }}
                                                                         value={formatUnitPrice(item.unit_price)}
                                                                         onChange={(e) => {
-                                                                            const raw = e.target.value;
+                                                                            const raw = e.target.value.replace(/,/g, ''); // quitar comas de formato
                                                                             if (/^-?[0-9]*\.?[0-9]{0,10}$/.test(raw) || raw === '' || raw === '-') {
                                                                                 updateCertItem(certIdx, itIdx, 'unit_price', raw);
                                                                             }
