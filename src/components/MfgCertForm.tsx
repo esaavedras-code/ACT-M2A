@@ -131,12 +131,34 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             console.error("Error fetching mfg certs:", error.message);
             return;
         }
+
+        // Recuperar los documentos del proyecto para enlazar los archivos subidos
+        const { data: docs } = await supabase.from("project_documents").select("file_name, storage_path").eq("project_id", projectId).eq("doc_type", "mfg");
+
         if (data && data.length > 0) {
             const mapped = data.map(c => {
                 const matchItem = cItems.find((it: any) => it.id === c.item_id);
+                
+                // Buscar el documento correspondiente analizando el nombre
+                let doc = null;
+                if (matchItem && docs) {
+                    const itNum = stripLeadingZeros(matchItem.item_num);
+                    doc = docs.find(d => {
+                        // Buscar en "Item XX, YY AC-"
+                        const m = (d.file_name || "").match(/Item\s+([\d,\s]+)\s+AC-/i);
+                        if (m) {
+                            const nums = m[1].split(',').map(n => n.trim());
+                            return nums.includes(itNum);
+                        }
+                        return (d.file_name || "").includes(`Item ${itNum} `) || (d.file_name || "").includes(`Item ${itNum}.`);
+                    });
+                }
+
                 return {
                     ...c,
                     item_num: matchItem ? matchItem.item_num : null,
+                    cert_file_path: doc ? doc.storage_path : undefined,
+                    cert_file_name: doc ? doc.file_name : undefined,
                     validation: {
                         isSteel: c.is_steel,
                         hasBuyAmerica: c.has_buy_america,
@@ -449,7 +471,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
 
             const updates = [], inserts = [];
             for (const c of expanded) {
-                const { id, created_at, validation, _unit, item_num, specification, item_ids, is_multiple, multiple_quantities, ...rest } = c;
+                const { id, created_at, validation, _unit, item_num, specification, item_ids, is_multiple, multiple_quantities, cert_file_path, cert_file_name, ...rest } = c;
                 const payload = {
                     ...rest,
                     project_id: projectId,
