@@ -656,7 +656,7 @@ function ProjectDetailContent() {
                                             </div>
                                         </div>
                                         <div className="mt-8">
-                                            {selectedMfgSection === "mfg" && <MfgCertForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
+                                            {selectedMfgSection === "mfg" && <MfgCertForm ref={activeRef} projectId={id} numAct={numAct} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                             {selectedMfgSection === "icc" && <InitialCertificationForm ref={activeRef} projectId={id} onSaved={() => setIsDirty(false)} onDirty={() => setIsDirty(true)} />}
                                         </div>
                                     </div>
