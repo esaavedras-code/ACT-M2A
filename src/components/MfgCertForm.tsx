@@ -202,7 +202,27 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
         try {
             const dateFolder = new Date().toISOString().split('T')[0];
             const timestamp = Date.now();
-            const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+            
+            // Determinar número(s) de partida
+            const cert = certs[idx];
+            let itemNumPart = "XX";
+            if (cert.is_multiple && Array.isArray(cert.item_ids)) {
+                const numbers = cert.item_ids.map((id: string) => {
+                    const item = contractItems.find(it => it.id === id);
+                    return item ? stripLeadingZeros(item.item_num) : "";
+                }).filter(Boolean);
+                if (numbers.length > 0) itemNumPart = numbers.join(", ");
+            } else if (cert.item_id) {
+                const item = contractItems.find(it => it.id === cert.item_id);
+                if (item) itemNumPart = stripLeadingZeros(item.item_num);
+            }
+
+            // Asegurar que el numero de proyecto tenga prefijo AC-
+            const projectStr = numAct ? (numAct.startsWith('AC-') ? numAct : `AC-${numAct}`) : 'AC-XXXXXX';
+            const ext = file.name.split('.').pop() || 'pdf';
+            const finalFileName = `Item ${itemNumPart} ${projectStr}.${ext}`;
+            const safeName = finalFileName.replace(/[^a-zA-Z0-9., _-]/g, '_');
+            
             const storagePath = `${projectId}/mfg/${dateFolder}/${timestamp}_${safeName}`;
 
             const { error: storageErr } = await supabase.storage.from("project-documents").upload(storagePath, file);
@@ -211,7 +231,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             // Registrar en project_documents
             await supabase.from("project_documents").insert({
                 project_id: projectId,
-                file_name: file.name,
+                file_name: safeName,
                 doc_type: "mfg",
                 section: "mfg",
                 storage_path: storagePath,
@@ -220,10 +240,11 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
             // Guardar ruta en el cert
             const newList = [...certs];
             newList[idx].cert_file_path = storagePath;
-            newList[idx].cert_file_name = file.name;
+            newList[idx].cert_file_name = safeName;
             setCerts(newList);
             if (onDirty) onDirty();
-            alert(`Archivo "${file.name}" subido correctamente a Certificados CM.`);
+            
+            // No hacemos alert para no interrumpir el flujo del usuario si no es necesario, el UI ya lo indicará
         } catch (err: any) {
             console.error("Error subiendo CM:", err);
             alert("Error al subir el archivo. Intente de nuevo.");
@@ -875,9 +896,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     disabled={uploadingCmIdx === idx}
                                     className={`flex items-center justify-center w-9 h-9 rounded-full border transition-all shadow-sm ${
                                         c.cert_file_path
-                                            ? c.cert_file_name?.toLowerCase().endsWith('.pdf')
-                                                ? 'border-red-400 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-600'
-                                                : 'border-emerald-400 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-600'
+                                            ? 'border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600'
                                             : 'border-blue-200 text-blue-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-400'
                                     }`}
                                     title={c.cert_file_path ? `CM: ${c.cert_file_name || 'Archivo subido'} — clic para reemplazar` : "Subir archivo CM"}
@@ -885,9 +904,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                     {uploadingCmIdx === idx
                                         ? <Loader2 size={15} className="animate-spin" />
                                         : c.cert_file_path
-                                            ? c.cert_file_name?.toLowerCase().endsWith('.pdf')
-                                                ? <FileText size={15} />
-                                                : <Paperclip size={15} />
+                                            ? <CheckCircle2 size={16} />
                                             : <Upload size={15} />}
                                 </button>
                                 {c.cert_file_name && (
