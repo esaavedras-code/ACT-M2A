@@ -430,7 +430,7 @@ const ItemsForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onD
 
                             return (
                                 <React.Fragment key={idx}>
-                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                                    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors align-top">
                                         <td className="pl-3 pr-1 py-1.5">
                                             <div className="relative group flex justify-center">
                                                 <input
