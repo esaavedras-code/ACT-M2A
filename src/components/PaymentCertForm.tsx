@@ -1503,7 +1503,7 @@ const PaymentCertForm = React.forwardRef(({
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest text-[#d97706]">Trabajo ejec. hasta</label>
+                                            <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest text-[#d97706]">Trabajo ejec. hasta (WP)</label>
                                             <input
                                                 type="date"
                                                 className="input-field text-sm font-bold border-amber-200 focus:ring-amber-500 !w-[140px] h-8 bg-white dark:bg-slate-900"
@@ -1593,21 +1593,22 @@ const PaymentCertForm = React.forwardRef(({
                                         </div>
                                         {/* Bloque % Tiempo y % WP para la fecha de esta certificación */}
                                         {(() => {
-                                            const certDate = c.cert_date;
+                                            // % Tiempo calculado respecto a la fecha del trabajo ejecutado (WP), no la fecha de cert.
+                                            const wpDateStr = c.wp_up_to || c.cert_date;
                                             const startStr = projectData?.date_project_start;
                                             const origEndStr = projectData?.date_orig_completion;
                                             let timePct: number | null = null;
-                                            if (certDate && startStr && origEndStr) {
+                                            if (wpDateStr && startStr && origEndStr) {
                                                 const startMs = new Date(startStr + "T00:00:00").getTime();
-                                                const certMs = new Date(certDate + "T00:00:00").getTime();
+                                                const wpMs = new Date(wpDateStr + "T00:00:00").getTime();
                                                 const origEndMs = new Date(origEndStr + "T00:00:00").getTime();
-                                                if (!isNaN(startMs) && !isNaN(certMs) && !isNaN(origEndMs)) {
+                                                if (!isNaN(startMs) && !isNaN(wpMs) && !isNaN(origEndMs)) {
                                                     const totalDays = Math.round((origEndMs - startMs) / (1000 * 3600 * 24)) + 1;
                                                     const extraDays = (projectData?.change_orders || projectData?.chos || [])
                                                         .filter((cho: any) => cho.doc_status === 'Aprobado')
                                                         .reduce((acc: number, cho: any) => acc + (parseFloat(cho.time_extension_days) || 0), 0);
                                                     const revisedDays = totalDays + extraDays;
-                                                    const usedDays = Math.round((certMs - startMs) / (1000 * 3600 * 24)) + 1;
+                                                    const usedDays = Math.round((wpMs - startMs) / (1000 * 3600 * 24)) + 1;
                                                     if (revisedDays > 0) {
                                                         timePct = Math.min(100, roundedAmt((usedDays / revisedDays) * 100, 1));
                                                     }
