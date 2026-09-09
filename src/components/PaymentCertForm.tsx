@@ -1541,7 +1541,7 @@ const PaymentCertForm = React.forwardRef(({
                                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-6 gap-y-4 flex-1 items-start bg-white dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/50 shadow-sm">
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">Trabajo ejec. (WP)</span>
-                                            <span className="text-xl xl:text-2xl font-black text-emerald-600 font-geist tracking-tight">{formatCurrency(certWork)}</span>
+                                            <span className="text-base xl:text-lg font-black text-emerald-600 font-geist tracking-tight">{formatCurrency(certWork)}</span>
                                         </div>
                                         <div className="space-y-1">
                                             <div className="flex flex-col gap-1">
@@ -1558,7 +1558,7 @@ const PaymentCertForm = React.forwardRef(({
                                                     </label>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className={`text-xl xl:text-2xl font-black ${c.skip_retention ? 'text-slate-300 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
+                                                    <span className={`text-base xl:text-lg font-black ${c.skip_retention ? 'text-slate-300 line-through' : 'text-amber-600'} font-geist tracking-tight`}>
                                                         {formatCurrency(c.skip_retention ? 0 : -certRetentionDisplay)}
                                                     </span>
                                                 </div>
@@ -1642,7 +1642,7 @@ const PaymentCertForm = React.forwardRef(({
                                                             <div className="flex flex-col gap-0.5">
                                                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">% Tiempo</span>
                                                                 <div className="flex items-center gap-1.5">
-                                                                    <span className={`text-xl font-black font-geist tracking-tight ${timePct >= 100 ? 'text-red-500' : timePct >= 80 ? 'text-amber-500' : 'text-sky-500'}`}>
+                                                                    <span className={`text-base font-black font-geist tracking-tight ${timePct >= 100 ? 'text-red-500' : timePct >= 80 ? 'text-amber-500' : 'text-sky-500'}`}>
                                                                         {timePct.toFixed(1)}%
                                                                     </span>
                                                                 </div>
@@ -1657,7 +1657,7 @@ const PaymentCertForm = React.forwardRef(({
                                                             <div className="flex flex-col gap-0.5">
                                                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-none">% WP</span>
                                                                 <div className="flex items-center gap-1.5">
-                                                                    <span className={`text-xl font-black font-geist tracking-tight ${wpPct >= 100 ? 'text-primary' : wpPct >= 80 ? 'text-emerald-600' : 'text-emerald-500'}`}>
+                                                                    <span className={`text-base font-black font-geist tracking-tight ${wpPct >= 100 ? 'text-primary' : wpPct >= 80 ? 'text-emerald-600' : 'text-emerald-500'}`}>
                                                                         {wpPct.toFixed(1)}%
                                                                     </span>
                                                                 </div>
@@ -1672,13 +1672,13 @@ const PaymentCertForm = React.forwardRef(({
                                         })()}
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">MOS Neto (M)</span>
-                                            <span className={`text-xl xl:text-2xl font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
+                                            <span className={`text-base xl:text-lg font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
                                                 {formatCurrency(certMOSNet)}
                                             </span>
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-primary uppercase tracking-[0.15em] block mb-1">Neto Certificado</span>
-                                            <span className="text-2xl xl:text-3xl font-black text-primary font-geist tracking-tighter">
+                                            <span className="text-lg xl:text-xl font-black text-primary font-geist tracking-tighter">
                                                 {formatCurrency(certNetChange)}
                                             </span>
                                         </div>
