@@ -366,7 +366,7 @@ export default function Dashboard() {
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Terminación revisada</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Costo ajustado (revisado)</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Remaining</th>
-                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Certified to date (WP)</th>
+                                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">Certified to date (WP) (Ejecutado)</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Progreso</th>
                                 <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center">Acciones</th>
                             </tr>

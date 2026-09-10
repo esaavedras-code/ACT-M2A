@@ -212,7 +212,7 @@ export default function ProjectStatusComparison({ projectId, numAct, projectName
         const globals = [
             { name: "Amount Original", ps: psData.globals.original, pact: pactData.original, psName: "Amount Original", pactName: "Costo Original" },
             { name: "Amount Revisado", ps: psData.globals.revised, pact: pactData.revised, psName: "Amount Revisado", pactName: "Costo Ajustado" },
-            { name: "Amount Certified", ps: psData.globals.certified, pact: pactData.certified, psName: "Amount Certified", pactName: "Certified to date (WP)" },
+            { name: "Amount Certified", ps: psData.globals.certified, pact: pactData.certified, psName: "Amount Certified", pactName: "Certified to date (WP) (Ejecutado)" },
             { name: "Amount Remaining", ps: psData.globals.remaining, pact: pactData.remaining, psName: "Amount Remaining", pactName: "Balance actual (remaining)" },
             { name: "Última Certificación", ps: psData.globals.lastCertified, pact: pactData.lastCertified, psName: "Last Certified", pactName: "Última Certificación" },
             { name: "Net payment", ps: psData.globals.certified, pact: pactData.netPaid, psName: "Other Net Paid", pactName: "Net Paid" },
