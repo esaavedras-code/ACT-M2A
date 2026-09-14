@@ -172,6 +172,7 @@ export async function POST(req: Request) {
             to: email,
             subject: '🔐 Tu contraseña temporal de PACT',
             html: buildEmailHTML(email, tempPassword, appUrl),
+            textEncoding: 'base64',
         });
 
         return NextResponse.json({ success: true });

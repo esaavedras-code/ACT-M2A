@@ -43,6 +43,7 @@ export async function POST(req: Request) {
             subject,
             text: text || "Solicitud de acceso PACT",
             html: html,
+            textEncoding: 'base64',
         };
 
         const info = await transporter.sendMail(mailOptions);
