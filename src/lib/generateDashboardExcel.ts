@@ -184,8 +184,8 @@ export async function generateDashboardExcel(projectId: string): Promise<Blob> {
 
     const choStartRow = currentRow;
     currentRow++;
-    addMetricRow(worksheet, currentRow++, 'CHOs Aprobadas (#)', approvedCHOs.length, labelStyle, valueStyle);
-    addMetricRow(worksheet, currentRow++, 'CHOs En Trámite (#)', pendingCHOs.length, labelStyle, valueStyle);
+    addMetricRow(worksheet, currentRow++, 'CHOs Aprobadas (#)', metrics.chos.approvedCount, labelStyle, valueStyle);
+    addMetricRow(worksheet, currentRow++, 'CHOs En Trámite (#)', metrics.chos.pendingCount, labelStyle, valueStyle);
     addMetricRow(worksheet, currentRow++, 'Días Otorgados Aprobados', `${approvedDays} días`, labelStyle, valueStyle);
     addMetricRow(worksheet, currentRow++, 'Días Otorgados En Trámite', `${pendingDays} días`, labelStyle, valueStyle);
     addMetricRow(worksheet, currentRow++, 'Días Otorgados Totales', `${totalCHOsDays} días`, labelStyle, boldValueStyle);
