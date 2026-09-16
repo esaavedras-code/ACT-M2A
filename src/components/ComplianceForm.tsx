@@ -7,6 +7,7 @@ import FloatingFormActions from "./FloatingFormActions";
 import { formatDate, getLocalStorageItem } from "@/lib/utils";
 import type { FormRef } from "./ProjectForm";
 import SubcontractItemsModal from "./SubcontractItemsModal";
+import PaymentPlansModal from "./PaymentPlansModal";
 
 const COMPLIANCE_DOCS = [
     "Póliza del Fondo del Seguro del Estado",
@@ -42,6 +43,7 @@ type ComplianceRecord = {
     file_url?: string;
     file_name?: string;
     assigned_items?: any[];
+    payment_plan_dates?: string[];
 };
 
 function isExpired(date_expiry: string, date_substantial_completion?: string | null): boolean {
@@ -67,6 +69,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadTargetIdx, setUploadTargetIdx] = useState<number | null>(null);
     const [activeSubcontractModal, setActiveSubcontractModal] = useState<number | null>(null);
+    const [activePaymentPlanModal, setActivePaymentPlanModal] = useState<number | null>(null);
     const [dateSubstantialCompletion, setDateSubstantialCompletion] = useState<string | null>(null);
 
     const checkUpcomingExpiries = async (docs: any[]) => {
@@ -216,6 +219,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         email_sent_14d: false,
         file_url: "",
         file_name: "",
+        payment_plan_dates: [],
     });
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,6 +354,7 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                     file_url: r.file_url || null,
                     file_name: r.file_name || null,
                     assigned_items: r.assigned_items || null,
+                    payment_plan_dates: r.payment_plan_dates || [],
                 };
 
                 if (id) {
@@ -646,25 +651,36 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                                 {/* Fecha Vencimiento */}
                                                 <td className="px-4 py-2">
                                                     {!isSubcontracts && (
-                                                        <div className="flex gap-1 items-center">
-                                                            <input
-                                                                type={r.date_expiry === 'N/A' ? 'text' : 'date'}
-                                                                disabled={r.date_expiry === 'N/A'}
-                                                                className={`input-field text-xs w-full text-black ${r.date_expiry === 'N/A' ? 'opacity-50' : ''}`}
-                                                                style={{ backgroundColor: '#66FF99' }}
-                                                                value={r.date_expiry || ""}
-                                                                onChange={(e) => updateRecord(idx, 'date_expiry', e.target.value)}
-                                                                onKeyDown={(e) => handleLastCellTab(e, idx)}
-                                                            />
-                                                            <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex gap-1 items-center">
                                                                 <input
-                                                                    type="checkbox"
-                                                                    checked={r.date_expiry === 'N/A'}
-                                                                    onChange={(e) => updateRecord(idx, 'date_expiry', e.target.checked ? 'N/A' : '')}
-                                                                    className="w-3 h-3 rounded text-primary focus:ring-primary"
+                                                                    type={r.date_expiry === 'N/A' ? 'text' : 'date'}
+                                                                    disabled={r.date_expiry === 'N/A'}
+                                                                    className={`input-field text-xs w-full text-black ${r.date_expiry === 'N/A' ? 'opacity-50' : ''}`}
+                                                                    style={{ backgroundColor: '#66FF99' }}
+                                                                    value={r.date_expiry || ""}
+                                                                    onChange={(e) => updateRecord(idx, 'date_expiry', e.target.value)}
+                                                                    onKeyDown={(e) => handleLastCellTab(e, idx)}
                                                                 />
-                                                                N/A
-                                                            </label>
+                                                                <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={r.date_expiry === 'N/A'}
+                                                                        onChange={(e) => updateRecord(idx, 'date_expiry', e.target.checked ? 'N/A' : '')}
+                                                                        className="w-3 h-3 rounded text-primary focus:ring-primary"
+                                                                    />
+                                                                    N/A
+                                                                </label>
+                                                            </div>
+                                                            {r.doc_type === "Póliza del Fondo del Seguro del Estado" && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setActivePaymentPlanModal(idx)}
+                                                                    className="text-[9px] font-bold text-blue-700 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-2 py-1 rounded transition-colors"
+                                                                >
+                                                                    + Planes de Pago {(r.payment_plan_dates || []).length > 0 ? `(${(r.payment_plan_dates || []).length})` : ""}
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </td>
@@ -782,24 +798,35 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
 
                                                     {/* Fecha Vencimiento */}
                                                     <td className="px-4 py-2">
-                                                        <div className="flex gap-1 items-center">
-                                                            <input
-                                                                type={sub.date_expiry === 'N/A' ? 'text' : 'date'}
-                                                                disabled={sub.date_expiry === 'N/A'}
-                                                                className={`input-field text-xs w-full text-black ${sub.date_expiry === 'N/A' ? 'opacity-50' : ''}`}
-                                                                style={{ backgroundColor: '#66FF99' }}
-                                                                value={sub.date_expiry || ""}
-                                                                onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.value)}
-                                                            />
-                                                            <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex gap-1 items-center">
                                                                 <input
-                                                                    type="checkbox"
-                                                                    checked={sub.date_expiry === 'N/A'}
-                                                                    onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.checked ? 'N/A' : '')}
-                                                                    className="w-3 h-3 rounded text-primary focus:ring-primary"
+                                                                    type={sub.date_expiry === 'N/A' ? 'text' : 'date'}
+                                                                    disabled={sub.date_expiry === 'N/A'}
+                                                                    className={`input-field text-xs w-full text-black ${sub.date_expiry === 'N/A' ? 'opacity-50' : ''}`}
+                                                                    style={{ backgroundColor: '#66FF99' }}
+                                                                    value={sub.date_expiry || ""}
+                                                                    onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.value)}
                                                                 />
-                                                                N/A
-                                                            </label>
+                                                                <label className="text-[10px] font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={sub.date_expiry === 'N/A'}
+                                                                        onChange={(e) => updateRecord(sidx, 'date_expiry', e.target.checked ? 'N/A' : '')}
+                                                                        className="w-3 h-3 rounded text-primary focus:ring-primary"
+                                                                    />
+                                                                    N/A
+                                                                </label>
+                                                            </div>
+                                                            {sub.doc_type === "Póliza del Fondo del Seguro del Estado" && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setActivePaymentPlanModal(sidx)}
+                                                                    className="text-[9px] font-bold text-blue-700 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 px-2 py-1 rounded transition-colors"
+                                                                >
+                                                                    + Planes de Pago {(sub.payment_plan_dates || []).length > 0 ? `(${(sub.payment_plan_dates || []).length})` : ""}
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </td>
 
@@ -915,7 +942,28 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                 }
             }}
         />
-
+        <PaymentPlansModal
+            isOpen={activePaymentPlanModal !== null}
+            onClose={() => setActivePaymentPlanModal(null)}
+            paymentDates={activePaymentPlanModal !== null ? records[activePaymentPlanModal]?.payment_plan_dates || [] : []}
+            docName={activePaymentPlanModal !== null ? (records[activePaymentPlanModal]?.subcontractor_name ? `${records[activePaymentPlanModal].doc_type} - ${records[activePaymentPlanModal].subcontractor_name}` : records[activePaymentPlanModal].doc_type) : ""}
+            onSave={(dates) => {
+                if (activePaymentPlanModal !== null) {
+                    const today = new Date().toISOString().split('T')[0];
+                    const validDates = [...dates].sort();
+                    const futureDates = validDates.filter(d => d >= today);
+                    const activeDate = futureDates.length > 0 ? futureDates[0] : (validDates.length > 0 ? validDates[validDates.length - 1] : "");
+                    
+                    const newRecords = [...records];
+                    newRecords[activePaymentPlanModal].payment_plan_dates = dates;
+                    if (activeDate) {
+                        newRecords[activePaymentPlanModal].date_expiry = activeDate;
+                    }
+                    setRecords(newRecords);
+                    if (onDirty) onDirty();
+                }
+            }}
+        />
         </div>
     );
 });
