@@ -17,6 +17,11 @@ export default function TaskCenterButton() {
                     userEmail = reg.email || null;
                 } catch {}
 
+                if (!userEmail) {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    userEmail = session?.user?.email || null;
+                }
+
                 if (!userEmail) return;
 
                 // Obtenemos los pendientes que sean para hoy o vencidos

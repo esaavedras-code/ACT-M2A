@@ -30,17 +30,19 @@ export default function TaskDashboard({ onFilteredView }: Props) {
     });
     const [loading, setLoading] = useState(true);
 
-    const getUserEmail = (): string | null => {
+    const getUserEmail = async (): Promise<string | null> => {
         try {
             const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
-            return reg.email || null;
-        } catch { return null; }
+            if (reg.email) return reg.email;
+        } catch {}
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.user?.email || null;
     };
 
     const fetchStats = useCallback(async () => {
         setLoading(true);
         try {
-            const userEmail = getUserEmail();
+            const userEmail = await getUserEmail();
             if (!userEmail) { setLoading(false); return; }
 
             const now = new Date();

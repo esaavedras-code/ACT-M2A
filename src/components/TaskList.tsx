@@ -74,6 +74,10 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
                 const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
                 userEmail = reg.email || null;
             } catch {}
+            if (!userEmail) {
+                const { data: { session } } = await supabase.auth.getSession();
+                userEmail = session?.user?.email || null;
+            }
 
             const { data: proj } = await supabase.from("projects").select("id, name, num_act").order("name");
             if (proj) setProjects(proj);

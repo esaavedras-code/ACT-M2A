@@ -36,6 +36,10 @@ export default function TaskCalendar({ onEdit }: Props) {
             const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
             userEmail = reg.email || null;
         } catch {}
+        if (!userEmail) {
+            const { data: { session } } = await supabase.auth.getSession();
+            userEmail = session?.user?.email || null;
+        }
 
         const start = new Date(year, month, 1).toISOString();
         const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();

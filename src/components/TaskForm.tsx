@@ -150,6 +150,16 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 userEmail = parsed.email || "";
             } catch {}
 
+            if (!userEmail) {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user?.email) {
+                    userEmail = session.user.email;
+                    if (userName === "Usuario" && session.user.user_metadata?.name) {
+                        userName = session.user.user_metadata.name;
+                    }
+                }
+            }
+
             // Calcular due_date
             let due_date: string | null = null;
             if (form.due_date) {
@@ -179,35 +189,40 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 reminder_date,
                 tags: form.tags,
                 created_by: userName,
-                user_email: userEmail,
+                user_email: userEmail || null,
                 updated_at: new Date().toISOString(),
             };
 
             let rid = reminderId;
             if (rid) {
-                await supabase.from("reminders").update(payload).eq("id", rid);
+                const { error: updateErr } = await supabase.from("reminders").update(payload).eq("id", rid);
+                if (updateErr) throw updateErr;
+
                 // Limpiar y re-insertar relacionados
                 await Promise.all([
                     supabase.from("reminder_assignees").delete().eq("reminder_id", rid),
                     supabase.from("reminder_links").delete().eq("reminder_id", rid),
                 ]);
             } else {
-                const { data: newR } = await supabase.from("reminders").insert({ ...payload, created_by: userName }).select().single();
+                const { data: newR, error: insertErr } = await supabase.from("reminders").insert(payload).select().single();
+                if (insertErr) throw insertErr;
                 rid = newR?.id;
             }
 
             if (rid) {
                 if (form.assignees.length > 0) {
-                    await supabase.from("reminder_assignees").insert(form.assignees.map(a => ({ reminder_id: rid, assignee_name: a })));
+                    const { error: assErr } = await supabase.from("reminder_assignees").insert(form.assignees.map(a => ({ reminder_id: rid, assignee_name: a })));
+                    if (assErr) console.error("Error al guardar asignados:", assErr);
                 }
                 if (form.links.length > 0) {
-                    await supabase.from("reminder_links").insert(form.links.map(l => ({ reminder_id: rid, label: l.label, url: l.url })));
+                    const { error: linkErr } = await supabase.from("reminder_links").insert(form.links.map(l => ({ reminder_id: rid, label: l.label, url: l.url })));
+                    if (linkErr) console.error("Error al guardar enlaces:", linkErr);
                 }
             }
             onSaved();
         } catch (err: any) {
             console.error("Error guardando pendiente:", err);
-            alert("Error al guardar: " + err.message);
+            alert("Error al guardar pendiente: " + (err.message || JSON.stringify(err)));
         } finally {
             setSaving(false);
         }

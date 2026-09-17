@@ -41,6 +41,10 @@ export default function TaskKanban({ onEdit }: Props) {
             const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
             userEmail = reg.email || null;
         } catch {}
+        if (!userEmail) {
+            const { data: { session } } = await supabase.auth.getSession();
+            userEmail = session?.user?.email || null;
+        }
 
         let query = supabase.from("reminders").select("*").in("status", COLUMNS as unknown as string[]).order("urgency");
         if (userEmail) query = query.eq("user_email", userEmail);
