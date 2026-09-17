@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { getLocalStorageItem } from "@/lib/utils";
 import { Search, ChevronDown, ChevronUp, AlertTriangle, Clock, CheckCircle, RefreshCw, Loader2, Pencil, Trash2, Tag, CalendarDays, User } from "lucide-react";
 
 type Reminder = {
@@ -68,10 +69,19 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
     const fetchReminders = useCallback(async () => {
         setLoading(true);
         try {
+            let userEmail: string | null = null;
+            try {
+                const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
+                userEmail = reg.email || null;
+            } catch {}
+
             const { data: proj } = await supabase.from("projects").select("id, name, num_act").order("name");
             if (proj) setProjects(proj);
 
-            const { data } = await supabase.from("reminders").select("*").order("updated_at", { ascending: false });
+            let query = supabase.from("reminders").select("*").order("updated_at", { ascending: false });
+            if (userEmail) query = query.eq("user_email", userEmail);
+
+            const { data } = await query;
             if (data) {
                 const withProjects = data.map((r: any) => ({
                     ...r,

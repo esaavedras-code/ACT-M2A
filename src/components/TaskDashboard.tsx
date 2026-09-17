@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { getLocalStorageItem } from "@/lib/utils";
 import {
     ClipboardList, AlertTriangle, Clock3, CalendarCheck, Calendar, Users, CheckCircle, TrendingUp,
     Loader2
@@ -29,9 +30,19 @@ export default function TaskDashboard({ onFilteredView }: Props) {
     });
     const [loading, setLoading] = useState(true);
 
+    const getUserEmail = (): string | null => {
+        try {
+            const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
+            return reg.email || null;
+        } catch { return null; }
+    };
+
     const fetchStats = useCallback(async () => {
         setLoading(true);
         try {
+            const userEmail = getUserEmail();
+            if (!userEmail) { setLoading(false); return; }
+
             const now = new Date();
             const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
             const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
@@ -42,14 +53,14 @@ export default function TaskDashboard({ onFilteredView }: Props) {
             const activeStatuses = ["Pendiente", "En Proceso", "Esperando Respuesta"];
 
             const [totalRes, criticalRes, overdueRes, todayRes, next7Res, waitingRes, compWeekRes, compMonthRes] = await Promise.all([
-                supabase.from("reminders").select("*", { count: "exact", head: true }).in("status", activeStatuses),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).in("status", activeStatuses).eq("urgency", 1),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).in("status", activeStatuses).lt("due_date", todayStart.toISOString()).not("due_date", "is", null),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).in("status", activeStatuses).gte("due_date", todayStart.toISOString()).lte("due_date", todayEnd.toISOString()),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).in("status", activeStatuses).gte("due_date", todayStart.toISOString()).lte("due_date", next7.toISOString()),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("status", "Esperando Respuesta"),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("status", "Completado").gte("updated_at", weekAgo.toISOString()),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("status", "Completado").gte("updated_at", monthAgo.toISOString()),
+                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses),
+                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses).eq("urgency", 1),
+                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses).lt("due_date", todayStart.toISOString()).not("due_date", "is", null),
+                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses).gte("due_date", todayStart.toISOString()).lte("due_date", todayEnd.toISOString()),
+                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses).gte("due_date", todayStart.toISOString()).lte("due_date", next7.toISOString()),
+                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).eq("status", "Esperando Respuesta"),
+                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).eq("status", "Completado").gte("updated_at", weekAgo.toISOString()),
+                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).eq("status", "Completado").gte("updated_at", monthAgo.toISOString()),
             ]);
 
             setStats({

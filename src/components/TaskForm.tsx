@@ -143,7 +143,12 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
         try {
             const registrationStr = getLocalStorageItem("pact_registration");
             let userName = "Usuario";
-            try { userName = JSON.parse(registrationStr || "{}").name || "Usuario"; } catch {}
+            let userEmail = "";
+            try { 
+                const parsed = JSON.parse(registrationStr || "{}");
+                userName = parsed.name || "Usuario";
+                userEmail = parsed.email || "";
+            } catch {}
 
             // Calcular due_date
             let due_date: string | null = null;
@@ -162,7 +167,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 reminder_date = new Date(form.reminder_custom_date + "T08:00:00").toISOString();
             }
 
-            const payload = {
+            const payload: any = {
                 title: form.title.trim(),
                 description: form.description.trim(),
                 project_id: form.project_id || null,
@@ -174,6 +179,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 reminder_date,
                 tags: form.tags,
                 created_by: userName,
+                user_email: userEmail,
                 updated_at: new Date().toISOString(),
             };
 

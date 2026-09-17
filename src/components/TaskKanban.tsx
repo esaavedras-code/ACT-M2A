@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { getLocalStorageItem } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
 type Reminder = {
@@ -35,8 +36,17 @@ export default function TaskKanban({ onEdit }: Props) {
 
     const fetchReminders = useCallback(async () => {
         setLoading(true);
+        let userEmail: string | null = null;
+        try {
+            const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
+            userEmail = reg.email || null;
+        } catch {}
+
+        let query = supabase.from("reminders").select("*").in("status", COLUMNS as unknown as string[]).order("urgency");
+        if (userEmail) query = query.eq("user_email", userEmail);
+
         const [rRes, pRes] = await Promise.all([
-            supabase.from("reminders").select("*").in("status", COLUMNS as unknown as string[]).order("urgency"),
+            query,
             supabase.from("projects").select("id, num_act"),
         ]);
         const projects = pRes.data || [];

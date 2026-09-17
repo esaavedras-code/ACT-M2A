@@ -3,6 +3,7 @@
 import { Bell } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { getLocalStorageItem } from "@/lib/utils";
 
 export default function TaskCenterButton() {
     const [pendingCount, setPendingCount] = useState(0);
@@ -10,6 +11,14 @@ export default function TaskCenterButton() {
     useEffect(() => {
         const fetchPending = async () => {
             try {
+                let userEmail: string | null = null;
+                try {
+                    const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
+                    userEmail = reg.email || null;
+                } catch {}
+
+                if (!userEmail) return;
+
                 // Obtenemos los pendientes que sean para hoy o vencidos
                 const today = new Date();
                 today.setHours(23, 59, 59, 999);
@@ -17,6 +26,7 @@ export default function TaskCenterButton() {
                 const { count, error } = await supabase
                     .from("reminders")
                     .select("*", { count: "exact", head: true })
+                    .eq("user_email", userEmail)
                     .in("status", ["Pendiente", "En Proceso", "Esperando Respuesta"])
                     .lte("due_date", today.toISOString());
 

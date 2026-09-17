@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { getLocalStorageItem } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 type Reminder = {
@@ -30,10 +31,20 @@ export default function TaskCalendar({ onEdit }: Props) {
 
     const fetchReminders = useCallback(async () => {
         setLoading(true);
+        let userEmail: string | null = null;
+        try {
+            const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
+            userEmail = reg.email || null;
+        } catch {}
+
         const start = new Date(year, month, 1).toISOString();
         const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
-        const { data } = await supabase.from("reminders").select("id, title, urgency, status, type, due_date")
+        
+        let query = supabase.from("reminders").select("id, title, urgency, status, type, due_date")
             .gte("due_date", start).lte("due_date", end).not("status", "eq", "Cancelado");
+        if (userEmail) query = query.eq("user_email", userEmail);
+
+        const { data } = await query;
         setReminders(data || []);
         setLoading(false);
     }, [year, month]);
