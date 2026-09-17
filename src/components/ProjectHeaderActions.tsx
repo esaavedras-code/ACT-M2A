@@ -57,10 +57,10 @@ export default function ProjectHeaderActions() {
 
                 <button 
                     onClick={() => setIsOpen(true)}
-                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-2xl transition-all text-white font-black text-[11px] uppercase tracking-widest border border-white/20 backdrop-blur-md"
+                    className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-xl transition-all text-white font-black text-[9px] uppercase tracking-widest border border-white/20 backdrop-blur-md"
                     suppressHydrationWarning
                 >
-                    <Users size={16} className="text-blue-200" />
+                    <Users size={12} className="text-blue-200" />
                     <span>Colaboradores</span>
                 </button>
             </div>
