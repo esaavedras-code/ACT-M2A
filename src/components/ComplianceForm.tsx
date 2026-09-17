@@ -86,24 +86,46 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const fourteenDaysFromNow = new Date(today);
-        fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
+        const sevenDaysFromNow = new Date(today);
+        sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
         for (const doc of docs) {
-            if (!doc.date_expiry || doc.email_sent_14d) continue;
+            if (doc.email_sent_14d) continue;
 
-            const expiry = new Date(doc.date_expiry + "T00:00:00");
+            let isExpiringSoon = false;
+            let expiringDateStr = "";
+            let reason = "vencimiento"; // "vencimiento" o "plan de pago"
 
-            // Si falta entre 0 y 14 días para expirar
-            if (expiry >= today && expiry <= fourteenDaysFromNow) {
+            if (doc.date_expiry && doc.date_expiry !== "N/A") {
+                const expiry = new Date(doc.date_expiry + "T00:00:00");
+                if (expiry >= today && expiry <= sevenDaysFromNow) {
+                    isExpiringSoon = true;
+                    expiringDateStr = doc.date_expiry;
+                }
+            }
+
+            if (!isExpiringSoon && doc.doc_type === "Póliza del Fondo del Seguro del Estado" && doc.payment_plan_dates && doc.payment_plan_dates.length > 0) {
+                for (const planDate of doc.payment_plan_dates) {
+                    const planExpiry = new Date(planDate + "T00:00:00");
+                    if (planExpiry >= today && planExpiry <= sevenDaysFromNow) {
+                        isExpiringSoon = true;
+                        expiringDateStr = planDate;
+                        reason = "plan de pago";
+                        break;
+                    }
+                }
+            }
+
+            if (isExpiringSoon) {
                 const docNameDetail = doc.doc_type === "Otros" ? doc.custom_doc_name : doc.doc_type;
                 const docName = doc.subcontractor_name ? `${docNameDetail} (${doc.subcontractor_name})` : docNameDetail;
+                const dateFormatted = formatDate(expiringDateStr);
 
                 try {
                     const emailData = {
                         to: user.email,
-                        subject: `🚨 AVISO DE VENCIMIENTO (14 DÍAS): ${docName}`,
-                        text: `Hola ${user.name},\n\nEste es un recordatorio automático del Programa ACT.\n\nEl documento de cumplimiento laboral "${docName}" vencerá en menos de 2 semanas (Fecha: ${formatDate(doc.date_expiry)}).\n\nPor favor, actualice el documento en el sistema lo antes posible para evitar penalidades o retrasos.\n\nSaludos,\nSistema PACT`,
+                        subject: `🚨 AVISO DE VENCIMIENTO (7 DÍAS): ${docName}`,
+                        text: `Hola ${user.name},\n\nEste es un recordatorio automático del Programa ACT.\n\nEl documento de cumplimiento laboral "${docName}" tiene una fecha de ${reason} que vencerá en 1 semana o menos (Fecha: ${dateFormatted}).\n\nPor favor, actualice el documento en el sistema lo antes posible para evitar penalidades o retrasos.\n\nSaludos,\nSistema PACT`,
                         html: `
                             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
                                 <div style="background-color: #ef4444; padding: 20px; text-align: center;">
@@ -112,10 +134,10 @@ const ComplianceForm = forwardRef<FormRef, { projectId?: string, numAct?: string
                                 <div style="padding: 30px;">
                                     <p>Hola <strong>${user.name}</strong>,</p>
                                     <p>Este es un recordatorio automático de su sistema de Programa ACT.</p>
-                                    <p>El siguiente documento vencerá pronto y requiere su atención inmediata:</p>
+                                    <p>El siguiente documento tiene una fecha de <strong>${reason}</strong> que vencerá pronto y requiere su atención inmediata:</p>
                                     <div style="background-color: #f8fafc; padding: 15px; border-left: 4px solid #ef4444; margin: 20px 0;">
                                         <p style="margin: 0 0 5px 0;"><strong>Documento / Contratista:</strong> ${docName}</p>
-                                        <p style="margin: 0; color: #dc2626;"><strong>Fecha de Vencimiento:</strong> ${doc.date_expiry}</p>
+                                        <p style="margin: 0; color: #dc2626;"><strong>Fecha de ${reason}:</strong> ${dateFormatted}</p>
                                     </div>
                                     <p>Por favor, adquiera o solicite el documento actualizado para mantener su cumplimiento activo.</p>
                                 </div>

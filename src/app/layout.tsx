@@ -14,6 +14,7 @@ import QuickHelpModal from "@/components/QuickHelpModal";
 import AIChat from "@/components/AIChat";
 import UserPresenceTracker from "@/components/UserPresenceTracker";
 import MaintenanceGuard from "@/components/MaintenanceGuard";
+import TaskCenterSidebar from "@/components/TaskCenterSidebar";
 import PlatformIndicator from "@/components/PlatformIndicator";
 import BrandName from "@/components/BrandName";
 import MainHeader from "@/components/MainHeader";
@@ -43,6 +44,7 @@ export default function RootLayout({
                         <MaintenanceGuard />
                     </Suspense>
                     <RegistrationModal />
+                    <TaskCenterSidebar />
                     <div className="flex flex-col min-h-screen">
                         <Suspense fallback={<div className="bg-blue-700 h-16 fixed top-0 w-full z-50 shadow-xl" />}>
                             <MainHeader />

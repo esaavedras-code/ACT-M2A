@@ -13,6 +13,7 @@ import ExitButton from "@/components/ExitButton";
 import RestoreButton from "@/components/RestoreButton";
 import DarkModeButton from "@/components/DarkModeButton";
 import { useUserRole } from "@/hooks/useUserRole";
+import TaskCenterButton from "@/components/TaskCenterButton";
 
 export default function MainHeader() {
     const { role } = useUserRole();
@@ -58,6 +59,7 @@ export default function MainHeader() {
                             <ProjectHeaderActions />
                         </div>
                     </Suspense>
+                    <TaskCenterButton />
                     <RestoreButton />
                     <DarkModeButton />
                     <ExitButton />
