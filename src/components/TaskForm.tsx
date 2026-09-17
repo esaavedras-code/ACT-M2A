@@ -195,7 +195,12 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
 
             let rid = reminderId;
             if (rid) {
-                const { error: updateErr } = await supabase.from("reminders").update(payload).eq("id", rid);
+                let { error: updateErr } = await supabase.from("reminders").update(payload).eq("id", rid);
+                if (updateErr && (updateErr.message?.includes("user_email") || updateErr.code === "PGRST204")) {
+                    delete payload.user_email;
+                    const res = await supabase.from("reminders").update(payload).eq("id", rid);
+                    updateErr = res.error;
+                }
                 if (updateErr) throw updateErr;
 
                 // Limpiar y re-insertar relacionados
@@ -204,7 +209,13 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     supabase.from("reminder_links").delete().eq("reminder_id", rid),
                 ]);
             } else {
-                const { data: newR, error: insertErr } = await supabase.from("reminders").insert(payload).select().single();
+                let { data: newR, error: insertErr } = await supabase.from("reminders").insert(payload).select().single();
+                if (insertErr && (insertErr.message?.includes("user_email") || insertErr.code === "PGRST204")) {
+                    delete payload.user_email;
+                    const res = await supabase.from("reminders").insert(payload).select().single();
+                    newR = res.data;
+                    insertErr = res.error;
+                }
                 if (insertErr) throw insertErr;
                 rid = newR?.id;
             }
