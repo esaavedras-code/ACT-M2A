@@ -219,6 +219,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     if (linkErr) console.error("Error al guardar enlaces:", linkErr);
                 }
             }
+            alert("Pendiente guardado exitosamente");
             onSaved();
         } catch (err: any) {
             console.error("Error guardando pendiente:", err);
