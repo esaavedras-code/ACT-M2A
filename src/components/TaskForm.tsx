@@ -52,13 +52,24 @@ type Props = {
     onCancel: () => void;
 };
 
+export function parseAssignee(assigneeStr: string): { name: string; email: string } {
+    if (!assigneeStr) return { name: "", email: "" };
+    const match = assigneeStr.match(/^(.*?)\s*<([^>]+)>$/);
+    if (match) {
+        return { name: match[1].trim(), email: match[2].trim() };
+    }
+    return { name: assigneeStr.trim(), email: "" };
+}
+
 export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
     const [form, setForm] = useState<FormData>(emptyForm);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [projectUsers, setProjectUsers] = useState<{ name: string; email: string }[]>([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [newTag, setNewTag] = useState("");
-    const [newAssignee, setNewAssignee] = useState("");
+    const [newAssigneeName, setNewAssigneeName] = useState("");
+    const [newAssigneeEmail, setNewAssigneeEmail] = useState("");
     const [newLink, setNewLink] = useState<ReminderLink>({ label: "", url: "" });
     const [comments, setComments] = useState<any[]>([]);
     const [newComment, setNewComment] = useState("");
@@ -73,6 +84,42 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
         };
         fetchProjects();
     }, []);
+
+    // Cargar usuarios con acceso al proyecto seleccionado
+    useEffect(() => {
+        if (!form.project_id) {
+            setProjectUsers([]);
+            return;
+        }
+        const fetchProjectUsers = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from("memberships")
+                    .select("id, user_id, public.users(name, email)")
+                    .eq("project_id", form.project_id)
+                    .is("revoked_at", null);
+
+                if (data && data.length > 0) {
+                    const list: { name: string; email: string }[] = [];
+                    data.forEach((m: any) => {
+                        const u = m.public_users || m.users;
+                        if (u && u.email) {
+                            list.push({
+                                name: u.name || u.email.split("@")[0],
+                                email: u.email,
+                            });
+                        }
+                    });
+                    setProjectUsers(list);
+                } else {
+                    setProjectUsers([]);
+                }
+            } catch (err) {
+                console.error("Error al cargar usuarios del proyecto:", err);
+            }
+        };
+        fetchProjectUsers();
+    }, [form.project_id]);
 
     // Si viene un reminderId, cargar sus datos
     useEffect(() => {
@@ -122,11 +169,25 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
     };
     const removeTag = (t: string) => setField("tags", form.tags.filter(x => x !== t));
 
-    const addAssignee = () => {
-        const a = newAssignee.trim();
-        if (a && !form.assignees.includes(a)) setField("assignees", [...form.assignees, a]);
-        setNewAssignee("");
+    const addAssigneeObj = (name: string, email: string) => {
+        const cleanName = name.trim();
+        const cleanEmail = email.trim();
+        if (!cleanName && !cleanEmail) return;
+        
+        const formattedStr = cleanEmail ? `${cleanName || cleanEmail} <${cleanEmail}>` : cleanName;
+        
+        if (!form.assignees.includes(formattedStr)) {
+            setField("assignees", [...form.assignees, formattedStr]);
+        }
     };
+
+    const handleAddManualAssignee = () => {
+        if (!newAssigneeName.trim() && !newAssigneeEmail.trim()) return;
+        addAssigneeObj(newAssigneeName, newAssigneeEmail);
+        setNewAssigneeName("");
+        setNewAssigneeEmail("");
+    };
+
     const removeAssignee = (a: string) => setField("assignees", form.assignees.filter(x => x !== a));
 
     const addLink = () => {
@@ -222,7 +283,27 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
 
             if (rid) {
                 if (form.assignees.length > 0) {
-                    const { error: assErr } = await supabase.from("reminder_assignees").insert(form.assignees.map(a => ({ reminder_id: rid, assignee_name: a })));
+                    const assigneesPayload = form.assignees.map(aStr => {
+                        const parsed = parseAssignee(aStr);
+                        return {
+                            reminder_id: rid,
+                            assignee_name: parsed.email ? `${parsed.name} <${parsed.email}>` : parsed.name,
+                            assignee_email: parsed.email || null
+                        };
+                    });
+                    
+                    let { error: assErr } = await supabase.from("reminder_assignees").insert(assigneesPayload);
+                    if (assErr && (assErr.message?.includes("assignee_email") || assErr.code === "PGRST204")) {
+                        const fallbackPayload = form.assignees.map(aStr => {
+                            const parsed = parseAssignee(aStr);
+                            return {
+                                reminder_id: rid,
+                                assignee_name: parsed.email ? `${parsed.name} <${parsed.email}>` : parsed.name
+                            };
+                        });
+                        const res = await supabase.from("reminder_assignees").insert(fallbackPayload);
+                        assErr = res.error;
+                    }
                     if (assErr) console.error("Error al guardar asignados:", assErr);
                 }
                 if (form.links.length > 0) {
@@ -431,28 +512,84 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
 
             {/* Responsables */}
             <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Responsables</label>
-                <div className="flex gap-2 mb-2">
-                    <input
-                        type="text"
-                        placeholder="Nombre del responsable..."
-                        className="flex-1 px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none text-sm focus:border-blue-500"
-                        value={newAssignee}
-                        onChange={e => setNewAssignee(e.target.value)}
-                        onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addAssignee())}
-                    />
-                    <button type="button" onClick={addAssignee} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors">
-                        <Plus size={16} />
+                <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">
+                    Responsables
+                </label>
+                
+                {/* Desplegable de usuarios del proyecto seleccionado */}
+                {projectUsers.length > 0 && (
+                    <div className="mb-3">
+                        <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                            Seleccionar usuario con acceso al proyecto:
+                        </label>
+                        <select
+                            className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none text-sm focus:border-blue-500"
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (!val) return;
+                                const u = projectUsers.find(x => x.email === val);
+                                if (u) {
+                                    addAssigneeObj(u.name, u.email);
+                                }
+                                e.target.value = "";
+                            }}
+                        >
+                            <option value="">-- Seleccionar usuario del proyecto --</option>
+                            {projectUsers.map((u, idx) => (
+                                <option key={idx} value={u.email}>
+                                    👤 {u.name} ({u.email})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
+                {/* Campos para ingresar responsable manualmente (Nombre e Email) */}
+                <div className="space-y-2 mb-2">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">
+                        O agregar responsable (Registrado o Externo):
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                            type="text"
+                            placeholder="Nombre del responsable..."
+                            className="px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none text-sm focus:border-blue-500"
+                            value={newAssigneeName}
+                            onChange={e => setNewAssigneeName(e.target.value)}
+                        />
+                        <input
+                            type="email"
+                            placeholder="Email (para enviarle notificación)..."
+                            className="px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none text-sm focus:border-blue-500"
+                            value={newAssigneeEmail}
+                            onChange={e => setNewAssigneeEmail(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleAddManualAssignee())}
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleAddManualAssignee}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                        <Plus size={16} /> Agregar Responsable
                     </button>
                 </div>
+
+                {/* Lista de asignados seleccionados */}
                 {form.assignees.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                        {form.assignees.map(a => (
-                            <span key={a} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 text-xs font-semibold px-3 py-1.5 rounded-full">
-                                👤 {a}
-                                <button type="button" onClick={() => removeAssignee(a)} className="ml-1 hover:text-red-500"><X size={12} /></button>
-                            </span>
-                        ))}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                        {form.assignees.map((aStr, idx) => {
+                            const parsed = parseAssignee(aStr);
+                            return (
+                                <span key={idx} className="flex items-center gap-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 text-xs font-semibold px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800">
+                                    <span>👤 {parsed.name}</span>
+                                    {parsed.email && <span className="text-[10px] opacity-75">&lt;{parsed.email}&gt;</span>}
+                                    <button type="button" onClick={() => removeAssignee(aStr)} className="ml-1 text-slate-400 hover:text-red-500 transition-colors">
+                                        <X size={12} />
+                                    </button>
+                                </span>
+                            );
+                        })}
                     </div>
                 )}
             </div>
