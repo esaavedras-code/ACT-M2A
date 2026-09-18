@@ -45,6 +45,18 @@ export default function TaskCenterButton() {
                     });
                 }
 
+                // También buscar correos respaldados en etiquetas
+                if (rem.tags && Array.isArray(rem.tags)) {
+                    rem.tags.forEach((t: string) => {
+                        if (t.startsWith("Resp: ")) {
+                            const match = t.match(/<([^>]+)>/);
+                            if (match && match[1]) {
+                                recipientEmails.push(match[1]);
+                            }
+                        }
+                    });
+                }
+
                 // Filtrar duplicados y correos vacíos
                 const uniqueRecipients = Array.from(new Set(recipientEmails.filter(Boolean)));
 

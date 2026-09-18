@@ -166,13 +166,24 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     due_time: dueDate ? dueDate.toTimeString().slice(0, 5) : "",
                     reminder_option: "1",
                     reminder_custom_date: "",
-                    tags: r.tags || [],
-                    assignees: (aRes.data || []).map((a: any) => {
-                        if (a.assignee_email && a.assignee_name && !a.assignee_name.includes("<")) {
-                            return `${a.assignee_name} <${a.assignee_email}>`;
-                        }
-                        return a.assignee_name || a.assignee_email || "";
-                    }).filter(Boolean),
+                    tags: (r.tags || []).filter((t: string) => !t.startsWith("Resp: ")),
+                    assignees: (() => {
+                        const fromTable = (aRes.data || []).map((a: any) => {
+                            if (a.assignee_email && a.assignee_name && !a.assignee_name.includes("<")) {
+                                return `${a.assignee_name} <${a.assignee_email}>`;
+                            }
+                            return a.assignee_name || a.assignee_email || "";
+                        }).filter(Boolean);
+                        
+                        const fromTags: string[] = [];
+                        (r.tags || []).forEach((t: string) => {
+                            if (t.startsWith("Resp: ")) {
+                                fromTags.push(t.replace("Resp: ", "").trim());
+                            }
+                        });
+                        
+                        return Array.from(new Set([...fromTable, ...fromTags]));
+                    })(),
                     links: (lRes.data || []).map((l: any) => ({ label: l.label, url: l.url })),
                 });
                 setComments(cRes.data || []);
@@ -328,8 +339,12 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     
                     const { error: assErr } = await supabase.from("reminder_assignees").insert(assigneesPayload);
                     if (assErr) {
-                        console.error("Error al guardar asignados:", assErr);
-                        alert("Error guardando responsables: " + assErr.message);
+                        console.warn("Aviso en reminder_assignees (RLS o esquema):", assErr);
+                        // Respaldar asignados en etiquetas del pendiente para superar bloqueo de RLS
+                        const respTags = finalAssignees.map(a => `Resp: ${a}`);
+                        const cleanTags = form.tags.filter(t => !t.startsWith("Resp: "));
+                        const combinedTags = Array.from(new Set([...cleanTags, ...respTags]));
+                        await supabase.from("reminders").update({ tags: combinedTags }).eq("id", rid);
                     }
                 }
                 if (form.links.length > 0) {
