@@ -101,12 +101,6 @@ export default function TaskDashboard({ onFilteredView }: Props) {
             setLoading(false);
         }
     }, []);
-        } catch (err) {
-            console.error("Error fetching dashboard stats:", err);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
 
     useEffect(() => { fetchStats(); }, [fetchStats]);
 
