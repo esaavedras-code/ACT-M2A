@@ -167,7 +167,12 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     reminder_option: "1",
                     reminder_custom_date: "",
                     tags: r.tags || [],
-                    assignees: (aRes.data || []).map((a: any) => a.assignee_name),
+                    assignees: (aRes.data || []).map((a: any) => {
+                        if (a.assignee_email && a.assignee_name && !a.assignee_name.includes("<")) {
+                            return `${a.assignee_name} <${a.assignee_email}>`;
+                        }
+                        return a.assignee_name || a.assignee_email || "";
+                    }).filter(Boolean),
                     links: (lRes.data || []).map((l: any) => ({ label: l.label, url: l.url })),
                 });
                 setComments(cRes.data || []);
@@ -218,6 +223,21 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
 
     const handleSave = async () => {
         if (!form.title.trim()) { alert("El título del pendiente es requerido."); return; }
+        
+        // Auto-agregar responsable si se ingresó texto en los campos manuales sin presionar '+'
+        let finalAssignees = [...form.assignees];
+        if (newAssigneeName.trim() || newAssigneeEmail.trim()) {
+            const cleanName = newAssigneeName.trim();
+            const cleanEmail = newAssigneeEmail.trim();
+            const formattedStr = cleanEmail ? `${cleanName || cleanEmail} <${cleanEmail}>` : cleanName;
+            if (!finalAssignees.includes(formattedStr)) {
+                finalAssignees.push(formattedStr);
+                setField("assignees", finalAssignees);
+            }
+            setNewAssigneeName("");
+            setNewAssigneeEmail("");
+        }
+
         setSaving(true);
         try {
             const registrationStr = getLocalStorageItem("pact_registration");
@@ -300,8 +320,8 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
             }
 
             if (rid) {
-                if (form.assignees.length > 0) {
-                    const assigneesPayload = form.assignees.map(aStr => {
+                if (finalAssignees.length > 0) {
+                    const assigneesPayload = finalAssignees.map(aStr => {
                         const parsed = parseAssignee(aStr);
                         return {
                             reminder_id: rid,
@@ -312,7 +332,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     
                     let { error: assErr } = await supabase.from("reminder_assignees").insert(assigneesPayload);
                     if (assErr && (assErr.message?.includes("assignee_email") || assErr.code === "PGRST204")) {
-                        const fallbackPayload = form.assignees.map(aStr => {
+                        const fallbackPayload = finalAssignees.map(aStr => {
                             const parsed = parseAssignee(aStr);
                             return {
                                 reminder_id: rid,
