@@ -85,40 +85,58 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
         fetchProjects();
     }, []);
 
-    // Cargar usuarios con acceso al proyecto seleccionado
+    // Cargar usuarios con acceso al proyecto seleccionado o todos los usuarios registrados
     useEffect(() => {
-        if (!form.project_id) {
-            setProjectUsers([]);
-            return;
-        }
-        const fetchProjectUsers = async () => {
+        const fetchUsers = async () => {
             try {
-                const { data, error } = await supabase
-                    .from("memberships")
-                    .select("id, user_id, public.users(name, email)")
-                    .eq("project_id", form.project_id)
-                    .is("revoked_at", null);
+                if (form.project_id) {
+                    const { data: memData } = await supabase
+                        .from("memberships")
+                        .select("user_id, public.users(name, email)")
+                        .eq("project_id", form.project_id)
+                        .is("revoked_at", null);
 
-                if (data && data.length > 0) {
                     const list: { name: string; email: string }[] = [];
-                    data.forEach((m: any) => {
-                        const u = m.public_users || m.users;
-                        if (u && u.email) {
-                            list.push({
-                                name: u.name || u.email.split("@")[0],
-                                email: u.email,
-                            });
-                        }
-                    });
+                    if (memData && memData.length > 0) {
+                        memData.forEach((m: any) => {
+                            const u = m.public_users || m.users;
+                            if (u && u.email) {
+                                list.push({
+                                    name: u.name || u.email.split("@")[0],
+                                    email: u.email,
+                                });
+                            }
+                        });
+                    }
+
+                    if (list.length > 0) {
+                        setProjectUsers(list);
+                        return;
+                    }
+                }
+
+                // Cargar todos los usuarios registrados en la tabla 'users'
+                const { data: allUsers } = await supabase
+                    .from("users")
+                    .select("name, email")
+                    .order("name");
+
+                if (allUsers && allUsers.length > 0) {
+                    const list = allUsers
+                        .filter((u: any) => u.email)
+                        .map((u: any) => ({
+                            name: u.name || u.email.split("@")[0],
+                            email: u.email,
+                        }));
                     setProjectUsers(list);
                 } else {
                     setProjectUsers([]);
                 }
             } catch (err) {
-                console.error("Error al cargar usuarios del proyecto:", err);
+                console.error("Error al cargar usuarios:", err);
             }
         };
-        fetchProjectUsers();
+        fetchUsers();
     }, [form.project_id]);
 
     // Si viene un reminderId, cargar sus datos
@@ -516,33 +534,35 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     Responsables
                 </label>
                 
-                {/* Desplegable de usuarios del proyecto seleccionado */}
-                {projectUsers.length > 0 && (
-                    <div className="mb-3">
-                        <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                            Seleccionar usuario con acceso al proyecto:
-                        </label>
-                        <select
-                            className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none text-sm focus:border-blue-500"
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (!val) return;
-                                const u = projectUsers.find(x => x.email === val);
-                                if (u) {
-                                    addAssigneeObj(u.name, u.email);
-                                }
-                                e.target.value = "";
-                            }}
-                        >
-                            <option value="">-- Seleccionar usuario del proyecto --</option>
-                            {projectUsers.map((u, idx) => (
-                                <option key={idx} value={u.email}>
-                                    👤 {u.name} ({u.email})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                )}
+                {/* Desplegable de usuarios registrados */}
+                <div className="mb-3">
+                    <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                        Seleccionar usuario registrado (con acceso al proyecto o sistema):
+                    </label>
+                    <select
+                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none text-sm focus:border-blue-500"
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            const u = projectUsers.find(x => x.email === val);
+                            if (u) {
+                                addAssigneeObj(u.name, u.email);
+                            }
+                            e.target.value = "";
+                        }}
+                    >
+                        <option value="">
+                            {projectUsers.length > 0 
+                                ? (form.project_id ? "-- Seleccionar usuario del proyecto --" : "-- Seleccionar usuario registrado --")
+                                : "-- No hay usuarios registrados o cargando... --"}
+                        </option>
+                        {projectUsers.map((u, idx) => (
+                            <option key={idx} value={u.email}>
+                                👤 {u.name} ({u.email})
+                            </option>
+                        ))}
+                    </select>
+                </div>
 
                 {/* Campos para ingresar responsable manualmente (Nombre e Email) */}
                 <div className="space-y-2 mb-2">
