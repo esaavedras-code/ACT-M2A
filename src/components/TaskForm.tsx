@@ -321,28 +321,16 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
 
             if (rid) {
                 if (finalAssignees.length > 0) {
-                    const assigneesPayload = finalAssignees.map(aStr => {
-                        const parsed = parseAssignee(aStr);
-                        return {
-                            reminder_id: rid,
-                            assignee_name: parsed.email ? `${parsed.name} <${parsed.email}>` : parsed.name,
-                            assignee_email: parsed.email || null
-                        };
-                    });
+                    const assigneesPayload = finalAssignees.map(aStr => ({
+                        reminder_id: rid,
+                        assignee_name: aStr,
+                    }));
                     
-                    let { error: assErr } = await supabase.from("reminder_assignees").insert(assigneesPayload);
-                    if (assErr && (assErr.message?.includes("assignee_email") || assErr.code === "PGRST204")) {
-                        const fallbackPayload = finalAssignees.map(aStr => {
-                            const parsed = parseAssignee(aStr);
-                            return {
-                                reminder_id: rid,
-                                assignee_name: parsed.email ? `${parsed.name} <${parsed.email}>` : parsed.name
-                            };
-                        });
-                        const res = await supabase.from("reminder_assignees").insert(fallbackPayload);
-                        assErr = res.error;
+                    const { error: assErr } = await supabase.from("reminder_assignees").insert(assigneesPayload);
+                    if (assErr) {
+                        console.error("Error al guardar asignados:", assErr);
+                        alert("Error guardando responsables: " + assErr.message);
                     }
-                    if (assErr) console.error("Error al guardar asignados:", assErr);
                 }
                 if (form.links.length > 0) {
                     const { error: linkErr } = await supabase.from("reminder_links").insert(form.links.map(l => ({ reminder_id: rid, label: l.label, url: l.url })));
