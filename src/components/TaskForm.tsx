@@ -300,6 +300,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 tags: form.tags,
                 created_by: userName,
                 user_email: userEmail || null,
+                email_sent: false,
                 updated_at: new Date().toISOString(),
             };
 
@@ -308,6 +309,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 let { error: updateErr } = await supabase.from("reminders").update(payload).eq("id", rid);
                 if (updateErr && (updateErr.message?.includes("user_email") || updateErr.code === "PGRST204")) {
                     delete payload.user_email;
+                    delete payload.email_sent;
                     const res = await supabase.from("reminders").update(payload).eq("id", rid);
                     updateErr = res.error;
                 }
@@ -322,6 +324,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 let { data: newR, error: insertErr } = await supabase.from("reminders").insert(payload).select().single();
                 if (insertErr && (insertErr.message?.includes("user_email") || insertErr.code === "PGRST204")) {
                     delete payload.user_email;
+                    delete payload.email_sent;
                     const res = await supabase.from("reminders").insert(payload).select().single();
                     newR = res.data;
                     insertErr = res.error;
@@ -350,6 +353,59 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 if (form.links.length > 0) {
                     const { error: linkErr } = await supabase.from("reminder_links").insert(form.links.map(l => ({ reminder_id: rid, label: l.label, url: l.url })));
                     if (linkErr) console.error("Error al guardar enlaces:", linkErr);
+                }
+
+                // Notificar por correo electrónico de inmediato a los responsables asignados
+                if (finalAssignees.length > 0) {
+                    const recipients: string[] = [];
+                    finalAssignees.forEach(aStr => {
+                        const parsed = parseAssignee(aStr);
+                        if (parsed.email) recipients.push(parsed.email);
+                    });
+
+                    const uniqueRecipients = Array.from(new Set(recipients));
+                    const urgencyLabel = form.urgency === 1 ? '🔴 Alta' : form.urgency === 2 ? '🟡 Media' : '🟢 Baja';
+
+                    for (const recipient of uniqueRecipients) {
+                        const emailData = {
+                            to: recipient,
+                            subject: `📌 NUEVO PENDIENTE ASIGNADO: ${form.title}`,
+                            text: `Hola,\n\nSe te ha asignado un pendiente en el Programa ACT por ${userName}:\n\n- Pendiente: ${form.title}\n- Urgencia: ${urgencyLabel}\n- Fecha de Vencimiento: ${form.due_date || 'Sin fecha'}\n- Estado: ${form.status}\n\nPor favor ingresa a la plataforma para darle seguimiento.`,
+                            html: `
+                                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                                    <div style="background-color: #2563eb; padding: 20px; text-align: center;">
+                                        <h2 style="color: white; margin: 0;">📌 Asignación de Pendiente / Recordatorio</h2>
+                                    </div>
+                                    <div style="padding: 30px;">
+                                        <p>Hola,</p>
+                                        <p>Se te ha asignado un pendiente en el sistema <strong>Programa ACT</strong> por <strong>${userName}</strong>.</p>
+                                        <div style="background-color: #f8fafc; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
+                                            <p style="margin: 0 0 5px 0;"><strong>Pendiente:</strong> ${form.title}</p>
+                                            <p style="margin: 0 0 5px 0;"><strong>Urgencia:</strong> ${urgencyLabel}</p>
+                                            <p style="margin: 0 0 5px 0;"><strong>Fecha de Vencimiento:</strong> ${form.due_date || 'Sin fecha'}</p>
+                                            <p style="margin: 0; color: #475569;"><strong>Estado:</strong> ${form.status}</p>
+                                        </div>
+                                        <p>Ingresa a la plataforma para revisar los detalles y actualizar su estado.</p>
+                                    </div>
+                                </div>
+                            `,
+                        };
+
+                        try {
+                            const api = typeof window !== "undefined" ? (window as any).electronAPI : null;
+                            if (api?.sendEmail) {
+                                await api.sendEmail(emailData);
+                            } else {
+                                await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-email`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(emailData)
+                                });
+                            }
+                        } catch (err) {
+                            console.error(`Fallo al enviar correo a ${recipient}:`, err);
+                        }
+                    }
                 }
             }
             alert("Pendiente guardado exitosamente");
