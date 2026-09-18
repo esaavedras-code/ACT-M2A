@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
+import { getUserReminders } from "@/lib/taskUtils";
 import {
     ClipboardList, AlertTriangle, Clock3, CalendarCheck, Calendar, Users, CheckCircle, TrendingUp,
     Loader2
@@ -42,8 +43,22 @@ export default function TaskDashboard({ onFilteredView }: Props) {
     const fetchStats = useCallback(async () => {
         setLoading(true);
         try {
-            const userEmail = await getUserEmail();
+            let userEmail: string | null = null;
+            let userName: string = "Usuario";
+            try {
+                const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
+                userEmail = reg.email || null;
+                userName = reg.name || "Usuario";
+            } catch {}
+            if (!userEmail) {
+                const { data: { session } } = await supabase.auth.getSession();
+                userEmail = session?.user?.email || null;
+                if (session?.user?.user_metadata?.name) userName = session.user.user_metadata.name;
+            }
+
             if (!userEmail) { setLoading(false); return; }
+
+            const userReminders = await getUserReminders(userEmail, userName);
 
             const now = new Date();
             const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
@@ -54,27 +69,38 @@ export default function TaskDashboard({ onFilteredView }: Props) {
 
             const activeStatuses = ["Pendiente", "En Proceso", "Esperando Respuesta"];
 
-            const [totalRes, criticalRes, overdueRes, todayRes, next7Res, waitingRes, compWeekRes, compMonthRes] = await Promise.all([
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses).eq("urgency", 1),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses).lt("due_date", todayStart.toISOString()).not("due_date", "is", null),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses).gte("due_date", todayStart.toISOString()).lte("due_date", todayEnd.toISOString()),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).in("status", activeStatuses).gte("due_date", todayStart.toISOString()).lte("due_date", next7.toISOString()),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).eq("status", "Esperando Respuesta"),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).eq("status", "Completado").gte("updated_at", weekAgo.toISOString()),
-                supabase.from("reminders").select("*", { count: "exact", head: true }).eq("user_email", userEmail).eq("status", "Completado").gte("updated_at", monthAgo.toISOString()),
-            ]);
+            let total = 0, critical = 0, overdue = 0, today = 0, next7days = 0, waitingResponse = 0, completedWeek = 0, completedMonth = 0;
+
+            userReminders.forEach((r: any) => {
+                const isActive = activeStatuses.includes(r.status);
+                const dueDate = r.due_date ? new Date(r.due_date) : null;
+                const updatedAt = r.updated_at ? new Date(r.updated_at) : null;
+
+                if (isActive) {
+                    total++;
+                    if (r.urgency === 1) critical++;
+                    if (dueDate && dueDate < todayStart) overdue++;
+                    if (dueDate && dueDate >= todayStart && dueDate <= todayEnd) today++;
+                    if (dueDate && dueDate >= todayStart && dueDate <= next7) next7days++;
+                }
+
+                if (r.status === "Esperando Respuesta") waitingResponse++;
+
+                if (r.status === "Completado" && updatedAt) {
+                    if (updatedAt >= weekAgo) completedWeek++;
+                    if (updatedAt >= monthAgo) completedMonth++;
+                }
+            });
 
             setStats({
-                total: totalRes.count || 0,
-                critical: criticalRes.count || 0,
-                overdue: overdueRes.count || 0,
-                today: todayRes.count || 0,
-                next7days: next7Res.count || 0,
-                waitingResponse: waitingRes.count || 0,
-                completedWeek: compWeekRes.count || 0,
-                completedMonth: compMonthRes.count || 0,
+                total, critical, overdue, today, next7days, waitingResponse, completedWeek, completedMonth
             });
+        } catch (err) {
+            console.error("Error al obtener estadísticas del dashboard:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
         } catch (err) {
             console.error("Error fetching dashboard stats:", err);
         } finally {

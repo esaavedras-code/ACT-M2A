@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
+import { getUserReminders } from "@/lib/taskUtils";
 import { Loader2 } from "lucide-react";
 
 type Reminder = {
@@ -37,25 +38,25 @@ export default function TaskKanban({ onEdit }: Props) {
     const fetchReminders = useCallback(async () => {
         setLoading(true);
         let userEmail: string | null = null;
+        let userName: string = "Usuario";
         try {
             const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
             userEmail = reg.email || null;
+            userName = reg.name || "Usuario";
         } catch {}
         if (!userEmail) {
             const { data: { session } } = await supabase.auth.getSession();
             userEmail = session?.user?.email || null;
+            if (session?.user?.user_metadata?.name) userName = session.user.user_metadata.name;
         }
 
-        let query = supabase.from("reminders").select("*").in("status", COLUMNS as unknown as string[]).order("urgency");
-        if (userEmail) query = query.eq("user_email", userEmail);
-
-        const [rRes, pRes] = await Promise.all([
-            query,
+        const [rData, pRes] = await Promise.all([
+            userEmail ? getUserReminders(userEmail, userName) : Promise.resolve([]),
             supabase.from("projects").select("id, num_act"),
         ]);
         const projects = pRes.data || [];
-        if (rRes.data) {
-            setReminders(rRes.data.map((r: any) => ({
+        if (rData) {
+            setReminders(rData.filter((r: any) => COLUMNS.includes(r.status as any)).map((r: any) => ({
                 ...r,
                 project_name: projects.find(p => p.id === r.project_id)?.num_act || "General",
             })));

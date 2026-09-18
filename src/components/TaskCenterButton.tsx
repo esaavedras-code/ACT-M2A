@@ -4,6 +4,7 @@ import { Bell } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
+import { getUserReminders } from "@/lib/taskUtils";
 
 export default function TaskCenterButton() {
     const [pendingCount, setPendingCount] = useState(0);
@@ -134,20 +135,19 @@ export default function TaskCenterButton() {
 
                 if (!userEmail) return;
 
-                // Obtenemos los pendientes que sean para hoy o vencidos
+                // Obtenemos los pendientes que sean para hoy o vencidos (creados o asignados)
                 const today = new Date();
                 today.setHours(23, 59, 59, 999);
-                
-                const { count, error } = await supabase
-                    .from("reminders")
-                    .select("*", { count: "exact", head: true })
-                    .eq("user_email", userEmail)
-                    .in("status", ["Pendiente", "En Proceso", "Esperando Respuesta"])
-                    .lte("due_date", today.toISOString());
+                const activeStatuses = ["Pendiente", "En Proceso", "Esperando Respuesta"];
 
-                if (!error && count !== null) {
-                    setPendingCount(count);
-                }
+                const allUserTasks = await getUserReminders(userEmail, userName);
+                const count = allUserTasks.filter((r: any) => {
+                    if (!activeStatuses.includes(r.status)) return false;
+                    if (!r.due_date) return true;
+                    return new Date(r.due_date) <= today;
+                }).length;
+
+                setPendingCount(count);
 
                 // Verificar y enviar correos de avisos
                 await checkAndSendEmails(userEmail, userName);

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
+import { getUserReminders } from "@/lib/taskUtils";
 import { Search, ChevronDown, ChevronUp, AlertTriangle, Clock, CheckCircle, RefreshCw, Loader2, Pencil, Trash2, Tag, CalendarDays, User } from "lucide-react";
 
 type Reminder = {
@@ -70,23 +71,23 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
         setLoading(true);
         try {
             let userEmail: string | null = null;
+            let userName: string = "Usuario";
             try {
                 const reg = JSON.parse(getLocalStorageItem("pact_registration") || "{}");
                 userEmail = reg.email || null;
+                userName = reg.name || "Usuario";
             } catch {}
             if (!userEmail) {
                 const { data: { session } } = await supabase.auth.getSession();
                 userEmail = session?.user?.email || null;
+                if (session?.user?.user_metadata?.name) userName = session.user.user_metadata.name;
             }
 
             const { data: proj } = await supabase.from("projects").select("id, name, num_act").order("name");
             if (proj) setProjects(proj);
 
-            let query = supabase.from("reminders").select("*").order("updated_at", { ascending: false });
-            if (userEmail) query = query.eq("user_email", userEmail);
-
-            const { data } = await query;
-            if (data) {
+            if (userEmail) {
+                const data = await getUserReminders(userEmail, userName);
                 const withProjects = data.map((r: any) => ({
                     ...r,
                     project_name: proj?.find(p => p.id === r.project_id)?.num_act || "General",
