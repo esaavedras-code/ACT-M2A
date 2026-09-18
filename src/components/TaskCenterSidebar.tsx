@@ -19,8 +19,29 @@ export default function TaskCenterSidebar() {
 
     useEffect(() => {
         setMounted(true);
-        const handleOpen = () => { setIsOpen(true); setActiveTab("dashboard"); };
+        const handleOpen = (e?: any) => {
+            setIsOpen(true);
+            if (e && e.detail && e.detail.reminderId) {
+                setEditingId(e.detail.reminderId);
+                setActiveTab("form");
+            } else {
+                setActiveTab("dashboard");
+            }
+        };
+
         window.addEventListener("open-task-center", handleOpen);
+
+        // Detectar si la URL incluye el parámetro openTask o task para abrirlo automáticamente
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const taskId = params.get("openTask") || params.get("task");
+            if (taskId) {
+                setIsOpen(true);
+                setEditingId(taskId);
+                setActiveTab("form");
+            }
+        }
+
         return () => window.removeEventListener("open-task-center", handleOpen);
     }, []);
 

@@ -66,12 +66,14 @@ export default function TaskCenterButton() {
                 if (!uniqueRecipients.includes(userEmail)) continue;
 
                 const dueFormatted = rem.due_date ? new Date(rem.due_date).toLocaleDateString() : "Sin fecha";
+                const appOrigin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://act-m2-a.vercel.app";
+                const directTaskUrl = `${appOrigin}/?openTask=${rem.id}`;
 
                 for (const recipient of uniqueRecipients) {
                     const emailData = {
                         to: recipient,
                         subject: `🚨 RECORDATORIO DE PENDIENTE: ${rem.title}`,
-                        text: `Hola,\n\nTienes un pendiente en el Programa ACT:\n\n- Pendiente: ${rem.title}\n- Urgencia: ${rem.urgency === 1 ? 'Alta' : rem.urgency === 2 ? 'Media' : 'Baja'}\n- Fecha de Vencimiento: ${dueFormatted}\n- Estado: ${rem.status}\n\nPor favor ingresa al sistema para darle seguimiento.`,
+                        text: `Hola,\n\nTienes un pendiente en el Programa ACT:\n\n- Pendiente: ${rem.title}\n- Urgencia: ${rem.urgency === 1 ? 'Alta' : rem.urgency === 2 ? 'Media' : 'Baja'}\n- Fecha de Vencimiento: ${dueFormatted}\n- Estado: ${rem.status}\n\nPara revisar o responder este pendiente en PACT, ingresa al siguiente enlace:\n${directTaskUrl}`,
                         html: `
                             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
                                 <div style="background-color: #2563eb; padding: 20px; text-align: center;">
@@ -86,7 +88,12 @@ export default function TaskCenterButton() {
                                         <p style="margin: 0 0 5px 0;"><strong>Fecha de Vencimiento:</strong> ${dueFormatted}</p>
                                         <p style="margin: 0; color: #475569;"><strong>Estado:</strong> ${rem.status}</p>
                                     </div>
-                                    <p>Ingresa al sistema para revisar o actualizar el estatus de este pendiente.</p>
+                                    <div style="text-align: center; margin: 25px 0;">
+                                        <a href="${directTaskUrl}" target="_blank" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block;">
+                                            🔗 Ver Pendiente en PACT
+                                        </a>
+                                    </div>
+                                    <p style="font-size: 12px; color: #64748b; text-align: center;">Si el botón no funciona, copia y pega esta dirección en tu navegador:<br><a href="${directTaskUrl}">${directTaskUrl}</a></p>
                                 </div>
                             </div>
                         `,

@@ -365,12 +365,14 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
 
                     const uniqueRecipients = Array.from(new Set(recipients));
                     const urgencyLabel = form.urgency === 1 ? '🔴 Alta' : form.urgency === 2 ? '🟡 Media' : '🟢 Baja';
+                    const appOrigin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://act-m2-a.vercel.app";
+                    const directTaskUrl = `${appOrigin}/?openTask=${rid}`;
 
                     for (const recipient of uniqueRecipients) {
                         const emailData = {
                             to: recipient,
                             subject: `📌 NUEVO PENDIENTE ASIGNADO: ${form.title}`,
-                            text: `Hola,\n\nSe te ha asignado un pendiente en el Programa ACT por ${userName}:\n\n- Pendiente: ${form.title}\n- Urgencia: ${urgencyLabel}\n- Fecha de Vencimiento: ${form.due_date || 'Sin fecha'}\n- Estado: ${form.status}\n\nPor favor ingresa a la plataforma para darle seguimiento.`,
+                            text: `Hola,\n\nSe te ha asignado un pendiente en el Programa ACT por ${userName}:\n\n- Pendiente: ${form.title}\n- Urgencia: ${urgencyLabel}\n- Fecha de Vencimiento: ${form.due_date || 'Sin fecha'}\n- Estado: ${form.status}\n\nPara revisar o responder este pendiente en PACT, ingresa al siguiente enlace:\n${directTaskUrl}`,
                             html: `
                                 <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
                                     <div style="background-color: #2563eb; padding: 20px; text-align: center;">
@@ -385,7 +387,12 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                                             <p style="margin: 0 0 5px 0;"><strong>Fecha de Vencimiento:</strong> ${form.due_date || 'Sin fecha'}</p>
                                             <p style="margin: 0; color: #475569;"><strong>Estado:</strong> ${form.status}</p>
                                         </div>
-                                        <p>Ingresa a la plataforma para revisar los detalles y actualizar su estado.</p>
+                                        <div style="text-align: center; margin: 25px 0;">
+                                            <a href="${directTaskUrl}" target="_blank" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block;">
+                                                🔗 Ver Pendiente en PACT
+                                            </a>
+                                        </div>
+                                        <p style="font-size: 12px; color: #64748b; text-align: center;">Si el botón no funciona, copia y pega esta dirección en tu navegador:<br><a href="${directTaskUrl}">${directTaskUrl}</a></p>
                                     </div>
                                 </div>
                             `,
