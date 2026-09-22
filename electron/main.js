@@ -109,7 +109,6 @@ function createWindow() {
                 subject,
                 text,
                 html,
-                textEncoding: 'base64',
             });
 
             log(`Message sent: ${info.messageId}`);
