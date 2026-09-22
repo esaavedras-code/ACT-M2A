@@ -229,6 +229,90 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
     };
     const removeTag = (t: string) => setField("tags", form.tags.filter(x => x !== t));
 
+    const ensureUserCredentials = async (name: string, email: string, projectId?: string) => {
+        const cleanEmail = (email || "").trim().toLowerCase();
+        const cleanName = (name || "").trim() || (cleanEmail ? cleanEmail.split("@")[0] : "");
+        if (!cleanEmail && !cleanName) return;
+
+        try {
+            let userId: string | null = null;
+
+            if (cleanEmail) {
+                const { data: existingUser } = await supabase
+                    .from("users")
+                    .select("id, name")
+                    .eq("email", cleanEmail)
+                    .maybeSingle();
+
+                if (existingUser) {
+                    userId = existingUser.id;
+                    if (cleanName && (!existingUser.name || existingUser.name === cleanEmail || existingUser.name.includes("@"))) {
+                        await supabase.from("users").update({ name: cleanName }).eq("id", userId);
+                    }
+                } else {
+                    const { data: newUser, error: insErr } = await supabase.from("users").insert({
+                        name: cleanName,
+                        email: cleanEmail,
+                        is_active: true,
+                    }).select("id").maybeSingle();
+
+                    if (!insErr && newUser) {
+                        userId = newUser.id;
+                    } else if (insErr) {
+                        console.warn("Aviso guardando usuario en 'users':", insErr);
+                    }
+                }
+            } else if (cleanName) {
+                const { data: existingUser } = await supabase
+                    .from("users")
+                    .select("id")
+                    .eq("name", cleanName)
+                    .maybeSingle();
+
+                if (existingUser) {
+                    userId = existingUser.id;
+                } else {
+                    const { data: newUser } = await supabase.from("users").insert({
+                        name: cleanName,
+                        is_active: true,
+                    }).select("id").maybeSingle();
+
+                    if (newUser) userId = newUser.id;
+                }
+            }
+
+            if (projectId && userId) {
+                const { data: existingMem } = await supabase
+                    .from("memberships")
+                    .select("id")
+                    .eq("project_id", projectId)
+                    .eq("user_id", userId)
+                    .maybeSingle();
+
+                if (!existingMem) {
+                    await supabase.from("memberships").insert({
+                        project_id: projectId,
+                        user_id: userId,
+                        role: 'USER',
+                    });
+                }
+            }
+
+            // Actualizar lista local de usuarios registrados para el selector
+            if (cleanEmail || cleanName) {
+                const targetEmail = cleanEmail || cleanName;
+                setProjectUsers(prev => {
+                    if (!prev.some(u => u.email === targetEmail || (cleanEmail && u.email === cleanEmail))) {
+                        return [...prev, { name: cleanName, email: targetEmail }].sort((a, b) => a.name.localeCompare(b.name));
+                    }
+                    return prev;
+                });
+            }
+        } catch (err) {
+            console.error("Error registrando credenciales de responsable:", err);
+        }
+    };
+
     const addAssigneeObj = (name: string, email: string) => {
         const cleanName = name.trim();
         const cleanEmail = email.trim();
@@ -241,9 +325,14 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
         }
     };
 
-    const handleAddManualAssignee = () => {
+    const handleAddManualAssignee = async () => {
         if (!newAssigneeName.trim() && !newAssigneeEmail.trim()) return;
-        addAssigneeObj(newAssigneeName, newAssigneeEmail);
+        const name = newAssigneeName.trim();
+        const email = newAssigneeEmail.trim();
+
+        addAssigneeObj(name, email);
+        await ensureUserCredentials(name, email, form.project_id);
+
         setNewAssigneeName("");
         setNewAssigneeEmail("");
     };
@@ -363,6 +452,12 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
 
             if (rid) {
                 if (finalAssignees.length > 0) {
+                    // Guardar credenciales de responsables no registrados en la tabla users / memberships para uso futuro
+                    for (const aStr of finalAssignees) {
+                        const parsed = parseAssignee(aStr);
+                        await ensureUserCredentials(parsed.name, parsed.email, form.project_id);
+                    }
+
                     const assigneesPayload = finalAssignees.map(aStr => ({
                         reminder_id: rid,
                         assignee_name: aStr,
