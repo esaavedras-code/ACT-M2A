@@ -11,7 +11,9 @@ type Reminder = {
     title: string;
     description?: string;
     project_id?: string;
+    project_ids?: string[];
     project_name?: string;
+    project_names?: string[];
     urgency: number;
     type: string;
     status: string;
@@ -88,10 +90,19 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
 
             if (userEmail) {
                 const data = await getUserReminders(userEmail, userName);
-                const withProjects = data.map((r: any) => ({
-                    ...r,
-                    project_name: proj?.find(p => p.id === r.project_id)?.num_act || "General",
-                }));
+                const withProjects = data.map((r: any) => {
+                    const pIds: string[] = Array.isArray(r.project_ids) && r.project_ids.length > 0
+                        ? r.project_ids
+                        : (r.project_id ? [r.project_id] : []);
+                    const pNames = pIds.map(id => proj?.find(p => p.id === id)?.num_act).filter(Boolean) as string[];
+                    const mainProjectName = pNames.length > 0 ? pNames.join(", ") : (proj?.find(p => p.id === r.project_id)?.num_act || "General");
+                    return {
+                        ...r,
+                        project_ids: pIds,
+                        project_name: mainProjectName,
+                        project_names: pNames,
+                    };
+                });
                 setReminders(withProjects);
             }
         } catch (err) {
@@ -127,7 +138,10 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
             !r.description?.toLowerCase().includes(search.toLowerCase()) &&
             !r.project_name?.toLowerCase().includes(search.toLowerCase())) return false;
         if (filterUrgency !== "all" && r.urgency !== parseInt(filterUrgency)) return false;
-        if (filterProject !== "all" && r.project_id !== filterProject) return false;
+        if (filterProject !== "all") {
+            const pIds = r.project_ids || (r.project_id ? [r.project_id] : []);
+            if (!pIds.includes(filterProject) && r.project_id !== filterProject) return false;
+        }
         if (filterType !== "all" && r.type !== filterType) return false;
         const dd = r.due_date ? new Date(r.due_date) : null;
         const ua = r.updated_at ? new Date(r.updated_at) : null;

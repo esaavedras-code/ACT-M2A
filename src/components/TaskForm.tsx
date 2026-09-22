@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
 import {
-    Save, X, Plus, Trash2, Link2, Paperclip, Upload, Loader2
+    Save, X, Plus, Trash2, Link2, Paperclip, Upload, Loader2, ChevronDown, Check
 } from "lucide-react";
 
 const TASK_TYPES = ["Email", "Llamada", "Por contestar", "Reunión", "Seguimiento", "Documento", "Facturación", "Permiso", "RFI", "Submittal", "Otro"];
@@ -26,6 +26,7 @@ type FormData = {
     title: string;
     description: string;
     project_id: string;
+    project_ids: string[];
     subproject: string;
     urgency: number;
     type: string;
@@ -40,7 +41,7 @@ type FormData = {
 };
 
 const emptyForm: FormData = {
-    title: "", description: "", project_id: "", subproject: "",
+    title: "", description: "", project_id: "", project_ids: [], subproject: "",
     urgency: 2, type: "Seguimiento", status: "Pendiente",
     due_date: "", due_time: "", reminder_option: "1",
     reminder_custom_date: "", tags: [], assignees: [], links: [],
@@ -75,6 +76,27 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
     const [newComment, setNewComment] = useState("");
     const [attachments, setAttachments] = useState<any[]>([]);
     const [uploadingFile, setUploadingFile] = useState(false);
+    const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+
+    const toggleProjectSelect = (pId: string) => {
+        setForm(prev => {
+            const exists = prev.project_ids.includes(pId);
+            const updated = exists ? prev.project_ids.filter(id => id !== pId) : [...prev.project_ids, pId];
+            return {
+                ...prev,
+                project_ids: updated,
+                project_id: updated[0] || "",
+            };
+        });
+    };
+
+    const clearProjectSelect = () => {
+        setForm(prev => ({
+            ...prev,
+            project_ids: [],
+            project_id: "",
+        }));
+    };
 
     // Cargar proyectos
     useEffect(() => {
@@ -154,10 +176,14 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
             if (rRes.data) {
                 const r = rRes.data;
                 const dueDate = r.due_date ? new Date(r.due_date) : null;
+                const loadedProjectIds: string[] = Array.isArray(r.project_ids) && r.project_ids.length > 0
+                    ? r.project_ids
+                    : (r.project_id ? [r.project_id] : []);
                 setForm({
                     title: r.title || "",
                     description: r.description || "",
-                    project_id: r.project_id || "",
+                    project_id: loadedProjectIds[0] || r.project_id || "",
+                    project_ids: loadedProjectIds,
                     subproject: r.subproject || "",
                     urgency: r.urgency || 2,
                     type: r.type || "Seguimiento",
@@ -287,10 +313,12 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 reminder_date = new Date(form.reminder_custom_date + "T08:00:00").toISOString();
             }
 
+            const primaryProjectId = form.project_ids.length > 0 ? form.project_ids[0] : (form.project_id || null);
             const payload: any = {
                 title: form.title.trim(),
                 description: form.description.trim(),
-                project_id: form.project_id || null,
+                project_id: primaryProjectId,
+                project_ids: form.project_ids,
                 subproject: form.subproject || null,
                 urgency: form.urgency,
                 type: form.type,
@@ -501,18 +529,60 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
 
             {/* Fila: Proyecto + Área */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Proyecto</label>
-                    <select
-                        className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
-                        value={form.project_id}
-                        onChange={e => setField("project_id", e.target.value)}
+                <div className="relative">
+                    <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Proyecto (1 o más)</label>
+                    <button
+                        type="button"
+                        onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+                        className="w-full text-left px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm flex items-center justify-between transition-colors"
                     >
-                        <option value="">General / No asociado</option>
-                        {projects.map(p => (
-                            <option key={p.id} value={p.id}>{p.num_act} – {p.name}</option>
-                        ))}
-                    </select>
+                        <span className="truncate">
+                            {form.project_ids.length === 0
+                                ? "General / No asociado"
+                                : form.project_ids.length === 1
+                                    ? (() => {
+                                        const p = projects.find(proj => proj.id === form.project_ids[0]);
+                                        return p ? `${p.num_act} – ${p.name}` : "1 Proyecto seleccionado";
+                                    })()
+                                    : `${form.project_ids.length} Proyectos (${projects.filter(p => form.project_ids.includes(p.id)).map(p => p.num_act).join(", ")})`
+                            }
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-slate-400 ml-2 flex-shrink-0 transition-transform ${isProjectDropdownOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isProjectDropdownOpen && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsProjectDropdownOpen(false)} />
+                            <div className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto p-1.5">
+                                <div
+                                    onClick={() => { clearProjectSelect(); setIsProjectDropdownOpen(false); }}
+                                    className={`px-3 py-2 text-sm rounded-lg cursor-pointer flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 ${form.project_ids.length === 0 ? "font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40" : "text-slate-700 dark:text-slate-300"}`}
+                                >
+                                    <span>General / No asociado</span>
+                                    {form.project_ids.length === 0 && <Check className="w-4 h-4 text-blue-600" />}
+                                </div>
+                                <div className="my-1 border-t border-slate-200 dark:border-slate-800" />
+                                {projects.map(p => {
+                                    const isSelected = form.project_ids.includes(p.id);
+                                    return (
+                                        <div
+                                            key={p.id}
+                                            onClick={() => toggleProjectSelect(p.id)}
+                                            className={`px-3 py-2 text-sm rounded-lg cursor-pointer flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 mb-0.5 ${isSelected ? "font-semibold text-blue-600 bg-blue-50 dark:bg-blue-950/40" : "text-slate-700 dark:text-slate-300"}`}
+                                        >
+                                            <span className="truncate">{p.num_act} – {p.name}</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => {}}
+                                                className="w-4 h-4 accent-blue-600 rounded cursor-pointer ml-2 flex-shrink-0"
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
                 </div>
                 <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Subproyecto / Área</label>

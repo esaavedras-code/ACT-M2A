@@ -56,10 +56,18 @@ export default function TaskKanban({ onEdit }: Props) {
         ]);
         const projects = pRes.data || [];
         if (rData) {
-            setReminders(rData.filter((r: any) => COLUMNS.includes(r.status as any)).map((r: any) => ({
-                ...r,
-                project_name: projects.find(p => p.id === r.project_id)?.num_act || "General",
-            })));
+            setReminders(rData.filter((r: any) => COLUMNS.includes(r.status as any)).map((r: any) => {
+                const pIds: string[] = Array.isArray(r.project_ids) && r.project_ids.length > 0
+                    ? r.project_ids
+                    : (r.project_id ? [r.project_id] : []);
+                const pNames = pIds.map(id => projects.find(p => p.id === id)?.num_act).filter(Boolean) as string[];
+                const mainProjectName = pNames.length > 0 ? pNames.join(", ") : (projects.find(p => p.id === r.project_id)?.num_act || "General");
+                return {
+                    ...r,
+                    project_ids: pIds,
+                    project_name: mainProjectName,
+                };
+            }));
         }
         setLoading(false);
     }, []);
