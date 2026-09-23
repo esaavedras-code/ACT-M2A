@@ -724,7 +724,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     {[
                         { val: 1, label: "Alta", color: "bg-red-500 text-white", ring: "ring-red-500" },
                         { val: 2, label: "Media", color: "bg-amber-400 text-white", ring: "ring-amber-400" },
-                        { val: 3, label: "Baja", color: "bg-green-500 text-white", ring: "ring-green-500" },
+                        { val: 3, label: "Baja", color: "bg-sky-500 text-white", ring: "ring-sky-500" },
                     ].map(u => (
                         <button
                             key={u.val}
