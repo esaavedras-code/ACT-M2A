@@ -84,7 +84,8 @@ export default function TaskCenterButton() {
                                     <p>Este es un recordatorio automático de tu sistema <strong>Programa ACT</strong>.</p>
                                     <div style="background-color: #f8fafc; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
                                         <p style="margin: 0 0 5px 0;"><strong>Pendiente:</strong> ${rem.title}</p>
-                                        <p style="margin: 0 0 5px 0;"><strong>Urgencia:</strong> ${rem.urgency === 1 ? '🔴 Alta' : rem.urgency === 2 ? '🟡 Media' : '🟢 Baja'}</p>
+                                        <p style="margin: 0 0 5px 0;"><strong>Creado por:</strong> ${rem.created_by || 'Sistema'}</p>
+                                        <p style="margin: 0 0 5px 0;"><strong>Urgencia:</strong> ${rem.urgency === 1 ? '🔴 Alta' : rem.urgency === 2 ? '🟡 Media' : '🔵 Baja'}</p>
                                         <p style="margin: 0 0 5px 0;"><strong>Fecha de Vencimiento:</strong> ${dueFormatted}</p>
                                         <p style="margin: 0; color: #475569;"><strong>Estado:</strong> ${rem.status}</p>
                                     </div>

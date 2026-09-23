@@ -18,7 +18,8 @@ type Reminder = {
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const DAYS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 
-const URGENCY_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-amber-400", 3: "bg-green-500" };
+const URGENCY_DOT: Record<number, string> = { 1: "bg-red-500", 2: "bg-amber-400", 3: "bg-sky-400" };
+const getDotColor = (r: Reminder) => r.status === "Completado" ? "bg-green-500" : URGENCY_DOT[r.urgency];
 
 type Props = { onEdit: (id: string) => void };
 
@@ -108,7 +109,7 @@ export default function TaskCalendar({ onEdit }: Props) {
                                 <p className={`text-lg font-black mt-0.5 ${isToday ? "text-blue-700 dark:text-blue-300" : "text-slate-700 dark:text-slate-300"}`}>{date.getDate()}</p>
                                 <div className="flex flex-col gap-0.5 mt-1">
                                     {items.slice(0, 2).map(r => (
-                                        <button key={r.id} onClick={() => onEdit(r.id)} className={`w-2 h-2 rounded-full mx-auto transition-transform hover:scale-150 ${URGENCY_DOT[r.urgency]}`} title={r.title} />
+                                        <button key={r.id} onClick={() => onEdit(r.id)} className={`w-2 h-2 rounded-full mx-auto transition-transform hover:scale-150 ${getDotColor(r)}`} title={r.title} />
                                     ))}
                                     {items.length > 2 && <span className="text-[8px] text-slate-400">+{items.length - 2}</span>}
                                 </div>
@@ -150,7 +151,7 @@ export default function TaskCalendar({ onEdit }: Props) {
                                 {items.length > 0 && (
                                     <div className="flex justify-center gap-0.5 mt-0.5">
                                         {items.slice(0, 3).map(r => (
-                                            <span key={r.id} className={`w-1.5 h-1.5 rounded-full ${URGENCY_DOT[r.urgency]}`} />
+                                            <span key={r.id} className={`w-1.5 h-1.5 rounded-full ${getDotColor(r)}`} />
                                         ))}
                                     </div>
                                 )}
@@ -167,7 +168,7 @@ export default function TaskCalendar({ onEdit }: Props) {
                     <div className="space-y-2">
                         {selectedDayReminders.map(r => (
                             <button key={r.id} onClick={() => onEdit(r.id)} className="w-full text-left flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 transition-colors">
-                                <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${URGENCY_DOT[r.urgency]}`} />
+                                <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${getDotColor(r)}`} />
                                 <div>
                                     <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{r.title}</p>
                                     <div className="flex gap-2 mt-0.5">

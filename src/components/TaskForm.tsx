@@ -506,7 +506,8 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                                         <p>Se te ha asignado un pendiente en el sistema <strong>Programa ACT</strong> por <strong>${userName}</strong>.</p>
                                         <div style="background-color: #f8fafc; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
                                             <p style="margin: 0 0 5px 0;"><strong>Pendiente:</strong> ${form.title}</p>
-                                            <p style="margin: 0 0 5px 0;"><strong>Urgencia:</strong> ${urgencyLabel}</p>
+                                            <p style="margin: 0 0 5px 0;"><strong>Creado por:</strong> ${userName}</p>
+                                            <p style="margin: 0 0 5px 0;"><strong>Urgencia:</strong> ${form.urgency === 1 ? '🔴 Alta' : form.urgency === 2 ? '🟡 Media' : '🔵 Baja'}</p>
                                             <p style="margin: 0 0 5px 0;"><strong>Fecha de Vencimiento:</strong> ${form.due_date || 'Sin fecha'}</p>
                                             <p style="margin: 0; color: #475569;"><strong>Estado:</strong> ${form.status}</p>
                                         </div>

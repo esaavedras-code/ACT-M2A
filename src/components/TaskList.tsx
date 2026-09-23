@@ -36,7 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
 const URGENCY_BADGE: Record<number, string> = {
     1: "🔴 Alta",
     2: "🟡 Media",
-    3: "🟢 Baja",
+    3: "🔵 Baja",
 };
 
 type Props = {
@@ -151,7 +151,8 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
         if (filterStatus === "completedWeek") return r.status === "Completado" && ua && ua >= weekAgo;
         if (filterStatus === "completedMonth") return r.status === "Completado" && ua && ua >= monthAgo;
         if (filterStatus !== "all") return r.status === filterStatus;
-        return true;
+        // Por defecto, ocultar Completados y Cancelados
+        return r.status !== "Completado" && r.status !== "Cancelado";
     }).sort((a, b) => {
         let cmp = 0;
         if (sortBy === "urgency") cmp = a.urgency - b.urgency;
