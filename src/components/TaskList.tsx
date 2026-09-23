@@ -256,7 +256,7 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
                             <div key={r.id} className={`rounded-xl border-2 p-4 transition-all hover:shadow-md ${isOverdue ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800" : isToday ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"}`}>
                                 <div className="flex items-start gap-3">
                                     {/* Indicador de urgencia */}
-                                    <div className={`mt-0.5 w-2.5 h-2.5 rounded-full shrink-0 ${r.urgency === 1 ? "bg-red-500" : r.urgency === 2 ? "bg-amber-400" : "bg-green-500"}`} />
+                                    <div className={`mt-0.5 w-2.5 h-2.5 rounded-full shrink-0 ${r.urgency === 1 ? "bg-red-500" : r.urgency === 2 ? "bg-amber-400" : "bg-sky-400"}`} />
 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between gap-2 flex-wrap">

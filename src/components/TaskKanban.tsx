@@ -128,7 +128,7 @@ export default function TaskKanban({ onEdit }: Props) {
                                         className={`rounded-xl border-2 bg-white dark:bg-slate-800 p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-all select-none ${style.card} ${draggingId === r.id ? "opacity-40 scale-95" : ""}`}
                                     >
                                         {/* Barra de urgencia */}
-                                        <div className={`w-full h-1 rounded-full mb-2 ${r.urgency === 1 ? "bg-red-500" : r.urgency === 2 ? "bg-amber-400" : "bg-green-500"}`} />
+                                        <div className={`w-full h-1 rounded-full mb-2 ${r.urgency === 1 ? "bg-red-500" : r.urgency === 2 ? "bg-amber-400" : "bg-sky-400"}`} />
                                         
                                         <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-snug line-clamp-2">{r.title}</p>
 

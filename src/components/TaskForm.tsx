@@ -487,7 +487,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     });
 
                     const uniqueRecipients = Array.from(new Set(recipients));
-                    const urgencyLabel = form.urgency === 1 ? '🔴 Alta' : form.urgency === 2 ? '🟡 Media' : '🟢 Baja';
+                    const urgencyLabel = form.urgency === 1 ? '🔴 Alta' : form.urgency === 2 ? '🟡 Media' : '🔵 Baja';
                     const appOrigin = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://act-m2-a.vercel.app";
                     const directTaskUrl = `${appOrigin}/?openTask=${rid}`;
 
@@ -593,7 +593,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
         }
     };
 
-    const urgencyColor = form.urgency === 1 ? "bg-red-500" : form.urgency === 2 ? "bg-amber-400" : "bg-green-500";
+    const urgencyColor = form.urgency === 1 ? "bg-red-500" : form.urgency === 2 ? "bg-amber-400" : "bg-sky-500";
 
     if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-blue-500" size={32} /></div>;
 
@@ -732,7 +732,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                             onClick={() => setField("urgency", u.val)}
                             className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${u.color} ${form.urgency === u.val ? `ring-2 ring-offset-2 ${u.ring} scale-105` : "opacity-40 hover:opacity-70"}`}
                         >
-                            {u.val === 1 ? "🔴" : u.val === 2 ? "🟡" : "🟢"} {u.label}
+                            {u.val === 1 ? "🔴" : u.val === 2 ? "🟡" : "🔵"} {u.label}
                         </button>
                     ))}
                 </div>
