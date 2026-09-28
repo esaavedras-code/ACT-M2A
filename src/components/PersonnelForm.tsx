@@ -320,12 +320,19 @@ const PersonnelForm = forwardRef<FormRef, { projectId?: string, numAct?: string,
                                         </td>
                                         <td className="px-2 py-1.5">
                                             <select
-                                                className="input-field text-xs font-bold min-h-[38px] !py-1.5"
-                                                style={{ backgroundColor: isHistorico ? '#F1F5F9' : '#EEF2FF' }}
+                                                className={`input-field text-xs font-bold min-h-[38px] !py-1.5 ${
+                                                    isHistorico 
+                                                        ? 'bg-slate-200 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400' 
+                                                        : 'bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
+                                                }`}
                                                 value={p.role || STAFF_ROLES[0]}
                                                 onChange={(e) => updateItem(idx, 'role', e.target.value)}
                                             >
-                                                {STAFF_ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+                                                {STAFF_ROLES.map(role => (
+                                                    <option key={role} value={role} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+                                                        {role}
+                                                    </option>
+                                                ))}
                                             </select>
                                         </td>
                                         <td className="px-2 py-1.5">
