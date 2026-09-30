@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 export interface AssignedItem {
     item_num: string;
     quantity: number;
+    unit_price?: number;
     type: "Especializada" | "NO Especializada";
 }
 
@@ -61,7 +62,9 @@ export default function SubcontractItemsModal({
                     description: projectItem ? projectItem.description || "" : "",
                     unit: projectItem ? projectItem.unit || "" : "",
                     quantity: ai.quantity,
-                    unit_price: projectItem ? parseFloat(projectItem.unit_price || 0) : 0,
+                    unit_price: (ai as any).unit_price !== undefined && (ai as any).unit_price !== null
+                        ? parseFloat((ai as any).unit_price)
+                        : (projectItem ? parseFloat(projectItem.unit_price || 0) : 0),
                     type: ai.type || "NO Especializada"
                 };
             });
@@ -124,6 +127,7 @@ export default function SubcontractItemsModal({
             .map(r => ({
                 item_num: r.item_num,
                 quantity: r.quantity,
+                unit_price: r.unit_price,
                 type: r.type
             }));
         onSave(finalItems);
@@ -192,7 +196,8 @@ export default function SubcontractItemsModal({
                                             <td className="py-2 text-right pr-2">
                                                 <input 
                                                     type="number" 
-                                                    value={row.quantity || ""}
+                                                    step="0.01"
+                                                    value={row.quantity === 0 ? "0" : (row.quantity || "")}
                                                     onChange={(e) => handleRowChange(row.id, 'quantity', parseFloat(e.target.value) || 0)}
                                                     className="w-24 text-right px-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-primary"
                                                 />
@@ -200,8 +205,14 @@ export default function SubcontractItemsModal({
                                             <td className="py-2 text-center pr-2">
                                                 <span className="text-[10px] font-bold text-slate-400 uppercase">{row.unit || "-"}</span>
                                             </td>
-                                            <td className="py-2 text-right pr-2 text-xs font-bold text-slate-600 dark:text-slate-400">
-                                                {formatCurrency(row.unit_price)}
+                                            <td className="py-2 text-right pr-2">
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    value={row.unit_price === 0 ? "0" : (row.unit_price || "")}
+                                                    onChange={(e) => handleRowChange(row.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                                                    className="w-28 text-right px-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-primary"
+                                                />
                                             </td>
                                             <td className="py-2 text-right pr-2 text-xs font-black text-primary">
                                                 {formatCurrency(row.quantity * row.unit_price)}

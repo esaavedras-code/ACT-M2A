@@ -114,7 +114,9 @@ export const generateSubcontractsReportLogic = async (projectId: string) => {
                 if (subRecord && Array.isArray(subRecord.assigned_items)) {
                     subRecord.assigned_items.forEach((ai: any) => {
                         const item = items?.find(it => it.item_num === ai.item_num);
-                        const unitPrice = item ? parseFloat(item.unit_price || 0) : 0;
+                        const unitPrice = ai.unit_price !== undefined && ai.unit_price !== null 
+                            ? parseFloat(ai.unit_price || 0) 
+                            : (item ? parseFloat(item.unit_price || 0) : 0);
                         const quantity = parseFloat(ai.quantity || 0);
                         totalSubcontract += quantity * unitPrice;
                     });
