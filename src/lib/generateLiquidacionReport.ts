@@ -22,16 +22,6 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
     const { data: contr } = await supabase.from('contractors').select('name').eq('project_id', projectId).single();
     const fallbackContractor = contr?.name || '';
 
-    const { data: itemsRaw } = await supabase
-        .from('contract_items').select('*').eq('project_id', projectId);
-
-    const items = uniqueSortItems([...(itemsRaw || [])]);
-
-    if (!items || items.length === 0) {
-        alert('No hay partidas registradas para este proyecto.');
-        return;
-    }
-
     const { data: certs } = await supabase
         .from('payment_certifications').select('*').eq('project_id', projectId)
         .order('cert_num', { ascending: true });
@@ -39,6 +29,39 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
     const { data: chos } = await supabase
         .from('chos').select('*').eq('project_id', projectId)
         .order('cho_num', { ascending: true });
+
+    const { data: itemsRaw } = await supabase
+        .from('contract_items').select('*').eq('project_id', projectId);
+
+    const existingNums = new Set((itemsRaw || []).map((i: any) => (i.item_num || '').toString().trim()));
+    const extraItems: any[] = [];
+    (chos || []).forEach((cho: any) => {
+        const cItems = Array.isArray(cho.items) ? cho.items : (cho.items?.list || []);
+        cItems.forEach((ci: any) => {
+            const num = (ci.item_num || '').toString().trim();
+            if (num && !existingNums.has(num)) {
+                existingNums.add(num);
+                extraItems.push({
+                    item_num: ci.item_num,
+                    description: ci.description || 'Ítem de Orden de Cambio',
+                    additional_description: ci.additional_description || '',
+                    unit: ci.unit || 'UN',
+                    quantity: 0,
+                    unit_price: parseFloat(ci.unit_price) || 0,
+                    specification: ci.specification || '',
+                    project_id: projectId,
+                    is_cho_item: true
+                });
+            }
+        });
+    });
+
+    const items = uniqueSortItems([...(itemsRaw || []), ...extraItems]);
+
+    if (!items || items.length === 0) {
+        alert('No hay partidas registradas para este proyecto.');
+        return;
+    }
 
     // ── 2. PDF Setup ───────────────────────────────────────────
     const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
@@ -61,21 +84,22 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
     // ──────────────────────────────────────────────────────────
     // Helpers de dibujo (todo en B&W)
     // ──────────────────────────────────────────────────────────
-    const RED = rgb(0.8, 0, 0);
+    const RED = rgb(0.85, 0, 0);
     const TXT = (
         pg: any, text: string,
         x: number, y: number, sz: number,
         bold = false,
         align: 'left' | 'center' | 'right' = 'left',
-        maxW?: number
+        maxW?: number,
+        customColor?: any
     ) => {
         if (text === undefined || text === null) return;
         let s = text.toString().replace(/[\x00-\x09\x0B-\x1F]/g, '');
         if (!s) return;
 
-        let textColor = BK;
+        let textColor = customColor || BK;
         const trimmed = s.trim();
-        if (trimmed.startsWith('-')) {
+        if (!customColor && trimmed.startsWith('-')) {
             const val = parseFloat(trimmed.replace(/[^\d.-]/g, '')) || 0;
             if (val < 0) {
                 textColor = RED;
@@ -108,24 +132,30 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
     // Datos por partida
     // ──────────────────────────────────────────────────────────
     const getItemData = (item: any) => {
+        const itemNumStr = (item.item_num || '').toString().trim();
+
         const certRows: { cert: any; qty: number }[] = [];
         (certs || []).forEach((cert: any) => {
-            const ci = Array.isArray(cert.items) ? cert.items : [];
-            const m = ci.find((it: any) => it.item_num === item.item_num);
+            const ci = Array.isArray(cert.items) ? cert.items : (cert.items?.list || []);
+            const m = ci.find((it: any) => (it.item_num || '').toString().trim() === itemNumStr);
             if (m) certRows.push({ cert, qty: parseFloat(m.quantity) || 0 });
         });
 
-        const choRows: { cho: any; ci: any }[] = [];
+        const choRows: { cho: any; ci: any; qty: number; amt: number }[] = [];
         (chos || []).forEach((cho: any) => {
-            const ci = Array.isArray(cho.items) ? cho.items : [];
-            const m = ci.find((it: any) => it.item_num === item.item_num);
-            if (m) choRows.push({ cho, ci: m });
+            const ci = Array.isArray(cho.items) ? cho.items : (cho.items?.list || []);
+            const m = ci.find((it: any) => (it.item_num || '').toString().trim() === itemNumStr);
+            if (m) {
+                const qty = parseFloat(m.proposed_change !== undefined ? m.proposed_change : m.quantity) || 0;
+                const pUnit = parseFloat(m.unit_price !== undefined ? m.unit_price : item.unit_price) || 0;
+                const amt = roundedAmt(qty * pUnit, 2);
+                choRows.push({ cho, ci: m, qty, amt });
+            }
         });
 
         const totalExe = certRows.reduce((a, r) => a + r.qty, 0);
-        const choTotalQty = choRows.reduce((a, r) => a + (parseFloat(r.ci.quantity) || 0), 0);
-        const choTotalAmt = choRows.reduce((a, r) =>
-            a + roundedAmt((parseFloat(r.ci.quantity) || 0) * (parseFloat(r.ci.unit_price) || 0), 2), 0);
+        const choTotalQty = choRows.reduce((a, r) => a + r.qty, 0);
+        const choTotalAmt = choRows.reduce((a, r) => a + r.amt, 0);
 
         return { certRows, choRows, totalExe, choTotalQty, choTotalAmt };
     };
@@ -136,7 +166,7 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
     const drawItemPage = (item: any, pageIndex: number, totalItems: number) => {
         const pg = pdfDoc.addPage([PW, PH]);
 
-        const { certRows, totalExe, choTotalQty, choTotalAmt } = getItemData(item);
+        const { certRows, choRows, totalExe, choTotalQty, choTotalAmt } = getItemData(item);
         const qOrig = parseFloat(item.quantity) || 0;
         const pUnit = parseFloat(item.unit_price) || 0;
         const mOrig = roundedAmt(qOrig * pUnit, 2);
@@ -293,16 +323,61 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         });
         Y -= HDR_H;
 
+        // ── PREPARAR FILAS DE DATOS (CERTIFICACIONES Y CHANGE ORDERS) ──
+        interface DetailRow {
+            type: 'cert' | 'cho';
+            label: string;
+            qty: number;
+            unit: string;
+            info?: string;
+        }
+
+        const detailRows: DetailRow[] = [];
+
+        // 1. Certificaciones de pago
+        certRows.forEach(({ cert, qty }) => {
+            detailRows.push({
+                type: 'cert',
+                label: `Cert. #${cert.cert_num}  ${utilsFormatDate(cert.cert_date)}`,
+                qty,
+                unit: item.unit || ''
+            });
+        });
+
+        // 2. Change Orders (C.H.O.)
+        choRows.forEach(({ cho, ci, qty }) => {
+            const choNum = cho.cho_num || cho.cho_number || '';
+            const amend = cho.amendment_letter || '';
+            const choDateStr = cho.cho_date ? utilsFormatDate(cho.cho_date) : '';
+            const label = `C.H.O. #${choNum}${amend}${choDateStr ? '  ' + choDateStr : ''}`.trim();
+            detailRows.push({
+                type: 'cho',
+                label,
+                qty,
+                unit: item.unit || ci.unit || '',
+                info: ci.specification || ''
+            });
+        });
+
         // ── FILAS DE DATOS ──────────────────────────────
-        const ROW_H = 12;
-        const MAX_ROWS = 9;
+        const MAX_ROWS = Math.max(9, detailRows.length);
+        const ROW_H = MAX_ROWS > 9 ? Math.max(9, Math.floor(108 / MAX_ROWS)) : 12;
 
         let rowsDrawn = 0;
-        certRows.slice(0, MAX_ROWS).forEach(({ cert, qty }) => {
+        detailRows.slice(0, MAX_ROWS).forEach((row) => {
             for (let i = 0; i < 8; i++) RECT(pg, COL_X[i], Y - ROW_H, COL_W[i], ROW_H, WH, 0.4);
-            TXT(pg, `Cert. #${cert.cert_num}  ${utilsFormatDate(cert.cert_date)}`, COL_X[0] + 2, Y - 8, 5.5);
-            TXT(pg, qty.toFixed(3), COL_X[1] + COL_W[1] - 3, Y - 8, 6.5, false, 'right');
-            TXT(pg, item.unit || '', hCX(2), Y - 8, 6.5, false, 'center');
+            const isCho = row.type === 'cho';
+            const fSize = ROW_H < 11 ? 5 : 5.5;
+            const qSize = ROW_H < 11 ? 5.5 : 6.5;
+            const yOff = ROW_H < 11 ? 7 : 8;
+
+            TXT(pg, row.label, COL_X[0] + 2, Y - yOff, fSize, isCho);
+            const qtyStr = isCho && row.qty > 0 ? `+${row.qty.toFixed(3)}` : row.qty.toFixed(3);
+            TXT(pg, qtyStr, COL_X[1] + COL_W[1] - 3, Y - yOff, qSize, false, 'right');
+            TXT(pg, row.unit, hCX(2), Y - yOff, qSize, false, 'center');
+            if (row.info) {
+                TXT(pg, row.info, COL_X[3] + 2, Y - yOff, fSize, false, 'left', COL_W[3] - 4);
+            }
             Y -= ROW_H;
             rowsDrawn++;
         });
@@ -386,6 +461,42 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
             if (ref.sub) TXT(pg, ref.sub, refColX + 9, ry - 7, 5);
         });
 
+        // ── DETERMINAR ESTADO DE EJECUCIÓN (EN MEDIO DE LA HOJA) ──
+        const isNotExecuted = totalExe <= 0.0001;
+        const isCompleted = !isNotExecuted && totalQty > 0 && (totalExe >= totalQty || Math.abs(totalExe - totalQty) < 0.001);
+
+        if (isNotExecuted || isCompleted) {
+            const badgeText = isNotExecuted ? 'NO EJECUTADA' : '100% EJECUTADA';
+            const badgeColor = isNotExecuted ? RED : rgb(0, 0.5, 0.15);
+            const fontSize = 16;
+            const textWidth = fB.widthOfTextAtSize(badgeText, fontSize);
+            const boxPaddingX = 14;
+            const boxPaddingY = 6;
+            const boxW = textWidth + (boxPaddingX * 2);
+            const boxH = fontSize + (boxPaddingY * 2);
+            const boxX = (PW - boxW) / 2;
+            const boxY = (PH / 2) - (boxH / 2);
+
+            // Fondo blanco con borde para que no interfieran las líneas de la cuadrícula
+            pg.drawRectangle({
+                x: boxX,
+                y: boxY,
+                width: boxW,
+                height: boxH,
+                color: WH,
+                borderColor: badgeColor,
+                borderWidth: 1.5,
+            });
+
+            pg.drawText(badgeText, {
+                x: (PW - textWidth) / 2,
+                y: boxY + boxPaddingY + 2,
+                size: fontSize,
+                font: fB,
+                color: badgeColor,
+            });
+        }
+
         Y -= 30; // espacio antes de firmas
 
         // ══════════════════════════════════════════════════════
@@ -441,16 +552,18 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         RECT(pg, ML, Y - OBS_H, obsW, OBS_H, WH, 0.7);
         RECT(pg, ML + obsW, Y - halfEH, ewoW, halfEH, WH, 0.7);
         RECT(pg, ML + obsW, Y - OBS_H, ewoW, halfEH, WH, 0.7);
+        
         let statusText = '';
-        if (totalExe === 0) {
-            statusText = 'NO EJECUTADO';
-        } else if (Math.abs(totalExe - totalQty) < 0.001) {
-            statusText = '100% EJECUTADO';
+        if (isNotExecuted) {
+            statusText = 'NO EJECUTADA';
+        } else if (isCompleted) {
+            statusText = '100% EJECUTADA';
         }
 
         TXT(pg, 'Observaciones:', ML + 3, Y - 10, 8, true);
         if (statusText) {
-            TXT(pg, statusText, ML + 80, Y - 10, 8, true);
+            const sCol = isNotExecuted ? RED : rgb(0, 0.5, 0.15);
+            TXT(pg, statusText, ML + 80, Y - 10, 8, true, 'left', undefined, sCol);
         }
         TXT(pg, 'E.W.O. #', ML + obsW + 4, Y - 10, 7.5, true);
         TXT(pg, 'PAG. #', ML + obsW + 4, Y - OBS_H + halfEH - 10, 7.5, true);
