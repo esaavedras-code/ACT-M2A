@@ -45,7 +45,7 @@ function PlatformIndicatorContent() {
     return (
         <>
             {/* Pastilla de plataforma - solo muestra WEB/ESCRITORIO, SIN número de proyecto */}
-            <div className="fixed top-0 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none">
+            <div className="fixed top-0 left-1/2 -translate-x-1/2 z-[51] pointer-events-none">
                 <div className="bg-slate-900/90 text-white text-[9px] font-black tracking-[0.3em] uppercase px-6 py-1 rounded-b-xl border-x border-b border-white/20 shadow-2xl backdrop-blur-md">
                     {platform}
                 </div>
@@ -54,7 +54,7 @@ function PlatformIndicatorContent() {
             {/* Número de proyecto - centrado en la barra azul del header (h-16 = 64px, justo debajo del top) */}
             {numAct && (
                 <div
-                    className="fixed z-[9998] left-1/2 -translate-x-1/2 pointer-events-auto"
+                    className="fixed z-[51] left-1/2 -translate-x-1/2 pointer-events-auto"
                     style={{ top: '28px' }}  /* Ajustado para el nuevo tamaño */
                 >
                     <button

@@ -72,13 +72,13 @@ export default function TaskCenterSidebar() {
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 z-[999] bg-black/50 backdrop-blur-sm"
+                className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm"
                 onClick={() => setIsOpen(false)}
             />
 
             {/* Panel lateral */}
             <div
-                className="fixed top-0 right-0 z-[1000] h-full w-full max-w-4xl bg-white dark:bg-slate-950 shadow-2xl flex flex-col"
+                className="fixed top-0 right-0 z-[10000] h-full w-full max-w-4xl bg-white dark:bg-slate-950 shadow-2xl flex flex-col"
                 style={{ animation: "slideInFromRight 0.3s ease-out" }}
             >
                 {/* Header */}
