@@ -6,6 +6,11 @@ const roundedAmt = (val: number, dec: number) =>
     Math.round(val * Math.pow(10, dec)) / Math.pow(10, dec);
 const formatC = (val: number) =>
     val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatNum = (val: number | string | null | undefined, dec = 2) => {
+    const n = typeof val === 'string' ? parseFloat(val) : (val || 0);
+    if (isNaN(n as number)) return '0.00';
+    return (n as number).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+};
 
 // ═══════════════════════════════════════════════════════════════
 // REPORTE — HOJAS DE LIQUIDACIÓN
@@ -246,7 +251,7 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         // ══════════════════════════════════════════════════════
         TXT(pg, 'Cantidad Original', ML, Y, 7);
         const cLblW = 80, cNumW = 72;
-        const cantUnitStr = `${qOrig.toString()}  ${item.unit || ''}`.trim();
+        const cantUnitStr = `${formatNum(qOrig, 2)}  ${item.unit || ''}`.trim();
         TXT(pg, cantUnitStr, ML + cLblW + 2, Y, 8, true);
         H_LINE(pg, ML + cLblW, Y - 2, ML + cLblW + cNumW, 0.5);
 
@@ -372,7 +377,7 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
             const yOff = ROW_H < 11 ? 7 : 8;
 
             TXT(pg, row.label, COL_X[0] + 2, Y - yOff, fSize, isCho);
-            const qtyStr = isCho && row.qty > 0 ? `+${row.qty.toFixed(3)}` : row.qty.toFixed(3);
+            const qtyStr = isCho && row.qty > 0 ? `+${formatNum(row.qty, 2)}` : formatNum(row.qty, 2);
             TXT(pg, qtyStr, COL_X[1] + COL_W[1] - 3, Y - yOff, qSize, false, 'right');
             TXT(pg, row.unit, hCX(2), Y - yOff, qSize, false, 'center');
             if (row.info) {
@@ -391,11 +396,11 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         // ── FILAS RESUMEN ────────────────────────────────
         const SUM_H = 13;
         const subAmt = roundedAmt(totalExe * pUnit, 2);
-        const totalQty = roundedAmt(qOrig + choTotalQty, 4);
+        const totalQty = roundedAmt(qOrig + choTotalQty, 2);
         const totalAmt = roundedAmt(mOrig + choTotalAmt, 2);
 
         // Economía = diferencia entre lo presupuestado original y lo ejecutado
-        const econQty = roundedAmt(totalQty - totalExe, 4);
+        const econQty = roundedAmt(totalQty - totalExe, 2);
         const econAmt = roundedAmt(totalAmt - subAmt, 2);
 
         // ── Fila 1: SUB-TOTAL (izq) | AUMENTO (centro-der) ──
@@ -403,13 +408,13 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
 
         // SUB-TOTAL: label + cantidad ejecutada
         TXT(pg, 'SUB-TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
-        TXT(pg, totalExe.toFixed(3), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
+        TXT(pg, formatNum(totalExe, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
         // AUMENTO: solo la cifra neta del balance de CHOs
         TXT(pg, 'AUMENTO', hCX(3), Y - 9, 6.5, true, 'center');
         if (Math.abs(choTotalQty) > 0.0001) {
             const sign = choTotalQty > 0 ? '+' : '';
-            TXT(pg, `${sign}${choTotalQty.toFixed(3)}`, COL_X[4] + 2, Y - 9, 6, true);
+            TXT(pg, `${sign}${formatNum(choTotalQty, 2)}`, COL_X[4] + 2, Y - 9, 6, true);
         } else {
             TXT(pg, 'N/A', hCX(4), Y - 9, 6, false, 'center');
         }
@@ -420,13 +425,13 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
 
         // TOTAL: label + cantidad total ajustada
         TXT(pg, 'TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
-        TXT(pg, totalQty.toFixed(3), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
+        TXT(pg, formatNum(totalQty, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
         // ECONOMIA: solo la cifra neta del balance (totalQty - ejecutado)
         TXT(pg, 'ECONOMIA', hCX(3), Y - 9, 6.5, true, 'center');
         if (Math.abs(econQty) > 0.001) {
             const eSign = econQty > 0 ? '+' : '';
-            TXT(pg, `${eSign}${econQty.toFixed(3)}`, COL_X[4] + 2, Y - 9, 6, true);
+            TXT(pg, `${eSign}${formatNum(econQty, 2)}`, COL_X[4] + 2, Y - 9, 6, true);
         } else {
             TXT(pg, '—', hCX(4), Y - 9, 6, false, 'center');
         }
@@ -573,10 +578,10 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
             let choNote = '';
             if (econQty > 0) {
                 // Sobra cantidad: se necesita CHO de reducción
-                choNote = `Pendiente CHO de reduccion por ${econQty.toFixed(3)} ${itemUnit}.`;
+                choNote = `Pendiente CHO de reduccion por ${formatNum(econQty, 2)} ${itemUnit}.`;
             } else {
                 // Falta cantidad: se necesita CHO de aumento
-                choNote = `Pendiente CHO de aumento por ${Math.abs(econQty).toFixed(3)} ${itemUnit}.`;
+                choNote = `Pendiente CHO de aumento por ${formatNum(Math.abs(econQty), 2)} ${itemUnit}.`;
             }
             const obsMaxW = obsW - 84;
             TXT(pg, choNote, ML + 3, Y - 22, 7, false, 'left', obsMaxW, RED);
