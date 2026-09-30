@@ -405,14 +405,13 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         TXT(pg, 'SUB-TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
         TXT(pg, totalExe.toFixed(3), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
-        // AUMENTO: label + qty CHO + monto CHO (si hubo)
+        // AUMENTO: solo la cifra neta del balance de CHOs
         TXT(pg, 'AUMENTO', hCX(3), Y - 9, 6.5, true, 'center');
-        if (choTotalQty !== 0) {
+        if (Math.abs(choTotalQty) > 0.0001) {
             const sign = choTotalQty > 0 ? '+' : '';
-            TXT(pg, `${sign}${choTotalQty.toFixed(3)}`, COL_X[4] + 2, Y - 9, 5.5);
-            TXT(pg, `${sign}$ ${formatC(choTotalAmt)}`, COL_X[6] + 2, Y - 9, 5.5, true);
+            TXT(pg, `${sign}${choTotalQty.toFixed(3)}`, COL_X[4] + 2, Y - 9, 6, true);
         } else {
-            TXT(pg, 'N/A', COL_X[4] + 2, Y - 9, 5.5);
+            TXT(pg, 'N/A', hCX(4), Y - 9, 6, false, 'center');
         }
         Y -= SUM_H;
 
@@ -423,14 +422,13 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         TXT(pg, 'TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
         TXT(pg, totalQty.toFixed(3), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
-        // ECONOMIA: diferencia entre total ajustado y lo realmente ejecutado
+        // ECONOMIA: solo la cifra neta del balance (totalQty - ejecutado)
         TXT(pg, 'ECONOMIA', hCX(3), Y - 9, 6.5, true, 'center');
         if (Math.abs(econQty) > 0.001) {
             const eSign = econQty > 0 ? '+' : '';
-            TXT(pg, `${eSign}${econQty.toFixed(3)}`, COL_X[4] + 2, Y - 9, 5.5);
-            TXT(pg, `${eSign}$ ${formatC(econAmt)}`, COL_X[6] + 2, Y - 9, 5.5, true);
+            TXT(pg, `${eSign}${econQty.toFixed(3)}`, COL_X[4] + 2, Y - 9, 6, true);
         } else {
-            TXT(pg, '—', COL_X[4] + 2, Y - 9, 5.5);
+            TXT(pg, '—', hCX(4), Y - 9, 6, false, 'center');
         }
         Y -= SUM_H;
 
@@ -561,10 +559,29 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         }
 
         TXT(pg, 'Observaciones:', ML + 3, Y - 10, 8, true);
+
+        // Línea 1 de observaciones: estado de ejecución (NO EJECUTADA / 100% EJECUTADA)
+        let obsX = ML + 80;
         if (statusText) {
             const sCol = isNotExecuted ? RED : rgb(0, 0.5, 0.15);
-            TXT(pg, statusText, ML + 80, Y - 10, 8, true, 'left', undefined, sCol);
+            TXT(pg, statusText, obsX, Y - 10, 8, true, 'left', undefined, sCol);
         }
+
+        // Línea 2 de observaciones: nota de CHO pendiente si hay diferencia
+        if (Math.abs(econQty) > 0.001) {
+            const itemUnit = item.unit || '';
+            let choNote = '';
+            if (econQty > 0) {
+                // Sobra cantidad: se necesita CHO de reducción
+                choNote = `Pendiente CHO de reduccion por ${econQty.toFixed(3)} ${itemUnit}.`;
+            } else {
+                // Falta cantidad: se necesita CHO de aumento
+                choNote = `Pendiente CHO de aumento por ${Math.abs(econQty).toFixed(3)} ${itemUnit}.`;
+            }
+            const obsMaxW = obsW - 84;
+            TXT(pg, choNote, ML + 3, Y - 22, 7, false, 'left', obsMaxW, RED);
+        }
+
         TXT(pg, 'E.W.O. #', ML + obsW + 4, Y - 10, 7.5, true);
         TXT(pg, 'PAG. #', ML + obsW + 4, Y - OBS_H + halfEH - 10, 7.5, true);
         TXT(pg, `${pageIndex + 1} de ${totalItems}`, ML + obsW + ewoW - 5, Y - OBS_H + halfEH - 10, 8, true, 'right');
