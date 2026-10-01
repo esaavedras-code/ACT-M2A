@@ -401,11 +401,11 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         }
         Y -= SUM_H;
 
-        // ── Fila 2: TOTAL (izq) | ECONOMIA (centro-der) ──
+        // ── Fila 2: BALANCE TOTAL (izq) | ECONOMIA (centro-der) ──
         for (let i = 0; i < 8; i++) RECT(pg, COL_X[i], Y - SUM_H, COL_W[i], SUM_H, WH, 0.5);
 
-        // TOTAL: label + cantidad total ajustada
-        TXT(pg, 'TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
+        // BALANCE TOTAL: label + cantidad total ajustada
+        TXT(pg, 'BALANCE TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
         TXT(pg, formatNum(totalQty, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
         // ECONOMIA: solo la cantidad de economía según lo que hay pendiente (cuando totalQty > totalExe)
