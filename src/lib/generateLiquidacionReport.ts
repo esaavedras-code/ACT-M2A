@@ -328,9 +328,9 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         });
         Y -= HDR_H;
 
-        // ── PREPARAR FILAS DE DATOS (CERTIFICACIONES Y CHANGE ORDERS) ──
+        // ── PREPARAR FILAS DE DATOS (SOLO CERTIFICACIONES DE PAGO EJECUTADAS) ──
         interface DetailRow {
-            type: 'cert' | 'cho';
+            type: 'cert';
             label: string;
             qty: number;
             unit: string;
@@ -339,28 +339,13 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
 
         const detailRows: DetailRow[] = [];
 
-        // 1. Certificaciones de pago
+        // 1. Certificaciones de pago (únicamente las cantidades ejecutadas)
         certRows.forEach(({ cert, qty }) => {
             detailRows.push({
                 type: 'cert',
                 label: `Cert. #${cert.cert_num}  ${utilsFormatDate(cert.cert_date)}`,
                 qty,
                 unit: item.unit || ''
-            });
-        });
-
-        // 2. Change Orders (C.H.O.)
-        choRows.forEach(({ cho, ci, qty }) => {
-            const choNum = cho.cho_num || cho.cho_number || '';
-            const amend = cho.amendment_letter || '';
-            const choDateStr = cho.cho_date ? utilsFormatDate(cho.cho_date) : '';
-            const label = `C.H.O. #${choNum}${amend}${choDateStr ? '  ' + choDateStr : ''}`.trim();
-            detailRows.push({
-                type: 'cho',
-                label,
-                qty,
-                unit: item.unit || ci.unit || '',
-                info: ci.specification || ''
             });
         });
 
@@ -371,14 +356,12 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         let rowsDrawn = 0;
         detailRows.slice(0, MAX_ROWS).forEach((row) => {
             for (let i = 0; i < 8; i++) RECT(pg, COL_X[i], Y - ROW_H, COL_W[i], ROW_H, WH, 0.4);
-            const isCho = row.type === 'cho';
             const fSize = ROW_H < 11 ? 5 : 5.5;
             const qSize = ROW_H < 11 ? 5.5 : 6.5;
             const yOff = ROW_H < 11 ? 7 : 8;
 
-            TXT(pg, row.label, COL_X[0] + 2, Y - yOff, fSize, isCho);
-            const qtyStr = isCho && row.qty > 0 ? `+${formatNum(row.qty, 2)}` : formatNum(row.qty, 2);
-            TXT(pg, qtyStr, COL_X[1] + COL_W[1] - 3, Y - yOff, qSize, false, 'right');
+            TXT(pg, row.label, COL_X[0] + 2, Y - yOff, fSize, false);
+            TXT(pg, formatNum(row.qty, 2), COL_X[1] + COL_W[1] - 3, Y - yOff, qSize, false, 'right');
             TXT(pg, row.unit, hCX(2), Y - yOff, qSize, false, 'center');
             if (row.info) {
                 TXT(pg, row.info, COL_X[3] + 2, Y - yOff, fSize, false, 'left', COL_W[3] - 4);
@@ -399,7 +382,7 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         const totalQty = roundedAmt(qOrig + choTotalQty, 2);
         const totalAmt = roundedAmt(mOrig + choTotalAmt, 2);
 
-        // Economía = diferencia entre lo presupuestado original y lo ejecutado
+        // Economía = diferencia entre lo presupuestado original/ajustado y lo ejecutado
         const econQty = roundedAmt(totalQty - totalExe, 2);
         const econAmt = roundedAmt(totalAmt - subAmt, 2);
 
@@ -410,13 +393,11 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         TXT(pg, 'SUB-TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
         TXT(pg, formatNum(totalExe, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
-        // AUMENTO: solo la cifra neta del balance de CHOs
+        // AUMENTO: solo la cantidad de aumento según lo que hay pendiente (cuando totalExe > totalQty)
         TXT(pg, 'AUMENTO', hCX(3), Y - 9, 6.5, true, 'center');
-        if (Math.abs(choTotalQty) > 0.0001) {
-            const sign = choTotalQty > 0 ? '+' : '';
-            TXT(pg, `${sign}${formatNum(choTotalQty, 2)}`, COL_X[4] + 2, Y - 9, 6, true);
-        } else {
-            TXT(pg, 'N/A', hCX(4), Y - 9, 6, false, 'center');
+        if (econQty < -0.001) {
+            const aumentoPendiente = Math.abs(econQty);
+            TXT(pg, formatNum(aumentoPendiente, 2), COL_X[4] + 2, Y - 9, 6, true, 'left', undefined, BK);
         }
         Y -= SUM_H;
 
@@ -427,13 +408,10 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         TXT(pg, 'TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
         TXT(pg, formatNum(totalQty, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
-        // ECONOMIA: solo la cifra neta del balance (totalQty - ejecutado)
+        // ECONOMIA: solo la cantidad de economía según lo que hay pendiente (cuando totalQty > totalExe)
         TXT(pg, 'ECONOMIA', hCX(3), Y - 9, 6.5, true, 'center');
-        if (Math.abs(econQty) > 0.001) {
-            const eSign = econQty > 0 ? '+' : '';
-            TXT(pg, `${eSign}${formatNum(econQty, 2)}`, COL_X[4] + 2, Y - 9, 6, true);
-        } else {
-            TXT(pg, '—', hCX(4), Y - 9, 6, false, 'center');
+        if (econQty > 0.001) {
+            TXT(pg, formatNum(econQty, 2), COL_X[4] + 2, Y - 9, 6, true, 'left', undefined, BK);
         }
         Y -= SUM_H;
 
@@ -572,20 +550,44 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
             TXT(pg, statusText, obsX, Y - 10, 8, true, 'left', undefined, sCol);
         }
 
-        // Línea 2 de observaciones: nota de CHO pendiente si hay diferencia
+        // Líneas de observaciones: CHOs en color negro y al final lo pendiente por hacer
+        const obsLines: { text: string; color: any; bold: boolean }[] = [];
+        const itemUnit = item.unit || '';
+
+        // 1. Anotar todos los CHO que han habido de esa partida en letra color negro
+        choRows.forEach(({ cho, ci, qty }) => {
+            const choNum = cho.cho_num || cho.cho_number || '';
+            const amend = cho.amendment_letter || '';
+            const choDateStr = cho.cho_date ? utilsFormatDate(cho.cho_date) : '';
+            const sign = qty > 0 ? '+' : '';
+            const specStr = ci?.specification ? ` (${ci.specification})` : '';
+            const choText = `C.H.O. #${choNum}${amend}${choDateStr ? ' ' + choDateStr : ''}: ${sign}${formatNum(qty, 2)} ${itemUnit}${specStr}`.trim();
+            obsLines.push({ text: choText, color: BK, bold: false });
+        });
+
+        // 2. Al final poner lo que está pendiente por hacer
         if (Math.abs(econQty) > 0.001) {
-            const itemUnit = item.unit || '';
-            let choNote = '';
+            let pendingNote = '';
             if (econQty > 0) {
-                // Sobra cantidad: se necesita CHO de reducción
-                choNote = `Pendiente CHO de reduccion por ${formatNum(econQty, 2)} ${itemUnit}.`;
+                // Sobra cantidad: se necesita CHO de reducción (economía)
+                pendingNote = `Pendiente CHO de reducción por ${formatNum(econQty, 2)} ${itemUnit}.`;
             } else {
                 // Falta cantidad: se necesita CHO de aumento
-                choNote = `Pendiente CHO de aumento por ${formatNum(Math.abs(econQty), 2)} ${itemUnit}.`;
+                pendingNote = `Pendiente CHO de aumento por ${formatNum(Math.abs(econQty), 2)} ${itemUnit}.`;
             }
-            const obsMaxW = obsW - 84;
-            TXT(pg, choNote, ML + 3, Y - 22, 7, false, 'left', obsMaxW, RED);
+            obsLines.push({ text: pendingNote, color: RED, bold: false });
         }
+
+        // Renderizar las líneas en Observaciones
+        const maxLines = Math.max(1, obsLines.length);
+        const lineSpacing = maxLines > 4 ? Math.max(8, (OBS_H - 18) / maxLines) : 10;
+        const fontSize = maxLines > 4 ? 6 : 7;
+        let curObsY = Y - 21;
+
+        obsLines.forEach(line => {
+            TXT(pg, line.text, ML + 3, curObsY, fontSize, line.bold, 'left', obsW - 10, line.color);
+            curObsY -= lineSpacing;
+        });
 
         TXT(pg, 'E.W.O. #', ML + obsW + 4, Y - 10, 7.5, true);
         TXT(pg, 'PAG. #', ML + obsW + 4, Y - OBS_H + halfEH - 10, 7.5, true);
