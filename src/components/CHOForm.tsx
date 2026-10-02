@@ -148,27 +148,41 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
         if (onDirty) onDirty();
     };
 
-    const insertCHOItem = (choIdx: number, itemIdx: number) => {
+    const insertCHONewItem = (choIdx: number, itemIdx?: number) => {
         const newList = [...chos];
         if (!newList[choIdx].items) newList[choIdx].items = [];
-        
-        const currentItemNum = parseInt(newList[choIdx].items[itemIdx]?.item_num);
-        const nextNum = !isNaN(currentItemNum) ? (currentItemNum + 1).toString().padStart(3, '0') : "";
 
-        newList[choIdx].items.splice(itemIdx + 1, 0, {
-            item_num: nextNum,
-            is_new: false,
+        const currentFundSource = (itemIdx !== undefined && newList[choIdx].items[itemIdx]?.fund_source)
+            ? newList[choIdx].items[itemIdx].fund_source
+            : FUND_SOURCES[0];
+
+        const newItem = {
+            item_num: "",
+            is_new: true,
             is_admin_amendment: false,
             specification: "",
             description: "",
             additional_description: "",
             quantity: 0,
+            unit: "",
             unit_price: 0,
-            fund_source: FUND_SOURCES[0]
-        });
+            fund_source: currentFundSource,
+            requires_mfg_cert: false,
+            mfg_cert_qty: 1,
+            mfg_cert_unit: "",
+            mfg_cert_description: ""
+        };
+
+        if (itemIdx !== undefined && itemIdx >= 0) {
+            newList[choIdx].items.splice(itemIdx + 1, 0, newItem);
+        } else {
+            newList[choIdx].items.push(newItem);
+        }
         setChos(newList);
         if (onDirty) onDirty();
     };
+
+    const insertCHOItem = insertCHONewItem;
 
     const updateCHOItem = (choIdx: number, itemIdx: number, field: string, value: any) => {
         const newList = [...chos];
@@ -577,10 +591,10 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                 <th className="py-1 px-0.5 w-44 text-right">Amount</th>
                                                 <th className="py-1 px-0.5 w-48">Fondos</th>
                                                 <th className="py-1 px-0.5 w-14 text-center" style={{ backgroundColor: '#66FF99' }}>CM</th>
+                                                <th className="py-1 px-1 w-24 text-center">Acciones</th>
                                                 <th className="py-1 px-0.5 w-24 text-center">Cant. CM</th>
                                                 <th className="py-1 px-0.5 w-20 text-center">Unidad CM</th>
                                                 <th className="py-1 px-0.5 min-w-[150px]">Descr. CM</th>
-                                                <th className="py-1 px-0.5 w-8"></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -590,7 +604,7 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     const term = searchTerm.toLowerCase();
                                                     return item.description?.toLowerCase().includes(term) || item.item_num?.toString().includes(term);
                                                 })
-                                                .sort((a, b) => {
+                                                .sort((a: any, b: any) => {
                                                     const numA = (a.item.item_num || "").toString().replace(/[^0-9]/g, '');
                                                     const numB = (b.item.item_num || "").toString().replace(/[^0-9]/g, '');
                                                     const parsedA = parseInt(numA || '0');
@@ -670,6 +684,27 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                             title="¿Requiere Certificado de Manufactura?"
                                                         />
                                                     </td>
+                                                    <td className="py-0.5 px-1 text-center whitespace-nowrap">
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => insertCHONewItem(idx, itIdx)}
+                                                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2 py-1 rounded shadow flex items-center gap-1 transition-all hover:scale-105 active:scale-95"
+                                                                title="Añadir línea de item nuevo"
+                                                            >
+                                                                <Plus size={13} strokeWidth={3} />
+                                                                <span>Item</span>
+                                                            </button>
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => removeCHOItem(idx, itIdx)} 
+                                                                className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                                                title="Eliminar partida"
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
                                                     <td className="py-0.5 px-0.5 text-center">
                                                         {(item.requires_mfg_cert && (item.unit?.toUpperCase().includes('LS') || item.unit?.toUpperCase().includes('LUMP'))) && (
                                                             <input 
@@ -708,11 +743,6 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                                 title="Descripción de lo que necesita el certificado de manufactura"
                                                             />
                                                         )}
-                                                    </td>
-                                                    <td className="py-0.5 px-0.5 text-center">
-                                                        <button type="button" onClick={() => removeCHOItem(idx, itIdx)} className="text-slate-300 hover:text-red-500">
-                                                            <Trash2 size={12} />
-                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
