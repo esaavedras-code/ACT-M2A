@@ -569,8 +569,8 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         if (Math.abs(econQty) > 0.001) {
             let pendingNote = '';
             if (econQty > 0) {
-                // Sobra cantidad: se necesita CHO de reducción (economía)
-                pendingNote = `Pendiente CHO de reducción por ${formatNum(econQty, 2)} ${itemUnit}.`;
+                // Sobra cantidad: se necesita CHO de reducción o certificación (economía)
+                pendingNote = `Pendiente CHO de reducción o certificación por ${formatNum(econQty, 2)} ${itemUnit}.`;
             } else {
                 // Falta cantidad: se necesita CHO de aumento
                 pendingNote = `Pendiente CHO de aumento por ${formatNum(Math.abs(econQty), 2)} ${itemUnit}.`;
