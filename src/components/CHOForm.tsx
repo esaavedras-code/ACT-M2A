@@ -199,11 +199,14 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
 
         newList[choIdx].items[itemIdx][field] = finalValue;
 
+        // Normaliza item_num quitando ceros a la izquierda para comparar (ej: "021" == "21")
+        const normalizeNum = (n: string) => n.toString().replace(/\D/g, '').replace(/^0+/, '') || '0';
+
         if (field === 'item_num' || field === 'specification') {
             const searchValue = finalValue.toString().trim();
             const match = contractItems.find(it =>
-                (field === 'item_num' && it.item_num === searchValue) ||
-                (field === 'specification' && it.specification === searchValue)
+                (field === 'item_num' && normalizeNum(it.item_num || '') === normalizeNum(searchValue)) ||
+                (field === 'specification' && it.specification?.trim() === searchValue)
             );
 
             if (match) {
@@ -213,14 +216,13 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                 newList[choIdx].items[itemIdx]['unit'] = match.unit;
                 newList[choIdx].items[itemIdx]['unit_price'] = match.unit_price;
                 newList[choIdx].items[itemIdx]['fund_source'] = match.fund_source;
-            }
-        }
-
-        if (field === 'specification') {
-            const specInfo = specs[finalValue.toString().trim()];
-            if (specInfo && !newList[choIdx].items[itemIdx]['unit_price']) {
-                newList[choIdx].items[itemIdx]['description'] = specInfo.description;
-                newList[choIdx].items[itemIdx]['unit'] = specInfo.unit;
+            } else if (field === 'specification') {
+                // Solo usar el catálogo global si NO existe el ítem en el contrato
+                const specInfo = specs[finalValue.toString().trim()];
+                if (specInfo) {
+                    newList[choIdx].items[itemIdx]['description'] = specInfo.description;
+                    newList[choIdx].items[itemIdx]['unit'] = specInfo.unit;
+                }
             }
         }
 
