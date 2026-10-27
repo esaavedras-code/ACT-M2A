@@ -625,6 +625,12 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
     pageNum: number;
     totalPages: number;
 }) {
+    // REGLA FOTO 3: El encabezado institucional de todas las hojas debe contener la información exacta:
+    // Centro: Government of Puerto Rico / Department of Transportation and Public Works / HIGHWAY AND TRANSPORTATION AUTHORITY
+    // Derecha arriba: ACT-117A / (6/09)
+    // Centro abajo: ITEM CERTIFICATION WORKSHEET
+    setupInstitutionalHeader(ws);
+
     const set = (coord: string, value: any) => {
         const cell = ws.getCell(coord);
         if (value !== '' && value !== null && value !== undefined) {
@@ -643,14 +649,6 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
     set(TEMPLATE_CELLS.CERT_DATE,    formatDisplayDate(data.certDate));
     set(TEMPLATE_CELLS.PAGE_OF_NUM,  data.pageNum);
     set(TEMPLATE_CELLS.TOTAL_PAGES,  data.totalPages);
-
-    // REGLA FOTO 1: Que las letras no salgan incompletas ni cortadas verticalmente
-    // Ajustar alturas de las filas institucionales de encabezado
-    ws.getRow(1).height = 15;
-    ws.getRow(2).height = 15;
-    ws.getRow(3).height = 16;
-    ws.getRow(4).height = 10;
-    ws.getRow(5).height = 18; // ITEM CERTIFICATION WORKSHEET
 
     // Project Name (fila 6): si tiene varias líneas o es largo, ensanchar para que no corte la primera línea
     const pNameLen = (data.projectName || '').length;
@@ -688,13 +686,75 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
 }
 
 /**
+ * Configura el encabezado institucional idéntico a la Foto 3 en todas las hojas:
+ * - A1:BT1 -> Government of Puerto Rico (centrado)
+ * - BV1:CB1 -> ACT-117A (derecha)
+ * - A2:BT2 -> Department of Transportation and Public Works (centrado)
+ * - BV2:CB2 -> (6/09) (derecha)
+ * - A3:CB3 -> HIGHWAY AND TRANSPORTATION AUTHORITY (centrado)
+ * - A5:CB5 -> ITEM CERTIFICATION WORKSHEET (centrado, bold)
+ */
+function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
+    // 1. Fila 1: Central + ACT-117A a la derecha
+    try {
+        if (ws._merges['A1']) ws.unMergeCells('A1:CB1');
+    } catch {}
+    try {
+        ws.mergeCells('A1:BT1');
+        ws.mergeCells('BV1:CB1');
+    } catch {}
+
+    ws.getCell('A1').value = 'Government of Puerto Rico';
+    ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell('A1').font = { name: 'Arial', size: 9, bold: false };
+
+    ws.getCell('BV1').value = 'ACT-117A';
+    ws.getCell('BV1').alignment = { horizontal: 'right', vertical: 'middle' };
+    ws.getCell('BV1').font = { name: 'Arial', size: 9, bold: true };
+
+    // 2. Fila 2: Central + (6/09) a la derecha
+    try {
+        if (ws._merges['A2']) ws.unMergeCells('A2:CB2');
+    } catch {}
+    try {
+        ws.mergeCells('A2:BT2');
+        ws.mergeCells('BV2:CB2');
+    } catch {}
+
+    ws.getCell('A2').value = 'Department of Transportation and Public Works';
+    ws.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell('A2').font = { name: 'Arial', size: 9, bold: false };
+
+    ws.getCell('BV2').value = '(6/09)';
+    ws.getCell('BV2').alignment = { horizontal: 'right', vertical: 'middle' };
+    ws.getCell('BV2').font = { name: 'Arial', size: 9, bold: false };
+
+    // 3. Fila 3: HIGHWAY AND TRANSPORTATION AUTHORITY
+    ws.getCell('A3').value = 'HIGHWAY AND TRANSPORTATION AUTHORITY';
+    ws.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell('A3').font = { name: 'Arial', size: 9, bold: false };
+
+    // 4. Fila 5: ITEM CERTIFICATION WORKSHEET
+    ws.getCell('A5').value = 'ITEM CERTIFICATION WORKSHEET';
+    ws.getCell('A5').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell('A5').font = { name: 'Arial', size: 10, bold: true };
+
+    // Alturas de filas superiores para que nunca se corten las letras
+    ws.getRow(1).height = 15;
+    ws.getRow(2).height = 15;
+    ws.getRow(3).height = 16;
+    ws.getRow(4).height = 8;
+    ws.getRow(5).height = 18;
+}
+
+/**
  * Llena las filas de detalle (13 a 27) aplicando las reglas de Enrique:
  * 1. Location = Fecha de inspección (Date va vacía)
  * 2. Calculations = Vacía / en blanco
  * 3. Ensanchar altura de fila cuando no quepa la información
  * 4. Inspector en blanco
  * 5. Columna Page vacía
- * 6. Cantidades o amounts en cero ya fueron excluidos
+ * 6. REGLA FOTO 1: Si amount es cero, dejar la celda completamente en blanco
  * 7. Ningún total se escribe aquí arriba; el total queda abajo en la fila de Total
  */
 function fillDataRows(
@@ -724,7 +784,16 @@ function fillDataRows(
         // Quantity: BD (col 56)
         ws.getCell(excelRow, 56).value = dataRow.quantity;
 
-        // Amount: BJ (col 62) conserva la fórmula =AO7*BD{row}
+        // REGLA FOTO 1: En la columna de Amount (BJ, col 62), si es cero, deja en blanco esa celda
+        if (!dataRow.quantity || dataRow.quantity <= 0) {
+            ws.getCell(excelRow, 62).value = '';
+        } else {
+            ws.getCell(excelRow, 62).value = {
+                formula: `IF(BD${excelRow}>0, AO7*BD${excelRow}, "")`,
+                result: null,
+            };
+            ws.getCell(excelRow, 62).numFmt = '$#,##0.00';
+        }
 
         // REGLA 4: En la columna Inspector (BQ, col 69), no escribir nada
         ws.getCell(excelRow, 69).value = '';
@@ -735,25 +804,27 @@ function fillDataRows(
         // REGLA: En la columna de Page (BX, col 76), que esté vacía
         ws.getCell(excelRow, 76).value = '';
 
-        // REGLA 3 y FOTO 1: Altura cómoda de lectura verticalmente centrada
+        // Altura cómoda de fila
         ws.getRow(excelRow).height = 22;
     }
 }
 
-/** Limpia una fila sin borrar fórmulas de Amount */
+/** Limpia una fila sin dejar $0.00 en Amount (Foto 1) */
 function clearDataRow(ws: ExcelJS.Worksheet, rowNum: number) {
     ws.getCell(rowNum, 3).value  = '';
     ws.getCell(rowNum, 28).value = '';
-    ws.getCell(rowNum, 56).value = null; // null preserva fórmulas sin #VALUE!
+    ws.getCell(rowNum, 56).value = null;
+    ws.getCell(rowNum, 62).value = ''; // REGLA FOTO 1: Si es cero o no hay dato, dejar en blanco la celda
     ws.getCell(rowNum, 69).value = '';
     ws.getCell(rowNum, 72).value = '';
-    ws.getCell(rowNum, 76).value = '';   // Page vacía
+    ws.getCell(rowNum, 76).value = ''; // Page vacía
     ws.getRow(rowNum).height = 18;
 }
 
 /**
- * Aplica los totales y el Gran Total en la última hoja de un ítem (Punto 3):
- * "cuando se usan varias hojas para un item, que en la ultima salga un gran total de las paginas que correspondan a ese item"
+ * Aplica los totales y el Gran Total en la última hoja de un ítem (Puntos 2 y 3):
+ * - REGLA FOTO 2: La palabra "Gran Total" debe verse completa y sin cortarse
+ * - Cuando se usan varias hojas para un ítem, en la última sale el Gran Total acumulado
  */
 function applyTotals(ws: ExcelJS.Worksheet, ctx: {
     pageIdx: number;
@@ -772,12 +843,36 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
         return sum + (q * unitPrice);
     }, 0);
 
+    // REGLA FOTO 2: Combinar BD30:BI30 y BJ30:BP30 para que "Gran Total" quepa completo sin cortarse
+    try {
+        if (ws._merges['BE30']) ws.unMergeCells('BE30:BI30');
+    } catch {}
+    try {
+        ws.mergeCells('BD30:BI30');
+    } catch {}
+
+    try {
+        if (ws._merges['BK30']) ws.unMergeCells('BK30:BP30');
+    } catch {}
+    try {
+        ws.mergeCells('BJ30:BP30');
+    } catch {}
+
+    const totalLabelFont = { bold: true, size: 9, name: 'Arial' };
+    const totalLabelAlign = { horizontal: 'center' as const, vertical: 'middle' as const, shrinkToFit: true };
+
     if (numPages <= 1) {
         // Ítem de 1 sola página: total estándar
         ws.getCell('BD28').value = { formula: 'SUM(BD13:BI27)', result: totalItemQty };
         ws.getCell('BJ28').value = { formula: 'SUM(BJ13:BP27)', result: totalItemAmt };
-        ws.getCell('BE30').value = 'Total';
-        ws.getCell('BK30').value = 'Total';
+
+        ws.getCell('BD30').value = 'Total';
+        ws.getCell('BD30').font = totalLabelFont;
+        ws.getCell('BD30').alignment = totalLabelAlign;
+
+        ws.getCell('BJ30').value = 'Total';
+        ws.getCell('BJ30').font = totalLabelFont;
+        ws.getCell('BJ30').alignment = totalLabelAlign;
     } else {
         // Ítem de múltiples páginas
         const isLastPage = pageIdx === numPages - 1;
@@ -786,8 +881,14 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
             // Páginas intermedias: Sub-Total de la página
             ws.getCell('BD28').value = { formula: 'SUM(BD13:BI27)', result: pageQty };
             ws.getCell('BJ28').value = { formula: 'SUM(BJ13:BP27)', result: pageAmt };
-            ws.getCell('BE30').value = 'Sub-Total';
-            ws.getCell('BK30').value = 'Sub-Total';
+
+            ws.getCell('BD30').value = 'Sub-Total';
+            ws.getCell('BD30').font = totalLabelFont;
+            ws.getCell('BD30').alignment = totalLabelAlign;
+
+            ws.getCell('BJ30').value = 'Sub-Total';
+            ws.getCell('BJ30').font = totalLabelFont;
+            ws.getCell('BJ30').alignment = totalLabelAlign;
         } else {
             // ÚLTIMA PÁGINA: Gran Total acumulado de todas las páginas de este ítem
             const sumQtyFormula = itemSheetNames.map(s => `'${s}'!BD28`).join('+');
@@ -795,13 +896,21 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
 
             ws.getCell('BD28').value = { formula: sumQtyFormula, result: totalItemQty };
             ws.getCell('BJ28').value = { formula: sumAmtFormula, result: totalItemAmt };
-            ws.getCell('BE30').value = 'Gran Total';
-            ws.getCell('BK30').value = 'Gran Total';
+
+            // REGLA FOTO 2: "Gran Total" sin cortes
+            ws.getCell('BD30').value = 'Gran Total';
+            ws.getCell('BD30').font = totalLabelFont;
+            ws.getCell('BD30').alignment = totalLabelAlign;
+
+            ws.getCell('BJ30').value = 'Gran Total';
+            ws.getCell('BJ30').font = totalLabelFont;
+            ws.getCell('BJ30').alignment = totalLabelAlign;
         }
     }
 
     ws.getCell('BD28').numFmt = '#,##0.000';
     ws.getCell('BJ28').numFmt = '$#,##0.00';
+    ws.getRow(30).height = 16;
 }
 
 /**
