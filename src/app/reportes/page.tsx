@@ -72,6 +72,7 @@ import {
     generateMinuteReportLogic,
     generateMobilizationReportLogic,
     generateProjectStatusReportLogic,
+    generateAct117AFromExcelLogic,
     formatDate
 } from "@/lib/reportLogic";
 import { generateCertificationsSummaryExcel } from "@/lib/generateCertificationsSummary";
@@ -363,6 +364,11 @@ function ReportesContent() {
     const [selectedFaDate, setSelectedFaDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [showACT45Form, setShowACT45Form] = useState(false);
     const [showACT96Form, setShowACT96Form] = useState(false);
+    const [showACT117AModal, setShowACT117AModal] = useState(false);
+    const [act117aFile, setAct117aFile] = useState<File | null>(null);
+    const [act117aProcessing, setAct117aProcessing] = useState(false);
+    const [act117aError, setAct117aError] = useState<string | null>(null);
+    const [act117aSuccess, setAct117aSuccess] = useState<string | null>(null);
 
     useEffect(() => {
         setIsElectron(!!(window as any).electronAPI);
@@ -450,7 +456,7 @@ function ReportesContent() {
                     <div className="bg-white dark:bg-slate-900 border-[8px] border-red-500 p-12 rounded-[40px] shadow-[0_30px_70px_rgba(220,38,38,0.3)] animate-in zoom-in duration-300 text-center max-w-2xl mx-4">
                         <BadgeAlert size={80} className="text-red-500 mx-auto mb-6 animate-bounce" />
                         <h2 className="text-6xl md:text-7xl font-black text-red-600 uppercase tracking-tighter leading-none mb-4">
-                            ¡NO FALTA NINGUNO!
+                            Â¡NO FALTA NINGUNO!
                         </h2>
                         <p className="text-slate-500 dark:text-slate-400 font-bold text-xl">Todos los materiales certificados estan al dia.</p>
                         <button 
@@ -468,7 +474,7 @@ function ReportesContent() {
                     <div className="bg-slate-900 border border-slate-700 p-12 rounded-[40px] shadow-[0_30px_70px_rgba(0,0,0,0.5)] animate-in zoom-in duration-300 text-center max-w-2xl mx-4">
                         <AlertCircle size={80} className="text-amber-400 mx-auto mb-6 animate-pulse" />
                         <h2 className="text-4xl md:text-5xl font-black text-amber-400 uppercase tracking-tighter leading-none mb-4">
-                            ¡RECORDATORIO!
+                            Â¡RECORDATORIO!
                         </h2>
                         <p className="text-slate-300 font-bold text-xl">{reminderMsg}</p>
                         <button 
@@ -673,8 +679,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'spec888-items-report',
-                            label: 'Partidas con Especificación 888',
-                            description: 'Listado de partidas que pertenecen a la especificación técnica 888.',
+                            label: 'Partidas con EspecificaciÃ³n 888',
+                            description: 'Listado de partidas que pertenecen a la especificaciÃ³n tÃ©cnica 888.',
                             icon: <FileText size={18} className="text-purple-500" />,
                             onPdf: () => generateSpec888ItemsReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
@@ -744,7 +750,7 @@ function ReportesContent() {
                         option={{
                             id: 'mfg-items-report',
                             label: 'Partidas con Certificado de Manufactura',
-                            description: 'Listado consolidado y único de partidas que poseen certificados de manufactura registrados.',
+                            description: 'Listado consolidado y Ãºnico de partidas que poseen certificados de manufactura registrados.',
                             icon: <Package size={18} className="text-blue-500" />,
                             onPdf: () => generateMfgItemsReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
@@ -896,7 +902,7 @@ function ReportesContent() {
                         option={{
                             id: 'dofaei-selective',
                             label: 'DOFAEI (Federal Aid Eligibility)',
-                            description: 'Formulario de determinación de elegibilidad de ayuda federal para la orden de cambio seleccionada.',
+                            description: 'Formulario de determinaciÃ³n de elegibilidad de ayuda federal para la orden de cambio seleccionada.',
                             icon: <FileDigit size={18} className="text-purple-700" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
@@ -983,8 +989,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act32-excel',
-                            label: 'ACT-32 (Comité CHO)',
-                            description: 'Evaluación de Órdenes de Cambio para presentación al Comité (Excel).',
+                            label: 'ACT-32 (ComitÃ© CHO)',
+                            description: 'EvaluaciÃ³n de Ã“rdenes de Cambio para presentaciÃ³n al ComitÃ© (Excel).',
                             icon: <FileSpreadsheet size={18} className="text-blue-700" />,
                             onExcel: async () => {
                                 try {
@@ -1071,7 +1077,7 @@ function ReportesContent() {
                         option={{
                             id: 'act117a-selective',
                             label: 'ACT-117A (Item Sheets)',
-                            description: 'Hojas de certificación individuales por ítem en formato Excel (Plantilla Oficial).',
+                            description: 'Hojas de certificaciÃ³n individuales por Ã­tem en formato Excel (Plantilla Oficial).',
                             icon: <FileSpreadsheet size={18} className="text-emerald-600" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
                             onExcel: async (ids) => {
@@ -1442,7 +1448,7 @@ function ReportesContent() {
                          loading={loading}
                          option={{
                              id: 'fa-equipo',
-                             label: 'AC-50 Relación de equipo del FA',
+                             label: 'AC-50 RelaciÃ³n de equipo del FA',
                              description: 'Basado en el formato oficial Relacion de equipo de FA.',
                              icon: <FileText size={18} className="text-pink-500" />,
                              onPdf: () => generateFaRelacionEquipoLogic(projectId, 'pdf', selectedFaMonth)
@@ -1501,7 +1507,7 @@ function ReportesContent() {
                          option={{
                              id: 'fa-mensual-old',
                              label: 'Resumen Mensual de FA (Anterior)',
-                             description: 'Versión previa del resumen mensual.',
+                             description: 'VersiÃ³n previa del resumen mensual.',
                              icon: <FileText size={18} className="text-pink-500" />,
                              onPdf: () => generateFaResumenMensualLogic(projectId, 'pdf')
                                  .then(() => setStatus("Reporte generado."))
@@ -1519,7 +1525,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fund-source-projected',
-                            label: 'Presupuesto Proyectado — ACT vs FHWA',
+                            label: 'Presupuesto Proyectado â€” ACT vs FHWA',
                             description: 'Distribucion de todo el presupuesto del contrato original mas las ordenes de Cambio, aunque no se hayan pagado.',
                             icon: <Package size={18} className="text-blue-600" />,
                             onPdf: () => generateProjectedFundDistributionReportLogic(projectId, 'pdf', endDate)
@@ -1537,7 +1543,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fund-source-real',
-                            label: 'Distribucion Real — ACT vs FHWA (Pagos)',
+                            label: 'Distribucion Real â€” ACT vs FHWA (Pagos)',
                             description: 'Distribucion basada unicamente en las partidas certificadas y pagadas hasta la fecha de corte.',
                             icon: <Activity size={18} className="text-green-600" />,
                             onPdf: () => generateFundSourceReportLogic(projectId, 'pdf', endDate)
@@ -1583,7 +1589,7 @@ function ReportesContent() {
                     <DropdownGroup title="Informes de Campo" icon={<FileText size={18} className="text-emerald-500" />}>
                     <div className="px-6 py-4 flex flex-col gap-3">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center px-4">
-                            Para crear nuevos informes de campo, diríjase a la sección de "Actividades" en el detalle del proyecto.
+                            Para crear nuevos informes de campo, dirÃ­jase a la secciÃ³n de "Actividades" en el detalle del proyecto.
                         </p>
                     </div>
                     <SelectiveReportItem
@@ -1639,15 +1645,15 @@ function ReportesContent() {
                         }}
                     />
 
-                    {/* Generación por Periodo (ACT-45 y ACT-96) */}
+                    {/* GeneraciÃ³n por Periodo (ACT-45 y ACT-96) */}
                     <div className="mx-1.5 mb-1.5 p-6 rounded-[32px] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
                                 <Calendar className="w-5 h-5" />
                             </div>
                             <div>
-                                <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Impresión por Periodo</h4>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase">Generar múltiples informes de un rango de fechas</p>
+                                <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">ImpresiÃ³n por Periodo</h4>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase">Generar mÃºltiples informes de un rango de fechas</p>
                             </div>
                         </div>
 
@@ -1683,7 +1689,7 @@ function ReportesContent() {
                                         const { generateAct45ExcelReport } = await import("@/lib/generateAct45ExcelReport");
                                         for (const log of logsInRange) {
                                             await generateAct45ExcelReport(projectId || "", log.id);
-                                            // Pequeña pausa para no saturar el sistema de archivos
+                                            // PequeÃ±a pausa para no saturar el sistema de archivos
                                             await new Promise(r => setTimeout(r, 500));
                                         }
                                         setStatus(`Se generaron ${logsInRange.length} informes ACT-45.`);
@@ -1716,12 +1722,185 @@ function ReportesContent() {
                             </button>
                         </div>
                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight text-center mt-3">
-                            Nota: Se generarán archivos individuales para cada día con datos.
+                            Nota: Se generarÃ¡n archivos individuales para cada dÃ­a con datos.
                         </p>
                     </div>
                 </DropdownGroup>
                 )}
 
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════════
+                BOTÓN INDEPENDIENTE — Generar Item Certification Worksheet (ACT-117A)
+                ═══════════════════════════════════════════════════════════════ */}
+            <div className="mt-10 mb-4">
+                <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-200 dark:via-emerald-800 to-transparent mb-10" />
+                <div className="flex flex-col items-center text-center mb-6">
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-1 rounded-full border border-emerald-100 dark:border-emerald-800 mb-4">
+                        Formulario Oficial de Certificación
+                    </span>
+                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                        Item Certification Worksheet
+                    </h2>
+                    <p className="text-sm font-bold text-slate-400 mt-1">
+                        Genera el ACT-117A completo a partir del archivo Excel de certificación
+                    </p>
+                </div>
+
+                <div className="max-w-2xl mx-auto">
+                    <div className="rounded-[32px] bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border-2 border-emerald-200 dark:border-emerald-700 shadow-[0_20px_60px_rgba(16,185,129,0.15)] p-8">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="p-4 rounded-2xl bg-emerald-600 shadow-lg shadow-emerald-200 dark:shadow-emerald-900/50">
+                                <FileSpreadsheet size={28} className="text-white" />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+                                    ACT-117A — Item Certification Worksheet
+                                </h3>
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Cargue el archivo Excel de la certificación para generar todas las hojas automáticamente
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Instrucciones */}
+                            <div className="bg-white dark:bg-slate-900/60 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-800">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-2">
+                                    Instrucciones
+                                </p>
+                                <ol className="text-[11px] font-bold text-slate-600 dark:text-slate-300 space-y-2 list-none">
+                                    <li className="flex items-start gap-2">
+                                        <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[9px] font-black mt-0.5">1</span>
+                                        Seleccione el archivo Excel de la certificación que desea procesar.
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[9px] font-black mt-0.5">2</span>
+                                        El sistema agrupará los registros por ítem y los ordenará por fecha de inspección (ascendente).
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[9px] font-black mt-0.5">3</span>
+                                        Se generará un Excel con hojas independientes por cada ítem. Ningún ítem comparte hoja.
+                                    </li>
+                                </ol>
+                            </div>
+
+                            {/* Área de carga de archivo */}
+                            <div
+                                className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
+                                    act117aFile
+                                        ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                                        : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 bg-white dark:bg-slate-900/40'
+                                }`}
+                                onClick={() => document.getElementById('act117a-file-input')?.click()}
+                            >
+                                <input
+                                    id="act117a-file-input"
+                                    type="file"
+                                    accept=".xlsx,.xls"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0] || null;
+                                        setAct117aFile(file);
+                                        setAct117aError(null);
+                                        setAct117aSuccess(null);
+                                    }}
+                                />
+                                {act117aFile ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-800">
+                                            <FileSpreadsheet size={20} className="text-emerald-600 dark:text-emerald-400" />
+                                        </div>
+                                        <p className="text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+                                            {act117aFile.name}
+                                        </p>
+                                        <p className="text-[9px] font-bold text-emerald-500">
+                                            {(act117aFile.size / 1024).toFixed(1)} KB — Listo para procesar
+                                        </p>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setAct117aFile(null);
+                                                setAct117aError(null);
+                                                setAct117aSuccess(null);
+                                                const inp = document.getElementById('act117a-file-input') as HTMLInputElement;
+                                                if (inp) inp.value = '';
+                                            }}
+                                            className="text-[9px] font-black text-red-400 hover:text-red-500 uppercase tracking-widest mt-1 transition-colors"
+                                        >
+                                            Cambiar archivo
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                            <Download size={24} className="text-slate-400" />
+                                        </div>
+                                        <p className="text-[11px] font-black text-slate-600 dark:text-slate-300">
+                                            Haga clic aquí para seleccionar el archivo Excel de certificación
+                                        </p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                                            Formatos soportados: .xlsx, .xls
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Mensajes de estado */}
+                            {act117aError && (
+                                <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl">
+                                    <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                                    <p className="text-[11px] font-bold text-red-700 dark:text-red-300">{act117aError}</p>
+                                </div>
+                            )}
+                            {act117aSuccess && (
+                                <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
+                                    <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                                    <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">{act117aSuccess}</p>
+                                </div>
+                            )}
+
+                            {/* Botón de generación */}
+                            <button
+                                disabled={act117aProcessing}
+                                onClick={async () => {
+                                    if (!act117aFile) {
+                                        // Si aún no ha seleccionado archivo, solicitarlo inmediatamente
+                                        document.getElementById('act117a-file-input')?.click();
+                                        return;
+                                    }
+                                    if (!projectId) return;
+                                    setAct117aProcessing(true);
+                                    setAct117aError(null);
+                                    setAct117aSuccess(null);
+                                    try {
+                                        await generateAct117AFromExcelLogic(act117aFile, projectId);
+                                        setAct117aSuccess(
+                                            `✅ ACT-117A generado exitosamente. El archivo ha sido descargado.`
+                                        );
+                                    } catch (e: any) {
+                                        setAct117aError(`Error: ${e.message}`);
+                                    } finally {
+                                        setAct117aProcessing(false);
+                                    }
+                                }}
+                                className="w-full flex items-center justify-center gap-3 py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] transition-all shadow-lg shadow-emerald-100 dark:shadow-emerald-900/30 active:scale-[0.98] cursor-pointer"
+                            >
+                                {act117aProcessing ? (
+                                    <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        Generando ACT-117A...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FileSpreadsheet size={18} />
+                                        Generar Item Certification Worksheet (ACT-117A)
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {status && (
@@ -1791,7 +1970,7 @@ function ReportesContent() {
                                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
                                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
                             </div>
-                            <p className="text-sm font-bold text-slate-400 mt-4 uppercase tracking-widest">Esto tomará solo unos segundos...</p>
+                            <p className="text-sm font-bold text-slate-400 mt-4 uppercase tracking-widest">Esto tomarÃ¡ solo unos segundos...</p>
                         </div>
                     </div>
                 </div>

@@ -2751,3 +2751,40 @@ export const generateSpec888ItemsReportLogic = async (projectId: string, format:
     );
 };
 
+// ─── ACT-117A desde archivo Excel de certificación ────────────────────────────
+
+/**
+ * Lógica para generar el ACT-117A a partir de un archivo Excel de certificación
+ * cargado por el usuario (flujo nuevo: botón independiente con upload de archivo).
+ */
+export const generateAct117AFromExcelLogic = async (
+    certExcelFile: File,
+    projectId: string,
+): Promise<void> => {
+    const { generateAct117AFromExcel } = await import('./generateAct117AFromExcel');
+
+    const result = await generateAct117AFromExcel(certExcelFile, projectId);
+
+    // Construir nombre del archivo de salida
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const certLabel = result.certNum
+        ? `Certificacion-${result.certNum}`
+        : 'Certificacion';
+    const fileName = `ACT-117A_${certLabel}_${today}.xlsx`;
+
+    downloadBlob(result.blob, fileName);
+
+    if (result.errors.length > 0) {
+        const MAX_SHOW = 10;
+        const shown = result.errors.slice(0, MAX_SHOW);
+        const more = result.errors.length > MAX_SHOW
+            ? `\n...y ${result.errors.length - MAX_SHOW} errores adicionales.`
+            : '';
+        alert(
+            `ACT-117A generado con ${result.itemsProcessed} ítem(s).\n\n` +
+            `⚠️ Se encontraron ${result.errors.length} problema(s):\n` +
+            shown.join('\n') + more
+        );
+    }
+};
+
