@@ -172,13 +172,26 @@ export async function generateAct117AFromExcel(
         // Calcular cuántas páginas requiere este ítem (15 filas de detalle por página)
         const numPages = Math.ceil(validRows.length / ROWS_PER_PAGE) || 1;
 
+        // Calcular el Gran Total acumulado de este ítem
+        const totalItemQty = validRows.reduce((sum, r) => sum + (r.quantity || 0), 0);
+        const totalItemAmt = unitPrice > 0 ? (totalItemQty * unitPrice) : validRows.reduce((sum, r) => {
+            const q = r.quantity || 0;
+            return sum + (q * unitPrice);
+        }, 0);
+
+        // Pre-calcular nombres de hojas para este ítem para referenciarlas en fórmulas si hay múltiples páginas
+        const itemSheetNames: string[] = [];
+        for (let p = 0; p < numPages; p++) {
+            itemSheetNames.push(buildSheetName(displayItemNo, p + 1, numPages));
+        }
+
         for (let pageIdx = 0; pageIdx < numPages; pageIdx++) {
             const pageRows = validRows.slice(
                 pageIdx * ROWS_PER_PAGE,
                 (pageIdx + 1) * ROWS_PER_PAGE
             );
 
-            const sheetName = buildSheetName(displayItemNo, pageIdx + 1, numPages);
+            const sheetName = itemSheetNames[pageIdx];
             let ws: ExcelJS.Worksheet;
 
             if (!firstSheetUsed) {
@@ -190,7 +203,7 @@ export async function generateAct117AFromExcel(
                 await cloneSheet(templateSheet, ws);
             }
 
-            // Llenar encabezado
+            // Llenar encabezado (asegurando alturas para que las letras nunca salgan incompletas)
             fillHeader(ws, {
                 projectName: projData.name || '',
                 projectNum:  formatProjectNumber(projData.num_act || ''),
@@ -205,8 +218,23 @@ export async function generateAct117AFromExcel(
                 totalPages:   numPages,
             });
 
-            // Llenar filas de detalle (Reglas 1, 2, 3, 4, 6 y 7)
+            // Llenar filas de detalle (Reglas 1, 2, 3, 4, 6 y 7, y columna Page vacía)
             fillDataRows(ws, pageRows, pageIdx * ROWS_PER_PAGE);
+
+            // Manejo de Totales y Gran Total (Punto 3):
+            // Cuando se usan varias hojas para un ítem, en la última sale el Gran Total de ese ítem
+            applyTotals(ws, {
+                pageIdx,
+                numPages,
+                pageRows,
+                unitPrice,
+                totalItemQty,
+                totalItemAmt,
+                itemSheetNames,
+            });
+
+            // Asegurar que todas las líneas de las tablas estén 100% completas y continuas (Punto 4)
+            ensureTableBorders(ws);
 
             // REGLA 4: En las líneas donde dice Inspector, no escribir nada (dejar vacías)
             clearInspectorLegend(ws);
@@ -327,7 +355,7 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
                     const norm = String(colVal || '').toLowerCase().trim();
                     if (norm.includes('record no')) headerIndices.recordNo = colIdx;
                     else if (norm.includes('inspector')) headerIndices.inspector = colIdx;
-                    else if (norm.includes('verified and approved')) headerIndices.qtyApproved = colIdx;
+                    else if (norm.includes('verified') && norm.includes('approved')) headerIndices.qtyApproved = colIdx;
                     else if (norm.includes('quantity measured')) headerIndices.qtyMeasured = colIdx;
                     else if (norm.includes('inspection date')) headerIndices.inspDate = colIdx;
                     else if (norm.includes('location') || norm.includes('station')) headerIndices.location = colIdx;
@@ -352,10 +380,11 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
                     continue; // Es una fila de total/acumulado del ítem, no una línea de inspección
                 }
 
+                // REGLA ENRIQUE: Usar la columna de Quantity Verified and Approved del reporte de excel
                 let qtyStr = '';
-                if (headerIndices.qtyApproved !== undefined && row[headerIndices.qtyApproved] !== '') {
+                if (headerIndices.qtyApproved !== undefined && row[headerIndices.qtyApproved] !== undefined && row[headerIndices.qtyApproved] !== '') {
                     qtyStr = String(row[headerIndices.qtyApproved]);
-                } else if (headerIndices.qtyMeasured !== undefined) {
+                } else if (headerIndices.qtyMeasured !== undefined && row[headerIndices.qtyMeasured] !== undefined && row[headerIndices.qtyMeasured] !== '') {
                     qtyStr = String(row[headerIndices.qtyMeasured]);
                 }
 
@@ -488,6 +517,11 @@ function formatRawDate(val: any): string {
     if (val instanceof Date && !isNaN(val.getTime())) {
         return val.toISOString().split('T')[0];
     }
+    if (typeof val === 'number') {
+        // Serial de fecha de Excel (días desde 1899-12-30)
+        const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    }
     const str = String(val).trim();
     const d = new Date(str);
     if (!isNaN(d.getTime())) {
@@ -505,7 +539,8 @@ function detectColumns(firstRow: Record<string, any>) {
         itemNum:      find('itemnumber', 'itemno', 'itemnum', 'item_num', 'item', 'partida', 'especificacion', 'specification'),
         location:     find('location', 'ubicacion', 'lugar', 'estacion', 'station', 'tramo'),
         calculations: find('calculation', 'calculo', 'formula', 'notes', 'notas'),
-        quantity:     find('quantity', 'cantidad', 'qty', 'medido', 'measured'),
+        // Prioridad absoluta a Quantity Verified and Approved según instrucción de Enrique
+        quantity:     find('quantityverifiedandapproved', 'verifiedandapproved', 'verifiedapproved', 'quantityverified', 'qtyverified', 'qtyapproved', 'quantityapproved', 'quantitymeasured', 'quantity', 'cantidad', 'qty'),
         inspector:    find('inspector', 'insp', 'inspeccionado por'),
         inspDate:     find('inspectiondate', 'fecha', 'date', 'inspdate', 'fechainspeccion'),
         certNum:      find('certnum', 'certification', 'certificacion', 'certno', 'cert'),
@@ -609,10 +644,46 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
     set(TEMPLATE_CELLS.PAGE_OF_NUM,  data.pageNum);
     set(TEMPLATE_CELLS.TOTAL_PAGES,  data.totalPages);
 
-    // Activar wrapText en la descripción si es extensa
+    // REGLA FOTO 1: Que las letras no salgan incompletas ni cortadas verticalmente
+    // Ajustar alturas de las filas institucionales de encabezado
+    ws.getRow(1).height = 15;
+    ws.getRow(2).height = 15;
+    ws.getRow(3).height = 16;
+    ws.getRow(4).height = 10;
+    ws.getRow(5).height = 18; // ITEM CERTIFICATION WORKSHEET
+
+    // Project Name (fila 6): si tiene varias líneas o es largo, ensanchar para que no corte la primera línea
+    const pNameLen = (data.projectName || '').length;
+    let r6Height = 26;
+    if (pNameLen > 35) r6Height = 36;
+    if (pNameLen > 70) r6Height = 48;
+    ws.getRow(6).height = r6Height;
+
+    const pNameCell = ws.getCell(TEMPLATE_CELLS.PROJECT_NAME);
+    if (pNameCell.style) {
+        pNameCell.style.alignment = {
+            ...(pNameCell.style.alignment || {}),
+            vertical: 'middle',
+            horizontal: 'left',
+            wrapText: true,
+        };
+    }
+
+    // Fila 7 (Project Num, Unit Price, Cert Date)
+    ws.getRow(7).height = 20;
+
+    // Fila 8 (Contractor, Item Description): ensanchar si la descripción es extensa
+    const descLen = (data.itemDesc || '').length;
+    ws.getRow(8).height = Math.max(22, Math.ceil(descLen / 45) * 16);
+
     const descCell = ws.getCell(TEMPLATE_CELLS.ITEM_DESC);
     if (descCell.style) {
-        descCell.style.alignment = { ...(descCell.style.alignment || {}), wrapText: true };
+        descCell.style.alignment = {
+            ...(descCell.style.alignment || {}),
+            vertical: 'middle',
+            horizontal: 'left',
+            wrapText: true,
+        };
     }
 }
 
@@ -622,6 +693,7 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
  * 2. Calculations = Vacía / en blanco
  * 3. Ensanchar altura de fila cuando no quepa la información
  * 4. Inspector en blanco
+ * 5. Columna Page vacía
  * 6. Cantidades o amounts en cero ya fueron excluidos
  * 7. Ningún total se escribe aquí arriba; el total queda abajo en la fila de Total
  */
@@ -660,14 +732,11 @@ function fillDataRows(
         // REGLA 1: Columna Date (BT, col 72), dejarla vacía
         ws.getCell(excelRow, 72).value = '';
 
-        // References - Page: BX (col 76)
-        ws.getCell(excelRow, 76).value = dataRow.page !== undefined ? dataRow.page : (globalOffset + i + 1);
+        // REGLA: En la columna de Page (BX, col 76), que esté vacía
+        ws.getCell(excelRow, 76).value = '';
 
-        // REGLA 3: Cuando no quepa toda la información, ensanchar la altura de la fila
-        // Altura mínima cómoda de lectura: 20 pt (la plantilla original tiene 12 pt, muy pequeña)
-        const currentRowHeight = ws.getRow(excelRow).height || 12;
-        const requiredHeight = Math.max(currentRowHeight, 20);
-        ws.getRow(excelRow).height = requiredHeight;
+        // REGLA 3 y FOTO 1: Altura cómoda de lectura verticalmente centrada
+        ws.getRow(excelRow).height = 22;
     }
 }
 
@@ -678,8 +747,128 @@ function clearDataRow(ws: ExcelJS.Worksheet, rowNum: number) {
     ws.getCell(rowNum, 56).value = null; // null preserva fórmulas sin #VALUE!
     ws.getCell(rowNum, 69).value = '';
     ws.getCell(rowNum, 72).value = '';
-    ws.getCell(rowNum, 76).value = null;
-    ws.getRow(rowNum).height = 16;
+    ws.getCell(rowNum, 76).value = '';   // Page vacía
+    ws.getRow(rowNum).height = 18;
+}
+
+/**
+ * Aplica los totales y el Gran Total en la última hoja de un ítem (Punto 3):
+ * "cuando se usan varias hojas para un item, que en la ultima salga un gran total de las paginas que correspondan a ese item"
+ */
+function applyTotals(ws: ExcelJS.Worksheet, ctx: {
+    pageIdx: number;
+    numPages: number;
+    pageRows: CertExcelRow[];
+    unitPrice: number;
+    totalItemQty: number;
+    totalItemAmt: number;
+    itemSheetNames: string[];
+}) {
+    const { pageIdx, numPages, pageRows, unitPrice, totalItemQty, totalItemAmt, itemSheetNames } = ctx;
+
+    const pageQty = pageRows.reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const pageAmt = unitPrice > 0 ? (pageQty * unitPrice) : pageRows.reduce((sum, r) => {
+        const q = r.quantity || 0;
+        return sum + (q * unitPrice);
+    }, 0);
+
+    if (numPages <= 1) {
+        // Ítem de 1 sola página: total estándar
+        ws.getCell('BD28').value = { formula: 'SUM(BD13:BI27)', result: totalItemQty };
+        ws.getCell('BJ28').value = { formula: 'SUM(BJ13:BP27)', result: totalItemAmt };
+        ws.getCell('BE30').value = 'Total';
+        ws.getCell('BK30').value = 'Total';
+    } else {
+        // Ítem de múltiples páginas
+        const isLastPage = pageIdx === numPages - 1;
+
+        if (!isLastPage) {
+            // Páginas intermedias: Sub-Total de la página
+            ws.getCell('BD28').value = { formula: 'SUM(BD13:BI27)', result: pageQty };
+            ws.getCell('BJ28').value = { formula: 'SUM(BJ13:BP27)', result: pageAmt };
+            ws.getCell('BE30').value = 'Sub-Total';
+            ws.getCell('BK30').value = 'Sub-Total';
+        } else {
+            // ÚLTIMA PÁGINA: Gran Total acumulado de todas las páginas de este ítem
+            const sumQtyFormula = itemSheetNames.map(s => `'${s}'!BD28`).join('+');
+            const sumAmtFormula = itemSheetNames.map(s => `'${s}'!BJ28`).join('+');
+
+            ws.getCell('BD28').value = { formula: sumQtyFormula, result: totalItemQty };
+            ws.getCell('BJ28').value = { formula: sumAmtFormula, result: totalItemAmt };
+            ws.getCell('BE30').value = 'Gran Total';
+            ws.getCell('BK30').value = 'Gran Total';
+        }
+    }
+
+    ws.getCell('BD28').numFmt = '#,##0.000';
+    ws.getCell('BJ28').numFmt = '$#,##0.00';
+}
+
+/**
+ * REGLA FOTO 2 y FOTO 3: Asegurar que todas las líneas de las tablas estén completas y continuas.
+ * Repasa bordes de encabezado (filas 11-12), filas de detalle (13-27) y pie de tabla (28).
+ */
+function ensureTableBorders(ws: ExcelJS.Worksheet) {
+    const borderMediumBlack = { style: 'medium' as const, color: { argb: 'FF000000' } };
+    const borderThinBlack   = { style: 'thin' as const, color: { argb: 'FF000000' } };
+
+    // 1. Encabezados de tabla: filas 11 y 12 (columnas C a BZ = col 3 a 78)
+    for (let c = 3; c <= 78; c++) {
+        const c11 = ws.getCell(11, c);
+        c11.border = { ...(c11.border || {}), top: borderMediumBlack };
+
+        const c12 = ws.getCell(12, c);
+        c12.border = { ...(c12.border || {}), bottom: borderMediumBlack };
+    }
+
+    // Líneas verticales de los encabezados (filas 11 y 12)
+    const headerColsLeft = [3, 28, 56, 62, 69];
+    const headerColsRight = [27, 55, 61, 68, 78];
+
+    for (let r = 11; r <= 12; r++) {
+        headerColsLeft.forEach(c => {
+            const cell = ws.getCell(r, c);
+            cell.border = { ...(cell.border || {}), left: borderMediumBlack };
+        });
+        headerColsRight.forEach(c => {
+            const cell = ws.getCell(r, c);
+            cell.border = { ...(cell.border || {}), right: borderMediumBlack };
+        });
+    }
+
+    // En fila 12, divisiones de References (Insp 69-71, Date 72-75, Page 76-78)
+    ws.getCell(12, 71).border = { ...(ws.getCell(12, 71).border || {}), right: borderMediumBlack };
+    ws.getCell(12, 72).border = { ...(ws.getCell(12, 72).border || {}), left: borderMediumBlack };
+    ws.getCell(12, 75).border = { ...(ws.getCell(12, 75).border || {}), right: borderMediumBlack };
+    ws.getCell(12, 76).border = { ...(ws.getCell(12, 76).border || {}), left: borderMediumBlack };
+
+    // 2. Filas de datos (13 a 27)
+    const detailColsLeft = [3, 28, 56, 62, 69, 72, 76];
+    const detailColsRight = [27, 55, 61, 68, 71, 75, 78];
+
+    for (let r = DATA_ROW_START; r <= DATA_ROW_END; r++) {
+        // Línea inferior horizontal delgada en toda la fila de la tabla
+        for (let c = 3; c <= 78; c++) {
+            const cell = ws.getCell(r, c);
+            cell.border = { ...(cell.border || {}), bottom: borderThinBlack };
+        }
+
+        // Líneas verticales gruesas en los límites de cada columna combinada
+        detailColsLeft.forEach(c => {
+            const cell = ws.getCell(r, c);
+            cell.border = { ...(cell.border || {}), left: borderMediumBlack };
+        });
+        detailColsRight.forEach(c => {
+            const cell = ws.getCell(r, c);
+            cell.border = { ...(cell.border || {}), right: borderMediumBlack };
+        });
+    }
+
+    // 3. Fila de Totales (fila 28 y 29): asegurar borde inferior medium
+    for (let c = 56; c <= 78; c++) {
+        const cell = ws.getCell(29, c);
+        cell.border = { ...(cell.border || {}), bottom: borderMediumBlack };
+    }
 }
 
 /**
@@ -748,11 +937,16 @@ async function cloneSheet(source: ExcelJS.Worksheet, target: ExcelJS.Worksheet) 
         newRow.commit();
     });
 
+    // Clonar TODOS los merges correctamente utilizando m.range o m.model
     // @ts-ignore
     const merges = source._merges || {};
     Object.values(merges).forEach((m: any) => {
         try {
-            if (m && m.tl && m.br) target.mergeCells(m.tl, m.br);
+            if (m && m.range) {
+                target.mergeCells(m.range);
+            } else if (m && m.model) {
+                target.mergeCells(m.model.top, m.model.left, m.model.bottom, m.model.right);
+            }
         } catch {}
     });
 
@@ -760,3 +954,4 @@ async function cloneSheet(source: ExcelJS.Worksheet, target: ExcelJS.Worksheet) 
         target.pageSetup = { ...source.pageSetup };
     }
 }
+
