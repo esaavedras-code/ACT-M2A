@@ -2760,10 +2760,11 @@ export const generateSpec888ItemsReportLogic = async (projectId: string, format:
 export const generateAct117AFromExcelLogic = async (
     certExcelFile: File,
     projectId: string,
+    customCertNum?: string | number,
 ): Promise<void> => {
     const { generateAct117AFromExcel } = await import('./generateAct117AFromExcel');
 
-    const result = await generateAct117AFromExcel(certExcelFile, projectId);
+    const result = await generateAct117AFromExcel(certExcelFile, projectId, customCertNum);
 
     // Construir nombre del archivo de salida
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD

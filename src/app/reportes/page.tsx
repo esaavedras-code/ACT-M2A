@@ -366,6 +366,7 @@ function ReportesContent() {
     const [showACT96Form, setShowACT96Form] = useState(false);
     const [showACT117AModal, setShowACT117AModal] = useState(false);
     const [act117aFile, setAct117aFile] = useState<File | null>(null);
+    const [act117aCertNum, setAct117aCertNum] = useState<string>("");
     const [act117aProcessing, setAct117aProcessing] = useState(false);
     const [act117aError, setAct117aError] = useState<string | null>(null);
     const [act117aSuccess, setAct117aSuccess] = useState<string | null>(null);
@@ -1731,175 +1732,142 @@ function ReportesContent() {
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════
+            {/* ═══════════════════════════════════════════════════════════════
                 BOTÓN INDEPENDIENTE — Generar Item Certification Worksheet (ACT-117A)
                 ═══════════════════════════════════════════════════════════════ */}
-            <div className="mt-10 mb-4">
-                <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-200 dark:via-emerald-800 to-transparent mb-10" />
-                <div className="flex flex-col items-center text-center mb-6">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-1 rounded-full border border-emerald-100 dark:border-emerald-800 mb-4">
-                        Formulario Oficial de Certificación
-                    </span>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                        Item Certification Worksheet
-                    </h2>
-                    <p className="text-sm font-bold text-slate-400 mt-1">
-                        Genera el ACT-117A completo a partir del archivo Excel de certificación
-                    </p>
-                </div>
+            <div className="mt-8 mb-4 max-w-xl mx-auto">
+                <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-200 dark:via-emerald-800 to-transparent mb-6" />
 
-                <div className="max-w-2xl mx-auto">
-                    <div className="rounded-[32px] bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border-2 border-emerald-200 dark:border-emerald-700 shadow-[0_20px_60px_rgba(16,185,129,0.15)] p-8">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="p-4 rounded-2xl bg-emerald-600 shadow-lg shadow-emerald-200 dark:shadow-emerald-900/50">
-                                <FileSpreadsheet size={28} className="text-white" />
-                            </div>
-                            <div className="text-left">
-                                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
-                                    ACT-117A — Item Certification Worksheet
-                                </h3>
-                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">
-                                    Cargue el archivo Excel de la certificación para generar todas las hojas automáticamente
-                                </p>
-                            </div>
+                <div className="rounded-2xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 shadow-md p-5 space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-sm shrink-0">
+                            <FileSpreadsheet size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider truncate">
+                                Item Certification Worksheet (ACT-117A)
+                            </h3>
+                            <p className="text-[10px] font-semibold text-slate-400">
+                                Genera el reporte oficial por ítem a partir del Excel de certificación
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Fila compacta: Número de Certificación y Selector de Archivo */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
+                                Número de Certificación (Cert. Num) *
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Ej. 15"
+                                value={act117aCertNum}
+                                onChange={(e) => setAct117aCertNum(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+                            />
                         </div>
 
-                        <div className="space-y-4">
-                            {/* Instrucciones */}
-                            <div className="bg-white dark:bg-slate-900/60 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-800">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-2">
-                                    Instrucciones
-                                </p>
-                                <ol className="text-[11px] font-bold text-slate-600 dark:text-slate-300 space-y-2 list-none">
-                                    <li className="flex items-start gap-2">
-                                        <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[9px] font-black mt-0.5">1</span>
-                                        Seleccione el archivo Excel de la certificación que desea procesar.
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[9px] font-black mt-0.5">2</span>
-                                        El sistema agrupará los registros por ítem y los ordenará por fecha de inspección (ascendente).
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[9px] font-black mt-0.5">3</span>
-                                        Se generará un Excel con hojas independientes por cada ítem. Ningún ítem comparte hoja.
-                                    </li>
-                                </ol>
-                            </div>
-
-                            {/* Área de carga de archivo */}
-                            <div
-                                className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
-                                    act117aFile
-                                        ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
-                                        : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 bg-white dark:bg-slate-900/40'
-                                }`}
-                                onClick={() => document.getElementById('act117a-file-input')?.click()}
-                            >
-                                <input
-                                    id="act117a-file-input"
-                                    type="file"
-                                    accept=".xlsx,.xls"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        setAct117aFile(file);
-                                        setAct117aError(null);
-                                        setAct117aSuccess(null);
-                                    }}
-                                />
-                                {act117aFile ? (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-800">
-                                            <FileSpreadsheet size={20} className="text-emerald-600 dark:text-emerald-400" />
-                                        </div>
-                                        <p className="text-[11px] font-black text-emerald-700 dark:text-emerald-300">
-                                            {act117aFile.name}
-                                        </p>
-                                        <p className="text-[9px] font-bold text-emerald-500">
-                                            {(act117aFile.size / 1024).toFixed(1)} KB — Listo para procesar
-                                        </p>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setAct117aFile(null);
-                                                setAct117aError(null);
-                                                setAct117aSuccess(null);
-                                                const inp = document.getElementById('act117a-file-input') as HTMLInputElement;
-                                                if (inp) inp.value = '';
-                                            }}
-                                            className="text-[9px] font-black text-red-400 hover:text-red-500 uppercase tracking-widest mt-1 transition-colors"
-                                        >
-                                            Cambiar archivo
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-                                            <Download size={24} className="text-slate-400" />
-                                        </div>
-                                        <p className="text-[11px] font-black text-slate-600 dark:text-slate-300">
-                                            Haga clic aquí para seleccionar el archivo Excel de certificación
-                                        </p>
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-                                            Formatos soportados: .xlsx, .xls
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Mensajes de estado */}
-                            {act117aError && (
-                                <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl">
-                                    <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-                                    <p className="text-[11px] font-bold text-red-700 dark:text-red-300">{act117aError}</p>
-                                </div>
-                            )}
-                            {act117aSuccess && (
-                                <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl">
-                                    <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                                    <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">{act117aSuccess}</p>
-                                </div>
-                            )}
-
-                            {/* Botón de generación */}
-                            <button
-                                disabled={act117aProcessing}
-                                onClick={async () => {
-                                    if (!act117aFile) {
-                                        // Si aún no ha seleccionado archivo, solicitarlo inmediatamente
-                                        document.getElementById('act117a-file-input')?.click();
-                                        return;
-                                    }
-                                    if (!projectId) return;
-                                    setAct117aProcessing(true);
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
+                                Archivo Excel de Certificación *
+                            </label>
+                            <input
+                                id="act117a-file-input"
+                                type="file"
+                                accept=".xlsx,.xls"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0] || null;
+                                    setAct117aFile(file);
                                     setAct117aError(null);
                                     setAct117aSuccess(null);
-                                    try {
-                                        await generateAct117AFromExcelLogic(act117aFile, projectId);
-                                        setAct117aSuccess(
-                                            `✅ ACT-117A generado exitosamente. El archivo ha sido descargado.`
-                                        );
-                                    } catch (e: any) {
-                                        setAct117aError(`Error: ${e.message}`);
-                                    } finally {
-                                        setAct117aProcessing(false);
-                                    }
                                 }}
-                                className="w-full flex items-center justify-center gap-3 py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] transition-all shadow-lg shadow-emerald-100 dark:shadow-emerald-900/30 active:scale-[0.98] cursor-pointer"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => document.getElementById('act117a-file-input')?.click()}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-bold transition-all text-left ${
+                                    act117aFile
+                                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 text-emerald-800 dark:text-emerald-300'
+                                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-400'
+                                }`}
                             >
-                                {act117aProcessing ? (
-                                    <>
-                                        <Loader2 size={18} className="animate-spin" />
-                                        Generando ACT-117A...
-                                    </>
-                                ) : (
-                                    <>
-                                        <FileSpreadsheet size={18} />
-                                        Generar Item Certification Worksheet (ACT-117A)
-                                    </>
-                                )}
+                                <span className="truncate pr-2">
+                                    {act117aFile ? act117aFile.name : 'Seleccionar Excel...'}
+                                </span>
+                                <Download size={14} className="shrink-0 text-slate-400" />
                             </button>
                         </div>
                     </div>
+
+                    {/* Mensajes de error / éxito compactos */}
+                    {act117aError && (
+                        <div className="flex items-center gap-2 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-[10px] font-bold text-red-700 dark:text-red-300">
+                            <AlertCircle size={14} className="shrink-0" />
+                            <span className="truncate">{act117aError}</span>
+                        </div>
+                    )}
+                    {act117aSuccess && (
+                        <div className="flex items-center gap-2 p-2.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                            <CheckCircle2 size={14} className="shrink-0" />
+                            <span className="truncate">{act117aSuccess}</span>
+                        </div>
+                    )}
+
+                    {/* Botón Principal de tamaño reducido */}
+                    <button
+                        type="button"
+                        disabled={act117aProcessing}
+                        onClick={async () => {
+                            // Validar o solicitar número de certificación
+                            let certNum = act117aCertNum.trim();
+                            if (!certNum) {
+                                const prompted = window.prompt("Por favor ingrese el Número de Certificación (ej. 15):");
+                                if (!prompted || !prompted.trim()) {
+                                    alert("El número de certificación es requerido para generar el formulario ACT-117A.");
+                                    return;
+                                }
+                                certNum = prompted.trim();
+                                setAct117aCertNum(certNum);
+                            }
+
+                            // Validar archivo Excel cargado
+                            if (!act117aFile) {
+                                document.getElementById('act117a-file-input')?.click();
+                                return;
+                            }
+
+                            if (!projectId) return;
+
+                            setAct117aProcessing(true);
+                            setAct117aError(null);
+                            setAct117aSuccess(null);
+                            try {
+                                await generateAct117AFromExcelLogic(act117aFile, projectId, certNum);
+                                setAct117aSuccess(
+                                    `ACT-117A generado y descargado exitosamente.`
+                                );
+                            } catch (e: any) {
+                                setAct117aError(`Error: ${e.message}`);
+                            } finally {
+                                setAct117aProcessing(false);
+                            }
+                        }}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-wider transition-all shadow-md shadow-emerald-100 dark:shadow-emerald-900/20 active:scale-95 cursor-pointer"
+                    >
+                        {act117aProcessing ? (
+                            <>
+                                <Loader2 size={15} className="animate-spin" />
+                                Generando ACT-117A...
+                            </>
+                        ) : (
+                            <>
+                                <FileSpreadsheet size={15} />
+                                Generar Item Certification Worksheet (ACT-117A)
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
 

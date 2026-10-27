@@ -7,7 +7,7 @@ import { ACT117A_TEMPLATE_BASE64 } from './act117aTemplate';
 
 export interface CertExcelRow {
     itemNum: string;      // Número de ítem o código de especificación
-    specCode?: string;    // Código de especificación original si difiere
+    specCode?: string;    // Código de especificación original
     itemName?: string;    // Nombre descriptivo del ítem
     location: string;
     calculations: string;
@@ -25,47 +25,42 @@ export interface GenerateAct117AFromExcelResult {
     errors: string[];
 }
 
-// ─── Constantes de mapeo de celdas de la plantilla oficial ───────────────────
-// Plantilla oficial: ACT-117A Item Certification Sheets.xlsx
+// ─── Constantes de celdas de la plantilla oficial ACT-117A ───────────────────
 const TEMPLATE_CELLS = {
-    // Encabezado del proyecto y contratista
     PROJECT_NAME: 'K6',  // merged K6:AE6
     PROJECT_NUM:  'K7',  // merged K7:AG7
     CONTRACTOR:   'K8',  // merged K8:AG8
-    // Encabezado de la partida
     ITEM_NO:      'AO6', // merged AO6:AV6
     UNIT_PRICE:   'AO7', // merged AO7:AV7
     ITEM_DESC:    'AR8', // merged AR8:BN8
     ITEM_UNIT:    'BG6', // merged BG6:BN6
-    // Datos de la certificación
     CERT_NUM:     'BW6', // merged BW6:CB6
     CERT_DATE:    'BW7', // merged BW7:CB7
-    // Paginación
     PAGE_OF_NUM:  'AV39', // número de página actual
     TOTAL_PAGES:  'AZ39', // total de páginas del ítem
 } as const;
 
-// Filas de datos (13 a 27 = 15 filas por página)
+// Filas de detalle (13 a 27 = 15 filas por página)
 const DATA_ROW_START = 13;
 const DATA_ROW_END   = 27;
 const ROWS_PER_PAGE  = DATA_ROW_END - DATA_ROW_START + 1; // 15
 
-// Filas para la leyenda de inspectores (L29..L38 = a..j, nombres en N29..N38)
+// Filas de la leyenda inferior de inspectores (29 a 38)
 const INSPECTOR_ROW_START = 29;
 const INSPECTOR_ROW_END   = 38;
-const MAX_INSPECTORS_LEGEND = INSPECTOR_ROW_END - INSPECTOR_ROW_START + 1; // 10
 
-// ─── Función principal ───────────────────────────────────────────────────────
+// ─── Función Principal ───────────────────────────────────────────────────────
 
 /**
  * Genera el reporte ACT-117A (Item Certification Worksheet) a partir de:
- *  - Un archivo Excel de certificación cargado por el usuario (soporta formato
- *    por bloques con "Item Number:" como código de especificación y formato tabular)
+ *  - Un archivo Excel de certificación cargado por el usuario
+ *  - El número de certificación ingresado por el usuario
  *  - Información del proyecto activo en la base de datos de PACT
  */
 export async function generateAct117AFromExcel(
     certExcelFile: File | ArrayBuffer,
     projectId: string,
+    customCertNum?: string | number,
 ): Promise<GenerateAct117AFromExcelResult> {
     const errors: string[] = [];
 
@@ -84,12 +79,17 @@ export async function generateAct117AFromExcel(
 
     const firstSheet = certWb.Sheets[certWb.SheetNames[0]];
 
-    // 2. Extraer los datos del archivo Excel (detección inteligente: bloques "Item Number:" o tabular)
+    // 2. Extraer datos del Excel (soporta bloques con "Item Number:" y formato tabular)
     const { allRows, certNumDetected, certDateDetected } = extractDataFromExcel(firstSheet, errors);
 
     if (allRows.length === 0) {
-        throw new Error('No se encontraron registros de inspección o certificación en el archivo Excel.');
+        throw new Error('No se encontraron registros de inspección o certificación válidos en el archivo Excel.');
     }
+
+    // Número de certificación final: el ingresado por el usuario tiene prioridad absoluta
+    const finalCertNum = customCertNum !== undefined && customCertNum !== null && String(customCertNum).trim() !== ''
+        ? String(customCertNum).trim()
+        : (certNumDetected || '1');
 
     // 3. Obtener datos del proyecto activo en la base de datos
     const { data: projData, error: projErr } = await supabase
@@ -108,7 +108,7 @@ export async function generateAct117AFromExcel(
         .eq('project_id', projectId)
         .maybeSingle();
 
-    // 4. Obtener catálogo de partidas del contrato en la BD para vincular por specification o item_num
+    // 4. Obtener catálogo de partidas del contrato en la base de datos
     const { data: contractItems } = await supabase
         .from('contract_items')
         .select('item_num, specification, description, unit, unit_price')
@@ -116,7 +116,7 @@ export async function generateAct117AFromExcel(
 
     const itemsDbList = contractItems || [];
 
-    // 5. Agrupar registros por ítem y ordenar por fecha ascendente
+    // 5. Agrupar registros por ítem y ordenar cronológicamente
     const itemGroups = groupByItem(allRows);
     const sortedItemKeys = Object.keys(itemGroups).sort((a, b) => {
         const na = parseFloat(a) || 0;
@@ -134,31 +134,46 @@ export async function generateAct117AFromExcel(
         throw new Error('La plantilla ACT-117A no contiene hojas válidas.');
     }
 
-    // 7. Crear hojas independientes para cada ítem
+    // 7. Crear hojas independientes para cada ítem que tenga registros válidos (> 0)
     let firstSheetUsed = false;
-    let totalSheetsCreated = 0;
+    let itemsProcessedCount = 0;
 
     for (const itemKey of sortedItemKeys) {
-        const rows = itemGroups[itemKey]; // ya ordenados cronológicamente (asc)
-        const firstRow = rows[0];
+        const rawRows = itemGroups[itemKey];
+        const firstRow = rawRows[0];
 
         // Vincular con la base de datos: buscar por specification o por item_num
         const matchedDbItem = findContractItemInDb(itemKey, firstRow?.specCode, itemsDbList);
 
-        // Determinar número de ítem oficial a mostrar en la forma ACT-117A
         const displayItemNo = matchedDbItem?.item_num || itemKey;
         const unitPrice = matchedDbItem ? (parseFloat(matchedDbItem.unit_price) || 0) : 0;
         const itemDesc = matchedDbItem?.description || firstRow?.itemName || '';
         const itemUnit = matchedDbItem?.unit || '';
 
-        // Calcular cuántas páginas requiere este ítem (15 filas de detalle por página)
-        const numPages = Math.ceil(rows.length / ROWS_PER_PAGE) || 1;
+        // REGLA 6: Filtrar líneas donde la cantidad sea cero o amount sea cero
+        const validRows = rawRows.filter(r => {
+            const q = r.quantity;
+            if (q === null || q === undefined || isNaN(q) || q <= 0) return false;
+            // Si el precio unitario existe y es > 0, verificar que el amount sea > 0
+            if (unitPrice > 0) {
+                const amt = q * unitPrice;
+                if (amt <= 0) return false;
+            }
+            return true;
+        });
 
-        // Construir leyenda de inspectores para este ítem
-        const inspectorLegend = buildInspectorLegend(rows);
+        // Si este ítem no tiene ninguna línea válida, no generar hoja
+        if (validRows.length === 0) {
+            continue;
+        }
+
+        itemsProcessedCount++;
+
+        // Calcular cuántas páginas requiere este ítem (15 filas de detalle por página)
+        const numPages = Math.ceil(validRows.length / ROWS_PER_PAGE) || 1;
 
         for (let pageIdx = 0; pageIdx < numPages; pageIdx++) {
-            const pageRows = rows.slice(
+            const pageRows = validRows.slice(
                 pageIdx * ROWS_PER_PAGE,
                 (pageIdx + 1) * ROWS_PER_PAGE
             );
@@ -175,7 +190,7 @@ export async function generateAct117AFromExcel(
                 await cloneSheet(templateSheet, ws);
             }
 
-            // Completar campos del encabezado
+            // Llenar encabezado
             fillHeader(ws, {
                 projectName: projData.name || '',
                 projectNum:  formatProjectNumber(projData.num_act || ''),
@@ -184,20 +199,22 @@ export async function generateAct117AFromExcel(
                 unitPrice:    unitPrice,
                 itemDesc:     itemDesc,
                 itemUnit:     itemUnit,
-                certNum:      certNumDetected,
+                certNum:      finalCertNum,
                 certDate:     certDateDetected,
                 pageNum:      pageIdx + 1,
                 totalPages:   numPages,
             });
 
-            // Llenar filas de inspección
-            fillDataRows(ws, pageRows, pageIdx * ROWS_PER_PAGE, inspectorLegend);
+            // Llenar filas de detalle (Reglas 1, 2, 3, 4, 6 y 7)
+            fillDataRows(ws, pageRows, pageIdx * ROWS_PER_PAGE);
 
-            // Llenar leyenda de inspectores en el pie
-            fillInspectorLegend(ws, inspectorLegend);
-
-            totalSheetsCreated++;
+            // REGLA 4: En las líneas donde dice Inspector, no escribir nada (dejar vacías)
+            clearInspectorLegend(ws);
         }
+    }
+
+    if (itemsProcessedCount === 0) {
+        throw new Error('Ninguno de los ítems del archivo tiene cantidades o montos mayores a cero.');
     }
 
     // 8. Generar buffer final del archivo Excel
@@ -209,24 +226,17 @@ export async function generateAct117AFromExcel(
 
     return {
         blob,
-        certNum: certNumDetected,
-        itemsProcessed: sortedItemKeys.length,
+        certNum: finalCertNum,
+        itemsProcessed: itemsProcessedCount,
         errors,
     };
 }
 
-// ─── Extractor Dual Inteligente ──────────────────────────────────────────────
+// ─── Extractor del Excel (Dual: Bloques e Hilera Tabular) ────────────────────
 
-/**
- * Extrae los registros de inspección del Excel soportando:
- * 1. Formato oficial por bloques/secciones con "Item Number:" (código de especificación)
- *    y tablas hijas con "Record No", "Inspector", "Quantity", "Inspection Date".
- * 2. Formato tabular plano estándar donde cada fila tiene columna de Item / Partida.
- */
 function extractDataFromExcel(sheet: XLSX.WorkSheet, errors: string[]) {
     const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-    // Verificar si el archivo contiene bloques con "Item Number:"
     let hasItemNumberBlocks = false;
     for (const row of rawMatrix) {
         if (!row) continue;
@@ -246,7 +256,7 @@ function extractDataFromExcel(sheet: XLSX.WorkSheet, errors: string[]) {
     }
 }
 
-/** Formato 1: Reporte por Secciones con "Item Number:" */
+/** Extrae de reportes por bloques/secciones con "Item Number:" */
 function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
     const allRows: CertExcelRow[] = [];
     let currentSpec = '';
@@ -259,7 +269,6 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
         const row = rawMatrix[r];
         if (!row || row.length === 0) continue;
 
-        // Detectar si la fila contiene "Item Number:"
         let foundSpecInRow = '';
         let foundNameInRow = '';
 
@@ -267,7 +276,6 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
             const cellVal = String(row[c] || '').trim();
             const lower = cellVal.toLowerCase();
 
-            // Detectar cert num si aparece arriba
             if (lower.includes('cert') && (lower.includes('no') || lower.includes('num'))) {
                 const match = cellVal.match(/\d+/);
                 if (match && !certNumDetected) certNumDetected = match[0];
@@ -305,14 +313,14 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
         if (foundSpecInRow) {
             currentSpec = foundSpecInRow;
             currentItemName = foundNameInRow || currentItemName;
-            headerIndices = null; // Reiniciar headers para la nueva tabla
+            headerIndices = null;
             continue;
         }
 
         if (currentSpec) {
             const rowStr = row.map(c => String(c).toLowerCase()).join(' ');
 
-            // Detectar fila de cabeceras de tabla
+            // Detectar cabecera de la tabla
             if (rowStr.includes('record no') || (rowStr.includes('inspector') && (rowStr.includes('quantity') || rowStr.includes('date')))) {
                 headerIndices = {};
                 row.forEach((colVal, colIdx) => {
@@ -328,14 +336,21 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
                 continue;
             }
 
-            // Si ya tenemos headers, leer fila de inspección
+            // Leer fila de datos
             if (headerIndices && (headerIndices.recordNo !== undefined || headerIndices.qtyApproved !== undefined || headerIndices.qtyMeasured !== undefined)) {
                 const firstCell = String(row[0] || '').toLowerCase().trim();
-                // Omitir filas de totales
+                
+                // REGLA 7: Omitir cualquier fila de total/resumen del Excel de entrada para no escribir totales arriba
                 if (firstCell.includes('total') || firstCell.includes('summary')) continue;
 
                 const recordNo = headerIndices.recordNo !== undefined ? String(row[headerIndices.recordNo] || '').trim() : '';
                 const inspector = headerIndices.inspector !== undefined ? String(row[headerIndices.inspector] || '').trim() : '';
+                const inspDateRaw = headerIndices.inspDate !== undefined ? row[headerIndices.inspDate] : '';
+
+                // Una fila de total en este formato suele tener cantidad pero no tiene Record No ni Inspector ni Fecha de inspección
+                if (!recordNo && !inspector && !inspDateRaw) {
+                    continue; // Es una fila de total/acumulado del ítem, no una línea de inspección
+                }
 
                 let qtyStr = '';
                 if (headerIndices.qtyApproved !== undefined && row[headerIndices.qtyApproved] !== '') {
@@ -345,26 +360,29 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
                 }
 
                 const qty = parseFloat(qtyStr.replace(/,/g, ''));
-                const inspDateRaw = headerIndices.inspDate !== undefined ? row[headerIndices.inspDate] : '';
-                const location = headerIndices.location !== undefined && row[headerIndices.location]
+
+                // REGLA 6: Si la cantidad es cero o inválida, no escribir esa línea
+                if (isNaN(qty) || qty <= 0) {
+                    continue;
+                }
+
+                const locationVal = headerIndices.location !== undefined && row[headerIndices.location]
                     ? String(row[headerIndices.location]).trim()
-                    : (recordNo || '');
+                    : '';
 
                 const pageVal = headerIndices.page !== undefined ? parseInt(String(row[headerIndices.page])) || undefined : undefined;
 
-                if (recordNo || inspector || !isNaN(qty) || inspDateRaw) {
-                    allRows.push({
-                        itemNum: currentSpec,
-                        specCode: currentSpec,
-                        itemName: currentItemName,
-                        location,
-                        calculations: recordNo ? `Record ${recordNo}` : '',
-                        quantity: isNaN(qty) ? null : qty,
-                        inspector,
-                        inspDate: formatRawDate(inspDateRaw),
-                        page: pageVal,
-                    });
-                }
+                allRows.push({
+                    itemNum: currentSpec,
+                    specCode: currentSpec,
+                    itemName: currentItemName,
+                    location: locationVal,
+                    calculations: '',
+                    quantity: qty,
+                    inspector,
+                    inspDate: formatRawDate(inspDateRaw),
+                    page: pageVal,
+                });
             }
         }
     }
@@ -377,7 +395,7 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
     return { allRows, certNumDetected, certDateDetected };
 }
 
-/** Formato 2: Reporte Tabular Plano estándar */
+/** Extrae de formato tabular plano estándar */
 function extractFromTabularFormat(sheet: XLSX.WorkSheet, errors: string[]) {
     const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, {
         defval: '',
@@ -404,15 +422,25 @@ function extractFromTabularFormat(sheet: XLSX.WorkSheet, errors: string[]) {
             const itemNumRaw = String(get(colMap.itemNum)).trim();
             if (!itemNumRaw || itemNumRaw === '' || itemNumRaw === '0') continue;
 
+            const firstVal = String(Object.values(raw)[0] || '').toLowerCase().trim();
+            if (firstVal.includes('total') || itemNumRaw.toLowerCase().includes('total')) {
+                continue; // Omitir fila de total
+            }
+
             const qtyStr = String(get(colMap.quantity)).replace(/,/g, '').trim();
             const qty = parseFloat(qtyStr);
+
+            // REGLA 6: Si la cantidad es cero o inválida, no escribir esa línea
+            if (isNaN(qty) || qty <= 0) {
+                continue;
+            }
 
             allRows.push({
                 itemNum: itemNumRaw,
                 specCode: itemNumRaw,
                 location: String(get(colMap.location)).trim(),
-                calculations: String(get(colMap.calculations)).trim(),
-                quantity: isNaN(qty) ? null : qty,
+                calculations: '',
+                quantity: qty,
                 inspector: String(get(colMap.inspector)).trim(),
                 inspDate: formatRawDate(get(colMap.inspDate)),
                 page: parseInt(String(get(colMap.page))) || undefined,
@@ -431,7 +459,6 @@ function extractFromTabularFormat(sheet: XLSX.WorkSheet, errors: string[]) {
 
 // ─── Helpers de Base de Datos y Formateo ─────────────────────────────────────
 
-/** Busca la partida en el catálogo de contract_items comparando specification o item_num */
 function findContractItemInDb(
     itemKey: string,
     specCode: string | undefined,
@@ -442,25 +469,20 @@ function findContractItemInDb(
     const targetSpec = clean(specCode || itemKey);
     const targetKey  = clean(itemKey);
 
-    // 1. Coincidencia exacta o normalizada por specification
     let found = dbItems.find(it => clean(it.specification) === targetSpec || clean(it.specification) === targetKey);
     if (found) return found;
 
-    // 2. Coincidencia por item_num
     found = dbItems.find(it => clean(it.item_num) === targetKey || clean(it.item_num) === targetSpec);
     if (found) return found;
 
-    // 3. Coincidencia parcial (por ejemplo 152 en 152-001)
     found = dbItems.find(it => {
         const itSpec = clean(it.specification);
-        const itNum  = clean(it.item_num);
         return itSpec && targetSpec && (itSpec.includes(targetSpec) || targetSpec.includes(itSpec));
     });
 
     return found || null;
 }
 
-/** Formatea una fecha cruda a string ISO o legible */
 function formatRawDate(val: any): string {
     if (!val) return '';
     if (val instanceof Date && !isNaN(val.getTime())) {
@@ -474,18 +496,15 @@ function formatRawDate(val: any): string {
     return str;
 }
 
-/** Detecta columnas tabulares */
 function detectColumns(firstRow: Record<string, any>) {
     const keys = Object.keys(firstRow);
     const norm = (s: string) => String(s || '').toLowerCase().replace(/[\s_\-\.:]/g, '');
-
-    const find = (...terms: string[]) =>
-        keys.find(k => terms.some(t => norm(k).includes(norm(t))));
+    const find = (...terms: string[]) => keys.find(k => terms.some(t => norm(k).includes(norm(t))));
 
     return {
         itemNum:      find('itemnumber', 'itemno', 'itemnum', 'item_num', 'item', 'partida', 'especificacion', 'specification'),
         location:     find('location', 'ubicacion', 'lugar', 'estacion', 'station', 'tramo'),
-        calculations: find('calculation', 'calculo', 'formula', 'notes', 'notas', 'remarks', 'detalle'),
+        calculations: find('calculation', 'calculo', 'formula', 'notes', 'notas'),
         quantity:     find('quantity', 'cantidad', 'qty', 'medido', 'measured'),
         inspector:    find('inspector', 'insp', 'inspeccionado por'),
         inspDate:     find('inspectiondate', 'fecha', 'date', 'inspdate', 'fechainspeccion'),
@@ -517,7 +536,6 @@ function detectCertDate(rows: Record<string, any>[], colMap: any): string {
     return new Date().toISOString().split('T')[0];
 }
 
-/** Agrupa filas por ítem y ordena cada grupo por fecha ascendente */
 function groupByItem(rows: CertExcelRow[]): Record<string, CertExcelRow[]> {
     const groups: Record<string, CertExcelRow[]> = {};
     for (const row of rows) {
@@ -526,7 +544,7 @@ function groupByItem(rows: CertExcelRow[]): Record<string, CertExcelRow[]> {
         groups[key].push(row);
     }
 
-    // Ordenar cronológicamente (ascendente)
+    // Ordenar cronológicamente ascendente (de más antigua a más reciente)
     for (const key of Object.keys(groups)) {
         groups[key].sort((a, b) => {
             const da = parseDateForSort(a.inspDate);
@@ -549,33 +567,6 @@ function parseDateForSort(dateStr: string): number {
         if (!isNaN(d2.getTime())) return d2.getTime();
     }
     return 0;
-}
-
-function buildInspectorLegend(rows: CertExcelRow[]): Map<string, string> {
-    const inspectorMap = new Map<string, string>();
-    const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
-    let letterIdx = 0;
-
-    for (const r of rows) {
-        const name = r.inspector.trim();
-        if (!name) continue;
-
-        if (letters.includes(name.toLowerCase())) {
-            if (!inspectorMap.has(name)) inspectorMap.set(name, name.toLowerCase());
-            continue;
-        }
-
-        if (!inspectorMap.has(name)) {
-            if (letterIdx < letters.length) {
-                inspectorMap.set(name, letters[letterIdx]);
-                letterIdx++;
-            } else {
-                inspectorMap.set(name, name.substring(0, 3).toUpperCase());
-            }
-        }
-    }
-
-    return inspectorMap;
 }
 
 function buildSheetName(itemNum: string, page: number, totalPages: number): string {
@@ -617,13 +608,27 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
     set(TEMPLATE_CELLS.CERT_DATE,    formatDisplayDate(data.certDate));
     set(TEMPLATE_CELLS.PAGE_OF_NUM,  data.pageNum);
     set(TEMPLATE_CELLS.TOTAL_PAGES,  data.totalPages);
+
+    // Activar wrapText en la descripción si es extensa
+    const descCell = ws.getCell(TEMPLATE_CELLS.ITEM_DESC);
+    if (descCell.style) {
+        descCell.style.alignment = { ...(descCell.style.alignment || {}), wrapText: true };
+    }
 }
 
+/**
+ * Llena las filas de detalle (13 a 27) aplicando las reglas de Enrique:
+ * 1. Location = Fecha de inspección (Date va vacía)
+ * 2. Calculations = Vacía / en blanco
+ * 3. Ensanchar altura de fila cuando no quepa la información
+ * 4. Inspector en blanco
+ * 6. Cantidades o amounts en cero ya fueron excluidos
+ * 7. Ningún total se escribe aquí arriba; el total queda abajo en la fila de Total
+ */
 function fillDataRows(
     ws: ExcelJS.Worksheet,
     pageRows: CertExcelRow[],
-    globalOffset: number,
-    inspectorLegend: Map<string, string>
+    globalOffset: number
 ) {
     for (let i = 0; i < ROWS_PER_PAGE; i++) {
         const excelRow = DATA_ROW_START + i;
@@ -634,30 +639,39 @@ function fillDataRows(
             continue;
         }
 
-        // Location: C (col 3)
-        ws.getCell(excelRow, 3).value = dataRow.location || '';
+        const dateStr = formatDisplayDate(dataRow.inspDate);
 
-        // Calculations: AB (col 28)
-        ws.getCell(excelRow, 28).value = dataRow.calculations || '';
+        // REGLA 1: En la columna de Location (C, col 3), escribe la fecha
+        const locCell = ws.getCell(excelRow, 3);
+        locCell.value = dateStr;
+        locCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+        // REGLA 2: En la columna de Calculations (AB, col 28), dejarla en blanco
+        ws.getCell(excelRow, 28).value = '';
 
         // Quantity: BD (col 56)
-        ws.getCell(excelRow, 56).value = dataRow.quantity !== null ? dataRow.quantity : null;
+        ws.getCell(excelRow, 56).value = dataRow.quantity;
 
-        // Amount: BJ (col 62) ya tiene la fórmula =AO7*BD{row}
+        // Amount: BJ (col 62) conserva la fórmula =AO7*BD{row}
 
-        // References - Inspector: BQ (col 69)
-        const inspKey = dataRow.inspector.trim();
-        const inspCode = inspectorLegend.get(inspKey) || inspKey;
-        ws.getCell(excelRow, 69).value = inspCode;
+        // REGLA 4: En la columna Inspector (BQ, col 69), no escribir nada
+        ws.getCell(excelRow, 69).value = '';
 
-        // References - Date: BT (col 72)
-        ws.getCell(excelRow, 72).value = formatDisplayDate(dataRow.inspDate);
+        // REGLA 1: Columna Date (BT, col 72), dejarla vacía
+        ws.getCell(excelRow, 72).value = '';
 
         // References - Page: BX (col 76)
         ws.getCell(excelRow, 76).value = dataRow.page !== undefined ? dataRow.page : (globalOffset + i + 1);
+
+        // REGLA 3: Cuando no quepa toda la información, ensanchar la altura de la fila
+        // Altura mínima cómoda de lectura: 20 pt (la plantilla original tiene 12 pt, muy pequeña)
+        const currentRowHeight = ws.getRow(excelRow).height || 12;
+        const requiredHeight = Math.max(currentRowHeight, 20);
+        ws.getRow(excelRow).height = requiredHeight;
     }
 }
 
+/** Limpia una fila sin borrar fórmulas de Amount */
 function clearDataRow(ws: ExcelJS.Worksheet, rowNum: number) {
     ws.getCell(rowNum, 3).value  = '';
     ws.getCell(rowNum, 28).value = '';
@@ -665,21 +679,15 @@ function clearDataRow(ws: ExcelJS.Worksheet, rowNum: number) {
     ws.getCell(rowNum, 69).value = '';
     ws.getCell(rowNum, 72).value = '';
     ws.getCell(rowNum, 76).value = null;
+    ws.getRow(rowNum).height = 16;
 }
 
-function fillInspectorLegend(ws: ExcelJS.Worksheet, inspectorLegend: Map<string, string>) {
-    const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
-    const letterToName = new Map<string, string>();
-    inspectorLegend.forEach((letter, name) => {
-        if (!letterToName.has(letter)) {
-            letterToName.set(letter, name);
-        }
-    });
-
-    for (let i = 0; i < MAX_INSPECTORS_LEGEND; i++) {
-        const rowNum = INSPECTOR_ROW_START + i;
-        const letter = letters[i];
-        ws.getCell(rowNum, 14).value = letterToName.get(letter) || '';
+/**
+ * REGLA 4: En las líneas inferiores donde dice "Inspector (Insp.)", no escribir nada
+ */
+function clearInspectorLegend(ws: ExcelJS.Worksheet) {
+    for (let r = INSPECTOR_ROW_START; r <= INSPECTOR_ROW_END; r++) {
+        ws.getCell(r, 14).value = ''; // col N (col 14) en blanco
     }
 }
 
