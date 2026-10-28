@@ -27,7 +27,7 @@ export async function generateAct117AExcel(
         // 2. Load template
         const workbook = new ExcelJS.Workbook();
         const bufferTemplate = Buffer.from(ACT117A_TEMPLATE_BASE64, 'base64');
-        await workbook.xlsx.load(bufferTemplate);
+        await workbook.xlsx.load(bufferTemplate as any);
 
         const templateSheet = workbook.getWorksheet(1);
         if (!templateSheet) throw new Error("Template ACT-117A no tiene hojas");
@@ -45,6 +45,9 @@ export async function generateAct117AExcel(
                 currentSheet = workbook.addWorksheet(sheetName);
                 await cloneSheetPerfectly(templateSheet, currentSheet);
             }
+
+            // Encabezado institucional idéntico a la Foto 2
+            setupInstitutionalHeader(currentSheet);
 
             // Fill header (User defined mappings)
             currentSheet.getCell('K6').value = projData.name || '';
@@ -102,4 +105,61 @@ async function cloneSheetPerfectly(source: ExcelJS.Worksheet, target: ExcelJS.Wo
             target.mergeCells(m.tl, m.br);
         } catch (e) { /* ignore merge conflicts */ }
     });
+}
+
+function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
+    ['A1:CB1', 'A1:BT1', 'A1:BU1', 'BV1:CB1', 'A2:CB2', 'A2:BT2', 'A2:BU2', 'BV2:CB2'].forEach(r => {
+        try { ws.unMergeCells(r); } catch {}
+    });
+
+    for (let c = 1; c <= 80; c++) {
+        ws.getCell(1, c).value = '';
+        ws.getCell(2, c).value = '';
+    }
+
+    try {
+        ws.mergeCells('A1:BU1');
+        ws.mergeCells('BV1:CB1');
+    } catch {}
+
+    ws.getCell('A1').value = 'Government of Puerto Rico';
+    ws.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell('A1').font = { name: 'Arial', size: 9, bold: false };
+
+    ws.getCell('BV1').value = 'ACT-117A';
+    ws.getCell('BV1').alignment = { horizontal: 'right', vertical: 'middle' };
+    ws.getCell('BV1').font = { name: 'Arial', size: 9, bold: true };
+
+    try {
+        ws.mergeCells('A2:BU2');
+        ws.mergeCells('BV2:CB2');
+    } catch {}
+
+    ws.getCell('A2').value = 'Department of Transportation and Public Works';
+    ws.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell('A2').font = { name: 'Arial', size: 9, bold: false };
+
+    ws.getCell('BV2').value = '(6/09)';
+    ws.getCell('BV2').alignment = { horizontal: 'right', vertical: 'middle' };
+    ws.getCell('BV2').font = { name: 'Arial', size: 9, bold: false };
+
+    try { ws.mergeCells('A3:CB3'); } catch {}
+    ws.getCell('A3').value = 'HIGHWAY AND TRANSPORTATION AUTHORITY';
+    ws.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell('A3').font = { name: 'Arial', size: 9, bold: false };
+
+    for (let c = 1; c <= 80; c++) {
+        ws.getCell(4, c).value = '';
+    }
+
+    try { ws.mergeCells('A5:CB5'); } catch {}
+    ws.getCell('A5').value = 'ITEM CERTIFICATION WORKSHEET';
+    ws.getCell('A5').alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getCell('A5').font = { name: 'Arial', size: 10, bold: true };
+
+    ws.getRow(1).height = 15;
+    ws.getRow(2).height = 15;
+    ws.getRow(3).height = 16;
+    ws.getRow(4).height = 8;
+    ws.getRow(5).height = 18;
 }

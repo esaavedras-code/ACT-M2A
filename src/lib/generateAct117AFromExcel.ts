@@ -134,6 +134,15 @@ export async function generateAct117AFromExcel(
         throw new Error('La plantilla ACT-117A no contiene hojas válidas.');
     }
 
+    // Extraer lista única de inspectores según el reporte de excel (sin duplicados)
+    const uniqueInspectors: string[] = [];
+    for (const r of allRows) {
+        const rawInsp = (r.inspector || '').trim();
+        if (rawInsp && !uniqueInspectors.some(u => u.toLowerCase() === rawInsp.toLowerCase())) {
+            uniqueInspectors.push(rawInsp);
+        }
+    }
+
     // 7. Crear hojas independientes para cada ítem que tenga registros válidos (> 0)
     let firstSheetUsed = false;
     let itemsProcessedCount = 0;
@@ -218,11 +227,10 @@ export async function generateAct117AFromExcel(
                 totalPages:   numPages,
             });
 
-            // Llenar filas de detalle (Reglas 1, 2, 3, 4, 6 y 7, y columna Page vacía)
-            fillDataRows(ws, pageRows, pageIdx * ROWS_PER_PAGE);
+            // Llenar filas de detalle (con letra de inspector según los incisos)
+            fillDataRows(ws, pageRows, pageIdx * ROWS_PER_PAGE, uniqueInspectors);
 
-            // Manejo de Totales y Gran Total (Punto 3):
-            // Cuando se usan varias hojas para un ítem, en la última sale el Gran Total de ese ítem
+            // Manejo de Totales y Gran Total:
             applyTotals(ws, {
                 pageIdx,
                 numPages,
@@ -233,11 +241,11 @@ export async function generateAct117AFromExcel(
                 itemSheetNames,
             });
 
-            // Asegurar que todas las líneas de las tablas estén 100% completas y continuas (Punto 4)
+            // Asegurar que todas las líneas de las tablas estén 100% completas y continuas
             ensureTableBorders(ws);
 
-            // REGLA 4: En las líneas donde dice Inspector, no escribir nada (dejar vacías)
-            clearInspectorLegend(ws);
+            // Anotar el nombre de los inspectores en los incisos a., b., c., etc. sin repetir (Foto 3)
+            fillInspectorLegend(ws, uniqueInspectors);
         }
     }
 
@@ -686,21 +694,29 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
 }
 
 /**
- * Configura el encabezado institucional idéntico a la Foto 3 en todas las hojas:
- * - A1:BT1 -> Government of Puerto Rico (centrado)
+ * Configura el encabezado institucional idéntico a la Foto 2 en todas las hojas:
+ * - A1:BU1 -> Government of Puerto Rico (centrado)
  * - BV1:CB1 -> ACT-117A (derecha)
- * - A2:BT2 -> Department of Transportation and Public Works (centrado)
+ * - A2:BU2 -> Department of Transportation and Public Works (centrado)
  * - BV2:CB2 -> (6/09) (derecha)
  * - A3:CB3 -> HIGHWAY AND TRANSPORTATION AUTHORITY (centrado)
  * - A5:CB5 -> ITEM CERTIFICATION WORKSHEET (centrado, bold)
  */
 function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
-    // 1. Fila 1: Central + ACT-117A a la derecha
+    // Descombinar cualquier merge previo en filas 1 y 2
+    ['A1:CB1', 'A1:BT1', 'A1:BU1', 'BV1:CB1', 'A2:CB2', 'A2:BT2', 'A2:BU2', 'BV2:CB2'].forEach(r => {
+        try { ws.unMergeCells(r); } catch {}
+    });
+
+    // Limpiar celdas en fila 1 y 2 para evitar textos residuales o encimados (Foto 1)
+    for (let c = 1; c <= 80; c++) {
+        ws.getCell(1, c).value = '';
+        ws.getCell(2, c).value = '';
+    }
+
+    // 1. Fila 1: Central + ACT-117A a la derecha (Foto 2)
     try {
-        if (ws._merges['A1']) ws.unMergeCells('A1:CB1');
-    } catch {}
-    try {
-        ws.mergeCells('A1:BT1');
+        ws.mergeCells('A1:BU1');
         ws.mergeCells('BV1:CB1');
     } catch {}
 
@@ -712,12 +728,9 @@ function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
     ws.getCell('BV1').alignment = { horizontal: 'right', vertical: 'middle' };
     ws.getCell('BV1').font = { name: 'Arial', size: 9, bold: true };
 
-    // 2. Fila 2: Central + (6/09) a la derecha
+    // 2. Fila 2: Central + (6/09) a la derecha (Foto 2)
     try {
-        if (ws._merges['A2']) ws.unMergeCells('A2:CB2');
-    } catch {}
-    try {
-        ws.mergeCells('A2:BT2');
+        ws.mergeCells('A2:BU2');
         ws.mergeCells('BV2:CB2');
     } catch {}
 
@@ -730,11 +743,18 @@ function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
     ws.getCell('BV2').font = { name: 'Arial', size: 9, bold: false };
 
     // 3. Fila 3: HIGHWAY AND TRANSPORTATION AUTHORITY
+    try { ws.mergeCells('A3:CB3'); } catch {}
     ws.getCell('A3').value = 'HIGHWAY AND TRANSPORTATION AUTHORITY';
     ws.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getCell('A3').font = { name: 'Arial', size: 9, bold: false };
 
-    // 4. Fila 5: ITEM CERTIFICATION WORKSHEET
+    // 4. Fila 4: vacía
+    for (let c = 1; c <= 80; c++) {
+        ws.getCell(4, c).value = '';
+    }
+
+    // 5. Fila 5: ITEM CERTIFICATION WORKSHEET
+    try { ws.mergeCells('A5:CB5'); } catch {}
     ws.getCell('A5').value = 'ITEM CERTIFICATION WORKSHEET';
     ws.getCell('A5').alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getCell('A5').font = { name: 'Arial', size: 10, bold: true };
@@ -747,12 +767,25 @@ function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
     ws.getRow(5).height = 18;
 }
 
+const INSPECTOR_INCISOS = [
+    { letter: 'a', row: 29, cell: 'N29' },
+    { letter: 'b', row: 30, cell: 'N30' },
+    { letter: 'c', row: 31, cell: 'N31' },
+    { letter: 'd', row: 32, cell: 'N32' },
+    { letter: 'e', row: 33, cell: 'N33' },
+    { letter: 'f', row: 34, cell: 'N34' },
+    { letter: 'g', row: 35, cell: 'N35' },
+    { letter: 'h', row: 36, cell: 'N36' },
+    { letter: 'i', row: 37, cell: 'N37' },
+    { letter: 'j', row: 38, cell: 'N38' },
+];
+
 /**
  * Llena las filas de detalle (13 a 27) aplicando las reglas de Enrique:
  * 1. Location = Fecha de inspección (Date va vacía)
  * 2. Calculations = Vacía / en blanco
  * 3. Ensanchar altura de fila cuando no quepa la información
- * 4. Inspector en blanco
+ * 4. Inspector (Insp.) = Letra del inciso asignado al inspector
  * 5. Columna Page vacía
  * 6. REGLA FOTO 1: Si amount es cero, dejar la celda completamente en blanco
  * 7. Ningún total se escribe aquí arriba; el total queda abajo en la fila de Total
@@ -760,7 +793,8 @@ function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
 function fillDataRows(
     ws: ExcelJS.Worksheet,
     pageRows: CertExcelRow[],
-    globalOffset: number
+    globalOffset: number,
+    uniqueInspectors: string[] = []
 ) {
     for (let i = 0; i < ROWS_PER_PAGE; i++) {
         const excelRow = DATA_ROW_START + i;
@@ -778,8 +812,11 @@ function fillDataRows(
         locCell.value = dateStr;
         locCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
 
-        // REGLA 2: En la columna de Calculations (AB, col 28), dejarla en blanco
-        ws.getCell(excelRow, 28).value = '';
+        // Columna de Calculations (AB, col 28): nombre del inspector correspondiente (Foto 4)
+        const calcCell = ws.getCell(excelRow, 28);
+        calcCell.value = (dataRow.inspector || '').trim();
+        calcCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        calcCell.font = { name: 'Arial', size: 9, bold: false };
 
         // Quantity: BD (col 56)
         ws.getCell(excelRow, 56).value = dataRow.quantity;
@@ -795,8 +832,21 @@ function fillDataRows(
             ws.getCell(excelRow, 62).numFmt = '$#,##0.00';
         }
 
-        // REGLA 4: En la columna Inspector (BQ, col 69), no escribir nada
-        ws.getCell(excelRow, 69).value = '';
+        // Columna Inspector (BQ, col 69): letra del inciso según el inspector del registro
+        let inspLetter = '';
+        const rawInsp = (dataRow.inspector || '').trim();
+        if (rawInsp) {
+            const idx = uniqueInspectors.findIndex(u => u.toLowerCase() === rawInsp.toLowerCase());
+            if (idx >= 0 && idx < INSPECTOR_INCISOS.length) {
+                inspLetter = INSPECTOR_INCISOS[idx].letter;
+            } else {
+                inspLetter = rawInsp;
+            }
+        }
+        const inspCell = ws.getCell(excelRow, 69);
+        inspCell.value = inspLetter;
+        inspCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        inspCell.font = { name: 'Arial', size: 9, bold: false };
 
         // REGLA 1: Columna Date (BT, col 72), dejarla vacía
         ws.getCell(excelRow, 72).value = '';
@@ -813,7 +863,7 @@ function fillDataRows(
 function clearDataRow(ws: ExcelJS.Worksheet, rowNum: number) {
     ws.getCell(rowNum, 3).value  = '';
     ws.getCell(rowNum, 28).value = '';
-    ws.getCell(rowNum, 56).value = null;
+    ws.getCell(rowNum, 56).value = '';
     ws.getCell(rowNum, 62).value = ''; // REGLA FOTO 1: Si es cero o no hay dato, dejar en blanco la celda
     ws.getCell(rowNum, 69).value = '';
     ws.getCell(rowNum, 72).value = '';
@@ -981,12 +1031,17 @@ function ensureTableBorders(ws: ExcelJS.Worksheet) {
 }
 
 /**
- * REGLA 4: En las líneas inferiores donde dice "Inspector (Insp.)", no escribir nada
+ * Anota los nombres únicos de inspectores en los incisos a., b., c., etc. (filas 29 a 38)
+ * según el reporte de Excel, sin repetir nombres (Foto 3 de Enrique).
  */
-function clearInspectorLegend(ws: ExcelJS.Worksheet) {
-    for (let r = INSPECTOR_ROW_START; r <= INSPECTOR_ROW_END; r++) {
-        ws.getCell(r, 14).value = ''; // col N (col 14) en blanco
-    }
+function fillInspectorLegend(ws: ExcelJS.Worksheet, uniqueInspectors: string[]) {
+    INSPECTOR_INCISOS.forEach((inc, idx) => {
+        const inspectorName = uniqueInspectors[idx] || '';
+        const cell = ws.getCell(inc.cell);
+        cell.value = inspectorName;
+        cell.alignment = { vertical: 'bottom', horizontal: 'left' };
+        cell.font = { name: 'Arial', size: 9, bold: false };
+    });
 }
 
 function formatDisplayDate(dateStr: string): string {
