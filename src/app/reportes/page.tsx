@@ -367,6 +367,7 @@ function ReportesContent() {
     const [showACT117AModal, setShowACT117AModal] = useState(false);
     const [act117aFile, setAct117aFile] = useState<File | null>(null);
     const [act117aCertNum, setAct117aCertNum] = useState<string>("");
+    const [act117aCertDate, setAct117aCertDate] = useState<string>("");
     const [act117aProcessing, setAct117aProcessing] = useState(false);
     const [act117aError, setAct117aError] = useState<string | null>(null);
     const [act117aSuccess, setAct117aSuccess] = useState<string | null>(null);
@@ -457,7 +458,7 @@ function ReportesContent() {
                     <div className="bg-white dark:bg-slate-900 border-[8px] border-red-500 p-12 rounded-[40px] shadow-[0_30px_70px_rgba(220,38,38,0.3)] animate-in zoom-in duration-300 text-center max-w-2xl mx-4">
                         <BadgeAlert size={80} className="text-red-500 mx-auto mb-6 animate-bounce" />
                         <h2 className="text-6xl md:text-7xl font-black text-red-600 uppercase tracking-tighter leading-none mb-4">
-                            Â¡NO FALTA NINGUNO!
+                            ÃÂ¡NO FALTA NINGUNO!
                         </h2>
                         <p className="text-slate-500 dark:text-slate-400 font-bold text-xl">Todos los materiales certificados estan al dia.</p>
                         <button 
@@ -475,7 +476,7 @@ function ReportesContent() {
                     <div className="bg-slate-900 border border-slate-700 p-12 rounded-[40px] shadow-[0_30px_70px_rgba(0,0,0,0.5)] animate-in zoom-in duration-300 text-center max-w-2xl mx-4">
                         <AlertCircle size={80} className="text-amber-400 mx-auto mb-6 animate-pulse" />
                         <h2 className="text-4xl md:text-5xl font-black text-amber-400 uppercase tracking-tighter leading-none mb-4">
-                            Â¡RECORDATORIO!
+                            ÃÂ¡RECORDATORIO!
                         </h2>
                         <p className="text-slate-300 font-bold text-xl">{reminderMsg}</p>
                         <button 
@@ -680,8 +681,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'spec888-items-report',
-                            label: 'Partidas con EspecificaciÃ³n 888',
-                            description: 'Listado de partidas que pertenecen a la especificaciÃ³n tÃ©cnica 888.',
+                            label: 'Partidas con EspecificaciÃÂ³n 888',
+                            description: 'Listado de partidas que pertenecen a la especificaciÃÂ³n tÃÂ©cnica 888.',
                             icon: <FileText size={18} className="text-purple-500" />,
                             onPdf: () => generateSpec888ItemsReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
@@ -751,7 +752,7 @@ function ReportesContent() {
                         option={{
                             id: 'mfg-items-report',
                             label: 'Partidas con Certificado de Manufactura',
-                            description: 'Listado consolidado y Ãºnico de partidas que poseen certificados de manufactura registrados.',
+                            description: 'Listado consolidado y ÃÂºnico de partidas que poseen certificados de manufactura registrados.',
                             icon: <Package size={18} className="text-blue-500" />,
                             onPdf: () => generateMfgItemsReportLogic(projectId, 'pdf')
                                 .then(() => setStatus("Reporte generado."))
@@ -903,7 +904,7 @@ function ReportesContent() {
                         option={{
                             id: 'dofaei-selective',
                             label: 'DOFAEI (Federal Aid Eligibility)',
-                            description: 'Formulario de determinaciÃ³n de elegibilidad de ayuda federal para la orden de cambio seleccionada.',
+                            description: 'Formulario de determinaciÃÂ³n de elegibilidad de ayuda federal para la orden de cambio seleccionada.',
                             icon: <FileDigit size={18} className="text-purple-700" />,
                             selectLabel: "Elegir CHO",
                             items: chos.map(c => ({ id: c.id, label: `CHO #${c.cho_num}${c.amendment_letter || ''} (${formatDate(c.cho_date)})` })),
@@ -990,8 +991,8 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'act32-excel',
-                            label: 'ACT-32 (ComitÃ© CHO)',
-                            description: 'EvaluaciÃ³n de Ã“rdenes de Cambio para presentaciÃ³n al ComitÃ© (Excel).',
+                            label: 'ACT-32 (ComitÃÂ© CHO)',
+                            description: 'EvaluaciÃÂ³n de Ãârdenes de Cambio para presentaciÃÂ³n al ComitÃÂ© (Excel).',
                             icon: <FileSpreadsheet size={18} className="text-blue-700" />,
                             onExcel: async () => {
                                 try {
@@ -1078,7 +1079,7 @@ function ReportesContent() {
                         option={{
                             id: 'act117a-selective',
                             label: 'ACT-117A (Item Sheets)',
-                            description: 'Hojas de certificaciÃ³n individuales por Ã­tem en formato Excel (Plantilla Oficial).',
+                            description: 'Hojas de certificaciÃÂ³n individuales por ÃÂ­tem en formato Excel (Plantilla Oficial).',
                             icon: <FileSpreadsheet size={18} className="text-emerald-600" />,
                             items: certs.map(c => ({ id: c.id, label: `Cert #${c.cert_num} (${formatDate(c.cert_date)})` })),
                             onExcel: async (ids) => {
@@ -1449,7 +1450,7 @@ function ReportesContent() {
                          loading={loading}
                          option={{
                              id: 'fa-equipo',
-                             label: 'AC-50 RelaciÃ³n de equipo del FA',
+                             label: 'AC-50 RelaciÃÂ³n de equipo del FA',
                              description: 'Basado en el formato oficial Relacion de equipo de FA.',
                              icon: <FileText size={18} className="text-pink-500" />,
                              onPdf: () => generateFaRelacionEquipoLogic(projectId, 'pdf', selectedFaMonth)
@@ -1508,7 +1509,7 @@ function ReportesContent() {
                          option={{
                              id: 'fa-mensual-old',
                              label: 'Resumen Mensual de FA (Anterior)',
-                             description: 'VersiÃ³n previa del resumen mensual.',
+                             description: 'VersiÃÂ³n previa del resumen mensual.',
                              icon: <FileText size={18} className="text-pink-500" />,
                              onPdf: () => generateFaResumenMensualLogic(projectId, 'pdf')
                                  .then(() => setStatus("Reporte generado."))
@@ -1526,7 +1527,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fund-source-projected',
-                            label: 'Presupuesto Proyectado â€” ACT vs FHWA',
+                            label: 'Presupuesto Proyectado Ã¢â¬â ACT vs FHWA',
                             description: 'Distribucion de todo el presupuesto del contrato original mas las ordenes de Cambio, aunque no se hayan pagado.',
                             icon: <Package size={18} className="text-blue-600" />,
                             onPdf: () => generateProjectedFundDistributionReportLogic(projectId, 'pdf', endDate)
@@ -1544,7 +1545,7 @@ function ReportesContent() {
                         loading={loading}
                         option={{
                             id: 'fund-source-real',
-                            label: 'Distribucion Real â€” ACT vs FHWA (Pagos)',
+                            label: 'Distribucion Real Ã¢â¬â ACT vs FHWA (Pagos)',
                             description: 'Distribucion basada unicamente en las partidas certificadas y pagadas hasta la fecha de corte.',
                             icon: <Activity size={18} className="text-green-600" />,
                             onPdf: () => generateFundSourceReportLogic(projectId, 'pdf', endDate)
@@ -1590,7 +1591,7 @@ function ReportesContent() {
                     <DropdownGroup title="Informes de Campo" icon={<FileText size={18} className="text-emerald-500" />}>
                     <div className="px-6 py-4 flex flex-col gap-3">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center px-4">
-                            Para crear nuevos informes de campo, dirÃ­jase a la secciÃ³n de "Actividades" en el detalle del proyecto.
+                            Para crear nuevos informes de campo, dirÃÂ­jase a la secciÃÂ³n de "Actividades" en el detalle del proyecto.
                         </p>
                     </div>
                     <SelectiveReportItem
@@ -1646,15 +1647,15 @@ function ReportesContent() {
                         }}
                     />
 
-                    {/* GeneraciÃ³n por Periodo (ACT-45 y ACT-96) */}
+                    {/* GeneraciÃÂ³n por Periodo (ACT-45 y ACT-96) */}
                     <div className="mx-1.5 mb-1.5 p-6 rounded-[32px] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 shadow-sm">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
                                 <Calendar className="w-5 h-5" />
                             </div>
                             <div>
-                                <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">ImpresiÃ³n por Periodo</h4>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase">Generar mÃºltiples informes de un rango de fechas</p>
+                                <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">ImpresiÃÂ³n por Periodo</h4>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase">Generar mÃÂºltiples informes de un rango de fechas</p>
                             </div>
                         </div>
 
@@ -1690,7 +1691,7 @@ function ReportesContent() {
                                         const { generateAct45ExcelReport } = await import("@/lib/generateAct45ExcelReport");
                                         for (const log of logsInRange) {
                                             await generateAct45ExcelReport(projectId || "", log.id);
-                                            // PequeÃ±a pausa para no saturar el sistema de archivos
+                                            // PequeÃÂ±a pausa para no saturar el sistema de archivos
                                             await new Promise(r => setTimeout(r, 500));
                                         }
                                         setStatus(`Se generaron ${logsInRange.length} informes ACT-45.`);
@@ -1723,7 +1724,7 @@ function ReportesContent() {
                             </button>
                         </div>
                         <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight text-center mt-3">
-                            Nota: Se generarÃ¡n archivos individuales para cada dÃ­a con datos.
+                            Nota: Se generarÃÂ¡n archivos individuales para cada dÃÂ­a con datos.
                         </p>
                     </div>
                 </DropdownGroup>
@@ -1731,10 +1732,10 @@ function ReportesContent() {
 
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════
-            {/* ═══════════════════════════════════════════════════════════════
-                BOTÓN INDEPENDIENTE — Generar Item Certification Worksheet (ACT-117A)
-                ═══════════════════════════════════════════════════════════════ */}
+            {/* âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+            {/* âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+                BOTÃN INDEPENDIENTE â Generar Item Certification Worksheet (ACT-117A)
+                âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
             <div className="mt-8 mb-4 max-w-xl mx-auto">
                 <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-200 dark:via-emerald-800 to-transparent mb-6" />
 
@@ -1748,16 +1749,16 @@ function ReportesContent() {
                                 Item Certification Worksheet (ACT-117A)
                             </h3>
                             <p className="text-[10px] font-semibold text-slate-400">
-                                Genera el reporte oficial por ítem a partir del Excel de certificación
+                                Genera el reporte oficial por Ã­tem a partir del Excel de certificaciÃ³n
                             </p>
                         </div>
                     </div>
 
-                    {/* Fila compacta: Número de Certificación y Selector de Archivo */}
+                    {/* Fila compacta: NÃºmero de CertificaciÃ³n y Selector de Archivo */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
-                                Número de Certificación (Cert. Num) *
+                                NÃºmero de CertificaciÃ³n (Cert. Num) *
                             </label>
                             <input
                                 type="text"
@@ -1770,7 +1771,7 @@ function ReportesContent() {
 
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
-                                Archivo Excel de Certificación *
+                                Archivo Excel de CertificaciÃ³n *
                             </label>
                             <input
                                 id="act117a-file-input"
@@ -1801,7 +1802,7 @@ function ReportesContent() {
                         </div>
                     </div>
 
-                    {/* Mensajes de error / éxito compactos */}
+                    {/* Mensajes de error / Ã©xito compactos */}
                     {act117aError && (
                         <div className="flex items-center gap-2 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-[10px] font-bold text-red-700 dark:text-red-300">
                             <AlertCircle size={14} className="shrink-0" />
@@ -1815,21 +1816,31 @@ function ReportesContent() {
                         </div>
                     )}
 
-                    {/* Botón Principal de tamaño reducido */}
+                    {/* BotÃ³n Principal de tamaÃ±o reducido */}
                     <button
                         type="button"
                         disabled={act117aProcessing}
                         onClick={async () => {
-                            // Validar o solicitar número de certificación
+                            // Validar o solicitar nÃºmero de certificaciÃ³n
                             let certNum = act117aCertNum.trim();
                             if (!certNum) {
-                                const prompted = window.prompt("Por favor ingrese el Número de Certificación (ej. 15):");
+                                const prompted = window.prompt("Por favor ingrese el NÃºmero de CertificaciÃ³n (ej. 15):");
                                 if (!prompted || !prompted.trim()) {
-                                    alert("El número de certificación es requerido para generar el formulario ACT-117A.");
+                                    alert("El nÃºmero de certificaciÃ³n es requerido para generar el formulario ACT-117A.");
                                     return;
                                 }
                                 certNum = prompted.trim();
                                 setAct117aCertNum(certNum);
+                            }
+
+                            // Solicitar fecha de certificación
+                            let certDate = act117aCertDate.trim();
+                            if (!certDate) {
+                                const promptedDate = window.prompt("Por favor ingrese la Fecha de Certificación (MM/DD/YYYY, ej. 09/29/2026):");
+                                if (promptedDate && promptedDate.trim()) {
+                                    certDate = promptedDate.trim();
+                                    setAct117aCertDate(certDate);
+                                }
                             }
 
                             // Validar archivo Excel cargado
@@ -1844,7 +1855,7 @@ function ReportesContent() {
                             setAct117aError(null);
                             setAct117aSuccess(null);
                             try {
-                                await generateAct117AFromExcelLogic(act117aFile, projectId, certNum);
+                                await generateAct117AFromExcelLogic(act117aFile, projectId, certNum, certDate || undefined);
                                 setAct117aSuccess(
                                     `ACT-117A generado y descargado exitosamente.`
                                 );
@@ -1938,7 +1949,7 @@ function ReportesContent() {
                                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
                                 <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
                             </div>
-                            <p className="text-sm font-bold text-slate-400 mt-4 uppercase tracking-widest">Esto tomarÃ¡ solo unos segundos...</p>
+                            <p className="text-sm font-bold text-slate-400 mt-4 uppercase tracking-widest">Esto tomarÃÂ¡ solo unos segundos...</p>
                         </div>
                     </div>
                 </div>

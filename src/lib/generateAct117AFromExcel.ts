@@ -61,6 +61,7 @@ export async function generateAct117AFromExcel(
     certExcelFile: File | ArrayBuffer,
     projectId: string,
     customCertNum?: string | number,
+    customCertDate?: string,
 ): Promise<GenerateAct117AFromExcelResult> {
     const errors: string[] = [];
 
@@ -90,6 +91,11 @@ export async function generateAct117AFromExcel(
     const finalCertNum = customCertNum !== undefined && customCertNum !== null && String(customCertNum).trim() !== ''
         ? String(customCertNum).trim()
         : (certNumDetected || '1');
+
+    // Fecha de certificación final: la ingresada por el usuario tiene prioridad absoluta
+    const finalCertDate = (customCertDate && customCertDate.trim() !== '')
+        ? customCertDate.trim()
+        : (certDateDetected || '');
 
     // 3. Obtener datos del proyecto activo en la base de datos
     const { data: projData, error: projErr } = await supabase
@@ -222,7 +228,7 @@ export async function generateAct117AFromExcel(
                 itemDesc:     itemDesc,
                 itemUnit:     itemUnit,
                 certNum:      finalCertNum,
-                certDate:     certDateDetected,
+                certDate:     finalCertDate,
                 pageNum:      pageIdx + 1,
                 totalPages:   numPages,
             });
