@@ -4,7 +4,7 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/lib/supabase";
 import { Save, FileEdit, Plus, Trash2, DollarSign, Activity, Timer, Files, PlusSquare, TrendingUp, Download, Upload, Printer } from "lucide-react";
 import FloatingFormActions from "./FloatingFormActions";
-import { formatCurrency, roundedAmt, sortItemsNaturally, getFederalSharePct } from "@/lib/utils";
+import { formatCurrency, roundedAmt, sortItemsNaturally, getFederalSharePct, compareItemsByColumn, type SortDirection } from "@/lib/utils";
 import { generateCCMLReportLogic } from "@/lib/reportLogic";
 import specsData from "@/data/specifications.json";
 
@@ -39,6 +39,14 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
     const [expandedCHO, setExpandedCHO] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: SortDirection }>({ key: 'item_num', direction: 'asc' });
+
+    const handleSort = (key: string) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
 
     useEffect(() => {
         setMounted(true);
@@ -580,23 +588,48 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                             <div className="p-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200">
                                 <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '60vh' }}>
                                     <table className="w-full text-left border-collapse">
-                                        <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800 sticky top-0 z-20" style={{ backgroundColor: '#0f172a' }}>
+                                        <thead className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800 sticky top-0 z-20 select-none" style={{ backgroundColor: '#0f172a' }}>
                                             <tr>
-                                                <th className="py-1 px-0.5 w-10 text-center text-blue-600">Nuevo</th>
-
-                                                <th className="py-1 px-0.5 w-28 text-center"># Item</th>
-                                                <th className="py-1 px-0.5 w-40 text-center">Espec.</th>
-                                                <th className="py-1 px-0.5 min-w-[350px]">Descripción</th>
-                                                <th className="py-1 px-0.5 w-28 text-center">Unit</th>
-                                                <th className="py-1 px-0.5 w-36 text-right">Qty</th>
-                                                <th className="py-1 px-0.5 w-52 text-right">Unit Price</th>
-                                                <th className="py-1 px-0.5 w-44 text-right">Amount</th>
-                                                <th className="py-1 px-0.5 w-48">Fondos</th>
-                                                <th className="py-1 px-0.5 w-14 text-center" style={{ backgroundColor: '#66FF99' }}>CM</th>
+                                                <th onClick={() => handleSort('is_new')} className="py-1 px-0.5 w-10 text-center text-blue-400 cursor-pointer hover:text-white transition-colors" title="Ordenar por Nuevo">
+                                                    <span className="inline-flex items-center gap-0.5 justify-center">Nuevo <span className={sortConfig.key === 'is_new' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'is_new' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('item_num')} className="py-1 px-0.5 w-28 text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por # Item">
+                                                    <span className="inline-flex items-center gap-0.5 justify-center"># Item <span className={sortConfig.key === 'item_num' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'item_num' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('specification')} className="py-1 px-0.5 w-40 text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por Especificación">
+                                                    <span className="inline-flex items-center gap-0.5 justify-center">Espec. <span className={sortConfig.key === 'specification' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'specification' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('description')} className="py-1 px-0.5 min-w-[350px] cursor-pointer hover:text-white transition-colors" title="Ordenar por Descripción">
+                                                    <span className="inline-flex items-center gap-0.5">Descripción <span className={sortConfig.key === 'description' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'description' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('unit')} className="py-1 px-0.5 w-28 text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por Unidad">
+                                                    <span className="inline-flex items-center gap-0.5 justify-center">Unit <span className={sortConfig.key === 'unit' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'unit' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('quantity')} className="py-1 px-0.5 w-36 text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Cantidad">
+                                                    <span className="inline-flex items-center gap-0.5 justify-end">Qty <span className={sortConfig.key === 'quantity' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'quantity' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('unit_price')} className="py-1 px-0.5 w-52 text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Precio Unitario">
+                                                    <span className="inline-flex items-center gap-0.5 justify-end">Unit Price <span className={sortConfig.key === 'unit_price' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'unit_price' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('amount')} className="py-1 px-0.5 w-44 text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Monto">
+                                                    <span className="inline-flex items-center gap-0.5 justify-end">Amount <span className={sortConfig.key === 'amount' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'amount' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('fund_source')} className="py-1 px-0.5 w-48 cursor-pointer hover:text-white transition-colors" title="Ordenar por Fondo">
+                                                    <span className="inline-flex items-center gap-0.5">Fondos <span className={sortConfig.key === 'fund_source' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'fund_source' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('requires_mfg_cert')} className="py-1 px-0.5 w-14 text-center cursor-pointer hover:opacity-80 transition-opacity" style={{ backgroundColor: '#66FF99' }} title="Ordenar por Certificado de Manufactura">
+                                                    <span className="inline-flex items-center gap-0.5 justify-center text-slate-900 font-black">CM <span className={sortConfig.key === 'requires_mfg_cert' ? 'text-slate-900 font-black' : 'text-slate-600'}>{sortConfig.key === 'requires_mfg_cert' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
                                                 <th className="py-1 px-1 w-24 text-center">Acciones</th>
-                                                <th className="py-1 px-0.5 w-24 text-center">Cant. CM</th>
-                                                <th className="py-1 px-0.5 w-20 text-center">Unidad CM</th>
-                                                <th className="py-1 px-0.5 min-w-[150px]">Descr. CM</th>
+                                                <th onClick={() => handleSort('mfg_cert_qty')} className="py-1 px-0.5 w-24 text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por Cantidad CM">
+                                                    <span className="inline-flex items-center gap-0.5 justify-center">Cant. CM <span className={sortConfig.key === 'mfg_cert_qty' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'mfg_cert_qty' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('mfg_cert_unit')} className="py-1 px-0.5 w-20 text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por Unidad CM">
+                                                    <span className="inline-flex items-center gap-0.5 justify-center">Unidad CM <span className={sortConfig.key === 'mfg_cert_unit' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'mfg_cert_unit' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
+                                                <th onClick={() => handleSort('mfg_cert_description')} className="py-1 px-0.5 min-w-[150px] cursor-pointer hover:text-white transition-colors" title="Ordenar por Descripción CM">
+                                                    <span className="inline-flex items-center gap-0.5">Descr. CM <span className={sortConfig.key === 'mfg_cert_description' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'mfg_cert_description' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -607,12 +640,9 @@ const CHOForm = forwardRef<FormRef, { projectId?: string, numAct?: string, onDir
                                                     return item.description?.toLowerCase().includes(term) || item.item_num?.toString().includes(term);
                                                 })
                                                 .sort((a: any, b: any) => {
-                                                    const numA = (a.item.item_num || "").toString().replace(/[^0-9]/g, '');
-                                                    const numB = (b.item.item_num || "").toString().replace(/[^0-9]/g, '');
-                                                    const parsedA = parseInt(numA || '0');
-                                                    const parsedB = parseInt(numB || '0');
-                                                    if (parsedA !== parsedB) return parsedA - parsedB;
-                                                    return (a.item.item_num || "").localeCompare(b.item.item_num || "");
+                                                    return compareItemsByColumn(a.item, b.item, sortConfig.key, sortConfig.direction, {
+                                                        amount: (it: any) => roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2)
+                                                    });
                                                 })
                                                 .map(({ item, originalItIdx: itIdx }: any) => (
                                                 <tr key={itIdx}>

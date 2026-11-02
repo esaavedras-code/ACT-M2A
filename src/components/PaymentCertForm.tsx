@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
+    Download,
     Plus, 
     Trash2, 
     Save, 
@@ -28,7 +29,7 @@ import {
     Coins
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency, formatNumber, sortItemsNaturally, getReportFileName, roundedAmt } from '@/lib/utils';
+import { formatCurrency, formatNumber, sortItemsNaturally, getReportFileName, roundedAmt, compareItemsByColumn, type SortDirection } from '@/lib/utils';
 import FloatingFormActions from '@/components/FloatingFormActions';
 import AboutModal from './AboutModal';
 import { generateAct117CExcel } from '@/lib/generateAct117CExcel';
@@ -175,6 +176,14 @@ const PaymentCertForm = React.forwardRef(({
     
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedCert, setExpandedCert] = useState<number | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: SortDirection }>({ key: 'item_num', direction: 'asc' });
+
+    const handleSort = (key: string) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
     const [generating, setGenerating] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -2025,26 +2034,69 @@ const PaymentCertForm = React.forwardRef(({
                                     </div>
                                     <div className="overflow-x-auto overflow-y-auto scrollbar-none" style={{ maxHeight: '60vh' }}>
                                         <table suppressHydrationWarning className="w-full text-left border-collapse table-fixed">
-                    <thead className="text-[8px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800 sticky top-0 z-20" style={{ backgroundColor: '#0f172a' }}>
+                    <thead className="text-[8px] uppercase font-bold text-slate-400 border-b border-slate-50 dark:border-slate-800 sticky top-0 z-20 select-none" style={{ backgroundColor: '#0f172a' }}>
                                                 <tr>
-                                                    <th className="py-1 px-0.5 w-[35px] text-center" title="No aplicar 5% de retención">N.R.</th>
-                                                    <th className="py-1 px-0.5 w-[75px] text-center"># Item</th>
-                                                    <th className="py-1 px-0.5 w-[110px] text-center">Espec.</th>
-                                                    <th className="py-1 px-0.5">Descripción</th>
-                                                    <th className="py-1 px-0.5 w-[40px] text-center">Un.</th>
-                                                    <th className="py-1 px-0.5 w-[40px] text-center" title="Certificado de Manufactura">CM</th>
-                                                    <th className="py-1 px-0.5 w-[80px] text-right">Cant. WP</th>
-                                                    <th className="py-1 px-0.5 w-[100px] text-right">P. Unitario</th>
-                                                    <th className="py-1 px-0.5 w-[90px] text-right">Total WP</th>
-                                                    <th className="py-1 px-0.5 w-[70px] text-right">Cant. MOS</th>
-                                                    <th className="py-1 px-0.5 w-[85px] text-right">Ded. MOS</th>
-                                                    <th className="py-1 px-0.5 w-[90px] text-right">Total Neto</th>
+                                                    <th onClick={() => handleSort('skip_retention')} className="py-1 px-0.5 w-[35px] text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por No Retención (N.R.)">
+                                                        <span className="inline-flex items-center gap-0.5 justify-center">N.R. <span className={sortConfig.key === 'skip_retention' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'skip_retention' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('item_num')} className="py-1 px-0.5 w-[75px] text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por # Item">
+                                                        <span className="inline-flex items-center gap-0.5 justify-center"># Item <span className={sortConfig.key === 'item_num' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'item_num' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('specification')} className="py-1 px-0.5 w-[110px] text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por Especificación">
+                                                        <span className="inline-flex items-center gap-0.5 justify-center">Espec. <span className={sortConfig.key === 'specification' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'specification' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('description')} className="py-1 px-0.5 cursor-pointer hover:text-white transition-colors" title="Ordenar por Descripción">
+                                                        <span className="inline-flex items-center gap-0.5">Descripción <span className={sortConfig.key === 'description' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'description' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('unit')} className="py-1 px-0.5 w-[40px] text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por Unidad">
+                                                        <span className="inline-flex items-center gap-0.5 justify-center">Un. <span className={sortConfig.key === 'unit' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'unit' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('requires_mfg_cert')} className="py-1 px-0.5 w-[40px] text-center cursor-pointer hover:text-white transition-colors" title="Ordenar por Certificado de Manufactura">
+                                                        <span className="inline-flex items-center gap-0.5 justify-center">CM <span className={sortConfig.key === 'requires_mfg_cert' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'requires_mfg_cert' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('quantity')} className="py-1 px-0.5 w-[80px] text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Cantidad WP">
+                                                        <span className="inline-flex items-center gap-0.5 justify-end">Cant. WP <span className={sortConfig.key === 'quantity' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'quantity' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('unit_price')} className="py-1 px-0.5 w-[100px] text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Precio Unitario">
+                                                        <span className="inline-flex items-center gap-0.5 justify-end">P. Unitario <span className={sortConfig.key === 'unit_price' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'unit_price' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('total_wp')} className="py-1 px-0.5 w-[90px] text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Total WP">
+                                                        <span className="inline-flex items-center gap-0.5 justify-end">Total WP <span className={sortConfig.key === 'total_wp' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'total_wp' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('qty_from_mos')} className="py-1 px-0.5 w-[70px] text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Cantidad MOS">
+                                                        <span className="inline-flex items-center gap-0.5 justify-end">Cant. MOS <span className={sortConfig.key === 'qty_from_mos' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'qty_from_mos' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('ded_mos')} className="py-1 px-0.5 w-[85px] text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Deducción MOS">
+                                                        <span className="inline-flex items-center gap-0.5 justify-end">Ded. MOS <span className={sortConfig.key === 'ded_mos' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'ded_mos' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
+                                                    <th onClick={() => handleSort('net_total')} className="py-1 px-0.5 w-[90px] text-right cursor-pointer hover:text-white transition-colors" title="Ordenar por Total Neto">
+                                                        <span className="inline-flex items-center gap-0.5 justify-end">Total Neto <span className={sortConfig.key === 'net_total' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'net_total' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                                    </th>
                                                     <th className="py-1 px-1 w-[60px] text-center">Acción</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {(c.items || [])
-                                                    .map((item: any, itIdx: number) => {
+                                                    .map((item: any, originalItIdx: number) => ({ item, originalItIdx }))
+                                                    .sort((a: any, b: any) => {
+                                                        return compareItemsByColumn(a.item, b.item, sortConfig.key, sortConfig.direction, {
+                                                            skip_retention: (it: any) => !!it.skip_retention,
+                                                            total_wp: (it: any) => roundedAmt((parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 2),
+                                                            qty_from_mos: (it: any) => parseFloat(it.qty_from_mos) || 0,
+                                                            ded_mos: (it: any) => {
+                                                                const q = parseFloat(it.qty_from_mos) || 0;
+                                                                const pr = getInvoicePUFromList(certs, it.item_num, certIdx) || (parseFloat(it.unit_price) || 0);
+                                                                return roundedAmt(q * pr, 2);
+                                                            },
+                                                            net_total: (it: any) => {
+                                                                const w = (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0);
+                                                                const q = parseFloat(it.qty_from_mos) || 0;
+                                                                const pr = getInvoicePUFromList(certs, it.item_num, certIdx) || (parseFloat(it.unit_price) || 0);
+                                                                return roundedAmt(w - (q * pr), 2);
+                                                            }
+                                                        });
+                                                    })
+                                                    .map(({ item, originalItIdx: itIdx }: any) => {
                                                     const totalRevisedQty = getItemTotalRevisedQty(item.item_num, c.cert_date);
                                                     let paidInPrevious = 0;
                                                     // Las certificaciones están en orden descendente (Index 0 = Cert Reciente)

@@ -335,3 +335,55 @@ export function normalizeFundSource(source: string | null | undefined): string {
     return source.trim();
 }
 
+
+export type SortDirection = 'asc' | 'desc';
+
+/**
+ * Compara dos filas de partidas por cualquier columna para ordenación ascendente/descendente.
+ */
+export function compareItemsByColumn(
+    a: any,
+    b: any,
+    column: string,
+    direction: SortDirection = 'asc',
+    customExtractors?: Record<string, (item: any) => any>
+): number {
+    let valA: any;
+    let valB: any;
+
+    if (customExtractors && customExtractors[column]) {
+        valA = customExtractors[column](a);
+        valB = customExtractors[column](b);
+    } else {
+        valA = a?.[column];
+        valB = b?.[column];
+    }
+
+    if (valA === undefined || valA === null) valA = '';
+    if (valB === undefined || valB === null) valB = '';
+
+    let comparison = 0;
+
+    // Si es item_num o similar, usar orden natural numérico
+    if (column === 'item_num' || column === 'item' || column === 'partida') {
+        const numA = (valA || '').toString().replace(/[^0-9]/g, '');
+        const numB = (valB || '').toString().replace(/[^0-9]/g, '');
+        const parsedA = parseInt(numA || '0', 10);
+        const parsedB = parseInt(numB || '0', 10);
+        if (parsedA !== parsedB) {
+            comparison = parsedA - parsedB;
+        } else {
+            comparison = (valA || '').toString().localeCompare((valB || '').toString(), undefined, { numeric: true, sensitivity: 'base' });
+        }
+    } else if (typeof valA === 'boolean' || typeof valB === 'boolean') {
+        comparison = (valA === valB) ? 0 : valA ? -1 : 1;
+    } else if (typeof valA === 'number' || typeof valB === 'number' || (!isNaN(Number(valA)) && !isNaN(Number(valB)) && valA !== '' && valB !== '')) {
+        const numA = Number(valA);
+        const numB = Number(valB);
+        comparison = numA - numB;
+    } else {
+        comparison = (valA || '').toString().localeCompare((valB || '').toString(), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    return direction === 'asc' ? comparison : -comparison;
+}

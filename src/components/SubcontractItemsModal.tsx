@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { X, Loader2, Plus, Trash2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, compareItemsByColumn, type SortDirection } from "@/lib/utils";
 
 export interface AssignedItem {
     item_num: string;
@@ -27,6 +27,14 @@ export default function SubcontractItemsModal({
 }) {
     const [projectItems, setProjectItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: SortDirection }>({ key: 'item_num', direction: 'asc' });
+
+    const handleSort = (key: string) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
     
     // Instead of a dictionary of selections, we use an array of rows
     const [rows, setRows] = useState<Array<{
@@ -159,20 +167,40 @@ export default function SubcontractItemsModal({
                         <div className="space-y-4">
                             <table className="w-full text-left border-collapse">
                                 <thead>
-                                    <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] uppercase font-black text-slate-400">
-                                        <th className="pb-2 pl-2 w-32">Partida</th>
-                                        <th className="pb-2">Spec</th>
-                                        <th className="pb-2">Descripción</th>
-                                        <th className="pb-2 text-right">Cantidad</th>
-                                        <th className="pb-2 text-center">Unidad</th>
-                                        <th className="pb-2 text-right">Unit Price</th>
-                                        <th className="pb-2 text-right">Amount</th>
-                                        <th className="pb-2 pl-4">Tipo</th>
+                                    <tr className="border-b border-slate-200 dark:border-slate-700 text-[10px] uppercase font-black text-slate-400 select-none">
+                                        <th onClick={() => handleSort('item_num')} className="pb-2 pl-2 w-32 cursor-pointer hover:text-primary transition-colors" title="Ordenar por Partida">
+                                            <span className="inline-flex items-center gap-1">Partida <span className={sortConfig.key === 'item_num' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'item_num' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                        </th>
+                                        <th onClick={() => handleSort('spec_num')} className="pb-2 cursor-pointer hover:text-primary transition-colors" title="Ordenar por Spec">
+                                            <span className="inline-flex items-center gap-1">Spec <span className={sortConfig.key === 'spec_num' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'spec_num' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                        </th>
+                                        <th onClick={() => handleSort('description')} className="pb-2 cursor-pointer hover:text-primary transition-colors" title="Ordenar por Descripción">
+                                            <span className="inline-flex items-center gap-1">Descripción <span className={sortConfig.key === 'description' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'description' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                        </th>
+                                        <th onClick={() => handleSort('quantity')} className="pb-2 text-right cursor-pointer hover:text-primary transition-colors" title="Ordenar por Cantidad">
+                                            <span className="inline-flex items-center gap-1 justify-end">Cantidad <span className={sortConfig.key === 'quantity' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'quantity' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                        </th>
+                                        <th onClick={() => handleSort('unit')} className="pb-2 text-center cursor-pointer hover:text-primary transition-colors" title="Ordenar por Unidad">
+                                            <span className="inline-flex items-center gap-1 justify-center">Unidad <span className={sortConfig.key === 'unit' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'unit' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                        </th>
+                                        <th onClick={() => handleSort('unit_price')} className="pb-2 text-right cursor-pointer hover:text-primary transition-colors" title="Ordenar por Unit Price">
+                                            <span className="inline-flex items-center gap-1 justify-end">Unit Price <span className={sortConfig.key === 'unit_price' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'unit_price' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                        </th>
+                                        <th onClick={() => handleSort('amount')} className="pb-2 text-right cursor-pointer hover:text-primary transition-colors" title="Ordenar por Amount">
+                                            <span className="inline-flex items-center gap-1 justify-end">Amount <span className={sortConfig.key === 'amount' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'amount' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                        </th>
+                                        <th onClick={() => handleSort('type')} className="pb-2 pl-4 cursor-pointer hover:text-primary transition-colors" title="Ordenar por Tipo">
+                                            <span className="inline-flex items-center gap-1">Tipo <span className={sortConfig.key === 'type' ? 'text-primary font-black' : 'text-slate-600'}>{sortConfig.key === 'type' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}</span></span>
+                                        </th>
                                         <th className="pb-2 text-center w-10"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {rows.map((row) => (
+                                    {[...rows].sort((a, b) => {
+                                        return compareItemsByColumn(a, b, sortConfig.key, sortConfig.direction, {
+                                            amount: (r) => (r.quantity || 0) * (r.unit_price || 0)
+                                        });
+                                    }).map((row) => (
                                         <tr key={row.id} className="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 group">
                                             <td className="py-2 pl-2 pr-2">
                                                 <input 
