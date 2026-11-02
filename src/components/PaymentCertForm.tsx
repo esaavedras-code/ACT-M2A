@@ -100,7 +100,7 @@ export const processCertsData = (certsList: any[], itemsList: any[], choList: an
 
             if (choItem) {
                 if (baseItem) {
-                    baseItem = { ...baseItem, specification: choItem.specification || baseItem.specification, description: choItem.description || baseItem.description, unit: choItem.unit || baseItem.unit };
+                    baseItem = { ...baseItem, specification: baseItem.specification || choItem.specification, description: baseItem.description || choItem.description, unit: baseItem.unit || choItem.unit };
                 } else {
                     baseItem = choItem;
                 }
@@ -690,7 +690,7 @@ const PaymentCertForm = React.forwardRef(({
         if (field === 'item_num') {
             const numVal = parseInt(value.toString().trim(), 10);
             const paddedValue = !isNaN(numVal) ? numVal.toString().padStart(3, '0').slice(0, 3) : value.toString().trim();
-            const baseItem = contractItems.find(it => it.item_num === paddedValue || it.item_num === value);
+            const baseItem = contractItems.find(it => it.item_num === paddedValue || it.item_num === value || normalizeItemNum(it.item_num) === normalizeItemNum(value));
             if (baseItem) {
                 const is888 = (baseItem.specification || "").toString().trim() === "888-150" || (baseItem.item_num || "").toString().trim() === "888-150";
                 newItems[itIdx] = {
