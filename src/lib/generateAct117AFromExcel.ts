@@ -16,6 +16,7 @@ export interface CertExcelRow {
     inspDate: string;     // ISO string o fecha reconocible
     page?: number;
     raw?: Record<string, any>;
+    isBlueQty?: boolean;  // true si la cantidad debe mostrarse en color azul (regla multi-inspector)
 }
 
 export interface GenerateAct117AFromExcelResult {
@@ -123,7 +124,9 @@ export async function generateAct117AFromExcel(
     const itemsDbList = contractItems || [];
 
     // 5. Agrupar registros por ítem y ordenar cronológicamente
-    const itemGroups = groupByItem(allRows);
+    // Aplicar reglas de consolidación por fecha antes de agrupar por ítem
+    const consolidatedRows = applyDateInspectorRules(allRows);
+    const itemGroups = groupByItem(consolidatedRows);
     const sortedItemKeys = Object.keys(itemGroups).sort((a, b) => {
         const na = parseFloat(a) || 0;
         const nb = parseFloat(b) || 0;
@@ -142,7 +145,7 @@ export async function generateAct117AFromExcel(
 
     // Extraer lista única de inspectores según el reporte de excel (sin duplicados)
     const uniqueInspectors: string[] = [];
-    for (const r of allRows) {
+    for (const r of consolidatedRows) {
         const rawInsp = (r.inspector || '').trim();
         if (rawInsp && !uniqueInspectors.some(u => u.toLowerCase() === rawInsp.toLowerCase())) {
             uniqueInspectors.push(rawInsp);
@@ -585,6 +588,101 @@ function detectCertDate(rows: Record<string, any>[], colMap: any): string {
     return new Date().toISOString().split('T')[0];
 }
 
+/**
+ * REGLA MULTI-INSPECTOR POR FECHA:
+ *
+ * Para cada ítem, agrupa las filas por fecha de inspección.
+ * Cuando en una misma fecha hay varios inspectores:
+ *
+ * CASO A – Todos los aprobados iguales:
+ *   Si dos o más inspectores tienen el mismo número de aprobados, registrar únicamente
+ *   al primer inspector con ese valor y omitir los demás con el mismo número.
+ *
+ * CASO B – Un valor se repite entre varios inspectores (pero no todos son iguales):
+ *   Usar el valor repetido como el número de aprobados a reportar para esa fecha.
+ *   (Solo se reporta ese valor una vez, con el primer inspector que lo tiene.)
+ *
+ * CASO C – Todos los inspectores tienen cantidades diferentes:
+ *   Incluir todos los valores correspondientes a cada inspector.
+ *
+ * Todos los registros que queden bajo estas reglas tendrán isBlueQty = true.
+ */
+function applyDateInspectorRules(rows: CertExcelRow[]): CertExcelRow[] {
+    // Agrupar por ítem primero
+    const byItem: Record<string, CertExcelRow[]> = {};
+    for (const row of rows) {
+        if (!byItem[row.itemNum]) byItem[row.itemNum] = [];
+        byItem[row.itemNum].push(row);
+    }
+
+    const result: CertExcelRow[] = [];
+
+    for (const itemKey of Object.keys(byItem)) {
+        const itemRows = byItem[itemKey];
+
+        // Agrupar por fecha normalizada
+        const byDate: Record<string, CertExcelRow[]> = {};
+        for (const row of itemRows) {
+            const dateKey = row.inspDate || '__nodate__';
+            if (!byDate[dateKey]) byDate[dateKey] = [];
+            byDate[dateKey].push(row);
+        }
+
+        for (const dateKey of Object.keys(byDate)) {
+            const dateRows = byDate[dateKey];
+
+            // Si solo hay un registro para esa fecha, pasa directo con color azul
+            if (dateRows.length === 1) {
+                result.push({ ...dateRows[0], isBlueQty: true });
+                continue;
+            }
+
+            // --- Lógica multi-inspector ---
+            // Obtener las cantidades de cada fila
+            const qtys = dateRows.map(r => r.quantity ?? 0);
+
+            // Contar frecuencia de cada valor
+            const freqMap: Record<number, number> = {};
+            for (const q of qtys) {
+                freqMap[q] = (freqMap[q] || 0) + 1;
+            }
+
+            // Encontrar el valor con mayor frecuencia (> 1 = se repite)
+            let maxFreq = 1;
+            let repeatedQty: number | null = null;
+            for (const [qStr, freq] of Object.entries(freqMap)) {
+                if (freq > maxFreq) {
+                    maxFreq = freq;
+                    repeatedQty = Number(qStr);
+                } else if (freq === maxFreq && maxFreq > 1 && repeatedQty === null) {
+                    repeatedQty = Number(qStr);
+                }
+            }
+
+            const allSame = Object.keys(freqMap).length === 1; // Todos iguales (CASO A)
+            const someRepeat = repeatedQty !== null;           // Al menos uno se repite (CASO B)
+
+            if (allSame) {
+                // CASO A: todos tienen el mismo número de aprobados → solo el primero
+                result.push({ ...dateRows[0], isBlueQty: true });
+            } else if (someRepeat) {
+                // CASO B: un valor se repite → usar solo la primera ocurrencia de ese valor repetido
+                const firstRepeated = dateRows.find(r => (r.quantity ?? 0) === repeatedQty);
+                if (firstRepeated) {
+                    result.push({ ...firstRepeated, isBlueQty: true });
+                }
+            } else {
+                // CASO C: todos diferentes → incluir todos
+                for (const row of dateRows) {
+                    result.push({ ...row, isBlueQty: true });
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
 function groupByItem(rows: CertExcelRow[]): Record<string, CertExcelRow[]> {
     const groups: Record<string, CertExcelRow[]> = {};
     for (const row of rows) {
@@ -824,8 +922,12 @@ function fillDataRows(
         calcCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
         calcCell.font = { name: 'Arial', size: 9, bold: false };
 
-        // Quantity: BD (col 56)
-        ws.getCell(excelRow, 56).value = dataRow.quantity;
+        // Quantity: BD (col 56) — color azul si isBlueQty
+        const qtyCell = ws.getCell(excelRow, 56);
+        qtyCell.value = dataRow.quantity;
+        if (dataRow.isBlueQty) {
+            qtyCell.font = { name: 'Arial', size: 9, color: { argb: 'FF0000FF' }, bold: false };
+        }
 
         // REGLA FOTO 1: En la columna de Amount (BJ, col 62), si es cero, deja en blanco esa celda
         if (!dataRow.quantity || dataRow.quantity <= 0) {
