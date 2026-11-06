@@ -50,104 +50,120 @@ const ROWS_PER_PAGE  = DATA_ROW_END - DATA_ROW_START + 1; // 15
 const INSPECTOR_ROW_START = 29;
 const INSPECTOR_ROW_END   = 38;
 
+export interface DetectedItemSummary {
+    itemKey: string;
+    itemNum?: string;
+    specCode?: string;
+    itemName?: string;
+    totalQty: number;
+    rowsCount: number;
+}
+
 /**
- * Convierte un archivo PDF en una hoja de cálculo virtual (XLSX.WorkSheet)
- * llamando a /api/parse-cert-document o mediante parser cliente como fallback.
+ * Escanea un archivo Excel de certificación y extrae rápidamente la lista de partidas
+ * detectadas para que el usuario pueda seleccionar una o varias antes de generar.
  */
-async function parsePdfToSheet(fileOrBuffer: File | ArrayBuffer, rawBuffer: ArrayBuffer): Promise<XLSX.WorkSheet> {
-    try {
-        const formData = new FormData();
-        if (fileOrBuffer instanceof File) {
-            formData.append('file', fileOrBuffer);
-        } else {
-            const blob = new Blob([rawBuffer], { type: 'application/pdf' });
-            formData.append('file', blob, 'certificacion.pdf');
+export async function scanExcelItems(
+    certExcelFile: File | ArrayBuffer,
+): Promise<{
+    items: DetectedItemSummary[];
+    certNumDetected?: string;
+    certDateDetected?: string;
+}> {
+    let rawBuffer: ArrayBuffer;
+    if (certExcelFile instanceof File) {
+        if (certExcelFile.name.toLowerCase().endsWith('.pdf')) {
+            throw new Error('Solo se admiten archivos Excel (.xlsx o .xls).');
         }
-
-        const res = await fetch('/api/parse-cert-document', {
-            method: 'POST',
-            body: formData,
-        });
-
-        if (res.ok) {
-            const json = await res.json();
-            if (json.success && Array.isArray(json.matrix) && json.matrix.length > 0) {
-                return XLSX.utils.aoa_to_sheet(json.matrix);
-            }
-        }
-    } catch (apiErr) {
-        console.warn('API /api/parse-cert-document no disponible, intentando parser alternativo:', apiErr);
+        rawBuffer = await certExcelFile.arrayBuffer();
+    } else {
+        rawBuffer = certExcelFile;
     }
 
-    // Fallback: parser cliente con pdfClientParser si está disponible
-    try {
-        const { parsePdfClient } = await import('./pdfClientParser');
-        const uint8 = new Uint8Array(rawBuffer);
-        let binary = '';
-        for (let i = 0; i < uint8.length; i++) {
-            binary += String.fromCharCode(uint8[i]);
-        }
-        const base64 = btoa(binary);
-        const parsed = await parsePdfClient(base64);
-        if (parsed.success && parsed.text) {
-            const lines = parsed.text.split('\n').map(l => l.trim()).filter(Boolean);
-            const matrix = lines.map(line => line.split(/\s{2,}|\t/));
-            return XLSX.utils.aoa_to_sheet(matrix);
-        }
-    } catch (clientErr) {
-        console.error('Error en parser cliente de PDF:', clientErr);
+    const certWb = XLSX.read(rawBuffer, { type: 'array', cellDates: true });
+    if (!certWb.SheetNames || certWb.SheetNames.length === 0) {
+        return { items: [] };
     }
 
-    throw new Error('No se pudo procesar el archivo PDF. Verifique que no esté dañado o protegido con contraseña.');
+    const firstSheet = certWb.Sheets[certWb.SheetNames[0]];
+    const errors: string[] = [];
+    const { allRows, certNumDetected, certDateDetected } = extractDataFromExcel(firstSheet, errors);
+
+    const consolidatedRows = applyDateInspectorRules(allRows);
+    const itemGroups = groupByItem(consolidatedRows);
+    const sortedItemKeys = Object.keys(itemGroups).sort((a, b) => {
+        const na = parseFloat(a) || 0;
+        const nb = parseFloat(b) || 0;
+        return na - nb || a.localeCompare(b);
+    });
+
+    const items: DetectedItemSummary[] = sortedItemKeys.map(k => {
+        const rows = itemGroups[k] || [];
+        const first = rows[0];
+        const totalQty = rows.reduce((s, r) => s + (parseFloat(String(r.quantity || 0)) || 0), 0);
+        return {
+            itemKey: k,
+            itemNum: k,
+            specCode: first?.specCode,
+            itemName: first?.itemName || '',
+            totalQty,
+            rowsCount: rows.length,
+        };
+    });
+
+    return {
+        items,
+        certNumDetected: certNumDetected ? String(certNumDetected) : undefined,
+        certDateDetected: certDateDetected ? String(certDateDetected) : undefined,
+    };
 }
 
 // ─── Función Principal ───────────────────────────────────────────────────────
 
 /**
  * Genera el reporte ACT-117A (Item Certification Worksheet) a partir de:
- *  - Un archivo Excel o PDF de certificación cargado por el usuario
+ *  - Un archivo Excel de certificación cargado por el usuario
  *  - El número de certificación ingresado por el usuario
  *  - Información del proyecto activo en la base de datos de PACT
+ *  - Opcional: lista de partidas seleccionadas para generar únicamente esas
  */
 export async function generateAct117AFromExcel(
     certExcelFile: File | ArrayBuffer,
     projectId: string,
     customCertNum?: string | number,
     customCertDate?: string,
+    selectedItems?: string[],
 ): Promise<GenerateAct117AFromExcelResult> {
     const errors: string[] = [];
 
-    // 1. Leer y parsear el archivo (Excel o PDF) cargado
+    // 1. Leer y parsear exclusivamente archivo Excel (.xlsx / .xls)
     let rawBuffer: ArrayBuffer;
     if (certExcelFile instanceof File) {
+        if (certExcelFile.name.toLowerCase().endsWith('.pdf')) {
+            throw new Error('Solo se admiten archivos Excel (.xlsx o .xls). Los archivos PDF no están permitidos.');
+        }
         rawBuffer = await certExcelFile.arrayBuffer();
     } else {
         rawBuffer = certExcelFile;
     }
 
-    // Detectar si el archivo es un PDF (por extensión o cabecera %PDF-)
-    const isPdfByName = certExcelFile instanceof File && certExcelFile.name.toLowerCase().endsWith('.pdf');
     const headerBytes = new Uint8Array(rawBuffer.slice(0, 5));
     const headerStr = String.fromCharCode(...Array.from(headerBytes));
-    const isPdf = isPdfByName || headerStr.startsWith('%PDF');
-
-    let firstSheet: XLSX.WorkSheet;
-
-    if (isPdf) {
-        firstSheet = await parsePdfToSheet(certExcelFile, rawBuffer);
-    } else {
-        const certWb = XLSX.read(rawBuffer, { type: 'array', cellDates: true });
-        if (!certWb.SheetNames || certWb.SheetNames.length === 0) {
-            throw new Error('El archivo Excel no contiene hojas de trabajo.');
-        }
-        firstSheet = certWb.Sheets[certWb.SheetNames[0]];
+    if (headerStr.startsWith('%PDF')) {
+        throw new Error('El archivo seleccionado es un documento PDF. Solo se admiten archivos Excel (.xlsx o .xls).');
     }
 
-    // 2. Extraer datos del documento (soporta bloques con "Item Number:" y formato tabular)
+    const certWb = XLSX.read(rawBuffer, { type: 'array', cellDates: true });
+    if (!certWb.SheetNames || certWb.SheetNames.length === 0) {
+        throw new Error('El archivo Excel no contiene hojas de trabajo.');
+    }
+    const firstSheet = certWb.Sheets[certWb.SheetNames[0]];
+
+    // 2. Extraer datos del documento Excel (soporta bloques con "Item Number:" y formato tabular)
     const { allRows, certNumDetected, certDateDetected } = extractDataFromExcel(firstSheet, errors);
 
     if (allRows.length === 0) {
-        throw new Error('No se encontraron registros de inspección o certificación válidos en el archivo (Excel o PDF).');
+        throw new Error('No se encontraron registros de inspección o certificación válidos en el archivo Excel.');
     }
 
     // Número de certificación final: el ingresado por el usuario tiene prioridad absoluta
@@ -195,6 +211,27 @@ export async function generateAct117AFromExcel(
         return na - nb || a.localeCompare(b);
     });
 
+    // Si se especificó una selección de partidas, filtrar para generar únicamente las elegidas
+    let targetItemKeys = sortedItemKeys;
+    if (Array.isArray(selectedItems) && selectedItems.length > 0) {
+        const selNorm = new Set(selectedItems.map(s => String(s).trim().toLowerCase()));
+        targetItemKeys = sortedItemKeys.filter(k => {
+            const rawRows = itemGroups[k] || [];
+            const firstRow = rawRows[0];
+            const matchedDbItem = findContractItemInDb(k, firstRow?.specCode, itemsDbList);
+            const displayItemNo = matchedDbItem?.item_num || k;
+
+            return selNorm.has(k.toLowerCase()) ||
+                   selNorm.has(displayItemNo.toLowerCase()) ||
+                   (firstRow?.specCode && selNorm.has(firstRow.specCode.toLowerCase())) ||
+                   (matchedDbItem?.specification && selNorm.has(matchedDbItem.specification.toLowerCase()));
+        });
+
+        if (targetItemKeys.length === 0) {
+            throw new Error('Ninguna de las partidas seleccionadas tiene registros válidos en el archivo Excel.');
+        }
+    }
+
     // 6. Cargar plantilla oficial ACT-117A
     const workbook = new ExcelJS.Workbook();
     const bufferTemplate = Buffer.from(ACT117A_TEMPLATE_BASE64, 'base64');
@@ -218,7 +255,7 @@ export async function generateAct117AFromExcel(
     let firstSheetUsed = false;
     let itemsProcessedCount = 0;
 
-    for (const itemKey of sortedItemKeys) {
+    for (const itemKey of targetItemKeys) {
         const rawRows = itemGroups[itemKey];
         const firstRow = rawRows[0];
 

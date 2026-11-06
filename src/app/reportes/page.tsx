@@ -371,6 +371,38 @@ function ReportesContent() {
     const [act117aProcessing, setAct117aProcessing] = useState(false);
     const [act117aError, setAct117aError] = useState<string | null>(null);
     const [act117aSuccess, setAct117aSuccess] = useState<string | null>(null);
+    const [act117aDetectedItems, setAct117aDetectedItems] = useState<any[]>([]);
+    const [act117aSelectedItems, setAct117aSelectedItems] = useState<string[]>([]);
+    const [act117aScanning, setAct117aScanning] = useState(false);
+
+    const handleAct117aFileChange = async (file: File | null) => {
+        setAct117aFile(file);
+        setAct117aError(null);
+        setAct117aSuccess(null);
+        setAct117aDetectedItems([]);
+        setAct117aSelectedItems([]);
+        if (!file) return;
+        const isExcel = file.name.toLowerCase().endsWith(".xlsx") || file.name.toLowerCase().endsWith(".xls");
+        if (!isExcel) {
+            setAct117aFile(null);
+            setAct117aError("Solo se admiten documentos en formato Excel (.xlsx o .xls). Los archivos PDF no están permitidos.");
+            return;
+        }
+        setAct117aScanning(true);
+        try {
+            const { scanExcelItems } = await import("@/lib/generateAct117AFromExcel");
+            const scanRes = await scanExcelItems(file);
+            const items = scanRes.items || [];
+            setAct117aDetectedItems(items);
+            setAct117aSelectedItems(items.map((it: any) => it.itemKey));
+            if (scanRes.certNumDetected && !act117aCertNum) setAct117aCertNum(scanRes.certNumDetected);
+            if (scanRes.certDateDetected && !act117aCertDate) setAct117aCertDate(scanRes.certDateDetected);
+        } catch (e: any) {
+            console.warn("Error escaneando partidas del Excel:", e);
+        } finally {
+            setAct117aScanning(false);
+        }
+    };
 
     useEffect(() => {
         setIsElectron(!!(window as any).electronAPI);
@@ -1754,7 +1786,7 @@ function ReportesContent() {
                         </div>
                     </div>
 
-                    {/* Fila: Número de Certificación, Fecha de la Certificación y Selector de Archivo (Excel o PDF) */}
+                    {/* Fila: Número de Certificación, Fecha de la Certificación y Selector de Archivo Excel */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
@@ -1783,18 +1815,16 @@ function ReportesContent() {
 
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
-                                Archivo Excel o PDF de Certificación *
+                                Archivo Excel de Certificación *
                             </label>
                             <input
                                 id="act117a-file-input"
                                 type="file"
-                                accept=".xlsx,.xls,.pdf"
+                                accept=".xlsx,.xls"
                                 className="hidden"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0] || null;
-                                    setAct117aFile(file);
-                                    setAct117aError(null);
-                                    setAct117aSuccess(null);
+                                    handleAct117aFileChange(file);
                                 }}
                             />
                             <button
@@ -1807,14 +1837,87 @@ function ReportesContent() {
                                 }`}
                             >
                                 <span className="truncate pr-2">
-                                    {act117aFile ? act117aFile.name : 'Seleccionar Excel o PDF...'}
+                                    {act117aFile ? act117aFile.name : 'Seleccionar Excel (.xlsx, .xls)...'}
                                 </span>
                                 <Download size={14} className="shrink-0 text-slate-400" />
                             </button>
                         </div>
                     </div>
 
-                    {/* Mensajes de error / Ã©xito compactos */}
+                    {/* Selector de Partidas a Generar */}
+                    {act117aScanning ? (
+                        <div className="flex items-center justify-center gap-2 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-xs font-bold text-slate-500">
+                            <Loader2 size={14} className="animate-spin text-emerald-600" />
+                            Escaneando partidas en el archivo Excel...
+                        </div>
+                    ) : act117aDetectedItems.length > 0 ? (
+                        <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                                    Partidas para ICW ({act117aSelectedItems.length} de {act117aDetectedItems.length} seleccionadas)
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAct117aSelectedItems(act117aDetectedItems.map((it: any) => it.itemKey))}
+                                        className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-400 hover:underline"
+                                    >
+                                        Todas
+                                    </button>
+                                    <span className="text-slate-300">|</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAct117aSelectedItems([])}
+                                        className="text-[9px] font-black uppercase text-slate-500 hover:underline"
+                                    >
+                                        Ninguna
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                                {act117aDetectedItems.map((it: any) => {
+                                    const isSelected = act117aSelectedItems.includes(it.itemKey);
+                                    return (
+                                        <label
+                                            key={it.itemKey}
+                                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                                isSelected
+                                                    ? 'bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-700 text-slate-800 dark:text-slate-100 shadow-xs'
+                                                    : 'bg-slate-100/60 dark:bg-slate-800/40 border-transparent text-slate-400 hover:bg-white/50'
+                                            }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setAct117aSelectedItems(prev => [...prev, it.itemKey]);
+                                                    } else {
+                                                        setAct117aSelectedItems(prev => prev.filter(k => k !== it.itemKey));
+                                                    }
+                                                }}
+                                                className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+                                            />
+                                            <span className="font-black text-emerald-700 dark:text-emerald-400 shrink-0">
+                                                Partida {it.itemKey}
+                                            </span>
+                                            {it.itemName && (
+                                                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
+                                                    - {it.itemName}
+                                                </span>
+                                            )}
+                                            <span className="ml-auto text-[10px] font-bold text-slate-400 shrink-0">
+                                                {it.rowsCount} registro(s)
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* Mensajes de error / éxito compactos */}
                     {act117aError && (
                         <div className="flex items-center gap-2 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-[10px] font-bold text-red-700 dark:text-red-300">
                             <AlertCircle size={14} className="shrink-0" />
@@ -1828,24 +1931,22 @@ function ReportesContent() {
                         </div>
                     )}
 
-                    {/* BotÃ³n Principal de tamaÃ±o reducido */}
+                    {/* Botón Principal */}
                     <button
                         type="button"
                         disabled={act117aProcessing}
                         onClick={async () => {
-                            // Validar o solicitar nÃºmero de certificaciÃ³n
                             let certNum = act117aCertNum.trim();
                             if (!certNum) {
-                                const prompted = window.prompt("Por favor ingrese el NÃºmero de CertificaciÃ³n (ej. 15):");
+                                const prompted = window.prompt("Por favor ingrese el Número de Certificación (ej. 15):");
                                 if (!prompted || !prompted.trim()) {
-                                    alert("El nÃºmero de certificaciÃ³n es requerido para generar el formulario ACT-117A.");
+                                    alert("El número de certificación es requerido para generar el formulario ACT-117A.");
                                     return;
                                 }
                                 certNum = prompted.trim();
                                 setAct117aCertNum(certNum);
                             }
 
-                            // Solicitar fecha de certificación
                             let certDate = act117aCertDate.trim();
                             if (!certDate) {
                                 const promptedDate = window.prompt("Por favor ingrese la Fecha de Certificación (MM/DD/YYYY, ej. 09/29/2026):");
@@ -1855,9 +1956,13 @@ function ReportesContent() {
                                 }
                             }
 
-                            // Validar archivo Excel cargado
                             if (!act117aFile) {
-                                document.getElementById('act117a-file-input')?.click();
+                                document.getElementById('act117a-file-input')?./* @vite-ignore */ click();
+                                return;
+                            }
+
+                            if (act117aDetectedItems.length > 0 && act117aSelectedItems.length === 0) {
+                                alert("Por favor seleccione al menos una partida para generar los ICW.");
                                 return;
                             }
 
@@ -1867,10 +1972,15 @@ function ReportesContent() {
                             setAct117aError(null);
                             setAct117aSuccess(null);
                             try {
-                                await generateAct117AFromExcelLogic(act117aFile, projectId, certNum, certDate || undefined);
-                                setAct117aSuccess(
-                                    `ACT-117A generado y descargado exitosamente.`
+                                await generateAct117AFromExcelLogic(
+                                    act117aFile,
+                                    projectId,
+                                    certNum,
+                                    certDate || undefined,
+                                    act117aSelectedItems.length > 0 ? act117aSelectedItems : undefined
                                 );
+                                const itemsCountLabel = act117aSelectedItems.length > 0 ? ` (${act117aSelectedItems.length} partida(s))` : "";
+                                setAct117aSuccess(`ACT-117A generado y descargado exitosamente${itemsCountLabel}.`);
                             } catch (e: any) {
                                 setAct117aError(`Error: ${e.message}`);
                             } finally {
@@ -1887,7 +1997,9 @@ function ReportesContent() {
                         ) : (
                             <>
                                 <FileSpreadsheet size={15} />
-                                Generar Item Certification Worksheet (ACT-117A)
+                                {act117aSelectedItems.length > 0
+                                    ? `Generar ICW de ${act117aSelectedItems.length} Partida(s) Seleccionada(s) (ACT-117A)`
+                                    : "Generar Item Certification Worksheet (ACT-117A)"}
                             </>
                         )}
                     </button>

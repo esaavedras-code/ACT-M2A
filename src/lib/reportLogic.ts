@@ -1,4 +1,4 @@
-// @UNIFICATION_RESUMEN_PACT
+﻿// @UNIFICATION_RESUMEN_PACT
 import { fetchProjectSummary } from "./projectSummary";
 // @UNIFICATION_RESUMEN_PACT_END
 
@@ -2762,10 +2762,11 @@ export const generateAct117AFromExcelLogic = async (
     projectId: string,
     customCertNum?: string | number,
     customCertDate?: string,
+    selectedItems?: string[],
 ): Promise<void> => {
     const { generateAct117AFromExcel } = await import('./generateAct117AFromExcel');
 
-    const result = await generateAct117AFromExcel(certExcelFile, projectId, customCertNum, customCertDate);
+    const result = await generateAct117AFromExcel(certExcelFile, projectId, customCertNum, customCertDate, selectedItems);
 
     // Construir nombre del archivo de salida
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
