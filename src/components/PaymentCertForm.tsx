@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
     Download,
     Plus, 
@@ -1684,6 +1684,14 @@ const PaymentCertForm = React.forwardRef(({
                                             <span className={`text-base xl:text-lg font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
                                                 {formatCurrency(certMOSNet)}
                                             </span>
+                                            {(() => {
+                                                const certItemCount = (c.items || []).filter((it: any) => (parseFloat(it.quantity) || 0) > 0).length;
+                                                return certItemCount > 0 ? (
+                                                    <span className="inline-flex items-center justify-center bg-amber-400 text-white text-[9px] font-black rounded-full px-2 py-0.5 mt-1 leading-none shadow-sm" title={`${certItemCount} item(s) certificado(s)`}>
+                                                        {certItemCount} {certItemCount === 1 ? 'Item' : 'Items'}
+                                                    </span>
+                                                ) : null;
+                                            })()}
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-primary uppercase tracking-[0.15em] block mb-1">Neto Certificado</span>
