@@ -374,6 +374,7 @@ function ReportesContent() {
     const [act117aDetectedItems, setAct117aDetectedItems] = useState<any[]>([]);
     const [act117aSelectedItems, setAct117aSelectedItems] = useState<string[]>([]);
     const [act117aScanning, setAct117aScanning] = useState(false);
+    const [act117aSearchItem, setAct117aSearchItem] = useState("");
 
     const handleAct117aFileChange = async (file: File | null) => {
         setAct117aFile(file);
@@ -1844,79 +1845,136 @@ function ReportesContent() {
                         </div>
                     </div>
 
-                    {/* Selector de Partidas a Generar */}
-                    {act117aScanning ? (
-                        <div className="flex items-center justify-center gap-2 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-xs font-bold text-slate-500">
-                            <Loader2 size={14} className="animate-spin text-emerald-600" />
-                            Escaneando partidas en el archivo Excel...
-                        </div>
-                    ) : act117aDetectedItems.length > 0 ? (
-                        <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                                    Partidas para ICW ({act117aSelectedItems.length} de {act117aDetectedItems.length} seleccionadas)
-                                </span>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setAct117aSelectedItems(act117aDetectedItems.map((it: any) => it.itemKey))}
-                                        className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-400 hover:underline"
-                                    >
-                                        Todas
-                                    </button>
-                                    <span className="text-slate-300">|</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAct117aSelectedItems([])}
-                                        className="text-[9px] font-black uppercase text-slate-500 hover:underline"
-                                    >
-                                        Ninguna
-                                    </button>
+                    {/* Selector de Partidas a Generar (Siempre visible) */}
+                    {(() => {
+                        const hasExcelItems = act117aDetectedItems.length > 0;
+                        const rawList = hasExcelItems
+                            ? act117aDetectedItems.map((it: any) => ({
+                                key: it.itemKey,
+                                num: it.itemKey,
+                                desc: it.itemName || "",
+                                extra: `${it.rowsCount} registro(s)`
+                            }))
+                            : (items || []).map((it: any) => ({
+                                key: it.item_num,
+                                num: it.item_num,
+                                desc: it.description || "",
+                                extra: ""
+                            }));
+
+                        const filteredList = act117aSearchItem.trim()
+                            ? rawList.filter((it: any) => {
+                                const term = act117aSearchItem.toLowerCase();
+                                return String(it.num).toLowerCase().includes(term) || String(it.desc).toLowerCase().includes(term);
+                            })
+                            : rawList;
+
+                        if (act117aScanning) {
+                            return (
+                                <div className="flex items-center justify-center gap-2 py-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500">
+                                    <Loader2 size={16} className="animate-spin text-emerald-600" />
+                                    Escaneando partidas en el archivo Excel...
+                                </div>
+                            );
+                        }
+
+                        if (rawList.length === 0) {
+                            return (
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400">
+                                    Selecciona un archivo Excel de certificación arriba para detectar y elegir las partidas a generar en el ACT-117A.
+                                </div>
+                            );
+                        }
+
+                        const allSelected = rawList.length > 0 && rawList.every((it: any) => act117aSelectedItems.includes(it.key));
+                        const selectedCount = act117aSelectedItems.length;
+
+                        return (
+                            <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2">
+                                <div className="flex items-center justify-between text-xs font-bold flex-wrap gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                                            Partidas a generar ICW ({selectedCount} de {rawList.length} seleccionadas)
+                                        </span>
+                                        {hasExcelItems && (
+                                            <span className="bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">
+                                                Del Excel
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setAct117aSelectedItems(rawList.map((it: any) => it.key))}
+                                            className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                                        >
+                                            Seleccionar todas
+                                        </button>
+                                        <span className="text-slate-300">|</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAct117aSelectedItems([])}
+                                            className="text-[9px] font-black uppercase text-slate-500 hover:underline cursor-pointer"
+                                        >
+                                            Deseleccionar todas
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {rawList.length > 6 && (
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar partida por número o descripción..."
+                                        value={act117aSearchItem}
+                                        onChange={(e) => setAct117aSearchItem(e.target.value)}
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-[11px] font-medium outline-none focus:ring-1 focus:ring-emerald-500"
+                                    />
+                                )}
+
+                                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                                    {filteredList.map((it: any) => {
+                                        const isSelected = act117aSelectedItems.includes(it.key);
+                                        return (
+                                            <label
+                                                key={it.key}
+                                                className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                                                    isSelected
+                                                        ? "bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-700 text-slate-800 dark:text-slate-100 shadow-xs"
+                                                        : "bg-slate-100/60 dark:bg-slate-800/40 border-transparent text-slate-400 hover:bg-white/50"
+                                                }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setAct117aSelectedItems(prev => [...prev, it.key]);
+                                                        } else {
+                                                            setAct117aSelectedItems(prev => prev.filter(k => k !== it.key));
+                                                        }
+                                                    }}
+                                                    className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                />
+                                                <span className="font-black text-emerald-700 dark:text-emerald-400 shrink-0">
+                                                    Partida {it.num}
+                                                </span>
+                                                {it.desc && (
+                                                    <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
+                                                        - {it.desc}
+                                                    </span>
+                                                )}
+                                                {it.extra && (
+                                                    <span className="ml-auto text-[10px] font-bold text-slate-400 shrink-0">
+                                                        {it.extra}
+                                                    </span>
+                                                )}
+                                            </label>
+                                        );
+                                    })}
                                 </div>
                             </div>
-
-                            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                                {act117aDetectedItems.map((it: any) => {
-                                    const isSelected = act117aSelectedItems.includes(it.itemKey);
-                                    return (
-                                        <label
-                                            key={it.itemKey}
-                                            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition-colors ${
-                                                isSelected
-                                                    ? 'bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-700 text-slate-800 dark:text-slate-100 shadow-xs'
-                                                    : 'bg-slate-100/60 dark:bg-slate-800/40 border-transparent text-slate-400 hover:bg-white/50'
-                                            }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setAct117aSelectedItems(prev => [...prev, it.itemKey]);
-                                                    } else {
-                                                        setAct117aSelectedItems(prev => prev.filter(k => k !== it.itemKey));
-                                                    }
-                                                }}
-                                                className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500"
-                                            />
-                                            <span className="font-black text-emerald-700 dark:text-emerald-400 shrink-0">
-                                                Partida {it.itemKey}
-                                            </span>
-                                            {it.itemName && (
-                                                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
-                                                    - {it.itemName}
-                                                </span>
-                                            )}
-                                            <span className="ml-auto text-[10px] font-bold text-slate-400 shrink-0">
-                                                {it.rowsCount} registro(s)
-                                            </span>
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ) : null}
-
+                        );
+                    })()}
                     {/* Mensajes de error / éxito compactos */}
                     {act117aError && (
                         <div className="flex items-center gap-2 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-[10px] font-bold text-red-700 dark:text-red-300">
