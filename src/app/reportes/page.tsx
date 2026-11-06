@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /* PACT-Administradores - Reportes */
 import { useState, useEffect, Suspense, useRef, useMemo } from "react";
@@ -1754,29 +1754,41 @@ function ReportesContent() {
                         </div>
                     </div>
 
-                    {/* Fila compacta: NÃºmero de CertificaciÃ³n y Selector de Archivo */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* Fila: Número de Certificación, Fecha de la Certificación y Selector de Archivo (Excel o PDF) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
-                                NÃºmero de CertificaciÃ³n (Cert. Num) *
+                                Número de Certificación (Cert. Num) *
                             </label>
                             <input
                                 type="text"
-                                placeholder="Ej. 15"
+                                placeholder="Ej. 16"
                                 value={act117aCertNum}
                                 onChange={(e) => setAct117aCertNum(e.target.value)}
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-emerald-500 transition-all text-slate-800 dark:text-slate-100"
                             />
                         </div>
 
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
-                                Archivo Excel de CertificaciÃ³n *
+                                Fecha de la Certificación
+                            </label>
+                            <input
+                                type="date"
+                                value={act117aCertDate}
+                                onChange={(e) => setAct117aCertDate(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-emerald-500 transition-all text-slate-800 dark:text-slate-100"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
+                                Archivo Excel o PDF de Certificación *
                             </label>
                             <input
                                 id="act117a-file-input"
                                 type="file"
-                                accept=".xlsx,.xls"
+                                accept=".xlsx,.xls,.pdf"
                                 className="hidden"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0] || null;
@@ -1787,7 +1799,7 @@ function ReportesContent() {
                             />
                             <button
                                 type="button"
-                                onClick={() => document.getElementById('act117a-file-input')?.click()}
+                                onClick={() => document.getElementById('act117a-file-input')?./* @vite-ignore */ click()}
                                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-bold transition-all text-left ${
                                     act117aFile
                                         ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 text-emerald-800 dark:text-emerald-300'
@@ -1795,7 +1807,7 @@ function ReportesContent() {
                                 }`}
                             >
                                 <span className="truncate pr-2">
-                                    {act117aFile ? act117aFile.name : 'Seleccionar Excel...'}
+                                    {act117aFile ? act117aFile.name : 'Seleccionar Excel o PDF...'}
                                 </span>
                                 <Download size={14} className="shrink-0 text-slate-400" />
                             </button>

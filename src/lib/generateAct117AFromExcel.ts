@@ -50,11 +50,62 @@ const ROWS_PER_PAGE  = DATA_ROW_END - DATA_ROW_START + 1; // 15
 const INSPECTOR_ROW_START = 29;
 const INSPECTOR_ROW_END   = 38;
 
+/**
+ * Convierte un archivo PDF en una hoja de cálculo virtual (XLSX.WorkSheet)
+ * llamando a /api/parse-cert-document o mediante parser cliente como fallback.
+ */
+async function parsePdfToSheet(fileOrBuffer: File | ArrayBuffer, rawBuffer: ArrayBuffer): Promise<XLSX.WorkSheet> {
+    try {
+        const formData = new FormData();
+        if (fileOrBuffer instanceof File) {
+            formData.append('file', fileOrBuffer);
+        } else {
+            const blob = new Blob([rawBuffer], { type: 'application/pdf' });
+            formData.append('file', blob, 'certificacion.pdf');
+        }
+
+        const res = await fetch('/api/parse-cert-document', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (res.ok) {
+            const json = await res.json();
+            if (json.success && Array.isArray(json.matrix) && json.matrix.length > 0) {
+                return XLSX.utils.aoa_to_sheet(json.matrix);
+            }
+        }
+    } catch (apiErr) {
+        console.warn('API /api/parse-cert-document no disponible, intentando parser alternativo:', apiErr);
+    }
+
+    // Fallback: parser cliente con pdfClientParser si está disponible
+    try {
+        const { parsePdfClient } = await import('./pdfClientParser');
+        const uint8 = new Uint8Array(rawBuffer);
+        let binary = '';
+        for (let i = 0; i < uint8.length; i++) {
+            binary += String.fromCharCode(uint8[i]);
+        }
+        const base64 = btoa(binary);
+        const parsed = await parsePdfClient(base64);
+        if (parsed.success && parsed.text) {
+            const lines = parsed.text.split('\n').map(l => l.trim()).filter(Boolean);
+            const matrix = lines.map(line => line.split(/\s{2,}|\t/));
+            return XLSX.utils.aoa_to_sheet(matrix);
+        }
+    } catch (clientErr) {
+        console.error('Error en parser cliente de PDF:', clientErr);
+    }
+
+    throw new Error('No se pudo procesar el archivo PDF. Verifique que no esté dañado o protegido con contraseña.');
+}
+
 // ─── Función Principal ───────────────────────────────────────────────────────
 
 /**
  * Genera el reporte ACT-117A (Item Certification Worksheet) a partir de:
- *  - Un archivo Excel de certificación cargado por el usuario
+ *  - Un archivo Excel o PDF de certificación cargado por el usuario
  *  - El número de certificación ingresado por el usuario
  *  - Información del proyecto activo en la base de datos de PACT
  */
@@ -66,7 +117,7 @@ export async function generateAct117AFromExcel(
 ): Promise<GenerateAct117AFromExcelResult> {
     const errors: string[] = [];
 
-    // 1. Leer y parsear el Excel cargado
+    // 1. Leer y parsear el archivo (Excel o PDF) cargado
     let rawBuffer: ArrayBuffer;
     if (certExcelFile instanceof File) {
         rawBuffer = await certExcelFile.arrayBuffer();
@@ -74,18 +125,29 @@ export async function generateAct117AFromExcel(
         rawBuffer = certExcelFile;
     }
 
-    const certWb = XLSX.read(rawBuffer, { type: 'array', cellDates: true });
-    if (!certWb.SheetNames || certWb.SheetNames.length === 0) {
-        throw new Error('El archivo Excel no contiene hojas de trabajo.');
+    // Detectar si el archivo es un PDF (por extensión o cabecera %PDF-)
+    const isPdfByName = certExcelFile instanceof File && certExcelFile.name.toLowerCase().endsWith('.pdf');
+    const headerBytes = new Uint8Array(rawBuffer.slice(0, 5));
+    const headerStr = String.fromCharCode(...Array.from(headerBytes));
+    const isPdf = isPdfByName || headerStr.startsWith('%PDF');
+
+    let firstSheet: XLSX.WorkSheet;
+
+    if (isPdf) {
+        firstSheet = await parsePdfToSheet(certExcelFile, rawBuffer);
+    } else {
+        const certWb = XLSX.read(rawBuffer, { type: 'array', cellDates: true });
+        if (!certWb.SheetNames || certWb.SheetNames.length === 0) {
+            throw new Error('El archivo Excel no contiene hojas de trabajo.');
+        }
+        firstSheet = certWb.Sheets[certWb.SheetNames[0]];
     }
 
-    const firstSheet = certWb.Sheets[certWb.SheetNames[0]];
-
-    // 2. Extraer datos del Excel (soporta bloques con "Item Number:" y formato tabular)
+    // 2. Extraer datos del documento (soporta bloques con "Item Number:" y formato tabular)
     const { allRows, certNumDetected, certDateDetected } = extractDataFromExcel(firstSheet, errors);
 
     if (allRows.length === 0) {
-        throw new Error('No se encontraron registros de inspección o certificación válidos en el archivo Excel.');
+        throw new Error('No se encontraron registros de inspección o certificación válidos en el archivo (Excel o PDF).');
     }
 
     // Número de certificación final: el ingresado por el usuario tiene prioridad absoluta
