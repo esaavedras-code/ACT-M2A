@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
     Download,
     Plus, 
@@ -191,6 +191,9 @@ const PaymentCertForm = React.forwardRef(({
     // Modal de desglose de retención extra
     const [retBreakdownModal, setRetBreakdownModal] = useState<{ certIdx: number } | null>(null);
     const [retBreakdownRows, setRetBreakdownRows] = useState<{ item_num: string; description: string; amount: string }[]>([]);
+    // Modal de balance de MOS (al apretar el número rojo de MOS Neto)
+    const [mosBalanceModal, setMosBalanceModal] = useState<{ certIdx: number } | null>(null);
+    const [mosBalanceTab, setMosBalanceTab] = useState<'cert_items' | 'all_items'>('cert_items');
 
     const activeInputIdRef = React.useRef<string | null>(null);
     // Refs que siempre apuntan a los valores más recientes de certs y contractItems,
@@ -1319,6 +1322,380 @@ const PaymentCertForm = React.forwardRef(({
         );
     })() : null;
 
+    const MOSBalanceModal = mosBalanceModal !== null ? (() => {
+        const { certIdx } = mosBalanceModal;
+        const cert = certs[certIdx];
+        if (!cert) return null;
+
+        // Mapa de items para descripción y unidad
+        const infoMap = new Map<string, { description: string; unit: string; unit_price: number }>();
+        (contractItems || []).forEach(it => {
+            infoMap.set(normalizeItemNum(it.item_num), {
+                description: it.description || '',
+                unit: it.unit || '',
+                unit_price: parseFloat(it.unit_price) || 0
+            });
+        });
+        const changeOrders = projectData?.change_orders || projectData?.chos || [];
+        changeOrders.forEach((cho: any) => {
+            const items = Array.isArray(cho.items) ? cho.items : (cho.items as any)?.list || [];
+            items.forEach((cit: any) => {
+                const norm = normalizeItemNum(cit.item_num);
+                if (!infoMap.has(norm)) {
+                    infoMap.set(norm, {
+                        description: cit.description || '',
+                        unit: cit.unit || '',
+                        unit_price: parseFloat(cit.unit_price) || 0
+                    });
+                }
+            });
+        });
+
+        // Recolectar todos los ítems con alguna actividad de MOS histórica
+        const allMOSItemNums = new Set<string>();
+        certs.forEach(c => {
+            (c.items || []).forEach((it: any) => {
+                if (it.has_material_on_site || (parseFloat(it.mos_invoice_total) || 0) > 0 || (parseFloat(it.qty_from_mos) || 0) > 0) {
+                    allMOSItemNums.add(normalizeItemNum(it.item_num));
+                }
+            });
+        });
+        (cert.items || []).forEach((it: any) => {
+            if (it.has_material_on_site || (parseFloat(it.mos_invoice_total) || 0) > 0 || (parseFloat(it.qty_from_mos) || 0) > 0) {
+                allMOSItemNums.add(normalizeItemNum(it.item_num));
+            }
+        });
+
+        const historicalCerts = certs.slice(certIdx);
+
+        const itemsList: Array<{
+            item_num: string;
+            description: string;
+            unit: string;
+            unit_price: number;
+            deduction_pu: number;
+            invoice_num: string;
+            added_mos: number;
+            deducted_qty: number;
+            deducted_mos: number;
+            cert_net_mos: number;
+            has_cert_activity: boolean;
+            cumulative_invoiced: number;
+            cumulative_used_before: number;
+            available_before: number;
+            cumulative_used_total: number;
+            remaining_balance: number;
+            remaining_qty: number;
+        }> = [];
+
+        allMOSItemNums.forEach(normNum => {
+            const currentItem = (cert.items || []).find((it: any) => normalizeItemNum(it.item_num) === normNum);
+            const info = infoMap.get(normNum);
+            const desc = currentItem?.description || info?.description || `Item ${normNum}`;
+            const unit = currentItem?.unit || info?.unit || 'Ea';
+            const unitPrice = parseFloat(currentItem?.unit_price) || info?.unit_price || 0;
+
+            const addedMOS = currentItem && currentItem.has_material_on_site ? (parseFloat(currentItem.mos_invoice_total) || 0) : 0;
+            const mosPU = getInvoicePUFromList(certs, normNum, certIdx);
+            const deductionPU = mosPU > 0 ? mosPU : unitPrice;
+            const deductedQty = currentItem ? (parseFloat(currentItem.qty_from_mos) || 0) : 0;
+            const deductedMOS = roundedAmt(deductedQty * deductionPU, 2);
+            const certNetMOS = roundedAmt(addedMOS - deductedMOS, 2);
+
+            const hasCertActivity = Math.abs(certNetMOS) > 0.001 || addedMOS > 0 || deductedMOS > 0 || (currentItem && currentItem.has_material_on_site) || (currentItem && (parseFloat(currentItem.qty_from_mos) || 0) > 0);
+
+            let cumulativeInvoiced = 0;
+            let cumulativeUsedBefore = 0;
+
+            historicalCerts.forEach((histCert, sliceIdx) => {
+                (histCert.items || []).forEach((it: any) => {
+                    if (normalizeItemNum(it.item_num) === normNum) {
+                        cumulativeInvoiced += parseFloat(it.has_material_on_site ? it.mos_invoice_total : 0) || 0;
+                        if (sliceIdx > 0) {
+                            const originalIdx = certIdx + sliceIdx;
+                            const pr = getInvoicePUFromList(certs, it.item_num, originalIdx);
+                            const pu = pr > 0 ? pr : (parseFloat(it.unit_price) || 0);
+                            cumulativeUsedBefore += (parseFloat(it.qty_from_mos) || 0) * pu;
+                        }
+                    }
+                });
+            });
+
+            cumulativeInvoiced = roundedAmt(cumulativeInvoiced, 2);
+            cumulativeUsedBefore = roundedAmt(cumulativeUsedBefore, 2);
+            const availableBefore = roundedAmt(cumulativeInvoiced - cumulativeUsedBefore, 2);
+            const cumulativeUsedTotal = roundedAmt(cumulativeUsedBefore + deductedMOS, 2);
+            const remainingBalance = roundedAmt(cumulativeInvoiced - cumulativeUsedTotal, 2);
+            const remainingQty = deductionPU > 0 ? roundedAmt(remainingBalance / deductionPU, 4) : 0;
+
+            itemsList.push({
+                item_num: currentItem?.item_num || normNum,
+                description: desc,
+                unit,
+                unit_price: unitPrice,
+                deduction_pu: deductionPU,
+                invoice_num: currentItem?.mos_invoice_num || '',
+                added_mos: addedMOS,
+                deducted_qty: deductedQty,
+                deducted_mos: deductedMOS,
+                cert_net_mos: certNetMOS,
+                has_cert_activity: hasCertActivity,
+                cumulative_invoiced: cumulativeInvoiced,
+                cumulative_used_before: cumulativeUsedBefore,
+                available_before: availableBefore,
+                cumulative_used_total: cumulativeUsedTotal,
+                remaining_balance: remainingBalance,
+                remaining_qty: remainingQty
+            });
+        });
+
+        itemsList.sort((a, b) => {
+            const numA = parseInt(a.item_num.replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt(b.item_num.replace(/\D/g, ''), 10) || 0;
+            if (numA !== numB) return numA - numB;
+            return a.item_num.localeCompare(b.item_num);
+        });
+
+        const certItems = itemsList.filter(it => it.has_cert_activity);
+        const totalAddedThisCert = roundedAmt(certItems.reduce((acc, it) => acc + it.added_mos, 0), 2);
+        const totalDeductedThisCert = roundedAmt(certItems.reduce((acc, it) => acc + it.deducted_mos, 0), 2);
+        const certMOSNetTotal = roundedAmt(totalAddedThisCert - totalDeductedThisCert, 2);
+        const totalRemainingProject = roundedAmt(itemsList.reduce((acc, it) => acc + it.remaining_balance, 0), 2);
+
+        const displayedItems = mosBalanceTab === 'cert_items' ? certItems : itemsList;
+
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col border border-slate-200 dark:border-slate-800">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400">
+                                <Package size={22} />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-black text-slate-800 dark:text-white flex items-center gap-2">
+                                    Balance de Material on Site (MOS)
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                        Certificación #{cert.cert_num}
+                                    </span>
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                    Fecha Cert: {cert.cert_date || 'N/A'} • Periodo WP: {cert.wp_up_to || cert.cert_date || 'N/A'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setMosBalanceModal(null)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            title="Cerrar ventana"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    {/* Resumen de Métricas */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-5 bg-slate-50/70 dark:bg-slate-950/40 border-b border-slate-100 dark:border-slate-800">
+                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                                MOS Neto en Cert #{cert.cert_num}
+                            </span>
+                            <span className={`text-lg font-black font-geist tracking-tight ${certMOSNetTotal < 0 ? 'text-red-500' : (certMOSNetTotal > 0 ? 'text-amber-600' : 'text-slate-500')}`}>
+                                {formatCurrency(certMOSNetTotal)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                                {certMOSNetTotal < 0 ? 'Deducción neta de MOS' : (certMOSNetTotal > 0 ? 'Adición neta facturada' : 'Sin cambio neto')}
+                            </span>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                                Facturado en esta Cert (+)
+                            </span>
+                            <span className="text-lg font-black font-geist tracking-tight text-emerald-600 dark:text-emerald-400">
+                                +{formatCurrency(totalAddedThisCert)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                                Material nuevo ingresado
+                            </span>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                                Deducido en esta Cert (-)
+                            </span>
+                            <span className="text-lg font-black font-geist tracking-tight text-red-500">
+                                -{formatCurrency(totalDeductedThisCert)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                                Material instalado en obra
+                            </span>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                                Balance Restante Proyecto
+                            </span>
+                            <span className="text-lg font-black font-geist tracking-tight text-blue-600 dark:text-blue-400">
+                                {formatCurrency(totalRemainingProject)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                                Saldo disponible en sitio
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Selector de Pestañas */}
+                    <div className="flex items-center justify-between px-6 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setMosBalanceTab('cert_items')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${
+                                    mosBalanceTab === 'cert_items'
+                                        ? 'bg-amber-500 text-white shadow-sm'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                }`}
+                            >
+                                Ítems que componen esta Cert ({certItems.length})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMosBalanceTab('all_items')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${
+                                    mosBalanceTab === 'all_items'
+                                        ? 'bg-amber-500 text-white shadow-sm'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                }`}
+                            >
+                                Todos los ítems con MOS ({itemsList.length})
+                            </button>
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                            {displayedItems.length} ítem(s) listado(s)
+                        </span>
+                    </div>
+
+                    {/* Tabla de Items */}
+                    <div className="flex-1 overflow-auto p-4">
+                        {displayedItems.length === 0 ? (
+                            <div className="text-center py-12 text-slate-400">
+                                <Package size={36} className="mx-auto mb-2 opacity-40 text-amber-500" />
+                                <p className="text-sm font-bold">No hay ítems con movimiento de MOS en esta certificación.</p>
+                                <p className="text-xs text-slate-400 mt-1">
+                                    Haz clic en la pestaña "Todos los ítems con MOS" para ver el inventario disponible de todo el proyecto.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                                <table className="w-full text-xs text-left border-collapse">
+                                    <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-black tracking-wider border-b border-slate-200 dark:border-slate-700">
+                                        <tr>
+                                            <th className="py-2.5 px-3">Ítem</th>
+                                            <th className="py-2.5 px-3">Descripción</th>
+                                            <th className="py-2.5 px-2 text-right">P.U. MOS</th>
+                                            <th className="py-2.5 px-3 text-right">Facturado Cert (+)</th>
+                                            <th className="py-2.5 px-3 text-right">Deducido Cert (-)</th>
+                                            <th className="py-2.5 px-3 text-right">Neto Cert</th>
+                                            <th className="py-2.5 px-3 text-right">Balance Previo</th>
+                                            <th className="py-2.5 px-3 text-right bg-amber-50/60 dark:bg-amber-950/20 font-black text-amber-900 dark:text-amber-300">Balance Restante</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {displayedItems.map((it, idx) => (
+                                            <tr 
+                                                key={idx} 
+                                                className={`hover:bg-amber-50/30 dark:hover:bg-slate-800/40 transition-colors ${
+                                                    it.has_cert_activity ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/30 dark:bg-slate-900/40 opacity-80'
+                                                }`}
+                                            >
+                                                <td className="py-2.5 px-3 font-mono font-black text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                                        {it.item_num}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2.5 px-3">
+                                                    <div className="font-bold text-slate-800 dark:text-slate-200 leading-tight">
+                                                        {it.description}
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
+                                                        <span>Unidad: {it.unit}</span>
+                                                        {it.invoice_num && (
+                                                            <span>• Factura: #{it.invoice_num}</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-2.5 px-2 text-right font-mono text-slate-500 whitespace-nowrap">
+                                                    {formatCurrency(it.deduction_pu)}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right font-mono whitespace-nowrap">
+                                                    {it.added_mos > 0 ? (
+                                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                                            +{formatCurrency(it.added_mos)}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-300 dark:text-slate-600">$0.00</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right font-mono whitespace-nowrap">
+                                                    {it.deducted_mos > 0 ? (
+                                                        <div>
+                                                            <span className="font-bold text-red-500">
+                                                                -{formatCurrency(it.deducted_mos)}
+                                                            </span>
+                                                            <div className="text-[9px] text-slate-400">
+                                                                ({formatNumber(it.deducted_qty, 2)} {it.unit})
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-slate-300 dark:text-slate-600">$0.00</span>
+                                                    )}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right font-mono whitespace-nowrap">
+                                                    <span className={`font-black ${
+                                                        it.cert_net_mos < 0 
+                                                            ? 'text-red-500' 
+                                                            : (it.cert_net_mos > 0 ? 'text-amber-600' : 'text-slate-400')
+                                                    }`}>
+                                                        {formatCurrency(it.cert_net_mos)}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                                    {formatCurrency(it.available_before)}
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right font-mono whitespace-nowrap bg-amber-50/40 dark:bg-amber-950/10">
+                                                    <span className={`font-black ${it.remaining_balance > 0.001 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                                                        {formatCurrency(it.remaining_balance)}
+                                                    </span>
+                                                    {it.remaining_balance > 0.001 && (
+                                                        <div className="text-[9px] text-slate-500 font-sans">
+                                                            ~{formatNumber(it.remaining_qty, 2)} {it.unit}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            💡 Los balances se calculan tomando el total facturado histórico de MOS menos las deducciones aplicadas hasta esta certificación.
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setMosBalanceModal(null)}
+                            className="px-5 py-2 text-xs font-black bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 text-white rounded-xl transition-colors shadow-sm"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    })() : null;
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -1681,15 +2058,38 @@ const PaymentCertForm = React.forwardRef(({
                                         })()}
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] block mb-1">MOS Neto (M)</span>
-                                            <span className={`text-base xl:text-lg font-black ${certMOSNet < 0 ? 'text-red-500' : (certMOSNet > 0 ? 'text-amber-600' : 'text-slate-400')} font-geist tracking-tight`}>
-                                                {formatCurrency(certMOSNet)}
-                                            </span>
+                                            <div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setMosBalanceTab('cert_items');
+                                                        setMosBalanceModal({ certIdx });
+                                                    }}
+                                                    className={`group text-left inline-flex items-center gap-1 text-base xl:text-lg font-black ${certMOSNet < 0 ? 'text-red-500 hover:text-red-600' : (certMOSNet > 0 ? 'text-amber-600 hover:text-amber-700' : 'text-slate-400 hover:text-slate-600')} font-geist tracking-tight transition-all duration-150 cursor-pointer rounded px-1 -mx-1 hover:bg-slate-100 dark:hover:bg-slate-800/60`}
+                                                    title="Hacer clic para ver el balance de los ítems de MOS que componen este número"
+                                                >
+                                                    <span className="underline decoration-dotted decoration-current/40 underline-offset-4 group-hover:decoration-current">
+                                                        {formatCurrency(certMOSNet)}
+                                                    </span>
+                                                    <Info size={13} className="opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                                                </button>
+                                            </div>
                                             {(() => {
                                                 const certItemCount = (c.items || []).filter((it: any) => (parseFloat(it.quantity) || 0) > 0).length;
                                                 return certItemCount > 0 ? (
-                                                    <span className="inline-flex items-center justify-center bg-amber-400 text-white text-[9px] font-black rounded-full px-2 py-0.5 mt-1 leading-none shadow-sm" title={`${certItemCount} item(s) certificado(s)`}>
-                                                        {certItemCount} {certItemCount === 1 ? 'Item' : 'Items'}
-                                                    </span>
+                                                    <div className="pt-1 pb-0.5">
+                                                        <span 
+                                                            className="inline-flex items-center justify-center bg-amber-400 text-white font-black rounded-full px-2.5 py-1.5 shadow-sm leading-none" 
+                                                            title={`${certItemCount} item(s) certificado(s)`}
+                                                        >
+                                                            <span 
+                                                                className="inline-block text-[10px] tracking-tight" 
+                                                                style={{ transform: 'scaleY(2)', transformOrigin: 'center' }}
+                                                            >
+                                                                {certItemCount} {certItemCount === 1 ? 'Item' : 'Items'}
+                                                            </span>
+                                                        </span>
+                                                    </div>
                                                 ) : null;
                                             })()}
                                         </div>
@@ -2480,6 +2880,7 @@ const PaymentCertForm = React.forwardRef(({
 
             <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
             {RetBreakdownModal}
+            {MOSBalanceModal}
         </div>
 
     );
