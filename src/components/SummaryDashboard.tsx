@@ -6,7 +6,7 @@ import { calculateSummaryMetrics } from "@/lib/projectSummary";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Clock, DollarSign, PieChart, Activity, AlertCircle, Layers, ShieldAlert, Info } from "lucide-react";
+import { Clock, DollarSign, PieChart, Activity, AlertCircle, Layers, ShieldAlert, Info, X } from "lucide-react";
 import { formatCurrency, roundedAmt, formatDate, formatNumber, getFederalSharePct, stripLeadingZeros } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -70,6 +70,16 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setShowMOSDetails(false);
+        };
+        if (showMOSDetails) {
+            window.addEventListener("keydown", handleKeyDown);
+        }
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [showMOSDetails]);
 
     useEffect(() => {
         if (!projectId || !mounted) return;
@@ -509,7 +519,27 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                         <MetricRow label="Balance Pagado Hasta la Fecha" value={formatCurrency(metrics.cost.mosHistoricalPaid)} color="text-slate-950 dark:text-white font-bold" tooltip="Total histórico pagado como Material on Site (materiales almacenados en obra antes de ser instalados)." />
                         <MetricRow label="Total MOS Ejecutado" value={formatCurrency(metrics.cost.mosHistoricalPaid - metrics.cost.materialOnSite)} color="text-emerald-700" tooltip="Monto de Material on Site que ya fue incorporado a la obra y certificado en trabajo ejecutado." />
                         <hr className="my-2 border-slate-200 dark:border-slate-800" />
-                        <MetricRow label="Balance Actual" value={formatCurrency(metrics.cost.materialOnSite)} color="text-blue-800 dark:text-blue-400 font-black text-sm" tooltip="Saldo de materiales almacenados en sitio que aún no se han incorporado a la obra (pendiente de ejecutar)." />
+                        <MetricRow 
+                            label="Balance Actual" 
+                            value={
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowMOSDetails(true);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-all hover:scale-105 active:scale-95 shadow-xs cursor-pointer group"
+                                    title="Haz clic para ver las partidas de MOS con balance mayor a cero"
+                                >
+                                    <span className="font-black text-sm">{formatCurrency(metrics.cost.materialOnSite)}</span>
+                                    <Info size={13} className="text-blue-500 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors" />
+                                </button>
+                            } 
+                            color="text-blue-800 dark:text-blue-400 font-black text-sm" 
+                            tooltip="Saldo de materiales almacenados en sitio que aún no se han incorporado a la obra. Haz clic para ver las partidas con balance mayor a cero."
+                            onClick={() => setShowMOSDetails(true)}
+                            clickable={true}
+                        />
                     </div>
                 </div>
 
@@ -653,13 +683,186 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                     </div>
                 </div>
             )}
+
+            {/* Modal de Detalle de Balances de MOS */}
+            {showMOSDetails && (
+                <div 
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setShowMOSDetails(false)}
+                >
+                    <div 
+                        className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header con gradiente */}
+                        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 p-6 text-white relative flex-shrink-0">
+                            <button 
+                                onClick={() => setShowMOSDetails(false)}
+                                className="absolute top-5 right-5 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors backdrop-blur-md cursor-pointer"
+                                title="Cerrar"
+                            >
+                                <X size={20} />
+                            </button>
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 bg-white/15 rounded-2xl backdrop-blur-md">
+                                    <Layers size={24} className="text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black uppercase tracking-tight text-white leading-tight">
+                                        Balances de Material on Site (MOS)
+                                    </h3>
+                                    <p className="text-blue-100 text-xs font-semibold mt-0.5">
+                                        Partidas con balance actual pendiente mayor a $0.00
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Resumen en el header */}
+                            <div className="mt-4 pt-3 border-t border-white/20 flex items-center justify-between">
+                                <span className="text-xs uppercase font-bold tracking-wider text-blue-100">
+                                    Balance Total MOS:
+                                </span>
+                                <span className="text-lg font-black text-white bg-white/10 px-3 py-0.5 rounded-xl border border-white/20 backdrop-blur-sm">
+                                    {formatCurrency(metrics.cost.materialOnSite)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Contenido / Tabla de partidas */}
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                            {(() => {
+                                const activeItems = (metrics.cost.mosBalances || []).filter(item => item.balance > 0.009);
+
+                                if (activeItems.length === 0) {
+                                    return (
+                                        <div className="text-center py-12 px-4 space-y-3">
+                                            <div className="w-16 h-16 mx-auto rounded-full bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-500">
+                                                <Layers size={32} />
+                                            </div>
+                                            <h4 className="text-base font-bold text-slate-800 dark:text-slate-200">
+                                                No hay ítems con balance pendiente
+                                            </h4>
+                                            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                                                Actualmente no existen partidas de Material on Site con balance mayor a cero ($0.00). Todo el material ha sido incorporado y certificado en obra.
+                                            </p>
+                                        </div>
+                                    );
+                                }
+
+                                const normalizeNum = (num: any) => num?.toString().replace(/^0+/, '').trim().toUpperCase();
+
+                                return (
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                                            <span>Mostrando {activeItems.length} {activeItems.length === 1 ? 'partida' : 'partidas'} con saldo activo:</span>
+                                        </div>
+
+                                        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead className="bg-slate-50 dark:bg-slate-800/80 text-[10px] uppercase font-black text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                                                    <tr>
+                                                        <th className="py-3 px-4">Partida (#)</th>
+                                                        <th className="py-3 px-4">Descripción</th>
+                                                        <th className="py-3 px-3 text-center">Unidad</th>
+                                                        <th className="py-3 px-3 text-right">P.U. MOS</th>
+                                                        <th className="py-3 px-3 text-right">Cant. Est.</th>
+                                                        <th className="py-3 px-4 text-right">Balance ($)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                                                    {activeItems.map((mosItem, idx) => {
+                                                        const baseItem = internalContractItems.find(
+                                                            (r: any) => normalizeNum(r.item_num) === normalizeNum(mosItem.item_num)
+                                                        );
+                                                        const unitPrice = mosItem.mosPU || (baseItem ? parseFloat(baseItem.unit_price) || 0 : 0);
+                                                        const approxQty = unitPrice > 0 ? (mosItem.balance / unitPrice) : 0;
+
+                                                        return (
+                                                            <tr 
+                                                                key={idx} 
+                                                                className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                                                            >
+                                                                <td className="py-3 px-4 font-black text-blue-600 dark:text-blue-400">
+                                                                    <span className="bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded border border-blue-200/50 dark:border-blue-800/50">
+                                                                        {stripLeadingZeros(mosItem.item_num)}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200 max-w-xs">
+                                                                    <div className="line-clamp-2" title={baseItem?.description || "Sin descripción"}>
+                                                                        {baseItem?.description || "Sin descripción registrada"}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-3 px-3 text-center text-slate-500 font-bold uppercase text-[11px]">
+                                                                    {baseItem?.unit || "—"}
+                                                                </td>
+                                                                <td className="py-3 px-3 text-right font-medium text-slate-600 dark:text-slate-400">
+                                                                    {unitPrice > 0 ? formatCurrency(unitPrice) : "—"}
+                                                                </td>
+                                                                <td className="py-3 px-3 text-right font-bold text-slate-700 dark:text-slate-300">
+                                                                    {approxQty > 0 ? formatNumber(approxQty, 2) : "—"}
+                                                                </td>
+                                                                <td className="py-3 px-4 text-right font-black text-blue-700 dark:text-blue-400 text-sm">
+                                                                    {formatCurrency(mosItem.balance)}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                                <tfoot className="bg-slate-100 dark:bg-slate-800 font-black text-xs border-t-2 border-slate-300 dark:border-slate-700">
+                                                    <tr>
+                                                        <td colSpan={5} className="py-3 px-4 text-right uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                                            Total Balance MOS:
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right text-blue-700 dark:text-blue-400 text-sm">
+                                                            {formatCurrency(metrics.cost.materialOnSite)}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 bg-slate-50 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 flex justify-end flex-shrink-0">
+                            <button
+                                onClick={() => setShowMOSDetails(false)}
+                                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-function MetricRow({ label, value, color, tooltip }: { label: string, value: string | number, color?: string, tooltip?: string }) {
+function MetricRow({ 
+    label, 
+    value, 
+    color, 
+    tooltip, 
+    onClick, 
+    clickable 
+}: { 
+    label: string, 
+    value: string | number | React.ReactNode, 
+    color?: string, 
+    tooltip?: string,
+    onClick?: () => void,
+    clickable?: boolean
+}) {
     return (
-        <div className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+        <div 
+            onClick={onClick}
+            className={`flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors ${
+                clickable || onClick ? 'cursor-pointer hover:bg-blue-50/60 dark:hover:bg-blue-900/20 px-2 -mx-2 rounded-lg group' : ''
+            }`}
+        >
             <span className={`text-[11px] font-black text-slate-800 dark:text-slate-300 uppercase tracking-tight ${tooltip ? 'cursor-help' : ''}`} title={tooltip}>{label}</span>
             <span className={`text-sm font-black ${color || 'text-slate-950 dark:text-white'}`}>{value}</span>
         </div>
