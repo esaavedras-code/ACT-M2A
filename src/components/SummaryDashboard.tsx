@@ -709,7 +709,7 @@ export default function SummaryDashboard({ projectId, numAct }: { projectId?: st
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-black uppercase tracking-tight text-white leading-tight">
-                                        Balances de Material on Site (MOS)
+                                        New Balance Material On Site
                                     </h3>
                                     <p className="text-blue-100 text-xs font-semibold mt-0.5">
                                         Partidas con balance actual pendiente mayor a $0.00
