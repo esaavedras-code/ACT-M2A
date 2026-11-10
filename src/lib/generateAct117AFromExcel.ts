@@ -155,33 +155,77 @@ export async function scanExcelItems(
         }
     }
 
-    const sortedItemKeys = Object.keys(itemGroups).sort((a, b) => {
-        const na = parseFloat(a) || 0;
-        const nb = parseFloat(b) || 0;
-        return na - nb || a.localeCompare(b);
-    });
+    // Determinar si el Excel usa formato de múltiples hojas (una hoja por ítem)
+    // vs. una sola hoja tabular con todas las partidas
+    const hasMultipleSheets = certWb.SheetNames.length > 1;
 
-    const items: DetectedItemSummary[] = sortedItemKeys
-        .map(k => {
-            const rows = itemGroups[k] || [];
-            const first = rows[0];
-            // Solo contar filas con cantidad positiva para el totalQty y rowsCount
+    // Si el Excel tiene múltiples hojas, la lista de ítems se basa en los nombres de las hojas.
+    // Si tiene una sola hoja tabular, se basa en los ítems detectados con cantidad > 0.
+    let items: DetectedItemSummary[];
+
+    if (hasMultipleSheets) {
+        // MÚLTIPLES HOJAS: cada hoja es una partida.
+        // Construir la lista directamente desde sheetItemsDetected + itemGroups enriquecidos.
+        const usedKeys = new Set<string>();
+        items = [];
+
+        for (const sh of sheetItemsDetected) {
+            const key = sh.itemNum;
+            if (usedKeys.has(key)) continue;
+            usedKeys.add(key);
+
+            const rows = itemGroups[key] || [];
             const validRows = rows.filter(r => {
                 const q = parseFloat(String(r.quantity ?? 0));
                 return !isNaN(q) && q > 0;
             });
             const totalQty = validRows.reduce((s, r) => s + (r.quantity || 0), 0);
-            return {
-                itemKey: k,
-                itemNum: k,
-                specCode: first?.specCode,
-                itemName: first?.itemName || '',
+            const first = rows[0];
+
+            items.push({
+                itemKey: key,
+                itemNum: key,
+                specCode: first?.specCode || key,
+                itemName: sh.itemName || first?.itemName || '',
                 totalQty,
-                rowsCount: validRows.length,
-            };
-        })
-        // Solo mostrar en la lista los ítems que tienen al menos un registro con cantidad > 0
-        .filter(it => it.rowsCount > 0 || sheetItemsDetected.some(sh => sh.itemNum === it.itemKey));
+                rowsCount: validRows.length > 0 ? validRows.length : rows.length,
+            });
+        }
+
+        // Ordenar naturalmente por número
+        items.sort((a, b) => {
+            const na = parseFloat(a.itemNum) || 0;
+            const nb = parseFloat(b.itemNum) || 0;
+            return na - nb || a.itemNum.localeCompare(b.itemNum);
+        });
+    } else {
+        // UNA SOLA HOJA TABULAR: solo mostrar partidas con cantidad > 0
+        const sortedItemKeys = Object.keys(itemGroups).sort((a, b) => {
+            const na = parseFloat(a) || 0;
+            const nb = parseFloat(b) || 0;
+            return na - nb || a.localeCompare(b);
+        });
+
+        items = sortedItemKeys
+            .map(k => {
+                const rows = itemGroups[k] || [];
+                const first = rows[0];
+                const validRows = rows.filter(r => {
+                    const q = parseFloat(String(r.quantity ?? 0));
+                    return !isNaN(q) && q > 0;
+                });
+                const totalQty = validRows.reduce((s, r) => s + (r.quantity || 0), 0);
+                return {
+                    itemKey: k,
+                    itemNum: k,
+                    specCode: first?.specCode,
+                    itemName: first?.itemName || '',
+                    totalQty,
+                    rowsCount: validRows.length,
+                };
+            })
+            .filter(it => it.rowsCount > 0);
+    }
 
     const uniqueInsp: string[] = [];
     for (const r of allRows) {
