@@ -161,19 +161,27 @@ export async function scanExcelItems(
         return na - nb || a.localeCompare(b);
     });
 
-    const items: DetectedItemSummary[] = sortedItemKeys.map(k => {
-        const rows = itemGroups[k] || [];
-        const first = rows[0];
-        const totalQty = rows.reduce((s, r) => s + (parseFloat(String(r.quantity || 0)) || 0), 0);
-        return {
-            itemKey: k,
-            itemNum: k,
-            specCode: first?.specCode,
-            itemName: first?.itemName || '',
-            totalQty,
-            rowsCount: rows.length,
-        };
-    });
+    const items: DetectedItemSummary[] = sortedItemKeys
+        .map(k => {
+            const rows = itemGroups[k] || [];
+            const first = rows[0];
+            // Solo contar filas con cantidad positiva para el totalQty y rowsCount
+            const validRows = rows.filter(r => {
+                const q = parseFloat(String(r.quantity ?? 0));
+                return !isNaN(q) && q > 0;
+            });
+            const totalQty = validRows.reduce((s, r) => s + (r.quantity || 0), 0);
+            return {
+                itemKey: k,
+                itemNum: k,
+                specCode: first?.specCode,
+                itemName: first?.itemName || '',
+                totalQty,
+                rowsCount: validRows.length,
+            };
+        })
+        // Solo mostrar en la lista los ítems que tienen al menos un registro con cantidad > 0
+        .filter(it => it.rowsCount > 0 || sheetItemsDetected.some(sh => sh.itemNum === it.itemKey));
 
     const uniqueInsp: string[] = [];
     for (const r of allRows) {
