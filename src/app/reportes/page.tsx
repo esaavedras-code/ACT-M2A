@@ -375,6 +375,71 @@ function ReportesContent() {
     const [act117aSelectedItems, setAct117aSelectedItems] = useState<string[]>([]);
     const [act117aScanning, setAct117aScanning] = useState(false);
     const [act117aSearchItem, setAct117aSearchItem] = useState("");
+    const [act117aInspectors, setAct117aInspectors] = useState<string[]>([]);
+    const [act117aSelectedInspectors, setAct117aSelectedInspectors] = useState<string[]>([]);
+    const [act117aNewInspector, setAct117aNewInspector] = useState("");
+
+    // Cargar inspectores guardados para este proyecto en particular
+    useEffect(() => {
+        if (!projectId) return;
+        try {
+            const saved = localStorage.getItem(`pact_inspectors_${projectId}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setAct117aInspectors(parsed);
+                    setAct117aSelectedInspectors(parsed);
+                }
+            }
+        } catch (e) {
+            console.warn("Error cargando inspectores del proyecto:", e);
+        }
+    }, [projectId]);
+
+    const saveInspectorsForProject = (list: string[]) => {
+        if (!projectId) return;
+        try {
+            localStorage.setItem(`pact_inspectors_${projectId}`, JSON.stringify(list));
+        } catch (e) {
+            console.warn("Error guardando inspectores en localStorage:", e);
+        }
+    };
+
+    const handleAddInspector = (nameToAdd?: string) => {
+        const raw = (nameToAdd !== undefined ? nameToAdd : act117aNewInspector).trim();
+        if (!raw) return;
+        // Permite agregar múltiples inspectores separados por coma
+        const names = raw.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+        if (names.length === 0) return;
+
+        setAct117aInspectors(prev => {
+            const updated = Array.from(new Set([...prev, ...names]));
+            saveInspectorsForProject(updated);
+            return updated;
+        });
+        setAct117aSelectedInspectors(prev => Array.from(new Set([...prev, ...names])));
+        setAct117aNewInspector("");
+    };
+
+    const handleRemoveInspector = (nameToRemove: string) => {
+        setAct117aInspectors(prev => {
+            const updated = prev.filter(n => n.toLowerCase() !== nameToRemove.toLowerCase());
+            saveInspectorsForProject(updated);
+            return updated;
+        });
+        setAct117aSelectedInspectors(prev => prev.filter(n => n.toLowerCase() !== nameToRemove.toLowerCase()));
+    };
+
+    const handleToggleInspector = (name: string) => {
+        setAct117aSelectedInspectors(prev => {
+            const exists = prev.some(n => n.toLowerCase() === name.toLowerCase());
+            if (exists) {
+                return prev.filter(n => n.toLowerCase() !== name.toLowerCase());
+            } else {
+                return [...prev, name];
+            }
+        });
+    };
 
     const handleAct117aFileChange = async (file: File | null) => {
         setAct117aFile(file);
@@ -398,6 +463,14 @@ function ReportesContent() {
             setAct117aSelectedItems(items.map((it: any) => it.itemKey));
             if (scanRes.certNumDetected && !act117aCertNum) setAct117aCertNum(scanRes.certNumDetected);
             if (scanRes.certDateDetected && !act117aCertDate) setAct117aCertDate(scanRes.certDateDetected);
+            if (scanRes.inspectorsDetected && scanRes.inspectorsDetected.length > 0) {
+                setAct117aInspectors(prev => {
+                    const combined = Array.from(new Set([...prev, ...scanRes.inspectorsDetected]));
+                    saveInspectorsForProject(combined);
+                    return combined;
+                });
+                setAct117aSelectedInspectors(prev => Array.from(new Set([...prev, ...scanRes.inspectorsDetected])));
+            }
         } catch (e: any) {
             console.warn("Error escaneando partidas del Excel:", e);
         } finally {
@@ -1779,10 +1852,10 @@ function ReportesContent() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider truncate">
-                                Item Certification Worksheet (ACT-117A)
+                                Generador de ICW (ACT-117A)
                             </h3>
                             <p className="text-[10px] font-semibold text-slate-400">
-                                Genera el reporte oficial por Ã­tem a partir del Excel de certificaciÃ³n
+                                Genera automáticamente los formularios ACT-117A utilizando una certificación de cantidades en Excel
                             </p>
                         </div>
                     </div>
@@ -1791,7 +1864,7 @@ function ReportesContent() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
-                                Número de Certificación (Cert. Num) *
+                                Cert. Num. *
                             </label>
                             <input
                                 type="text"
@@ -1816,7 +1889,7 @@ function ReportesContent() {
 
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
-                                Archivo Excel de Certificación *
+                                Archivo Excel (.xlsx / .xls) *
                             </label>
                             <input
                                 id="act117a-file-input"
@@ -1830,7 +1903,7 @@ function ReportesContent() {
                             />
                             <button
                                 type="button"
-                                onClick={() => document.getElementById('act117a-file-input')?./* @vite-ignore */ click()}
+                                onClick={() => document.getElementById('act117a-file-input')?.click()}
                                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-bold transition-all text-left ${
                                     act117aFile
                                         ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 text-emerald-800 dark:text-emerald-300'
@@ -1843,6 +1916,101 @@ function ReportesContent() {
                                 <Download size={14} className="shrink-0 text-slate-400" />
                             </button>
                         </div>
+                    </div>
+
+                    {/* Gestión de Inspectores del Proyecto (Reglas 3 y 13) */}
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                    Inspectores del Proyecto ({act117aSelectedInspectors.length} de {act117aInspectors.length} seleccionados)
+                                </span>
+                            </div>
+                            {act117aInspectors.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAct117aSelectedInspectors([...act117aInspectors])}
+                                        className="text-[9px] font-black uppercase text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                                    >
+                                        Seleccionar todos
+                                    </button>
+                                    <span className="text-slate-300">|</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAct117aSelectedInspectors([])}
+                                        className="text-[9px] font-black uppercase text-slate-500 hover:underline cursor-pointer"
+                                    >
+                                        Deseleccionar todos
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Input para añadir inspector */}
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                placeholder="Nombre de inspector (ej. Juan del Pueblo)..."
+                                value={act117aNewInspector}
+                                onChange={(e) => setAct117aNewInspector(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleAddInspector();
+                                    }
+                                }}
+                                className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none focus:ring-1 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => handleAddInspector()}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer"
+                            >
+                                + Añadir
+                            </button>
+                        </div>
+
+                        {/* Listado de inspectores con checkbox y botón para eliminar */}
+                        {act117aInspectors.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5 pt-1 max-h-32 overflow-y-auto">
+                                {act117aInspectors.map((inspName) => {
+                                    const isSel = act117aSelectedInspectors.some(n => n.toLowerCase() === inspName.toLowerCase());
+                                    return (
+                                        <div
+                                            key={inspName}
+                                            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border text-xs transition-colors ${
+                                                isSel
+                                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200'
+                                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400'
+                                            }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSel}
+                                                onChange={() => handleToggleInspector(inspName)}
+                                                className="w-3 h-3 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                            />
+                                            <span className="font-semibold text-[11px] truncate max-w-[180px]">
+                                                {inspName}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                title="Eliminar de la lista de inspectores del proyecto"
+                                                onClick={() => handleRemoveInspector(inspName)}
+                                                className="text-slate-400 hover:text-red-500 ml-1 text-xs font-bold cursor-pointer"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <p className="text-[10px] text-slate-400 italic">
+                                No hay inspectores registrados. Puedes agregarlos aquí o el sistema te los solicitará al generar.
+                            </p>
+                        )}
                     </div>
 
                     {/* Selector de Partidas a Generar (Siempre visible) */}
@@ -1989,22 +2157,24 @@ function ReportesContent() {
                         </div>
                     )}
 
-                    {/* Botón Principal */}
+                    {/* Botón Principal: Generar ICW (ACT-117A) */}
                     <button
                         type="button"
                         disabled={act117aProcessing}
                         onClick={async () => {
+                            // Regla 2: Número de Certificación (prioridad absoluta del valor manual)
                             let certNum = act117aCertNum.trim();
                             if (!certNum) {
-                                const prompted = window.prompt("Por favor ingrese el Número de Certificación (ej. 15):");
+                                const prompted = window.prompt("Por favor ingrese el Número de Certificación (Cert. Num) [ej. 16]:");
                                 if (!prompted || !prompted.trim()) {
-                                    alert("El número de certificación es requerido para generar el formulario ACT-117A.");
+                                    alert("El número de certificación (Cert. Num) es obligatorio para continuar.");
                                     return;
                                 }
                                 certNum = prompted.trim();
                                 setAct117aCertNum(certNum);
                             }
 
+                            // Regla 3: Fecha de Certificación (sustituye cualquier fecha del Excel)
                             let certDate = act117aCertDate.trim();
                             if (!certDate) {
                                 const promptedDate = window.prompt("Por favor ingrese la Fecha de Certificación (MM/DD/YYYY, ej. 09/29/2026):");
@@ -2014,11 +2184,26 @@ function ReportesContent() {
                                 }
                             }
 
+                            // Regla 1: Archivo Excel únicamente (.xlsx y .xls)
                             if (!act117aFile) {
-                                document.getElementById('act117a-file-input')?./* @vite-ignore */ click();
+                                document.getElementById('act117a-file-input')?.click();
                                 return;
                             }
 
+                            // Regla 3 y 13: Inspectores del Proyecto
+                            let currentInspectors = [...act117aSelectedInspectors];
+                            if (currentInspectors.length === 0) {
+                                const promptedInsp = window.prompt("Por favor ingrese el nombre del (los) inspector(es) para este proyecto (puede ingresar varios separados por coma):");
+                                if (promptedInsp && promptedInsp.trim()) {
+                                    const parsedInsp = promptedInsp.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+                                    if (parsedInsp.length > 0) {
+                                        handleAddInspector(promptedInsp);
+                                        currentInspectors = parsedInsp;
+                                    }
+                                }
+                            }
+
+                            // Regla 4: Selector de Partidas
                             if (act117aDetectedItems.length > 0 && act117aSelectedItems.length === 0) {
                                 alert("Por favor seleccione al menos una partida para generar los ICW.");
                                 return;
@@ -2035,29 +2220,30 @@ function ReportesContent() {
                                     projectId,
                                     certNum,
                                     certDate || undefined,
-                                    act117aSelectedItems.length > 0 ? act117aSelectedItems : undefined
+                                    act117aSelectedItems.length > 0 ? act117aSelectedItems : undefined,
+                                    currentInspectors.length > 0 ? currentInspectors : undefined
                                 );
                                 const itemsCountLabel = act117aSelectedItems.length > 0 ? ` (${act117aSelectedItems.length} partida(s))` : "";
-                                setAct117aSuccess(`ACT-117A generado y descargado exitosamente${itemsCountLabel}.`);
+                                setAct117aSuccess(`ICW (ACT-117A) generado y descargado exitosamente${itemsCountLabel}.`);
                             } catch (e: any) {
                                 setAct117aError(`Error: ${e.message}`);
                             } finally {
                                 setAct117aProcessing(false);
                             }
                         }}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 text-white rounded-xl font-black text-[10px] uppercase tracking-wider transition-all shadow-md shadow-emerald-100 dark:shadow-emerald-900/20 active:scale-95 cursor-pointer"
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-wider transition-all shadow-md shadow-emerald-100 dark:shadow-emerald-900/20 active:scale-95 cursor-pointer"
                     >
                         {act117aProcessing ? (
                             <>
-                                <Loader2 size={15} className="animate-spin" />
-                                Generando ACT-117A...
+                                <Loader2 size={16} className="animate-spin" />
+                                Generando ICW (ACT-117A)...
                             </>
                         ) : (
                             <>
-                                <FileSpreadsheet size={15} />
+                                <FileSpreadsheet size={16} />
                                 {act117aSelectedItems.length > 0
-                                    ? `Generar ICW de ${act117aSelectedItems.length} Partida(s) Seleccionada(s) (ACT-117A)`
-                                    : "Generar Item Certification Worksheet (ACT-117A)"}
+                                    ? `Generar ICW (ACT-117A) - ${act117aSelectedItems.length} Partida(s)`
+                                    : "Generar ICW (ACT-117A)"}
                             </>
                         )}
                     </button>
