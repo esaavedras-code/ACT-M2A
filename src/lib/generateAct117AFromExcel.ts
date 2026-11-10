@@ -59,9 +59,54 @@ export interface DetectedItemSummary {
     rowsCount: number;
 }
 
+// ─── Extractor de Ítem a partir del Nombre de la Página del Excel ──────────────
+
 /**
- * Escanea un archivo Excel de certificación y extrae la lista de partidas
- * detectadas, fechas, números de certificación e inspectores detectados.
+ * Busca e identifica el número y descripción del ítem a partir del nombre de la pestaña / página de Excel.
+ * Soporta nombres como:
+ * - "Item 7 - Borrow Class D", "Partida 008 - Foundation Fill", "Item 6", "Partida 11", "Item 603(1)"
+ * - "7 - Borrow Class D", "6", "008", "603-01", "10"
+ */
+export function extractItemFromSheetName(sheetName: string): { itemNum: string; itemName?: string } | null {
+    if (!sheetName) return null;
+    const s = sheetName.trim();
+    const lower = s.toLowerCase();
+
+    // Descartar hojas auxiliares que no representen partidas
+    if (['summary', 'resumen', 'totales', 'total', 'portada', 'cover', 'general', 'datos', 'instrucciones', 'instructions'].includes(lower)) {
+        return null;
+    }
+
+    // 1. "Item 7 - Borrow Class D" / "Partida 008 - Foundation Fill" / "Item 603(1)" / "Item 6" / "Partida 11"
+    const matchPrefix = s.match(/^(?:item|partida|it[\.\s]|p[\.\s])\s*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—]\s*(.*))?$/i);
+    if (matchPrefix) {
+        return {
+            itemNum: matchPrefix[1].trim(),
+            itemName: matchPrefix[2] ? matchPrefix[2].trim() : undefined,
+        };
+    }
+
+    // 2. Comienza directamente con número: "7 - Borrow Class D", "008 Foundation", "6", "7", "008", "603-01", "10"
+    const matchNum = s.match(/^([0-9]+[a-zA-Z0-9\-\.\_\(\)]*)(?:\s*[\-\:–—\s]\s*(.*))?$/);
+    if (matchNum) {
+        return {
+            itemNum: matchNum[1].trim(),
+            itemName: matchNum[2] ? matchNum[2].trim() : undefined,
+        };
+    }
+
+    // 3. Si no tiene número pero es una hoja de trabajo activa
+    return {
+        itemNum: s,
+        itemName: s,
+    };
+}
+
+/**
+ * Escanea un archivo Excel de certificación:
+ * 1. Busca el nombre de TODAS las páginas del archivo de Excel.
+ * 2. Selecciona e identifica los ítems que están presentes en el Excel.
+ * 3. Extrae fechas, números de certificación e inspectores detectados en todo el libro.
  */
 export async function scanExcelItems(
     certExcelFile: File | ArrayBuffer,
@@ -70,6 +115,7 @@ export async function scanExcelItems(
     certNumDetected?: string;
     certDateDetected?: string;
     inspectorsDetected?: string[];
+    sheetNamesDetected?: string[];
 }> {
     let rawBuffer: ArrayBuffer;
     if (certExcelFile instanceof File) {
@@ -87,12 +133,28 @@ export async function scanExcelItems(
         return { items: [] };
     }
 
-    const firstSheet = certWb.Sheets[certWb.SheetNames[0]];
     const errors: string[] = [];
-    const { allRows, certNumDetected, certDateDetected } = extractDataFromExcel(firstSheet, errors);
+    const { allRows, certNumDetected, certDateDetected, sheetItemsDetected } = extractDataFromWorkbook(certWb, errors);
 
     const consolidatedRows = applyDateInspectorRules(allRows);
     const itemGroups = groupByItem(consolidatedRows);
+
+    // Asegurar que todos los ítems detectados en los nombres de las páginas existan en itemGroups
+    for (const sh of sheetItemsDetected) {
+        if (!itemGroups[sh.itemNum]) {
+            itemGroups[sh.itemNum] = [{
+                itemNum: sh.itemNum,
+                specCode: sh.itemNum,
+                itemName: sh.itemName || '',
+                location: '',
+                calculations: '',
+                quantity: 0,
+                inspector: '',
+                inspDate: '',
+            }];
+        }
+    }
+
     const sortedItemKeys = Object.keys(itemGroups).sort((a, b) => {
         const na = parseFloat(a) || 0;
         const nb = parseFloat(b) || 0;
@@ -126,6 +188,7 @@ export async function scanExcelItems(
         certNumDetected: certNumDetected ? String(certNumDetected) : undefined,
         certDateDetected: certDateDetected ? String(certDateDetected) : undefined,
         inspectorsDetected: uniqueInsp,
+        sheetNamesDetected: certWb.SheetNames,
     };
 }
 
@@ -172,10 +235,9 @@ export async function generateAct117AFromExcel(
     if (!certWb.SheetNames || certWb.SheetNames.length === 0) {
         throw new Error('El archivo Excel no contiene hojas de trabajo válidas.');
     }
-    const firstSheet = certWb.Sheets[certWb.SheetNames[0]];
 
-    // 2. Extraer datos del documento Excel
-    const { allRows, certNumDetected, certDateDetected } = extractDataFromExcel(firstSheet, errors);
+    // 2. Extraer datos de TODAS las páginas del documento Excel
+    const { allRows, certNumDetected, certDateDetected } = extractDataFromWorkbook(certWb, errors);
 
     if (allRows.length === 0) {
         throw new Error('No se encontraron registros de certificación con cantidades válidas en el archivo Excel.');
@@ -223,7 +285,6 @@ export async function generateAct117AFromExcel(
     const itemsDbList = contractItems || [];
 
     // 4. Regla 13: Lista final de inspectores únicos
-    // Prioridad a los inspectores ingresados o seleccionados por el usuario
     const uniqueExcelInspectors: string[] = [];
     for (const r of allRows) {
         const rawInsp = (r.inspector || '').trim();
@@ -234,7 +295,6 @@ export async function generateAct117AFromExcel(
 
     let finalInspectors: string[] = [];
     if (Array.isArray(selectedInspectors) && selectedInspectors.length > 0) {
-        // Eliminar duplicados manteniendo orden
         finalInspectors = Array.from(new Set(selectedInspectors.map(s => String(s).trim()).filter(Boolean)));
     } else {
         finalInspectors = uniqueExcelInspectors;
@@ -297,13 +357,11 @@ export async function generateAct117AFromExcel(
         const itemUnit = matchedDbItem?.unit || '';
 
         // Regla 10: Exclusión de Cantidades en Cero
-        // Excluir automáticamente cualquier fila que tenga Cantidad = 0, negativa o vacía
         const validRows = rawRows.filter(r => {
             const q = r.quantity;
             return q !== null && q !== undefined && !isNaN(q) && q > 0;
         });
 
-        // Si una partida no tiene registros con cantidades mayores a cero: no generar hoja
         if (validRows.length === 0) {
             continue;
         }
@@ -397,12 +455,6 @@ export async function generateAct117AFromExcel(
 
 // ─── Separador Inteligente de Location y Calculations ─────────────────────────
 
-/**
- * Regla 5: Columna Location (Columna C, filas 13 a 27) debe colocarse la ubicación
- * según la descripción de cada línea.
- * Regla 6: Columna Calculations (Columna AB, filas 13 a 27) debe contener la parte
- * de la descripción que no fue utilizada en Location.
- */
 export function splitLocationAndCalculations(
     rawLoc: string,
     rawCalc: string,
@@ -418,7 +470,6 @@ export function splitLocationAndCalculations(
     const full = loc || calc;
     if (!full) return { location: '', calculations: '' };
 
-    // Buscar separadores explícitos: " - ", " : ", " / ", " -- "
     const sep = full.match(/^(.+?)\s*(?:[-–—:]|\s\/\s)\s*(.+)$/);
     if (sep) {
         const p1 = sep[1].trim();
@@ -432,7 +483,6 @@ export function splitLocationAndCalculations(
         return { location: p1, calculations: p2 };
     }
 
-    // Buscar patrón de estación o kilometraje al inicio
     const matchStation = full.match(/^(?:STA(?:\.|TION)?\s*\d+\+\d+(?:\s*(?:TO|A|-)\s*(?:STA(?:\.|TION)?\s*)?\d+\+\d+)?|KM\s*\d+(?:\.\d+)?(?:\s*(?:TO|A|-)\s*KM\s*\d+(?:\.\d+)?)?)/i);
     if (matchStation) {
         const matchedLoc = matchStation[0].trim();
@@ -443,9 +493,89 @@ export function splitLocationAndCalculations(
     return { location: full, calculations: '' };
 }
 
-// ─── Extractor de Datos del Excel ────────────────────────────────────────────
+// ─── Extractor de Datos del Libro Completo (Todas las Hojas) ─────────────────
 
-function extractDataFromExcel(sheet: XLSX.WorkSheet, errors: string[]) {
+function extractDataFromWorkbook(wb: XLSX.WorkBook, errors: string[]) {
+    const allRows: CertExcelRow[] = [];
+    let certNumDetected = '';
+    let certDateDetected = '';
+    const sheetItemsDetected: { itemNum: string; itemName?: string; sheetName: string }[] = [];
+
+    for (const sheetName of wb.SheetNames) {
+        const sheet = wb.Sheets[sheetName];
+        if (!sheet) continue;
+
+        const sheetItemInfo = extractItemFromSheetName(sheetName);
+        if (sheetItemInfo) {
+            sheetItemsDetected.push({ ...sheetItemInfo, sheetName });
+        }
+
+        // Extraer datos de esta hoja individual
+        const { allRows: sheetRows, certNumDetected: sCertNum, certDateDetected: sCertDate } = extractDataFromExcel(sheet, errors, sheetItemInfo || undefined);
+
+        if (sCertNum && !certNumDetected) certNumDetected = sCertNum;
+        if (sCertDate && !certDateDetected) certDateDetected = sCertDate;
+
+        for (const row of sheetRows) {
+            if ((!row.itemNum || row.itemNum.trim() === '') && sheetItemInfo?.itemNum) {
+                row.itemNum = sheetItemInfo.itemNum;
+                row.specCode = sheetItemInfo.itemNum;
+            }
+            if (!row.itemName && sheetItemInfo?.itemName) {
+                row.itemName = sheetItemInfo.itemName;
+            }
+            allRows.push(row);
+        }
+
+        // Si la hoja tiene nombre de ítem (ej. "Item 7") pero no tuvo filas por formato tabular
+        if (sheetItemInfo && sheetRows.length === 0) {
+            const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            let foundQty = 0;
+            let foundLoc = '';
+            let foundInsp = '';
+            let foundDate = '';
+
+            for (const r of rawMatrix) {
+                if (!r || r.length === 0) continue;
+                for (let c = 0; c < r.length; c++) {
+                    const val = String(r[c] || '').toLowerCase().trim();
+                    if (!certNumDetected && val.includes('cert') && (val.includes('no') || val.includes('num'))) {
+                        const match = String(r[c] || '').match(/\d+/);
+                        if (match) certNumDetected = match[0];
+                    }
+                    if (val.includes('quantity') || val.includes('cantidad') || val.includes('qty')) {
+                        for (let nextC = c + 1; nextC < r.length; nextC++) {
+                            const candidate = parseFloat(String(r[nextC] || '').replace(/,/g, ''));
+                            if (!isNaN(candidate) && candidate > 0 && foundQty === 0) {
+                                foundQty = candidate;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            allRows.push({
+                itemNum: sheetItemInfo.itemNum,
+                specCode: sheetItemInfo.itemNum,
+                itemName: sheetItemInfo.itemName || '',
+                location: foundLoc,
+                calculations: '',
+                quantity: foundQty > 0 ? foundQty : 0,
+                inspector: foundInsp,
+                inspDate: foundDate,
+            });
+        }
+    }
+
+    return { allRows, certNumDetected, certDateDetected, sheetItemsDetected };
+}
+
+function extractDataFromExcel(
+    sheet: XLSX.WorkSheet,
+    errors: string[],
+    defaultItemInfo?: { itemNum: string; itemName?: string }
+) {
     const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
     let hasItemNumberBlocks = false;
@@ -461,17 +591,21 @@ function extractDataFromExcel(sheet: XLSX.WorkSheet, errors: string[]) {
     }
 
     if (hasItemNumberBlocks) {
-        return extractFromBlockFormat(rawMatrix, errors);
+        return extractFromBlockFormat(rawMatrix, errors, defaultItemInfo);
     } else {
-        return extractFromTabularFormat(sheet, errors);
+        return extractFromTabularFormat(sheet, errors, defaultItemInfo);
     }
 }
 
 /** Extrae de reportes por bloques/secciones con "Item Number:" */
-function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
+function extractFromBlockFormat(
+    rawMatrix: any[][],
+    errors: string[],
+    defaultItemInfo?: { itemNum: string; itemName?: string }
+) {
     const allRows: CertExcelRow[] = [];
-    let currentSpec = '';
-    let currentItemName = '';
+    let currentSpec = defaultItemInfo?.itemNum || '';
+    let currentItemName = defaultItemInfo?.itemName || '';
     let headerIndices: any = null;
     let certNumDetected = '';
     let certDateDetected = '';
@@ -538,7 +672,6 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
                     const norm = String(colVal || '').toLowerCase().trim();
                     if (norm.includes('record no')) headerIndices.recordNo = colIdx;
                     else if (norm.includes('inspector')) headerIndices.inspector = colIdx;
-                    // Regla 7: Prioridad absoluta a la columna Cantidad
                     else if (norm === 'cantidad' || norm.startsWith('cantidad') || norm === 'quantity' || norm.startsWith('quantity')) headerIndices.qtyCantidad = colIdx;
                     else if (norm.includes('verified') && norm.includes('approved')) headerIndices.qtyApproved = colIdx;
                     else if (norm.includes('quantity measured')) headerIndices.qtyMeasured = colIdx;
@@ -552,7 +685,6 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
 
             // Leer fila de datos
             if (headerIndices && (headerIndices.recordNo !== undefined || headerIndices.qtyCantidad !== undefined || headerIndices.qtyApproved !== undefined || headerIndices.qtyMeasured !== undefined)) {
-                // Regla 11: Ignorar completamente filas que contengan: Total, Subtotal, Balance, Resumen
                 const isTotalRow = row.some(cell => {
                     const val = String(cell || '').toLowerCase().trim();
                     return val.includes('total') || val.includes('subtotal') || val.includes('balance') || val.includes('resumen') || val.includes('summary');
@@ -567,7 +699,6 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
                     continue;
                 }
 
-                // Regla 7: Prioridad absoluta a la columna Cantidad de la certificación
                 let qtyStr = '';
                 if (headerIndices.qtyCantidad !== undefined && row[headerIndices.qtyCantidad] !== undefined && row[headerIndices.qtyCantidad] !== '') {
                     qtyStr = String(row[headerIndices.qtyCantidad]);
@@ -578,8 +709,6 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
                 }
 
                 const qty = parseFloat(qtyStr.replace(/,/g, ''));
-
-                // Regla 10: Excluir cantidades en cero, negativas o vacías
                 if (isNaN(qty) || qty <= 0) {
                     continue;
                 }
@@ -592,9 +721,7 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
                     ? String(row[headerIndices.calculations]).trim()
                     : '';
 
-                // Reglas 5 y 6: Separación de Location y Calculations
                 const { location, calculations } = splitLocationAndCalculations(rawLocation, rawCalculations, currentItemName);
-
                 const pageVal = headerIndices.page !== undefined ? parseInt(String(row[headerIndices.page])) || undefined : undefined;
 
                 allRows.push({
@@ -621,7 +748,11 @@ function extractFromBlockFormat(rawMatrix: any[][], errors: string[]) {
 }
 
 /** Extrae de formato tabular plano estándar */
-function extractFromTabularFormat(sheet: XLSX.WorkSheet, errors: string[]) {
+function extractFromTabularFormat(
+    sheet: XLSX.WorkSheet,
+    errors: string[],
+    defaultItemInfo?: { itemNum: string; itemName?: string }
+) {
     const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, {
         defval: '',
         raw: false,
@@ -633,10 +764,10 @@ function extractFromTabularFormat(sheet: XLSX.WorkSheet, errors: string[]) {
     }
 
     const colMap = detectColumns(rawRows[0]);
-    if (!colMap.itemNum) {
-        throw new Error(
-            'No se encontró la columna de número de ítem o especificación en el Excel. Verifique que incluya "Item Number:", "Item", o "Partida".'
-        );
+    const fallbackItemNum = defaultItemInfo?.itemNum || '';
+
+    if (!colMap.itemNum && !fallbackItemNum) {
+        return { allRows: [], certNumDetected: '', certDateDetected: '' };
     }
 
     const allRows: CertExcelRow[] = [];
@@ -644,32 +775,30 @@ function extractFromTabularFormat(sheet: XLSX.WorkSheet, errors: string[]) {
         const raw = rawRows[i];
         try {
             const get = (key: string | undefined) => key ? (raw[key] ?? '') : '';
-            const itemNumRaw = String(get(colMap.itemNum)).trim();
+            const detectedItemNum = colMap.itemNum ? String(get(colMap.itemNum)).trim() : '';
+            const itemNumRaw = detectedItemNum || fallbackItemNum;
             if (!itemNumRaw || itemNumRaw === '' || itemNumRaw === '0') continue;
 
-            // Regla 11: Ignorar completamente filas que contengan Total, Subtotal, Balance, Resumen
             const rowVals = Object.values(raw).map(v => String(v || '').toLowerCase().trim());
             if (rowVals.some(v => v.includes('total') || v.includes('subtotal') || v.includes('balance') || v.includes('resumen') || v.includes('summary'))) {
                 continue;
             }
 
-            // Regla 7: Cantidades desde columna Cantidad con prioridad absoluta
             const qtyStr = String(get(colMap.quantity)).replace(/,/g, '').trim();
             const qty = parseFloat(qtyStr);
 
-            // Regla 10: Exclusión de Cantidades en Cero
             if (isNaN(qty) || qty <= 0) {
                 continue;
             }
 
-            // Reglas 5 y 6: Location y Calculations
             const rawLoc = String(get(colMap.location)).trim();
             const rawCalc = String(get(colMap.calculations)).trim();
-            const { location, calculations } = splitLocationAndCalculations(rawLoc, rawCalc);
+            const { location, calculations } = splitLocationAndCalculations(rawLoc, rawCalc, defaultItemInfo?.itemName || '');
 
             allRows.push({
                 itemNum: itemNumRaw,
                 specCode: itemNumRaw,
+                itemName: defaultItemInfo?.itemName || '',
                 location,
                 calculations,
                 quantity: qty,
@@ -741,7 +870,6 @@ function detectColumns(firstRow: Record<string, any>) {
         itemNum:      find('itemnumber', 'itemno', 'itemnum', 'item_num', 'item', 'partida', 'especificacion', 'specification'),
         location:     find('location', 'ubicacion', 'lugar', 'estacion', 'station', 'tramo'),
         calculations: find('calculation', 'calculo', 'formula', 'notes', 'notas', 'remarks', 'observaciones', 'descripcion', 'description'),
-        // Regla 7: Prioridad absoluta a Cantidad
         quantity:     find('cantidad', 'qty', 'quantity', 'quantityverifiedandapproved', 'verifiedandapproved', 'verifiedapproved', 'quantityverified', 'qtyverified', 'qtyapproved', 'quantityapproved', 'quantitymeasured'),
         inspector:    find('inspector', 'insp', 'inspeccionado por'),
         inspDate:     find('inspectiondate', 'fecha', 'date', 'inspdate', 'fechainspeccion'),
@@ -891,7 +1019,6 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
     pageNum: number;
     totalPages: number;
 }) {
-    // Regla 14: Encabezado Institucional
     setupInstitutionalHeader(ws);
 
     const set = (coord: string, value: any) => {
@@ -901,7 +1028,6 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
         }
     };
 
-    // Regla 15: Datos de Proyecto desde PACT
     set(TEMPLATE_CELLS.PROJECT_NAME, data.projectName);
     set(TEMPLATE_CELLS.PROJECT_NUM,  data.projectNum);
     set(TEMPLATE_CELLS.CONTRACTOR,   data.contractor);
@@ -911,11 +1037,9 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
     set(TEMPLATE_CELLS.ITEM_UNIT,    data.itemUnit);
     set(TEMPLATE_CELLS.CERT_NUM,     data.certNum);
     set(TEMPLATE_CELLS.CERT_DATE,    formatDisplayDate(data.certDate));
-    // Paginación Page X of Y en AV39 y AZ39
     set(TEMPLATE_CELLS.PAGE_OF_NUM,  data.pageNum);
     set(TEMPLATE_CELLS.TOTAL_PAGES,  data.totalPages);
 
-    // Regla 17: Ajustar alturas de fila para evitar textos truncados
     const pNameLen = (data.projectName || '').length;
     let r6Height = 26;
     if (pNameLen > 35) r6Height = 36;
@@ -948,14 +1072,6 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
     }
 }
 
-/**
- * Regla 14: Encabezado Institucional
- * Fila 1: Government of Puerto Rico centrado en A1:BU1. ACT-117A en negrita en BV1:CB1.
- * Fila 2: Department of Transportation and Public Works centrado en A2:BU2. (6/09) en BV2:CB2.
- * Fila 3: HIGHWAY AND TRANSPORTATION AUTHORITY centrado en A3:CB3.
- * Fila 4: Vacía.
- * Fila 5: ITEM CERTIFICATION WORKSHEET en negrita centrado en A5:CB5.
- */
 function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
     ['A1:CB1', 'A1:BT1', 'A1:BU1', 'BV1:CB1', 'A2:CB2', 'A2:BT2', 'A2:BU2', 'BV2:CB2'].forEach(r => {
         try { ws.unMergeCells(r); } catch {}
@@ -966,7 +1082,6 @@ function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
         ws.getCell(2, c).value = '';
     }
 
-    // Fila 1
     try {
         ws.mergeCells('A1:BU1');
         ws.mergeCells('BV1:CB1');
@@ -980,7 +1095,6 @@ function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
     ws.getCell('BV1').alignment = { horizontal: 'right', vertical: 'middle' };
     ws.getCell('BV1').font = { name: 'Arial', size: 9, bold: true };
 
-    // Fila 2
     try {
         ws.mergeCells('A2:BU2');
         ws.mergeCells('BV2:CB2');
@@ -994,18 +1108,15 @@ function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
     ws.getCell('BV2').alignment = { horizontal: 'right', vertical: 'middle' };
     ws.getCell('BV2').font = { name: 'Arial', size: 9, bold: false };
 
-    // Fila 3
     try { ws.mergeCells('A3:CB3'); } catch {}
     ws.getCell('A3').value = 'HIGHWAY AND TRANSPORTATION AUTHORITY';
     ws.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getCell('A3').font = { name: 'Arial', size: 9, bold: false };
 
-    // Fila 4: vacía
     for (let c = 1; c <= 80; c++) {
         ws.getCell(4, c).value = '';
     }
 
-    // Fila 5: ITEM CERTIFICATION WORKSHEET
     try { ws.mergeCells('A5:CB5'); } catch {}
     ws.getCell('A5').value = 'ITEM CERTIFICATION WORKSHEET';
     ws.getCell('A5').alignment = { horizontal: 'center', vertical: 'middle' };
@@ -1031,16 +1142,6 @@ const INSPECTOR_INCISOS = [
     { letter: 'j', row: 38, cell: 'N38' },
 ];
 
-/**
- * Llena las filas de detalle (13 a 27 = 15 filas por página):
- * Regla 5: Columna C (Location): ubicación según la descripción de cada línea
- * Regla 6: Columna AB (Calculations): parte de la descripción no utilizada en Location
- * Regla 7: Cantidad aprobada
- * Regla 8: Columna BJ (Amount): =AO7*BD[fila] con formato moneda; vacía si cantidad es <= 0 o vacía
- * Regla 9: Columna BT (Date, col 72): fecha correspondiente al registro
- * Regla 12: Columna BX (Page, col 76): celda vacía
- * Regla 13: Columna BQ (Insp.): letra del inciso correspondiente al inspector
- */
 function fillDataRows(
     ws: ExcelJS.Worksheet,
     pageRows: CertExcelRow[],
@@ -1057,19 +1158,16 @@ function fillDataRows(
 
         const dateStr = formatDisplayDate(dataRow.inspDate);
 
-        // Regla 5: Columna Location (Columna C, col 3)
         const locCell = ws.getCell(excelRow, 3);
         locCell.value = dataRow.location || '';
         locCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
         locCell.font = { name: 'Arial', size: 9, bold: false };
 
-        // Regla 6: Columna Calculations (Columna AB, col 28)
         const calcCell = ws.getCell(excelRow, 28);
         calcCell.value = dataRow.calculations || '';
         calcCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
         calcCell.font = { name: 'Arial', size: 9, bold: false };
 
-        // Regla 7: Quantity (BD, col 56)
         const qtyCell = ws.getCell(excelRow, 56);
         qtyCell.value = dataRow.quantity;
         qtyCell.alignment = { vertical: 'middle', horizontal: 'right' };
@@ -1080,9 +1178,6 @@ function fillDataRows(
             qtyCell.font = { name: 'Arial', size: 9, bold: false };
         }
 
-        // Regla 8: Columna Amount (BJ, col 62)
-        // Si cantidad es 0, vacía o negativa -> celda completamente vacía (no $0.00 ni fórmulas que arrojen cero)
-        // Cuando exista cantidad válida -> =AO7*BD[fila] con formato moneda
         if (!dataRow.quantity || dataRow.quantity <= 0) {
             ws.getCell(excelRow, 62).value = '';
         } else {
@@ -1095,7 +1190,6 @@ function fillDataRows(
             ws.getCell(excelRow, 62).alignment = { vertical: 'middle', horizontal: 'right' };
         }
 
-        // Columna Insp. (BQ, col 69): letra del inciso según el inspector
         let inspLetter = '';
         const rawInsp = (dataRow.inspector || '').trim();
         if (rawInsp && inspectorsList.length > 0) {
@@ -1113,22 +1207,16 @@ function fillDataRows(
         inspCell.alignment = { horizontal: 'center', vertical: 'middle' };
         inspCell.font = { name: 'Arial', size: 9, bold: false };
 
-        // Regla 9: References - Date (Columna BT, col 72)
-        // Debe contener la(s) fecha(s) correspondiente(s) a los registros incluidos en la página
         const dateCell = ws.getCell(excelRow, 72);
         dateCell.value = dateStr;
         dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
         dateCell.font = { name: 'Arial', size: 9, bold: false };
 
-        // Regla 12: References - Page (Columna BX, col 76)
-        // Debe permanecer vacía
         ws.getCell(excelRow, 76).value = '';
-
         ws.getRow(excelRow).height = 20;
     }
 }
 
-/** Limpia una fila sin dejar $0.00 en Amount (Regla 8 y 10) */
 function clearDataRow(ws: ExcelJS.Worksheet, rowNum: number) {
     ws.getCell(rowNum, 3).value  = '';
     ws.getCell(rowNum, 28).value = '';
@@ -1140,12 +1228,6 @@ function clearDataRow(ws: ExcelJS.Worksheet, rowNum: number) {
     ws.getRow(rowNum).height = 18;
 }
 
-/**
- * Regla 16: Manejo de Páginas y Totales
- * Páginas Intermedias: Mostrar "Sub-Total"
- * Última Página: Mostrar "Gran Total" y acumular todas las cantidades e importes de esa misma partida
- * Celdas BD30:BI30 y BJ30:BP30 combinadas para que "Gran Total" nunca aparezca cortado o truncado
- */
 function applyTotals(ws: ExcelJS.Worksheet, ctx: {
     pageIdx: number;
     numPages: number;
@@ -1160,7 +1242,6 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
     const pageQty = pageRows.reduce((sum, r) => sum + (r.quantity || 0), 0);
     const pageAmt = pageQty * unitPrice;
 
-    // Regla 16: Combinar BD30:BI30 y BJ30:BP30 para que el texto "Gran Total" nunca aparezca cortado
     try {
         if ((ws as any)._merges?.['BE30']) ws.unMergeCells('BE30:BI30');
     } catch {}
@@ -1179,7 +1260,6 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
     const totalLabelAlign = { horizontal: 'center' as const, vertical: 'middle' as const, shrinkToFit: true };
 
     if (numPages <= 1) {
-        // Ítem de 1 sola página
         ws.getCell('BD28').value = { formula: 'SUM(BD13:BD27)', result: totalItemQty };
         ws.getCell('BJ28').value = { formula: 'SUM(BJ13:BJ27)', result: totalItemAmt };
 
@@ -1194,7 +1274,6 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
         const isLastPage = pageIdx === numPages - 1;
 
         if (!isLastPage) {
-            // Páginas intermedias: Sub-Total
             ws.getCell('BD28').value = { formula: 'SUM(BD13:BD27)', result: pageQty };
             ws.getCell('BJ28').value = { formula: 'SUM(BJ13:BJ27)', result: pageAmt };
 
@@ -1206,7 +1285,6 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
             ws.getCell('BJ30').font = totalLabelFont;
             ws.getCell('BJ30').alignment = totalLabelAlign;
         } else {
-            // Última Página: Gran Total acumulando todas las páginas de esta misma partida
             const sumQtyFormula = itemSheetNames.map(s => `'${s}'!BD28`).join('+');
             const sumAmtFormula = itemSheetNames.map(s => `'${s}'!BJ28`).join('+');
 
@@ -1228,11 +1306,6 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
     ws.getRow(30).height = 16;
 }
 
-/**
- * Regla 13: Leyenda Inferior (Filas 29-38)
- * En los incisos a., b., c., etc. colocar los nombres de inspectores ingresados o seleccionados
- * Reglas: No repetir inspectores. Mostrar únicamente una vez cada nombre.
- */
 function fillInspectorLegend(ws: ExcelJS.Worksheet, inspectors: string[]) {
     INSPECTOR_INCISOS.forEach(inc => {
         ws.getCell(inc.cell).value = '';
@@ -1248,16 +1321,10 @@ function fillInspectorLegend(ws: ExcelJS.Worksheet, inspectors: string[]) {
     });
 }
 
-/**
- * Regla 17: Bordes y Alturas de Fila
- * Mantener completos todos los bordes horizontales y verticales.
- * No presentar líneas cortadas.
- */
 function ensureTableBorders(ws: ExcelJS.Worksheet) {
     const borderMediumBlack = { style: 'medium' as const, color: { argb: 'FF000000' } };
     const borderThinBlack   = { style: 'thin' as const, color: { argb: 'FF000000' } };
 
-    // 1. Encabezados de tabla: filas 11 y 12
     for (let c = 3; c <= 78; c++) {
         const c11 = ws.getCell(11, c);
         c11.border = { ...(c11.border || {}), top: borderMediumBlack };
@@ -1285,7 +1352,6 @@ function ensureTableBorders(ws: ExcelJS.Worksheet) {
     ws.getCell(12, 75).border = { ...(ws.getCell(12, 75).border || {}), right: borderMediumBlack };
     ws.getCell(12, 76).border = { ...(ws.getCell(12, 76).border || {}), left: borderMediumBlack };
 
-    // 2. Filas de datos (13 a 27)
     const detailColsLeft = [3, 28, 56, 62, 69, 72, 76];
     const detailColsRight = [27, 55, 61, 68, 71, 75, 78];
 
@@ -1305,7 +1371,6 @@ function ensureTableBorders(ws: ExcelJS.Worksheet) {
         });
     }
 
-    // 3. Fila de Totales
     for (let c = 56; c <= 78; c++) {
         const cell = ws.getCell(29, c);
         cell.border = { ...(cell.border || {}), bottom: borderMediumBlack };

@@ -448,21 +448,72 @@ function ReportesContent() {
         setAct117aDetectedItems([]);
         setAct117aSelectedItems([]);
         if (!file) return;
+
         const isExcel = file.name.toLowerCase().endsWith(".xlsx") || file.name.toLowerCase().endsWith(".xls");
         if (!isExcel) {
             setAct117aFile(null);
             setAct117aError("Solo se admiten documentos en formato Excel (.xlsx o .xls). Los archivos PDF no están permitidos.");
             return;
         }
+
         setAct117aScanning(true);
         try {
             const { scanExcelItems } = await import("@/lib/generateAct117AFromExcel");
             const scanRes = await scanExcelItems(file);
-            const items = scanRes.items || [];
-            setAct117aDetectedItems(items);
-            setAct117aSelectedItems(items.map((it: any) => it.itemKey));
+            const scannedItems = scanRes.items || [];
+
+            // Helper de normalización para cruzar los ítems encontrados en el Excel con el catálogo de PACT
+            const cleanKey = (val: any) => String(val || '')
+                .toLowerCase()
+                .replace(/^(item|partida|it[\.\s]|p[\.\s])\s*/i, '')
+                .replace(/[^a-z0-9]/g, '')
+                .replace(/^0+/, '');
+
+            // Enriquecer cada ítem detectado con su descripción oficial en PACT
+            const enriched = scannedItems.map((scItem: any) => {
+                const targetClean = cleanKey(scItem.itemKey || scItem.itemNum);
+                const matchedDb = (items || []).find((dbIt: any) => {
+                    const cNum = cleanKey(dbIt.item_num);
+                    const cSpec = cleanKey(dbIt.specification);
+                    return (cNum && cNum === targetClean) ||
+                           (cSpec && cSpec === targetClean) ||
+                           (cNum && targetClean && (cNum.includes(targetClean) || targetClean.includes(cNum)));
+                });
+
+                const finalNum = matchedDb?.item_num || scItem.itemNum || scItem.itemKey;
+                const finalDesc = matchedDb?.description || scItem.itemName || "";
+
+                return {
+                    key: finalNum,
+                    itemKey: finalNum,
+                    itemNum: finalNum,
+                    itemName: finalDesc,
+                    rowsCount: scItem.rowsCount || 0,
+                    totalQty: scItem.totalQty || 0,
+                };
+            });
+
+            // Eliminar posibles duplicados si varias páginas correspondían a la misma partida
+            const uniqueMap = new Map();
+            for (const it of enriched) {
+                if (!uniqueMap.has(it.key)) {
+                    uniqueMap.set(it.key, it);
+                } else {
+                    const existing = uniqueMap.get(it.key);
+                    existing.rowsCount = (existing.rowsCount || 0) + (it.rowsCount || 0);
+                    existing.totalQty = (existing.totalQty || 0) + (it.totalQty || 0);
+                }
+            }
+            const finalList = Array.from(uniqueMap.values());
+
+            setAct117aDetectedItems(finalList);
+
+            // SELECCIONAR AUTOMÁTICAMENTE TODOS LOS ÍTEMS PRESENTES EN EL ARCHIVO EXCEL
+            setAct117aSelectedItems(finalList.map(it => it.key));
+
             if (scanRes.certNumDetected && !act117aCertNum) setAct117aCertNum(scanRes.certNumDetected);
             if (scanRes.certDateDetected && !act117aCertDate) setAct117aCertDate(scanRes.certDateDetected);
+
             if (scanRes.inspectorsDetected && scanRes.inspectorsDetected.length > 0) {
                 setAct117aInspectors(prev => {
                     const combined = Array.from(new Set([...prev, ...scanRes.inspectorsDetected]));
@@ -472,7 +523,8 @@ function ReportesContent() {
                 setAct117aSelectedInspectors(prev => Array.from(new Set([...prev, ...scanRes.inspectorsDetected])));
             }
         } catch (e: any) {
-            console.warn("Error escaneando partidas del Excel:", e);
+            console.warn("Error escaneando páginas e ítems del Excel:", e);
+            setAct117aError(`Error al leer archivo Excel: ${e.message}`);
         } finally {
             setAct117aScanning(false);
         }
@@ -2013,22 +2065,32 @@ function ReportesContent() {
                         )}
                     </div>
 
-                    {/* Selector de Partidas a Generar (Siempre visible) */}
+                    {/* Selector de Partidas a Generar (Regla 4 y Foto 2 de Enrique) */}
                     {(() => {
-                        const hasExcelItems = act117aDetectedItems.length > 0;
-                        const rawList = hasExcelItems
-                            ? act117aDetectedItems.map((it: any) => ({
-                                key: it.itemKey,
-                                num: it.itemKey,
-                                desc: it.itemName || "",
-                                extra: `${it.rowsCount} registro(s)`
-                            }))
-                            : (items || []).map((it: any) => ({
-                                key: it.item_num,
-                                num: it.item_num,
-                                desc: it.description || "",
-                                extra: ""
-                            }));
+                        if (act117aScanning) {
+                            return (
+                                <div className="flex items-center justify-center gap-2 py-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500">
+                                    <Loader2 size={16} className="animate-spin text-emerald-600" />
+                                    Buscando páginas e ítems en el archivo Excel...
+                                </div>
+                            );
+                        }
+
+                        // La lista de partidas se genera a partir de los ítems presentes en las páginas del Excel
+                        const rawList = act117aDetectedItems.map((it: any) => ({
+                            key: it.key || it.itemKey,
+                            num: it.itemNum || it.key || it.itemKey,
+                            desc: it.itemName || "",
+                            extra: it.rowsCount ? `${it.rowsCount} registro(s)` : ""
+                        }));
+
+                        if (rawList.length === 0) {
+                            return (
+                                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400">
+                                    Selecciona un archivo Excel de certificación arriba para buscar el nombre de las páginas y listar las partidas a generar en el ACT-117A.
+                                </div>
+                            );
+                        }
 
                         const filteredList = act117aSearchItem.trim()
                             ? rawList.filter((it: any) => {
@@ -2036,23 +2098,6 @@ function ReportesContent() {
                                 return String(it.num).toLowerCase().includes(term) || String(it.desc).toLowerCase().includes(term);
                             })
                             : rawList;
-
-                        if (act117aScanning) {
-                            return (
-                                <div className="flex items-center justify-center gap-2 py-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500">
-                                    <Loader2 size={16} className="animate-spin text-emerald-600" />
-                                    Escaneando partidas en el archivo Excel...
-                                </div>
-                            );
-                        }
-
-                        if (rawList.length === 0) {
-                            return (
-                                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400">
-                                    Selecciona un archivo Excel de certificación arriba para detectar y elegir las partidas a generar en el ACT-117A.
-                                </div>
-                            );
-                        }
 
                         const allSelected = rawList.length > 0 && rawList.every((it: any) => act117aSelectedItems.includes(it.key));
                         const selectedCount = act117aSelectedItems.length;
@@ -2064,11 +2109,9 @@ function ReportesContent() {
                                         <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                                             Partidas a generar ICW ({selectedCount} de {rawList.length} seleccionadas)
                                         </span>
-                                        {hasExcelItems && (
-                                            <span className="bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">
-                                                Del Excel
-                                            </span>
-                                        )}
+                                        <span className="bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">
+                                            Del Excel
+                                        </span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button
