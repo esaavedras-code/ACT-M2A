@@ -475,17 +475,18 @@ function ReportesContent() {
                 const matchedDb = (items || []).find((dbIt: any) => {
                     const cNum = cleanKey(dbIt.item_num);
                     const cSpec = cleanKey(dbIt.specification);
+                    // Coincidencia exacta obligatoria: evita que partidas como 1 absorban a 10, 11, 12, etc.
                     return (cNum && cNum === targetClean) ||
-                           (cSpec && cSpec === targetClean) ||
-                           (cNum && targetClean && (cNum.includes(targetClean) || targetClean.includes(cNum)));
+                           (cSpec && cSpec === targetClean);
                 });
 
-                const finalNum = matchedDb?.item_num || scItem.itemNum || scItem.itemKey;
+                const rawNum = scItem.itemNum || scItem.itemKey;
+                const finalNum = matchedDb?.item_num || rawNum;
                 const finalDesc = matchedDb?.description || scItem.itemName || "";
 
                 return {
-                    key: finalNum,
-                    itemKey: finalNum,
+                    key: String(rawNum),
+                    itemKey: String(rawNum),
                     itemNum: finalNum,
                     itemName: finalDesc,
                     rowsCount: scItem.rowsCount || 0,
@@ -493,7 +494,7 @@ function ReportesContent() {
                 };
             });
 
-            // Eliminar posibles duplicados si varias páginas correspondían a la misma partida
+            // Eliminar posibles duplicados si varias páginas correspondían exactamente a la misma partida
             const uniqueMap = new Map();
             for (const it of enriched) {
                 if (!uniqueMap.has(it.key)) {

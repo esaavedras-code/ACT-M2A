@@ -72,13 +72,18 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
     const s = sheetName.trim();
     const lower = s.toLowerCase();
 
-    // Descartar hojas auxiliares que no representen partidas
-    if (['summary', 'resumen', 'totales', 'total', 'portada', 'cover', 'general', 'datos', 'instrucciones', 'instructions'].includes(lower)) {
+    // REGLA DEL USUARIO: Únicamente considerar hojas que contengan explícitamente la palabra "item"
+    if (!lower.includes('item')) {
         return null;
     }
 
-    // 1. "Item 7 - Borrow Class D" / "Partida 008 - Foundation Fill" / "Item 603(1)" / "Item 6" / "Partida 11"
-    const matchPrefix = s.match(/^(?:item|partida|it[\.\s]|p[\.\s])\s*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—]\s*(.*))?$/i);
+    // Descartar hojas de resumen general aunque lleven la palabra "item" (ej: "item summary", "items total")
+    if (['item summary', 'items summary', 'summary items', 'resumen items', 'total items'].includes(lower)) {
+        return null;
+    }
+
+    // 1. "Item 7 - Borrow Class D" / "Item 603(1)" / "Item 6" / "Item 008 - Foundation Fill" / "Item 11" / "Item-10"
+    const matchPrefix = s.match(/^item[\s\.\-_:]*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—\s]\s*(.*))?$/i);
     if (matchPrefix) {
         return {
             itemNum: matchPrefix[1].trim(),
@@ -86,19 +91,20 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
         };
     }
 
-    // 2. Comienza directamente con número: "7 - Borrow Class D", "008 Foundation", "6", "7", "008", "603-01", "10"
-    const matchNum = s.match(/^([0-9]+[a-zA-Z0-9\-\.\_\(\)]*)(?:\s*[\-\:–—\s]\s*(.*))?$/);
-    if (matchNum) {
+    // 2. Si la palabra "Item" está en otra posición del nombre (ej: "Proyecto Item 10 - Asfalto")
+    const matchAnywhere = s.match(/item[\s\.\-_:]*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—\s]\s*(.*))?$/i);
+    if (matchAnywhere) {
         return {
-            itemNum: matchNum[1].trim(),
-            itemName: matchNum[2] ? matchNum[2].trim() : undefined,
+            itemNum: matchAnywhere[1].trim(),
+            itemName: matchAnywhere[2] ? matchAnywhere[2].trim() : undefined,
         };
     }
 
-    // 3. Si no tiene número pero es una hoja de trabajo activa
+    // 3. Si tiene la palabra "Item" pero con texto continuo
+    const cleaned = s.replace(/item/gi, '').trim().replace(/^[\-\:–—\s]+/, '');
     return {
-        itemNum: s,
-        itemName: s,
+        itemNum: cleaned || s,
+        itemName: cleaned || undefined,
     };
 }
 
