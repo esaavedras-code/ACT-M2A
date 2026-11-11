@@ -73,17 +73,23 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
     const s = sheetName.trim();
     const lower = s.toLowerCase();
 
-    // Considerar hojas que contengan "item" o "partida"
-    if (!lower.includes('item') && !lower.includes('partida')) {
+    // Descartar hojas de resumen general aunque lleven la palabra "item"
+    if (['resumen', 'summary', 'total', 'totales', 'general', 'indice', 'index'].some(w => lower === w || lower.startsWith(w + ' '))) {
+        return null;
+    }
+    if (['item summary', 'items summary', 'summary items', 'resumen items', 'total items', 'resumen de cantidades'].includes(lower)) {
         return null;
     }
 
-    // Descartar hojas de resumen general aunque lleven la palabra "item" (ej: "item summary", "items total")
-    if (['item summary', 'items summary', 'summary items', 'resumen items', 'total items'].includes(lower)) {
-        return null;
+    // Detección directa de Trainees (Items 2 y 3)
+    if (lower.includes('ypp') || (lower.includes('trainee') && (lower.includes('3') || lower.includes('derek') || lower.includes('153')))) {
+        return { itemNum: '3', itemName: 'YPP Trainees Man Hour' };
+    }
+    if (lower.includes('trainee') || lower.includes('ivonne') || lower.includes('152')) {
+        return { itemNum: '2', itemName: 'Trainees Man Hour' };
     }
 
-    // 1. "Item 7 - Borrow Class D" / "Item 603(1)" / "Item 6" / "Item 008 - Foundation Fill" / "Item 11" / "Item-10"
+    // 1. "Item 7 - Borrow Class D" / "Item 603(1)" / "Item 6" / "Item 008 - Foundation Fill" / "Item 11" / "Item-10" / "Partida 2"
     const matchPrefix = s.match(/^(?:item|partida)[\s\.\-_:]*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—\s]\s*(.*))?$/i);
     if (matchPrefix) {
         return {
@@ -92,7 +98,24 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
         };
     }
 
-    // 2. Si la palabra "Item" o "Partida" está en otra posición del nombre (ej: "Proyecto Item 10 - Asfalto")
+    // 2. Si empieza por número seguido de guión o descripción: "2 - Trainees", "3 - YPP", "10 - Asfalto", "008 - Foundation Fill"
+    const matchNumStart = s.match(/^(\d+[a-zA-Z0-9\-\.\_\(\)]*)\s*[\-\:–—]\s*(.*)$/);
+    if (matchNumStart) {
+        return {
+            itemNum: matchNumStart[1].trim(),
+            itemName: matchNumStart[2] ? matchNumStart[2].trim() : undefined,
+        };
+    }
+
+    // 3. Si el nombre de la hoja es puramente un número de partida: "2", "3", "10", "603(1)"
+    if (/^\d+[a-zA-Z0-9\-\.\_\(\)]*$/.test(s)) {
+        return {
+            itemNum: s,
+            itemName: undefined,
+        };
+    }
+
+    // 4. Si la palabra "Item" o "Partida" está en otra posición del nombre (ej: "Proyecto Item 10 - Asfalto")
     const matchAnywhere = s.match(/(?:item|partida)[\s\.\-_:]*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—\s]\s*(.*))?$/i);
     if (matchAnywhere) {
         return {
@@ -101,12 +124,16 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
         };
     }
 
-    // 3. Si tiene la palabra "Item" o "Partida" pero con texto continuo
-    const cleaned = s.replace(/item|partida/gi, '').trim().replace(/^[\-\:–—\s]+/, '');
-    return {
-        itemNum: cleaned || s,
-        itemName: cleaned || undefined,
-    };
+    // 5. Si tiene la palabra "Item" o "Partida" pero con texto continuo
+    if (lower.includes('item') || lower.includes('partida')) {
+        const cleaned = s.replace(/item|partida/gi, '').trim().replace(/^[\-\:–—\s]+/, '');
+        return {
+            itemNum: cleaned || s,
+            itemName: cleaned || undefined,
+        };
+    }
+
+    return null;
 }
 
 /**
@@ -207,8 +234,6 @@ export async function scanExcelItems(
             const validRows = rows.filter(r => {
                 const q = parseFloat(String(r.quantity ?? 0));
                 if (isNaN(q) || q <= 0) return false;
-                const d = (r.inspDate || '').trim();
-                if (!d || d === '__nodate__') return false;
                 if (isContractInfo(`${r.location} ${r.calculations}`) || isContractOrSummaryRow([r.location, r.calculations])) return false;
                 return true;
             });
@@ -246,8 +271,6 @@ export async function scanExcelItems(
                 const validRows = rows.filter(r => {
                     const q = parseFloat(String(r.quantity ?? 0));
                     if (isNaN(q) || q <= 0) return false;
-                    const d = (r.inspDate || '').trim();
-                    if (!d || d === '__nodate__') return false;
                     if (isContractInfo(`${r.location} ${r.calculations}`) || isContractOrSummaryRow([r.location, r.calculations])) return false;
                     return true;
                 });
@@ -351,7 +374,7 @@ export async function generateAct117AFromExcel(
     // 3. Regla 15: Datos de Proyecto desde PACT
     const { data: projData, error: projErr } = await supabase
         .from('projects')
-        .select('name, num_act')
+        .select('*')
         .eq('id', projectId)
         .single();
 
@@ -361,14 +384,16 @@ export async function generateAct117AFromExcel(
 
     const { data: contrData } = await supabase
         .from('contractors')
-        .select('name')
+        .select('*')
         .eq('project_id', projectId)
         .maybeSingle();
+
+    const contractorName = contrData?.name || projData?.contractor_name || projData?.contractor || '';
 
     // Catálogo del Contrato desde PACT
     const { data: contractItems } = await supabase
         .from('contract_items')
-        .select('item_num, specification, description, unit, unit_price')
+        .select('*')
         .eq('project_id', projectId);
 
     const itemsDbList = contractItems || [];
@@ -411,7 +436,7 @@ export async function generateAct117AFromExcel(
         if (!hasValidData) {
             const sheetData = certWb.Sheets[sh.sheetName];
             if (sheetData) {
-                const flexRows = extractFlexibleQuantities(sheetData, sh.itemNum, sh.itemName);
+                const flexRows = extractFlexibleQuantities(sheetData, sh.itemNum, sh.itemName, finalCertDate);
                 if (flexRows.length > 0) {
                     const consolidatedFlex = applyDateInspectorRules(flexRows);
                     itemGroups[sh.itemNum] = consolidatedFlex;
@@ -429,17 +454,19 @@ export async function generateAct117AFromExcel(
     // Regla 4: Selector de Partidas - El sistema solo generará las partidas seleccionadas
     let targetItemKeys = sortedItemKeys;
     if (Array.isArray(selectedItems) && selectedItems.length > 0) {
-        const selNorm = new Set(selectedItems.map(s => String(s).trim().toLowerCase()));
+        const selNorm = new Set(selectedItems.map(s => normalizeItemKey(String(s))));
         targetItemKeys = sortedItemKeys.filter(k => {
             const rawRows = itemGroups[k] || [];
             const firstRow = rawRows[0];
             const matchedDbItem = findContractItemInDb(k, firstRow?.specCode, itemsDbList);
             const displayItemNo = matchedDbItem?.item_num || k;
 
-            return selNorm.has(k.toLowerCase()) ||
-                   selNorm.has(displayItemNo.toLowerCase()) ||
-                   (firstRow?.specCode && selNorm.has(firstRow.specCode.toLowerCase())) ||
-                   (matchedDbItem?.specification && selNorm.has(matchedDbItem.specification.toLowerCase()));
+            const nK = normalizeItemKey(k);
+            const nDisp = normalizeItemKey(displayItemNo);
+            const nSpec = firstRow?.specCode ? normalizeItemKey(firstRow.specCode) : '';
+            const nDbSpec = matchedDbItem?.specification ? normalizeItemKey(matchedDbItem.specification) : '';
+
+            return selNorm.has(nK) || selNorm.has(nDisp) || (nSpec && selNorm.has(nSpec)) || (nDbSpec && selNorm.has(nDbSpec));
         });
 
         if (targetItemKeys.length === 0) {
@@ -461,6 +488,10 @@ export async function generateAct117AFromExcel(
     let firstSheetUsed = false;
     let itemsProcessedCount = 0;
 
+    // ── Constantes para la regla de 3 meses ─────────────────────────────────────
+    const certDateMs = finalCertDate ? new Date(finalCertDate).getTime() : NaN;
+    const THREE_MONTHS_MS = 3 * 30 * 24 * 60 * 60 * 1000; // 90 días exactos de 24h
+
     for (const itemKey of targetItemKeys) {
         const rawRows = itemGroups[itemKey];
         const firstRow = rawRows[0];
@@ -473,22 +504,78 @@ export async function generateAct117AFromExcel(
         const itemDesc = matchedDbItem?.description || firstRow?.itemName || '';
         const itemUnit = matchedDbItem?.unit || '';
 
+        // Para partidas de Trainees (Items 2 y 3)
+        const isTrainee2Check = isTraineeItem2(itemKey, firstRow?.specCode, itemDesc);
+        const isTrainee3Check = isTraineeItem3(itemKey, firstRow?.specCode, itemDesc);
+
         // Regla 10: Exclusión de Cantidades en Cero y Exclusión de Valores/Filas del Contrato
-        // REGLA DEL USUARIO: y solo incluye en los datos de las filas 13 a 27, los datos del excel que tengan fechas y cantidades
-        const validRows = rawRows.filter(r => {
+        // Solo incluye registros que tengan cantidades (> 0). Si falta la fecha, asignarle la fecha oficial de certificación
+        // Regla usuario: No incluir cantidades con fecha que tengan más de 3 meses (90 días de 24h)
+        //   de diferencia respecto a la fecha de certificación (en las filas 13 a 27 de la forma ACT-117A)
+        const filteredRows = rawRows.filter(r => {
             const q = r.quantity;
             if (q === null || q === undefined || isNaN(q) || q <= 0) return false;
-            const d = (r.inspDate || '').trim();
-            if (!d || d === '__nodate__') return false;
+            if (!r.inspDate || r.inspDate.trim() === '' || r.inspDate === '__nodate__' || r.inspDate === '__certdate__') {
+                r.inspDate = finalCertDate;
+            }
             const textCheck = `${r.location} ${r.calculations} ${r.itemName || ''}`;
             if (isContractInfo(textCheck) || isContractOrSummaryRow([r.location, r.calculations, r.itemName])) {
                 return false;
             }
+            // Excluir registros cuya fecha de inspección difiera más de 3 meses (90 días de 24h) de la fecha de certificación
+            if (!isNaN(certDateMs) && r.inspDate && r.inspDate !== '__certdate__' && r.inspDate !== '__nodate__') {
+                const rowDateMs = new Date(r.inspDate).getTime();
+                if (!isNaN(rowDateMs)) {
+                    const diffMs = Math.abs(certDateMs - rowDateMs);
+                    if (diffMs > THREE_MONTHS_MS) {
+                        return false;
+                    }
+                }
+            }
             return true;
         });
 
+        // Para partidas de Trainees (Items 2 y 3), si no hay filas válidas, crear una fila placeholder
+        // con la fecha de certificación para que siempre aparezca la hoja en el reporte
+        let validRows = filteredRows;
+
         if (validRows.length === 0) {
-            continue;
+            if (isTrainee2Check || isTrainee3Check) {
+                // Buscar si hay alguna fila con cantidad > 0 sin restricción de fecha
+                const anyRow = rawRows.find(r => {
+                    const q = r.quantity;
+                    return q !== null && q !== undefined && !isNaN(q) && q > 0;
+                });
+                if (anyRow) {
+                    // Hay datos pero quedaron fuera por la regla de 3 meses;
+                    // generar hoja con placeholder (la fila se mostrará vacía en las celdas 13-27)
+                    validRows = [{
+                        ...anyRow,
+                        quantity: 0,
+                        inspDate: finalCertDate,
+                        location: isTrainee3Check
+                            ? `YPP Trainees Man Hour (Derek Figueroa Rosado)`
+                            : `Trainees Man Hour (Ivonne Rosado Rosario)`,
+                    }];
+                } else {
+                    // No hay ningún dato en absoluto; crear placeholder vacío para que aparezca la hoja
+                    validRows = [{
+                        itemNum: itemKey,
+                        specCode: itemKey,
+                        itemName: itemDesc || (isTrainee3Check ? 'YPP Trainees Man Hour' : 'Trainees Man Hour'),
+                        location: isTrainee3Check
+                            ? `YPP Trainees Man Hour (Derek Figueroa Rosado)`
+                            : `Trainees Man Hour (Ivonne Rosado Rosario)`,
+                        calculations: '',
+                        quantity: 0,
+                        inspector: '',
+                        inspDate: finalCertDate,
+                        isBlueQty: true,
+                    }];
+                }
+            } else {
+                continue;
+            }
         }
 
         const isTrainee2 = isTraineeItem2(displayItemNo, firstRow?.specCode || matchedDbItem?.specification, itemDesc);
@@ -532,8 +619,9 @@ export async function generateAct117AFromExcel(
 
         itemsProcessedCount++;
 
-        // Regla 16: Paginación de Partidas (Máximo 15 líneas de detalle por página, filas 13 a 27)
-        const numPages = Math.ceil(validRows.length / ROWS_PER_PAGE) || 1;
+        // Regla: Paginación Inteligente para no cortar renglones y usar las páginas necesarias
+        const pagedRows = paginateItemRows(validRows);
+        const numPages = pagedRows.length;
 
         const totalItemQty = validRows.reduce((sum, r) => sum + (r.quantity || 0), 0);
         const totalItemAmt = totalItemQty * unitPrice;
@@ -544,10 +632,7 @@ export async function generateAct117AFromExcel(
         }
 
         for (let pageIdx = 0; pageIdx < numPages; pageIdx++) {
-            const pageRows = validRows.slice(
-                pageIdx * ROWS_PER_PAGE,
-                (pageIdx + 1) * ROWS_PER_PAGE
-            );
+            const pageRows = pagedRows[pageIdx];
 
             const sheetName = itemSheetNames[pageIdx];
             let ws: ExcelJS.Worksheet;
@@ -565,7 +650,7 @@ export async function generateAct117AFromExcel(
             fillHeader(ws, {
                 projectName: projData.name || '',
                 projectNum:  formatProjectNumber(projData.num_act || ''),
-                contractor:  contrData?.name || '',
+                contractor:  contractorName,
                 itemNum:     displayItemNo,
                 unitPrice:   unitPrice,
                 itemDesc:    itemDesc,
@@ -577,7 +662,7 @@ export async function generateAct117AFromExcel(
             });
 
             // Reglas 5, 6, 7, 8, 9, 12: Filas de Detalle
-            fillDataRows(ws, pageRows, finalInspectors, isTrainee2, isTrainee3);
+            fillDataRows(ws, pageRows, finalInspectors, isTrainee2, isTrainee3, finalCertDate);
 
             // Regla 16: Totales (Sub-Total en páginas intermedias y Gran Total en la última)
             applyTotals(ws, {
@@ -930,7 +1015,8 @@ export function isCalculationHeader(headerText: string): boolean {
 function extractFlexibleQuantities(
     sheet: XLSX.WorkSheet,
     itemNum: string,
-    itemName?: string
+    itemName?: string,
+    defaultDate?: string
 ): CertExcelRow[] {
     const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
     if (!rawMatrix || rawMatrix.length === 0) return [];
@@ -1040,9 +1126,11 @@ function extractFlexibleQuantities(
         if (isNaN(qty) || qty <= 0) continue;
 
         const inspDateRaw = dateCol !== -1 ? row[dateCol] : '';
-        const formattedDate = formatRawDate(inspDateRaw);
-        // REGLA DEL USUARIO: solo incluye datos que tengan fechas
-        if (!formattedDate) continue;
+        let formattedDate = formatRawDate(inspDateRaw);
+        // Si no viene fecha en la celda individual de esta partida, usar la fecha de certificación o fallback
+        if (!formattedDate) {
+            formattedDate = defaultDate || '__certdate__';
+        }
 
         const inspector = inspCol !== -1 ? String(row[inspCol] || '').trim() : '';
         const rawCalc = calcCol !== -1 ? String(row[calcCol] || '').trim() : '';
@@ -1072,6 +1160,37 @@ function extractFlexibleQuantities(
             inspDate: formattedDate,
             personName: cleanPersonName(personNameRaw) || undefined,
         });
+    }
+
+    // Si aún no se encontraron filas y es una partida de Trainees o similar, buscar celdas con horas/cantidad > 0
+    if (rows.length === 0) {
+        for (let r = 0; r < rawMatrix.length; r++) {
+            const row = rawMatrix[r];
+            if (!row || row.length === 0) continue;
+            const rowStr = row.map((c: any) => String(c || '').toLowerCase()).join(' ');
+            if (rowStr.includes('hora') || rowStr.includes('hour') || rowStr.includes('trainee') || rowStr.includes('total') || rowStr.includes('balance') || rowStr.includes('aprobado') || rowStr.includes('cert')) {
+                for (const cell of row) {
+                    const valStr = String(cell || '').replace(/,/g, '').trim();
+                    const num = parseFloat(valStr);
+                    if (!isNaN(num) && num > 0 && num < 100000 && !valStr.includes('/') && !valStr.includes('-')) {
+                        const cleanNum = String(itemNum).replace(/^item\s*/i, '').trim();
+                        const isYPP = cleanNum === '3' || rowStr.includes('ypp');
+                        rows.push({
+                            itemNum,
+                            specCode: itemNum,
+                            itemName: itemName || (isYPP ? 'YPP Trainees Man Hour' : 'Trainees Man Hour'),
+                            location: isYPP ? 'YPP Trainees Man Hour (Derek Figueroa Rosado)' : 'Trainees Man Hour (Ivonne Rosado Rosario)',
+                            calculations: '',
+                            quantity: num,
+                            inspector: '',
+                            inspDate: defaultDate || '__certdate__',
+                        });
+                        break;
+                    }
+                }
+                if (rows.length > 0) break;
+            }
+        }
     }
 
     return rows;
@@ -1241,14 +1360,6 @@ function extractFromBlockFormat(
                 const recordNo = headerIndices.recordNo !== undefined ? String(row[headerIndices.recordNo] || '').trim() : '';
                 const inspector = headerIndices.inspector !== undefined ? String(row[headerIndices.inspector] || '').trim() : '';
                 const personNameRaw = headerIndices.personName !== undefined ? String(row[headerIndices.personName] || '').trim() : '';
-                const inspDateRaw = headerIndices.inspDate !== undefined ? row[headerIndices.inspDate] : '';
-                const formattedDate = formatRawDate(inspDateRaw);
-
-                // REGLA DEL USUARIO: solo incluye en los datos de las filas 13 a 27 los datos del excel que tengan fechas y cantidades
-                if (!formattedDate) {
-                    continue;
-                }
-
                 let qtyStr = '';
                 if (headerIndices.qtyCantidad !== undefined && row[headerIndices.qtyCantidad] !== undefined && row[headerIndices.qtyCantidad] !== '') {
                     qtyStr = String(row[headerIndices.qtyCantidad]);
@@ -1261,6 +1372,12 @@ function extractFromBlockFormat(
                 const qty = parseFloat(qtyStr.replace(/,/g, ''));
                 if (isNaN(qty) || qty <= 0) {
                     continue;
+                }
+
+                const inspDateRaw = headerIndices.inspDate !== undefined ? row[headerIndices.inspDate] : '';
+                let formattedDate = formatRawDate(inspDateRaw);
+                if (!formattedDate) {
+                    formattedDate = certDateDetected || '__certdate__';
                 }
 
                 // Construir location a partir de las columnas detectadas (Descripción de Trabajos, ID losa, Estaciones, MOT, etc.)
@@ -1442,11 +1559,9 @@ function extractFromTabularFormat(
         }
 
         const inspDateRaw = colIndices.inspDate !== undefined ? row[colIndices.inspDate] : '';
-        const formattedDate = formatRawDate(inspDateRaw);
-
-        // REGLA DEL USUARIO: solo incluye datos que tengan fechas
+        let formattedDate = formatRawDate(inspDateRaw);
         if (!formattedDate) {
-            continue;
+            formattedDate = certDateDetected || '__certdate__';
         }
 
         // Construir localización desde las columnas de location/trabajos/losa/estaciones/MOT
@@ -1501,25 +1616,79 @@ function extractFromTabularFormat(
 
 // ─── Helpers de Base de Datos y Formateo ─────────────────────────────────────
 
-function findContractItemInDb(
+export function normalizeItemKey(raw: string): string {
+    if (!raw) return '';
+    return String(raw)
+        .toLowerCase()
+        .replace(/^(?:item|partida)[\s\.\-_:]*/i, '')
+        .replace(/[\s_\-\.\(\)\/]/g, '')
+        .replace(/^0+/, '')
+        .trim();
+}
+
+export function findContractItemInDb(
     itemKey: string,
     specCode: string | undefined,
     dbItems: any[]
 ): any | null {
-    const clean = (s: string) => String(s || '').toLowerCase().replace(/[\s_\-\.]/g, '').replace(/^0+/, '');
+    if (!dbItems || dbItems.length === 0) return null;
 
-    const targetSpec = clean(specCode || itemKey);
-    const targetKey  = clean(itemKey);
+    const normKey = normalizeItemKey(itemKey);
+    const normSpec = normalizeItemKey(specCode || '');
 
-    let found = dbItems.find(it => clean(it.specification) === targetSpec || clean(it.specification) === targetKey);
+    // 1. Coincidencia exacta por item_num normalizado
+    let found = dbItems.find(it => normalizeItemKey(it.item_num) === normKey);
     if (found) return found;
 
-    found = dbItems.find(it => clean(it.item_num) === targetKey || clean(it.item_num) === targetSpec);
+    // 2. Coincidencia por specification normalizada
+    if (normSpec) {
+        found = dbItems.find(it => normalizeItemKey(it.specification) === normSpec);
+        if (found) return found;
+    }
+    found = dbItems.find(it => normalizeItemKey(it.specification) === normKey);
     if (found) return found;
 
+    // 3. Casos especiales para Trainees (Items 2 y 3)
+    if (normKey === '2' || normSpec.includes('152') || normKey.includes('152')) {
+        found = dbItems.find(it => {
+            const itNum = normalizeItemKey(it.item_num);
+            const itSpec = normalizeItemKey(it.specification);
+            const itDesc = String(it.description || '').toLowerCase();
+            return itNum === '2' || itSpec.includes('152') || (itDesc.includes('trainee') && !itDesc.includes('ypp'));
+        });
+        if (found) return found;
+    }
+
+    if (normKey === '3' || normSpec.includes('153') || normKey.includes('153')) {
+        found = dbItems.find(it => {
+            const itNum = normalizeItemKey(it.item_num);
+            const itSpec = normalizeItemKey(it.specification);
+            const itDesc = String(it.description || '').toLowerCase();
+            return itNum === '3' || itSpec.includes('153') || itDesc.includes('ypp');
+        });
+        if (found) return found;
+    }
+
+    // 4. Coincidencia si el número de ítem puramente numérico coincide
+    if (normKey && /^\d+$/.test(normKey)) {
+        found = dbItems.find(it => {
+            const itNum = normalizeItemKey(it.item_num);
+            return itNum === normKey;
+        });
+        if (found) return found;
+    }
+
+    // 5. Coincidencia parcial de especificación
     found = dbItems.find(it => {
-        const itSpec = clean(it.specification);
-        return itSpec && targetSpec && (itSpec.includes(targetSpec) || targetSpec.includes(itSpec));
+        const itSpec = normalizeItemKey(it.specification);
+        return itSpec && normSpec && (itSpec.includes(normSpec) || normSpec.includes(itSpec));
+    });
+    if (found) return found;
+
+    // 6. Coincidencia por subcadena de item_num
+    found = dbItems.find(it => {
+        const itNum = normalizeItemKey(it.item_num);
+        return itNum && normKey && (itNum === normKey || itNum.startsWith(normKey) || normKey.startsWith(itNum));
     });
 
     return found || null;
@@ -1726,24 +1895,36 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
 }) {
     setupInstitutionalHeader(ws);
 
-    const set = (coord: string, value: any) => {
+    const setHeaderCell = (coord: string, value: any, options: { bold?: boolean; numFmt?: string; align?: 'left' | 'center' | 'right'; size?: number } = {}) => {
         const cell = ws.getCell(coord);
-        if (value !== '' && value !== null && value !== undefined) {
-            cell.value = value;
+        cell.value = value ?? '';
+        cell.font = {
+            name: 'Arial',
+            size: options.size || 9,
+            bold: !!options.bold,
+            color: { argb: 'FF000000' }
+        };
+        if (options.numFmt) {
+            cell.numFmt = options.numFmt;
         }
+        cell.alignment = {
+            vertical: 'middle',
+            horizontal: options.align || 'left',
+            wrapText: true
+        };
     };
 
-    set(TEMPLATE_CELLS.PROJECT_NAME, data.projectName);
-    set(TEMPLATE_CELLS.PROJECT_NUM,  data.projectNum);
-    set(TEMPLATE_CELLS.CONTRACTOR,   data.contractor);
-    set(TEMPLATE_CELLS.ITEM_NO,      data.itemNum);
-    set(TEMPLATE_CELLS.UNIT_PRICE,   data.unitPrice);
-    set(TEMPLATE_CELLS.ITEM_DESC,    data.itemDesc);
-    set(TEMPLATE_CELLS.ITEM_UNIT,    data.itemUnit);
-    set(TEMPLATE_CELLS.CERT_NUM,     data.certNum);
-    set(TEMPLATE_CELLS.CERT_DATE,    formatDisplayDate(data.certDate));
-    set(TEMPLATE_CELLS.PAGE_OF_NUM,  data.pageNum);
-    set(TEMPLATE_CELLS.TOTAL_PAGES,  data.totalPages);
+    setHeaderCell(TEMPLATE_CELLS.PROJECT_NAME, data.projectName, { bold: false, align: 'left' });
+    setHeaderCell(TEMPLATE_CELLS.PROJECT_NUM,  data.projectNum,  { align: 'left' });
+    setHeaderCell(TEMPLATE_CELLS.CONTRACTOR,   data.contractor,  { align: 'left' });
+    setHeaderCell(TEMPLATE_CELLS.ITEM_NO,      data.itemNum,     { bold: true, align: 'center' });
+    setHeaderCell(TEMPLATE_CELLS.UNIT_PRICE,   data.unitPrice,   { numFmt: '$#,##0.00', align: 'right' });
+    setHeaderCell(TEMPLATE_CELLS.ITEM_DESC,    data.itemDesc,    { align: 'left' });
+    setHeaderCell(TEMPLATE_CELLS.ITEM_UNIT,    data.itemUnit,    { align: 'center' });
+    setHeaderCell(TEMPLATE_CELLS.CERT_NUM,     data.certNum,     { bold: true, align: 'center' });
+    setHeaderCell(TEMPLATE_CELLS.CERT_DATE,    formatDisplayDate(data.certDate), { align: 'center' });
+    setHeaderCell(TEMPLATE_CELLS.PAGE_OF_NUM,  data.pageNum,     { bold: true, align: 'center' });
+    setHeaderCell(TEMPLATE_CELLS.TOTAL_PAGES,  data.totalPages,  { bold: true, align: 'center' });
 
     const pNameLen = (data.projectName || '').length;
     let r6Height = 26;
@@ -1751,30 +1932,10 @@ function fillHeader(ws: ExcelJS.Worksheet, data: {
     if (pNameLen > 70) r6Height = 48;
     ws.getRow(6).height = r6Height;
 
-    const pNameCell = ws.getCell(TEMPLATE_CELLS.PROJECT_NAME);
-    if (pNameCell.style) {
-        pNameCell.style.alignment = {
-            ...(pNameCell.style.alignment || {}),
-            vertical: 'middle',
-            horizontal: 'left',
-            wrapText: true,
-        };
-    }
-
     ws.getRow(7).height = 20;
 
     const descLen = (data.itemDesc || '').length;
     ws.getRow(8).height = Math.max(22, Math.ceil(descLen / 45) * 16);
-
-    const descCell = ws.getCell(TEMPLATE_CELLS.ITEM_DESC);
-    if (descCell.style) {
-        descCell.style.alignment = {
-            ...(descCell.style.alignment || {}),
-            vertical: 'middle',
-            horizontal: 'left',
-            wrapText: true,
-        };
-    }
 }
 
 function setupInstitutionalHeader(ws: ExcelJS.Worksheet) {
@@ -1847,13 +2008,84 @@ const INSPECTOR_INCISOS = [
     { letter: 'j', row: 38, cell: 'N38' },
 ];
 
+export function estimateTextLines(text: string, maxCharsPerLine: number): number {
+    if (!text || text.trim() === '') return 1;
+    const cleanText = text.trim();
+    const manualLines = cleanText.split(/\r?\n/);
+    let totalLines = 0;
+    for (const line of manualLines) {
+        const len = line.trim().length;
+        if (len === 0) totalLines += 1;
+        else totalLines += Math.max(1, Math.ceil(len / maxCharsPerLine));
+    }
+    return Math.max(1, totalLines);
+}
+
+export function calculateNeededRowHeight(loc: string, calc: string): number {
+    const locLines = estimateTextLines(loc, 38);
+    const calcLines = estimateTextLines(calc, 44);
+    const lines = Math.max(locLines, calcLines);
+
+    if (lines <= 1) return 22;
+    if (lines === 2) return 34; // Espacio holgado para 2 líneas completas sin que el borde inferior corte las letras
+    if (lines === 3) return 48;
+    return Math.min(75, lines * 15 + 6);
+}
+
+export function paginateItemRows(rows: CertExcelRow[]): CertExcelRow[][] {
+    if (!rows || rows.length === 0) return [[]];
+
+    const pages: CertExcelRow[][] = [];
+    let currentPage: CertExcelRow[] = [];
+    let currentHeightSum = 0;
+
+    // Altura máxima segura para la zona de detalle (filas 13 a 27) para caber en hoja Letter sin desbordar
+    const MAX_PAGE_DATA_HEIGHT = 270;
+
+    // Detectar si alguna fila del ítem es multilínea
+    const hasMultiLine = rows.some(r => {
+        const lines = Math.max(estimateTextLines(r.location || '', 38), estimateTextLines(r.calculations || '', 44));
+        return lines > 1;
+    });
+
+    // Si tiene renglones largos, reducir la cantidad de filas por página (máximo 8-9) y usar las páginas necesarias
+    const MAX_ROWS_PER_PAGE = hasMultiLine ? 9 : 15;
+
+    for (const row of rows) {
+        const h = calculateNeededRowHeight(row.location || '', row.calculations || '');
+
+        if (
+            currentPage.length > 0 &&
+            (currentPage.length >= MAX_ROWS_PER_PAGE || (currentHeightSum + h > MAX_PAGE_DATA_HEIGHT))
+        ) {
+            pages.push(currentPage);
+            currentPage = [];
+            currentHeightSum = 0;
+        }
+
+        currentPage.push(row);
+        currentHeightSum += h;
+    }
+
+    if (currentPage.length > 0) {
+        pages.push(currentPage);
+    }
+
+    return pages;
+}
+
 function fillDataRows(
     ws: ExcelJS.Worksheet,
     pageRows: CertExcelRow[],
     inspectorsList: string[] = [],
     isTrainee2: boolean = false,
-    isTrainee3: boolean = false
+    isTrainee3: boolean = false,
+    certDate: string = ''
 ) {
+    // Preparar la validación de 3 meses para las filas 13 a 27
+    const certDateMs = certDate ? new Date(certDate).getTime() : NaN;
+    const THREE_MONTHS_MS = 3 * 30 * 24 * 60 * 60 * 1000; // ~90 días exactos de 24h
+
     for (let i = 0; i < ROWS_PER_PAGE; i++) {
         const excelRow = DATA_ROW_START + i;
         const dataRow = pageRows[i];
@@ -1871,6 +2103,19 @@ function fillDataRows(
         ) {
             clearDataRow(ws, excelRow);
             continue;
+        }
+
+        // Regla usuario: No incluir en las líneas 13 a 27 cantidades con fecha que tengan
+        // más de 3 meses (90 días de 24h) de diferencia respecto a la fecha de certificación
+        if (!isNaN(certDateMs) && dataRow.inspDate && dataRow.inspDate !== '__certdate__' && dataRow.inspDate !== '__nodate__') {
+            const rowDateMs = new Date(dataRow.inspDate).getTime();
+            if (!isNaN(rowDateMs)) {
+                const diffMs = Math.abs(certDateMs - rowDateMs);
+                if (diffMs > THREE_MONTHS_MS) {
+                    clearDataRow(ws, excelRow);
+                    continue;
+                }
+            }
         }
 
         // Regla: No incluir información del contrato en las filas de la 13 a la 28
@@ -1947,7 +2192,10 @@ function fillDataRows(
         dateCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
         ws.getCell(excelRow, 76).value = '';
-        ws.getRow(excelRow).height = 20;
+
+        // Ajuste dinámico de altura para evitar que las letras se vean cortadas
+        const neededHeight = calculateNeededRowHeight(finalLoc, dataRow.calculations || '');
+        ws.getRow(excelRow).height = neededHeight;
     }
 }
 
@@ -1959,7 +2207,7 @@ function clearDataRow(ws: ExcelJS.Worksheet, rowNum: number) {
     ws.getCell(rowNum, 69).value = '';
     ws.getCell(rowNum, 72).value = '';
     ws.getCell(rowNum, 76).value = '';
-    ws.getRow(rowNum).height = 18;
+    ws.getRow(rowNum).height = 16;
 }
 
 function applyTotals(ws: ExcelJS.Worksheet, ctx: {
