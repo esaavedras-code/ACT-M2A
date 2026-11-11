@@ -593,15 +593,17 @@ function extractDataFromWorkbook(wb: XLSX.WorkBook, errors: string[]) {
             let foundInsp = '';
             let foundDate = '';
 
-            for (const r of rawMatrix) {
+            for (let rIdx = 0; rIdx < rawMatrix.length; rIdx++) {
+                const r = rawMatrix[rIdx];
                 if (!r || r.length === 0) continue;
                 for (let c = 0; c < r.length; c++) {
                     const val = String(r[c] || '').toLowerCase().trim();
-                    if (!certNumDetected && val.includes('cert') && (val.includes('no') || val.includes('num'))) {
+                    if (!certNumDetected && val.includes('cert') && (val.includes('no') || val.includes('num') || val.includes('#'))) {
                         const match = String(r[c] || '').match(/\d+/);
                         if (match) certNumDetected = match[0];
                     }
-                    if (val.includes('quantity') || val.includes('cantidad') || val.includes('qty')) {
+                    if (val.includes('quantity') || val.includes('cantidad') || val.includes('qty') || val.includes('amount') || val.includes('aprob')) {
+                        // Buscar a la derecha en la misma fila
                         for (let nextC = c + 1; nextC < r.length; nextC++) {
                             const candidate = parseFloat(String(r[nextC] || '').replace(/,/g, ''));
                             if (!isNaN(candidate) && candidate > 0 && foundQty === 0) {
@@ -609,20 +611,46 @@ function extractDataFromWorkbook(wb: XLSX.WorkBook, errors: string[]) {
                                 break;
                             }
                         }
+                        // O buscar abajo en la misma columna (fila siguiente)
+                        if (foundQty === 0 && rIdx + 1 < rawMatrix.length) {
+                            const candidate = parseFloat(String(rawMatrix[rIdx + 1]?.[c] || '').replace(/,/g, ''));
+                            if (!isNaN(candidate) && candidate > 0) {
+                                foundQty = candidate;
+                            }
+                        }
                     }
                 }
             }
 
-            allRows.push({
-                itemNum: sheetItemInfo.itemNum,
-                specCode: sheetItemInfo.itemNum,
-                itemName: sheetItemInfo.itemName || '',
-                location: foundLoc,
-                calculations: '',
-                quantity: foundQty > 0 ? foundQty : 0,
-                inspector: foundInsp,
-                inspDate: foundDate,
-            });
+            // Si todavía no se encuentra cantidad > 0, buscar cualquier número válido en la hoja que no sea fecha ni índice
+            if (foundQty === 0) {
+                for (const r of rawMatrix) {
+                    if (!r) continue;
+                    for (const cell of r) {
+                        const strVal = String(cell || '').trim();
+                        if (strVal.includes('/') || strVal.includes(':') || strVal.length > 10) continue;
+                        const num = parseFloat(strVal.replace(/,/g, ''));
+                        if (!isNaN(num) && num > 0 && foundQty === 0) {
+                            foundQty = num;
+                            break;
+                        }
+                    }
+                    if (foundQty > 0) break;
+                }
+            }
+
+            if (foundQty > 0) {
+                allRows.push({
+                    itemNum: sheetItemInfo.itemNum,
+                    specCode: sheetItemInfo.itemNum,
+                    itemName: sheetItemInfo.itemName || '',
+                    location: foundLoc,
+                    calculations: '',
+                    quantity: foundQty,
+                    inspector: foundInsp,
+                    inspDate: foundDate,
+                });
+            }
         }
     }
 
@@ -805,73 +833,160 @@ function extractFromBlockFormat(
     return { allRows, certNumDetected, certDateDetected };
 }
 
-/** Extrae de formato tabular plano estándar */
+/** Extrae de formato tabular plano estándar o plantillas con encabezados desplazados */
 function extractFromTabularFormat(
     sheet: XLSX.WorkSheet,
     errors: string[],
     defaultItemInfo?: { itemNum: string; itemName?: string }
 ) {
-    const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, {
-        defval: '',
-        raw: false,
-        dateNF: 'YYYY-MM-DD'
-    });
-
-    if (rawRows.length === 0) {
+    const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    if (!rawMatrix || rawMatrix.length === 0) {
         return { allRows: [], certNumDetected: '', certDateDetected: '' };
     }
 
-    const colMap = detectColumns(rawRows[0]);
+    let certNumDetected = '';
+    let certDateDetected = '';
     const fallbackItemNum = defaultItemInfo?.itemNum || '';
 
-    if (!colMap.itemNum && !fallbackItemNum) {
-        return { allRows: [], certNumDetected: '', certDateDetected: '' };
-    }
-
-    const allRows: CertExcelRow[] = [];
-    for (let i = 0; i < rawRows.length; i++) {
-        const raw = rawRows[i];
-        try {
-            const get = (key: string | undefined) => key ? (raw[key] ?? '') : '';
-            const detectedItemNum = colMap.itemNum ? String(get(colMap.itemNum)).trim() : '';
-            const itemNumRaw = detectedItemNum || fallbackItemNum;
-            if (!itemNumRaw || itemNumRaw === '' || itemNumRaw === '0') continue;
-
-            const rowVals = Object.values(raw).map(v => String(v || '').toLowerCase().trim());
-            if (rowVals.some(v => v.includes('total') || v.includes('subtotal') || v.includes('balance') || v.includes('resumen') || v.includes('summary'))) {
-                continue;
+    // 1. Escanear metadatos generales (Cert No, Fechas) en toda la hoja
+    for (const r of rawMatrix) {
+        if (!r) continue;
+        for (const cell of r) {
+            const strVal = String(cell || '').trim();
+            const lower = strVal.toLowerCase();
+            if (!certNumDetected && lower.includes('cert') && (lower.includes('no') || lower.includes('num') || lower.includes('#'))) {
+                const match = strVal.match(/\d+/);
+                if (match) certNumDetected = match[0];
             }
-
-            const qtyStr = String(get(colMap.quantity)).replace(/,/g, '').trim();
-            const qty = parseFloat(qtyStr);
-
-            if (isNaN(qty) || qty <= 0) {
-                continue;
-            }
-
-            const rawLoc = String(get(colMap.location)).trim();
-            const rawCalc = String(get(colMap.calculations)).trim();
-            const { location, calculations } = splitLocationAndCalculations(rawLoc, rawCalc, defaultItemInfo?.itemName || '');
-
-            allRows.push({
-                itemNum: itemNumRaw,
-                specCode: itemNumRaw,
-                itemName: defaultItemInfo?.itemName || '',
-                location,
-                calculations,
-                quantity: qty,
-                inspector: String(get(colMap.inspector)).trim(),
-                inspDate: formatRawDate(get(colMap.inspDate)),
-                page: parseInt(String(get(colMap.page))) || undefined,
-                raw,
-            });
-        } catch (e: any) {
-            errors.push(`Fila ${i + 2}: ${e.message}`);
         }
     }
 
-    const certNumDetected = detectCertNum(rawRows, colMap);
-    const certDateDetected = detectCertDate(rawRows, colMap);
+    // 2. Localizar la fila de encabezados buscando palabras clave en las primeras 35 filas
+    let headerRowIdx = -1;
+    let colIndices: any = null;
+
+    for (let r = 0; r < Math.min(rawMatrix.length, 35); r++) {
+        const row = rawMatrix[r];
+        if (!row || row.length === 0) continue;
+
+        const rowStr = row.map(c => String(c || '').toLowerCase().trim()).join(' ');
+
+        const hasQtyTerm = rowStr.includes('cantidad') || rowStr.includes('qty') || rowStr.includes('quantity') || rowStr.includes('approved') || rowStr.includes('medid') || rowStr.includes('amount');
+        const hasOtherTerm = rowStr.includes('item') || rowStr.includes('location') || rowStr.includes('station') || rowStr.includes('ubicacion') ||
+                             rowStr.includes('calc') || rowStr.includes('descrip') || rowStr.includes('inspector') || rowStr.includes('date') || rowStr.includes('fecha');
+
+        if (hasQtyTerm || (hasOtherTerm && (rowStr.includes('record') || rowStr.includes('total') || rowStr.includes('unit')))) {
+            const indices: any = {};
+            row.forEach((cellVal, cIdx) => {
+                const norm = String(cellVal || '').toLowerCase().replace(/[\s_\-\.:#]/g, '');
+                if (norm.includes('itemnumber') || norm.includes('itemno') || norm.includes('itemnum') || norm === 'item' || norm.startsWith('item') || norm.includes('partida')) {
+                    indices.itemNum = cIdx;
+                } else if (norm.includes('location') || norm.includes('ubicacion') || norm.includes('station') || norm.includes('estacion') || norm.includes('lugar') || norm.includes('tramo')) {
+                    indices.location = cIdx;
+                } else if (norm.includes('calculation') || norm.includes('calculo') || norm.includes('formula') || norm.includes('remarks') || norm.includes('description') || norm.includes('descripcion') || norm.includes('nota')) {
+                    indices.calculations = cIdx;
+                } else if (norm.includes('cantidad') || norm.includes('qty') || norm.includes('quantity') || norm.includes('verified') || norm.includes('approved') || norm.includes('measured')) {
+                    if (indices.quantity === undefined || norm.includes('approved') || norm.includes('verified') || norm.includes('cantidad')) {
+                        indices.quantity = cIdx;
+                    }
+                } else if (norm.includes('inspector') || norm.includes('insp') || norm.includes('inspeccionado')) {
+                    indices.inspector = cIdx;
+                } else if (norm.includes('date') || norm.includes('fecha') || norm.includes('inspectiondate')) {
+                    indices.inspDate = cIdx;
+                } else if (norm.includes('page') || norm.includes('pagina') || norm.includes('pag')) {
+                    indices.page = cIdx;
+                }
+            });
+
+            if (indices.quantity !== undefined || (indices.location !== undefined && indices.calculations !== undefined) || (fallbackItemNum && indices.quantity !== undefined)) {
+                headerRowIdx = r;
+                colIndices = indices;
+                break;
+            }
+        }
+    }
+
+    if (headerRowIdx === -1 || !colIndices) {
+        colIndices = {
+            itemNum: undefined,
+            location: undefined,
+            calculations: undefined,
+            quantity: undefined,
+            inspector: undefined,
+            inspDate: undefined
+        };
+        headerRowIdx = 0;
+    }
+
+    const allRows: CertExcelRow[] = [];
+    const startRow = headerRowIdx + 1;
+
+    for (let i = startRow; i < rawMatrix.length; i++) {
+        const row = rawMatrix[i];
+        if (!row || row.length === 0) continue;
+
+        const rowStr = row.map(c => String(c || '').toLowerCase().trim()).join(' ');
+        if (rowStr.includes('total') || rowStr.includes('subtotal') || rowStr.includes('balance') || rowStr.includes('resumen') || rowStr.includes('summary')) {
+            continue;
+        }
+
+        let itemNumRaw = fallbackItemNum;
+        if (colIndices.itemNum !== undefined && row[colIndices.itemNum] !== undefined && String(row[colIndices.itemNum]).trim() !== '') {
+            itemNumRaw = String(row[colIndices.itemNum]).trim();
+        }
+        if (!itemNumRaw) continue;
+
+        let qty: number = 0;
+        if (colIndices.quantity !== undefined && row[colIndices.quantity] !== undefined && row[colIndices.quantity] !== '') {
+            const valStr = String(row[colIndices.quantity]).replace(/,/g, '').trim();
+            qty = parseFloat(valStr);
+        } else {
+            for (let c = 0; c < row.length; c++) {
+                if (c === colIndices.itemNum || c === colIndices.page) continue;
+                const cellStr = String(row[c] || '').replace(/,/g, '').trim();
+                const cand = parseFloat(cellStr);
+                if (!isNaN(cand) && cand > 0 && !cellStr.includes('/') && !cellStr.includes('-') && !cellStr.includes(':')) {
+                    qty = cand;
+                    break;
+                }
+            }
+        }
+
+        if (isNaN(qty) || qty <= 0) {
+            continue;
+        }
+
+        const rawLoc = colIndices.location !== undefined ? String(row[colIndices.location] || '').trim() : '';
+        const rawCalc = colIndices.calculations !== undefined ? String(row[colIndices.calculations] || '').trim() : '';
+        const { location, calculations } = splitLocationAndCalculations(rawLoc, rawCalc, defaultItemInfo?.itemName || '');
+
+        const inspector = colIndices.inspector !== undefined ? String(row[colIndices.inspector] || '').trim() : '';
+        const inspDateRaw = colIndices.inspDate !== undefined ? row[colIndices.inspDate] : '';
+        const formattedDate = formatRawDate(inspDateRaw);
+
+        if (formattedDate && !certDateDetected) {
+            certDateDetected = formattedDate;
+        }
+
+        const pageVal = colIndices.page !== undefined ? parseInt(String(row[colIndices.page])) || undefined : undefined;
+
+        allRows.push({
+            itemNum: itemNumRaw,
+            specCode: itemNumRaw,
+            itemName: defaultItemInfo?.itemName || '',
+            location,
+            calculations,
+            quantity: qty,
+            inspector,
+            inspDate: formattedDate,
+            page: pageVal,
+        });
+    }
+
+    if (!certDateDetected && allRows.length > 0) {
+        const dates = allRows.map(r => r.inspDate).filter(Boolean).sort().reverse();
+        if (dates.length > 0) certDateDetected = dates[0];
+    }
 
     return { allRows, certNumDetected, certDateDetected };
 }
