@@ -414,10 +414,23 @@ export async function generateAct117AFromExcel(
         const itemDesc = matchedDbItem?.description || firstRow?.itemName || '';
         const itemUnit = matchedDbItem?.unit || '';
 
-        // Regla 10: Exclusión de Cantidades en Cero
+        // Regla 10: Exclusión de Cantidades en Cero y Exclusión de Valores/Filas del Contrato
         const validRows = rawRows.filter(r => {
             const q = r.quantity;
-            return q !== null && q !== undefined && !isNaN(q) && q > 0;
+            if (q === null || q === undefined || isNaN(q) || q <= 0) return false;
+            const textCheck = `${r.location} ${r.calculations}`.toLowerCase();
+            if (
+                textCheck.includes('contract quantity') ||
+                textCheck.includes('original contract') ||
+                textCheck.includes('contract amount') ||
+                textCheck.includes('cantidad contrato') ||
+                textCheck.includes('contrato original') ||
+                textCheck.trim() === 'contract' ||
+                textCheck.trim() === 'contrato'
+            ) {
+                return false;
+            }
+            return true;
         });
 
         if (validRows.length === 0) {
@@ -549,6 +562,62 @@ export function splitLocationAndCalculations(
     }
 
     return { location: full, calculations: '' };
+}
+
+// ─── Verificador de Filas de Totales, Resúmenes o Datos del Contrato ─────────
+
+/**
+ * Determina si una fila del Excel representa totales, balances o datos del contrato
+ * (ej: "Contract", "Contrato", "Contract Quantity", "Original Contract", "Contract Amount", etc.)
+ * para IGNORARLA y que nunca se transfiera a las tablas de detalle del ACT-117A.
+ */
+export function isContractOrSummaryRow(rowCells: any[]): boolean {
+    if (!rowCells || rowCells.length === 0) return false;
+    const rowStr = rowCells.map(c => String(c || '').toLowerCase().trim()).join(' ');
+
+    // 1. Totales y resúmenes
+    if (rowStr.includes('total') || rowStr.includes('subtotal') || rowStr.includes('balance') || rowStr.includes('resumen') || rowStr.includes('summary')) {
+        return true;
+    }
+
+    // 2. Términos específicos de datos del contrato
+    if (
+        rowStr.includes('contract quantity') ||
+        rowStr.includes('contract amount') ||
+        rowStr.includes('contract value') ||
+        rowStr.includes('contract item') ||
+        rowStr.includes('original contract') ||
+        rowStr.includes('cantidad contrato') ||
+        rowStr.includes('cantidad de contrato') ||
+        rowStr.includes('monto contrato') ||
+        rowStr.includes('monto del contrato') ||
+        rowStr.includes('valor contrato') ||
+        rowStr.includes('contrato original') ||
+        rowStr.includes('presupuesto') ||
+        rowStr.includes('budget') ||
+        rowStr.includes('planos mensura') ||
+        rowStr.includes('material en sitio')
+    ) {
+        return true;
+    }
+
+    // 3. Si alguna celda de texto dice exactamente contract o contrato
+    for (const c of rowCells) {
+        const val = String(c || '').toLowerCase().trim();
+        if (
+            val === 'contract' ||
+            val === 'contrato' ||
+            val === 'original contract' ||
+            val === 'contract quantity' ||
+            val === 'cantidad contrato' ||
+            val === 'cant. contrato' ||
+            val === 'balance contrato'
+        ) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // ─── Extractor de Datos del Libro Completo (Todas las Hojas) ─────────────────
@@ -771,11 +840,10 @@ function extractFromBlockFormat(
 
             // Leer fila de datos
             if (headerIndices && (headerIndices.recordNo !== undefined || headerIndices.qtyCantidad !== undefined || headerIndices.qtyApproved !== undefined || headerIndices.qtyMeasured !== undefined)) {
-                const isTotalRow = row.some(cell => {
-                    const val = String(cell || '').toLowerCase().trim();
-                    return val.includes('total') || val.includes('subtotal') || val.includes('balance') || val.includes('resumen') || val.includes('summary');
-                });
-                if (isTotalRow) continue;
+                // Descartar totales, resúmenes y datos del contrato (Regla: no incluir valores del contrato)
+                if (isContractOrSummaryRow(row)) {
+                    continue;
+                }
 
                 const recordNo = headerIndices.recordNo !== undefined ? String(row[headerIndices.recordNo] || '').trim() : '';
                 const inspector = headerIndices.inspector !== undefined ? String(row[headerIndices.inspector] || '').trim() : '';
@@ -806,6 +874,20 @@ function extractFromBlockFormat(
                 const rawCalculations = headerIndices.calculations !== undefined && row[headerIndices.calculations]
                     ? String(row[headerIndices.calculations]).trim()
                     : '';
+
+                // Descartar si el texto de ubicación o cálculo hace referencia a datos del contrato
+                const locCalcLower = `${rawLocation} ${rawCalculations}`.toLowerCase();
+                if (
+                    locCalcLower.includes('contract quantity') ||
+                    locCalcLower.includes('original contract') ||
+                    locCalcLower.includes('contract amount') ||
+                    locCalcLower.includes('cantidad contrato') ||
+                    locCalcLower.includes('contrato original') ||
+                    locCalcLower.trim() === 'contract' ||
+                    locCalcLower.trim() === 'contrato'
+                ) {
+                    continue;
+                }
 
                 const { location, calculations } = splitLocationAndCalculations(rawLocation, rawCalculations, currentItemName);
                 const pageVal = headerIndices.page !== undefined ? parseInt(String(row[headerIndices.page])) || undefined : undefined;
@@ -925,8 +1007,8 @@ function extractFromTabularFormat(
         const row = rawMatrix[i];
         if (!row || row.length === 0) continue;
 
-        const rowStr = row.map(c => String(c || '').toLowerCase().trim()).join(' ');
-        if (rowStr.includes('total') || rowStr.includes('subtotal') || rowStr.includes('balance') || rowStr.includes('resumen') || rowStr.includes('summary')) {
+        // Descartar totales, resúmenes y datos del contrato (Regla: no incluir valores del contrato)
+        if (isContractOrSummaryRow(row)) {
             continue;
         }
 
@@ -958,6 +1040,21 @@ function extractFromTabularFormat(
 
         const rawLoc = colIndices.location !== undefined ? String(row[colIndices.location] || '').trim() : '';
         const rawCalc = colIndices.calculations !== undefined ? String(row[colIndices.calculations] || '').trim() : '';
+
+        // Descartar si el texto de ubicación o cálculo hace referencia a datos del contrato
+        const locCalcLower = `${rawLoc} ${rawCalc}`.toLowerCase();
+        if (
+            locCalcLower.includes('contract quantity') ||
+            locCalcLower.includes('original contract') ||
+            locCalcLower.includes('contract amount') ||
+            locCalcLower.includes('cantidad contrato') ||
+            locCalcLower.includes('contrato original') ||
+            locCalcLower.trim() === 'contract' ||
+            locCalcLower.trim() === 'contrato'
+        ) {
+            continue;
+        }
+
         const { location, calculations } = splitLocationAndCalculations(rawLoc, rawCalc, defaultItemInfo?.itemName || '');
 
         const inspector = colIndices.inspector !== undefined ? String(row[colIndices.inspector] || '').trim() : '';
