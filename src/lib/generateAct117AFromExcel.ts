@@ -207,6 +207,8 @@ export async function scanExcelItems(
             const validRows = rows.filter(r => {
                 const q = parseFloat(String(r.quantity ?? 0));
                 if (isNaN(q) || q <= 0) return false;
+                const d = (r.inspDate || '').trim();
+                if (!d || d === '__nodate__') return false;
                 if (isContractInfo(`${r.location} ${r.calculations}`) || isContractOrSummaryRow([r.location, r.calculations])) return false;
                 return true;
             });
@@ -244,6 +246,8 @@ export async function scanExcelItems(
                 const validRows = rows.filter(r => {
                     const q = parseFloat(String(r.quantity ?? 0));
                     if (isNaN(q) || q <= 0) return false;
+                    const d = (r.inspDate || '').trim();
+                    if (!d || d === '__nodate__') return false;
                     if (isContractInfo(`${r.location} ${r.calculations}`) || isContractOrSummaryRow([r.location, r.calculations])) return false;
                     return true;
                 });
@@ -470,9 +474,12 @@ export async function generateAct117AFromExcel(
         const itemUnit = matchedDbItem?.unit || '';
 
         // Regla 10: Exclusión de Cantidades en Cero y Exclusión de Valores/Filas del Contrato
+        // REGLA DEL USUARIO: y solo incluye en los datos de las filas 13 a 27, los datos del excel que tengan fechas y cantidades
         const validRows = rawRows.filter(r => {
             const q = r.quantity;
             if (q === null || q === undefined || isNaN(q) || q <= 0) return false;
+            const d = (r.inspDate || '').trim();
+            if (!d || d === '__nodate__') return false;
             const textCheck = `${r.location} ${r.calculations} ${r.itemName || ''}`;
             if (isContractInfo(textCheck) || isContractOrSummaryRow([r.location, r.calculations, r.itemName])) {
                 return false;
@@ -625,6 +632,11 @@ export function splitLocationAndCalculations(
 
     if (loc && calc && loc.toLowerCase() !== calc.toLowerCase()) {
         return { location: loc, calculations: calc };
+    }
+
+    // Si ya se obtuvo la localización directamente de la columna del Excel, mantenerla íntegra
+    if (loc && !calc) {
+        return { location: loc, calculations: '' };
     }
 
     const full = loc || calc;
@@ -831,6 +843,83 @@ export function cleanPersonName(raw: string): string {
     return s;
 }
 
+// ─── Identificadores de Encabezados de Columna (Location / Calculations) ──────
+
+/**
+ * Identifica si un encabezado de columna corresponde a la columna de localización/trabajos.
+ * Siguiendo la regla del usuario:
+ * Debe escribir en location lo que dice la columna de:
+ * "Descripción de Trabajos", "ID losa", "Descripción / Estaciones", "Descripción de Localización MOT" o cosas similares.
+ */
+export function isLocationHeader(headerText: string): boolean {
+    if (!headerText) return false;
+    const lower = String(headerText).toLowerCase().trim();
+    const clean = lower.replace(/[\s_\-\.:#/\\()]/g, '');
+
+    if (
+        lower.includes('trabajo') || // "Descripción de Trabajos", "Trabajos", etc.
+        lower.includes('work') ||    // "Work description", etc.
+        lower.includes('losa') ||    // "ID losa", "ID Losa", "Losa", etc.
+        clean.includes('idlosa') ||
+        lower.includes('slab') ||
+        lower.includes('estacion') || // "Descripción / Estaciones", "Estaciones"
+        lower.includes('station') ||
+        lower.includes('mot') ||      // "Descripción de Localización MOT", "MOT"
+        lower.includes('localiz') ||  // "Localización", "Descripción de Localización"
+        lower.includes('location') ||
+        lower.includes('ubicac') ||   // "Ubicación"
+        lower.includes('tramo') ||
+        lower.includes('sitio') ||
+        lower.includes('lugar') ||
+        lower.includes('carril') ||
+        lower.includes('lane') ||
+        lower.includes('chainage')
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Identifica si un encabezado de columna corresponde estrictamente a cálculos o notas.
+ */
+export function isCalculationHeader(headerText: string): boolean {
+    if (!headerText) return false;
+    // Si ya es un encabezado de localización/trabajos, no clasificarlo como cálculos
+    if (isLocationHeader(headerText)) return false;
+
+    const lower = String(headerText).toLowerCase().trim();
+    if (
+        lower.includes('calculation') ||
+        lower.includes('calculo') ||
+        lower.includes('cálculo') ||
+        lower.includes('formula') ||
+        lower.includes('fórmula') ||
+        lower.includes('remark') ||
+        lower.includes('observaci') ||
+        lower.includes('dimension') ||
+        lower.includes('medida') ||
+        lower.includes('nota') ||
+        lower.includes('ancho') ||
+        lower.includes('largo') ||
+        lower.includes('espesor') ||
+        lower.includes('depth') ||
+        lower.includes('width') ||
+        lower.includes('length') ||
+        lower.includes('area') ||
+        lower.includes('volumen')
+    ) {
+        return true;
+    }
+
+    if (lower === 'descripcion' || lower === 'descripción' || lower === 'description') {
+        return true;
+    }
+
+    return false;
+}
+
 // ─── Extractor Flexible para hojas con datos que no se parsean con los patrones estándar ─────
 
 /**
@@ -860,10 +949,10 @@ function extractFlexibleQuantities(
             if (
                 rowText.includes('qty') || rowText.includes('cantidad') || rowText.includes('hour') || rowText.includes('hora') ||
                 rowText.includes('date') || rowText.includes('fecha') || rowText.includes('inspector') || rowText.includes('trainee') ||
-                rowText.includes('empleado') || rowText.includes('employee') || rowText.includes('record') || rowText.includes('location') ||
-                rowText.includes('ubicacion') || rowText.includes('calc') || rowText.includes('station')
+                rowText.includes('empleado') || rowText.includes('employee') || rowText.includes('record') ||
+                isLocationHeader(rowText) || isCalculationHeader(rowText)
             ) {
-                headers = row.map((c: any) => String(c || '').toLowerCase().trim());
+                headers = row.map((c: any) => String(c || '').trim());
                 headerRowIdx = r;
                 break;
             }
@@ -875,7 +964,7 @@ function extractFlexibleQuantities(
         for (let r = 0; r < Math.min(rawMatrix.length, 10); r++) {
             const row = rawMatrix[r];
             if (row && row.filter((c: any) => String(c || '').trim() !== '').length >= 2) {
-                headers = row.map((c: any) => String(c || '').toLowerCase().trim());
+                headers = row.map((c: any) => String(c || '').trim());
                 headerRowIdx = r;
                 break;
             }
@@ -886,29 +975,30 @@ function extractFlexibleQuantities(
     let qtyCol = -1;
     let inspCol = -1;
     let dateCol = -1;
-    let locCol = -1;
+    const locCols: number[] = [];
     let calcCol = -1;
     let personCol = -1;
     let recordCol = -1;
 
     for (let c = 0; c < headers.length; c++) {
-        const h = headers[c].replace(/[\s_\-\.:#]/g, '');
-        if (qtyCol === -1 && (h.includes('cantidad') || h.includes('qty') || h.includes('quantity') ||
-            h.includes('hours') || h.includes('horas') || h.includes('manhour') || h.includes('manhours') ||
-            h.includes('approved') || h.includes('verified') || h.includes('measured') ||
-            h.includes('amount') || h === 'hrs' || h === 'hr')) {
+        const h = headers[c];
+        const hClean = h.toLowerCase().replace(/[\s_\-\.:#]/g, '');
+        if (qtyCol === -1 && (hClean.includes('cantidad') || hClean.includes('qty') || hClean.includes('quantity') ||
+            hClean.includes('hours') || hClean.includes('horas') || hClean.includes('manhour') || hClean.includes('manhours') ||
+            hClean.includes('approved') || hClean.includes('verified') || hClean.includes('measured') ||
+            hClean.includes('amount') || hClean === 'hrs' || hClean === 'hr')) {
             qtyCol = c;
-        } else if (inspCol === -1 && (h.includes('inspector') || h.includes('insp'))) {
+        } else if (inspCol === -1 && (hClean.includes('inspector') || hClean.includes('insp'))) {
             inspCol = c;
-        } else if (dateCol === -1 && (h.includes('date') || h.includes('fecha'))) {
+        } else if (dateCol === -1 && (hClean.includes('date') || hClean.includes('fecha'))) {
             dateCol = c;
-        } else if (locCol === -1 && (h.includes('location') || h.includes('ubicacion') || h.includes('station') || h.includes('lugar'))) {
-            locCol = c;
-        } else if (calcCol === -1 && (h.includes('calculation') || h.includes('calculo') || h.includes('remark') || h.includes('description') || h.includes('descripcion') || h.includes('nota'))) {
+        } else if (isLocationHeader(h)) {
+            locCols.push(c);
+        } else if (calcCol === -1 && isCalculationHeader(h)) {
             calcCol = c;
-        } else if (personCol === -1 && (h.includes('trainee') || h.includes('persona') || h.includes('empleado') || h.includes('employee') || h.includes('nombre') || h === 'name')) {
+        } else if (personCol === -1 && (hClean.includes('trainee') || hClean.includes('persona') || hClean.includes('empleado') || hClean.includes('employee') || hClean.includes('nombre') || hClean === 'name')) {
             personCol = c;
-        } else if (recordCol === -1 && (h.includes('record') || h.includes('no') || h === '#')) {
+        } else if (recordCol === -1 && (hClean.includes('record') || hClean.includes('no') || hClean === '#')) {
             recordCol = c;
         }
     }
@@ -920,7 +1010,7 @@ function extractFlexibleQuantities(
             const row = rawMatrix[r];
             if (!row) continue;
             for (let c = 0; c < row.length; c++) {
-                if (c === inspCol || c === dateCol || c === locCol || c === calcCol || c === personCol || c === recordCol) continue;
+                if (c === inspCol || c === dateCol || locCols.includes(c) || c === calcCol || c === personCol || c === recordCol) continue;
                 const cellStr = String(row[c] || '').replace(/,/g, '').trim();
                 const num = parseFloat(cellStr);
                 if (!isNaN(num) && num > 0 && !cellStr.includes('/') && !cellStr.includes(':') && cellStr.length < 10) {
@@ -945,25 +1035,31 @@ function extractFlexibleQuantities(
         if (qtyCol !== -1 && row[qtyCol] !== undefined && row[qtyCol] !== '') {
             const valStr = String(row[qtyCol]).replace(/,/g, '').trim();
             qty = parseFloat(valStr);
-        } else {
-            // Intentar leer cualquier número positivo de la fila
-            for (let c = 0; c < row.length; c++) {
-                if (c === inspCol || c === dateCol || c === locCol || c === calcCol || c === personCol || c === recordCol) continue;
-                const cellStr = String(row[c] || '').replace(/,/g, '').trim();
-                const num = parseFloat(cellStr);
-                if (!isNaN(num) && num > 0 && !cellStr.includes('/') && !cellStr.includes(':') && cellStr.length < 10) {
-                    qty = num;
-                    break;
-                }
-            }
         }
+        // REGLA DEL USUARIO: solo incluye datos que tengan cantidades (> 0)
         if (isNaN(qty) || qty <= 0) continue;
 
-        const inspector = inspCol !== -1 ? String(row[inspCol] || '').trim() : '';
         const inspDateRaw = dateCol !== -1 ? row[dateCol] : '';
-        const rawLoc = locCol !== -1 ? String(row[locCol] || '').trim() : '';
+        const formattedDate = formatRawDate(inspDateRaw);
+        // REGLA DEL USUARIO: solo incluye datos que tengan fechas
+        if (!formattedDate) continue;
+
+        const inspector = inspCol !== -1 ? String(row[inspCol] || '').trim() : '';
         const rawCalc = calcCol !== -1 ? String(row[calcCol] || '').trim() : '';
         const personNameRaw = personCol !== -1 ? String(row[personCol] || '').trim() : '';
+
+        // Construir localización desde las columnas de location/trabajos/losa/estaciones/MOT
+        const locParts: string[] = [];
+        for (const lc of locCols) {
+            const val = String(row[lc] || '').trim();
+            if (val && !locParts.includes(val) && !isContractInfo(val)) {
+                locParts.push(val);
+            }
+        }
+        const rawLoc = locParts.join(' - ');
+
+        // Descartar si el texto de ubicación o cálculo hace referencia a datos del contrato
+        if (isContractInfo(`${rawLoc} ${rawCalc}`)) continue;
 
         rows.push({
             itemNum,
@@ -973,7 +1069,7 @@ function extractFlexibleQuantities(
             calculations: rawCalc,
             quantity: qty,
             inspector,
-            inspDate: formatRawDate(inspDateRaw),
+            inspDate: formattedDate,
             personName: cleanPersonName(personNameRaw) || undefined,
         });
     }
@@ -1115,18 +1211,21 @@ function extractFromBlockFormat(
 
             // Detectar cabecera de la tabla
             if (rowStr.includes('record no') || (rowStr.includes('inspector') && (rowStr.includes('quantity') || rowStr.includes('date') || rowStr.includes('cantidad') || rowStr.includes('hours') || rowStr.includes('horas')))) {
-                headerIndices = {};
+                headerIndices = {
+                    locationCols: [] as number[],
+                };
                 row.forEach((colVal, colIdx) => {
-                    const norm = String(colVal || '').toLowerCase().trim();
-                    if (norm.includes('record no')) headerIndices.recordNo = colIdx;
+                    const orig = String(colVal || '').trim();
+                    const norm = orig.toLowerCase().replace(/[\s_\-\.:#/\\()]/g, '');
+                    if (norm.includes('recordno')) headerIndices.recordNo = colIdx;
                     else if (norm.includes('trainee') || norm.includes('persona') || norm.includes('empleado') || norm.includes('employee') || norm === 'nombre' || norm === 'name') headerIndices.personName = colIdx;
                     else if (norm.includes('inspector')) headerIndices.inspector = colIdx;
                     else if (norm === 'cantidad' || norm.startsWith('cantidad') || norm === 'quantity' || norm.startsWith('quantity') || norm.includes('hours') || norm.includes('horas') || norm.includes('manhour') || norm.includes('manhours')) headerIndices.qtyCantidad = colIdx;
                     else if (norm.includes('verified') && norm.includes('approved')) headerIndices.qtyApproved = colIdx;
-                    else if (norm.includes('quantity measured')) headerIndices.qtyMeasured = colIdx;
-                    else if (norm.includes('inspection date') || norm.includes('date') || norm.includes('fecha')) headerIndices.inspDate = colIdx;
-                    else if (norm.includes('location') || norm.includes('station') || norm.includes('ubicacion')) headerIndices.location = colIdx;
-                    else if (norm.includes('calculation') || norm.includes('calculo') || norm.includes('remarks') || norm.includes('description') || norm.includes('notas')) headerIndices.calculations = colIdx;
+                    else if (norm.includes('quantitymeasured')) headerIndices.qtyMeasured = colIdx;
+                    else if (norm.includes('inspectiondate') || norm.includes('date') || norm.includes('fecha')) headerIndices.inspDate = colIdx;
+                    else if (isLocationHeader(orig)) headerIndices.locationCols.push(colIdx);
+                    else if (isCalculationHeader(orig)) headerIndices.calculations = colIdx;
                     else if (norm.includes('page')) headerIndices.page = colIdx;
                 });
                 continue;
@@ -1143,8 +1242,10 @@ function extractFromBlockFormat(
                 const inspector = headerIndices.inspector !== undefined ? String(row[headerIndices.inspector] || '').trim() : '';
                 const personNameRaw = headerIndices.personName !== undefined ? String(row[headerIndices.personName] || '').trim() : '';
                 const inspDateRaw = headerIndices.inspDate !== undefined ? row[headerIndices.inspDate] : '';
+                const formattedDate = formatRawDate(inspDateRaw);
 
-                if (!recordNo && !inspector && !inspDateRaw && !personNameRaw) {
+                // REGLA DEL USUARIO: solo incluye en los datos de las filas 13 a 27 los datos del excel que tengan fechas y cantidades
+                if (!formattedDate) {
                     continue;
                 }
 
@@ -1162,9 +1263,15 @@ function extractFromBlockFormat(
                     continue;
                 }
 
-                const rawLocation = headerIndices.location !== undefined && row[headerIndices.location]
-                    ? String(row[headerIndices.location]).trim()
-                    : '';
+                // Construir location a partir de las columnas detectadas (Descripción de Trabajos, ID losa, Estaciones, MOT, etc.)
+                const locParts: string[] = [];
+                for (const lc of (headerIndices.locationCols || [])) {
+                    const val = String(row[lc] || '').trim();
+                    if (val && !locParts.includes(val) && !isContractInfo(val)) {
+                        locParts.push(val);
+                    }
+                }
+                const rawLocation = locParts.join(' - ');
 
                 const rawCalculations = headerIndices.calculations !== undefined && row[headerIndices.calculations]
                     ? String(row[headerIndices.calculations]).trim()
@@ -1187,7 +1294,7 @@ function extractFromBlockFormat(
                     calculations,
                     quantity: qty,
                     inspector,
-                    inspDate: formatRawDate(inspDateRaw),
+                    inspDate: formattedDate,
                     page: pageVal,
                     personName: cleanPersonName(personNameRaw) || undefined,
                 });
@@ -1243,19 +1350,23 @@ function extractFromTabularFormat(
 
         const hasQtyTerm = rowStr.includes('cantidad') || rowStr.includes('qty') || rowStr.includes('quantity') || rowStr.includes('approved') || rowStr.includes('medid') || rowStr.includes('amount') || rowStr.includes('hours') || rowStr.includes('horas') || rowStr.includes('man hour') || rowStr.includes('manhour');
         const hasOtherTerm = rowStr.includes('item') || rowStr.includes('location') || rowStr.includes('station') || rowStr.includes('ubicacion') ||
-                             rowStr.includes('calc') || rowStr.includes('descrip') || rowStr.includes('inspector') || rowStr.includes('date') || rowStr.includes('fecha') || rowStr.includes('trainee') || rowStr.includes('employee') || rowStr.includes('empleado') || rowStr.includes('nombre') || rowStr.includes('name');
+                             rowStr.includes('calc') || rowStr.includes('descrip') || rowStr.includes('inspector') || rowStr.includes('date') || rowStr.includes('fecha') || rowStr.includes('trainee') || rowStr.includes('employee') || rowStr.includes('empleado') || rowStr.includes('nombre') || rowStr.includes('name') ||
+                             isLocationHeader(rowStr) || isCalculationHeader(rowStr);
 
         if (hasQtyTerm || (hasOtherTerm && (rowStr.includes('record') || rowStr.includes('total') || rowStr.includes('unit')))) {
-            const indices: any = {};
+            const indices: any = {
+                locationCols: [] as number[],
+            };
             row.forEach((cellVal, cIdx) => {
-                const norm = String(cellVal || '').toLowerCase().replace(/[\s_\-\.:#]/g, '');
+                const orig = String(cellVal || '').trim();
+                const norm = orig.toLowerCase().replace(/[\s_\-\.:#/\\()]/g, '');
                 if (norm.includes('itemnumber') || norm.includes('itemno') || norm.includes('itemnum') || norm === 'item' || norm.startsWith('item') || norm.includes('partida')) {
                     indices.itemNum = cIdx;
                 } else if (norm.includes('trainee') || norm.includes('persona') || norm.includes('empleado') || norm.includes('employee') || norm === 'nombre' || norm === 'name') {
                     indices.personName = cIdx;
-                } else if (norm.includes('location') || norm.includes('ubicacion') || norm.includes('station') || norm.includes('estacion') || norm.includes('lugar') || norm.includes('tramo')) {
-                    indices.location = cIdx;
-                } else if (norm.includes('calculation') || norm.includes('calculo') || norm.includes('formula') || norm.includes('remarks') || norm.includes('description') || norm.includes('descripcion') || norm.includes('nota')) {
+                } else if (isLocationHeader(orig)) {
+                    indices.locationCols.push(cIdx);
+                } else if (isCalculationHeader(orig)) {
                     indices.calculations = cIdx;
                 } else if (norm.includes('cantidad') || norm.includes('qty') || norm.includes('quantity') || norm.includes('verified') || norm.includes('approved') || norm.includes('measured') || norm.includes('hours') || norm.includes('horas') || norm.includes('manhour') || norm.includes('manhours')) {
                     if (indices.quantity === undefined || norm.includes('approved') || norm.includes('verified') || norm.includes('cantidad')) {
@@ -1270,7 +1381,7 @@ function extractFromTabularFormat(
                 }
             });
 
-            if (indices.quantity !== undefined || (indices.location !== undefined && indices.calculations !== undefined) || (fallbackItemNum && indices.quantity !== undefined)) {
+            if (indices.quantity !== undefined || (indices.locationCols.length > 0 && indices.calculations !== undefined) || (fallbackItemNum && indices.quantity !== undefined)) {
                 headerRowIdx = r;
                 colIndices = indices;
                 break;
@@ -1282,7 +1393,7 @@ function extractFromTabularFormat(
         colIndices = {
             itemNum: undefined,
             personName: undefined,
-            location: undefined,
+            locationCols: [],
             calculations: undefined,
             quantity: undefined,
             inspector: undefined,
@@ -1325,11 +1436,28 @@ function extractFromTabularFormat(
             }
         }
 
+        // REGLA DEL USUARIO: solo incluye datos con cantidades (> 0)
         if (isNaN(qty) || qty <= 0) {
             continue;
         }
 
-        const rawLoc = colIndices.location !== undefined ? String(row[colIndices.location] || '').trim() : '';
+        const inspDateRaw = colIndices.inspDate !== undefined ? row[colIndices.inspDate] : '';
+        const formattedDate = formatRawDate(inspDateRaw);
+
+        // REGLA DEL USUARIO: solo incluye datos que tengan fechas
+        if (!formattedDate) {
+            continue;
+        }
+
+        // Construir localización desde las columnas de location/trabajos/losa/estaciones/MOT
+        const locParts: string[] = [];
+        for (const lc of (colIndices.locationCols || [])) {
+            const val = String(row[lc] || '').trim();
+            if (val && !locParts.includes(val) && !isContractInfo(val)) {
+                locParts.push(val);
+            }
+        }
+        const rawLoc = locParts.join(' - ');
         const rawCalc = colIndices.calculations !== undefined ? String(row[colIndices.calculations] || '').trim() : '';
         const personNameRaw = colIndices.personName !== undefined ? String(row[colIndices.personName] || '').trim() : '';
 
@@ -1342,8 +1470,6 @@ function extractFromTabularFormat(
         const { location, calculations } = splitLocationAndCalculations(rawLoc, rawCalc, defaultItemInfo?.itemName || '');
 
         const inspector = colIndices.inspector !== undefined ? String(row[colIndices.inspector] || '').trim() : '';
-        const inspDateRaw = colIndices.inspDate !== undefined ? row[colIndices.inspDate] : '';
-        const formattedDate = formatRawDate(inspDateRaw);
 
         if (formattedDate && !certDateDetected) {
             certDateDetected = formattedDate;
@@ -1405,15 +1531,35 @@ function formatRawDate(val: any): string {
         return val.toISOString().split('T')[0];
     }
     if (typeof val === 'number') {
-        const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+        if (val > 1000 && val < 100000) {
+            const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+            if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+        }
     }
     const str = String(val).trim();
+    if (!str || !/\d/.test(str)) return '';
     const d = new Date(str);
-    if (!isNaN(d.getTime())) {
+    if (!isNaN(d.getTime()) && d.getFullYear() >= 1990 && d.getFullYear() <= 2100) {
         return d.toISOString().split('T')[0];
     }
-    return str;
+    const parts = str.split(/[\/\-]/);
+    if (parts.length === 3) {
+        const n0 = parseInt(parts[0], 10);
+        const n1 = parseInt(parts[1], 10);
+        const n2 = parseInt(parts[2], 10);
+        if (n2 >= 1990 && n2 <= 2100) {
+            let month = n0;
+            let day = n1;
+            if (n0 > 12 && n1 <= 12) {
+                day = n0;
+                month = n1;
+            }
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                return `${n2}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            }
+        }
+    }
+    return '';
 }
 
 function detectColumns(firstRow: Record<string, any>) {
@@ -1421,10 +1567,14 @@ function detectColumns(firstRow: Record<string, any>) {
     const norm = (s: string) => String(s || '').toLowerCase().replace(/[\s_\-\.:]/g, '');
     const find = (...terms: string[]) => keys.find(k => terms.some(t => norm(k).includes(norm(t))));
 
+    // Usar identificadores especializados para localización y cálculos
+    const locKey = keys.find(k => isLocationHeader(k));
+    const calcKey = keys.find(k => isCalculationHeader(k));
+
     return {
         itemNum:      find('itemnumber', 'itemno', 'itemnum', 'item_num', 'item', 'partida', 'especificacion', 'specification'),
-        location:     find('location', 'ubicacion', 'lugar', 'estacion', 'station', 'tramo'),
-        calculations: find('calculation', 'calculo', 'formula', 'notes', 'notas', 'remarks', 'observaciones', 'descripcion', 'description'),
+        location:     locKey || find('location', 'ubicacion', 'lugar', 'estacion', 'station', 'tramo'),
+        calculations: calcKey || find('calculation', 'calculo', 'formula', 'notes', 'notas', 'remarks', 'observaciones', 'dimensiones'),
         quantity:     find('cantidad', 'qty', 'quantity', 'quantityverifiedandapproved', 'verifiedandapproved', 'verifiedapproved', 'quantityverified', 'qtyverified', 'qtyapproved', 'quantityapproved', 'quantitymeasured'),
         inspector:    find('inspector', 'insp', 'inspeccionado por'),
         inspDate:     find('inspectiondate', 'fecha', 'date', 'inspdate', 'fechainspeccion'),
@@ -1708,7 +1858,17 @@ function fillDataRows(
         const excelRow = DATA_ROW_START + i;
         const dataRow = pageRows[i];
 
-        if (!dataRow) {
+        // REGLA DEL USUARIO: y solo incluye en los datos de las filas 13 a 27, los datos del excel que tengan fechas y cantidades
+        if (
+            !dataRow ||
+            !dataRow.inspDate ||
+            dataRow.inspDate.trim() === '' ||
+            dataRow.inspDate === '__nodate__' ||
+            dataRow.quantity === undefined ||
+            dataRow.quantity === null ||
+            isNaN(dataRow.quantity) ||
+            dataRow.quantity <= 0
+        ) {
             clearDataRow(ws, excelRow);
             continue;
         }
