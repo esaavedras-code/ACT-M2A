@@ -73,8 +73,8 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
     const s = sheetName.trim();
     const lower = s.toLowerCase();
 
-    // REGLA DEL USUARIO: Únicamente considerar hojas que contengan explícitamente la palabra "item"
-    if (!lower.includes('item')) {
+    // Considerar hojas que contengan "item" o "partida"
+    if (!lower.includes('item') && !lower.includes('partida')) {
         return null;
     }
 
@@ -84,7 +84,7 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
     }
 
     // 1. "Item 7 - Borrow Class D" / "Item 603(1)" / "Item 6" / "Item 008 - Foundation Fill" / "Item 11" / "Item-10"
-    const matchPrefix = s.match(/^item[\s\.\-_:]*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—\s]\s*(.*))?$/i);
+    const matchPrefix = s.match(/^(?:item|partida)[\s\.\-_:]*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—\s]\s*(.*))?$/i);
     if (matchPrefix) {
         return {
             itemNum: matchPrefix[1].trim(),
@@ -92,8 +92,8 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
         };
     }
 
-    // 2. Si la palabra "Item" está en otra posición del nombre (ej: "Proyecto Item 10 - Asfalto")
-    const matchAnywhere = s.match(/item[\s\.\-_:]*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—\s]\s*(.*))?$/i);
+    // 2. Si la palabra "Item" o "Partida" está en otra posición del nombre (ej: "Proyecto Item 10 - Asfalto")
+    const matchAnywhere = s.match(/(?:item|partida)[\s\.\-_:]*([a-zA-Z0-9\-\.\_\(\)]+)(?:\s*[\-\:–—\s]\s*(.*))?$/i);
     if (matchAnywhere) {
         return {
             itemNum: matchAnywhere[1].trim(),
@@ -101,8 +101,8 @@ export function extractItemFromSheetName(sheetName: string): { itemNum: string; 
         };
     }
 
-    // 3. Si tiene la palabra "Item" pero con texto continuo
-    const cleaned = s.replace(/item/gi, '').trim().replace(/^[\-\:–—\s]+/, '');
+    // 3. Si tiene la palabra "Item" o "Partida" pero con texto continuo
+    const cleaned = s.replace(/item|partida/gi, '').trim().replace(/^[\-\:–—\s]+/, '');
     return {
         itemNum: cleaned || s,
         itemName: cleaned || undefined,
@@ -147,18 +147,40 @@ export async function scanExcelItems(
     const itemGroups = groupByItem(consolidatedRows);
 
     // Asegurar que todos los ítems detectados en los nombres de las páginas existan en itemGroups
+    // Si una hoja tiene nombre de ítem válido pero no se extrajeron datos, intentar una segunda pasada
+    // con extracción más flexible para partidas como Trainees (Items 2 y 3)
     for (const sh of sheetItemsDetected) {
-        if (!itemGroups[sh.itemNum]) {
-            itemGroups[sh.itemNum] = [{
-                itemNum: sh.itemNum,
-                specCode: sh.itemNum,
-                itemName: sh.itemName || '',
-                location: '',
-                calculations: '',
-                quantity: 0,
-                inspector: '',
-                inspDate: '',
-            }];
+        if (!itemGroups[sh.itemNum] || itemGroups[sh.itemNum].length === 0) {
+            // Intentar extraer datos con lógica flexible antes de crear placeholder
+            const sheetData = certWb.Sheets[sh.sheetName];
+            if (sheetData) {
+                const flexRows = extractFlexibleQuantities(sheetData, sh.itemNum, sh.itemName);
+                if (flexRows.length > 0) {
+                    itemGroups[sh.itemNum] = flexRows;
+                } else {
+                    itemGroups[sh.itemNum] = [{
+                        itemNum: sh.itemNum,
+                        specCode: sh.itemNum,
+                        itemName: sh.itemName || '',
+                        location: '',
+                        calculations: '',
+                        quantity: 0,
+                        inspector: '',
+                        inspDate: '',
+                    }];
+                }
+            } else {
+                itemGroups[sh.itemNum] = [{
+                    itemNum: sh.itemNum,
+                    specCode: sh.itemNum,
+                    itemName: sh.itemName || '',
+                    location: '',
+                    calculations: '',
+                    quantity: 0,
+                    inspector: '',
+                    inspDate: '',
+                }];
+            }
         }
     }
 
@@ -366,6 +388,34 @@ export async function generateAct117AFromExcel(
     // 5. Agrupar registros por partida
     const consolidatedRows = applyDateInspectorRules(allRows);
     const itemGroups = groupByItem(consolidatedRows);
+
+    // 5b. Para partidas detectadas en nombres de hojas que no tienen datos válidos,
+    // intentar extracción flexible (especialmente para Trainees Items 2 y 3)
+    const sheetItemsDetectedGen: { itemNum: string; itemName?: string; sheetName: string }[] = [];
+    for (const sheetName of certWb.SheetNames) {
+        const sheetItemInfo = extractItemFromSheetName(sheetName);
+        if (sheetItemInfo) {
+            sheetItemsDetectedGen.push({ ...sheetItemInfo, sheetName });
+        }
+    }
+    for (const sh of sheetItemsDetectedGen) {
+        const existing = itemGroups[sh.itemNum] || [];
+        const hasValidData = existing.some(r => {
+            const q = r.quantity;
+            return q !== null && q !== undefined && !isNaN(q) && q > 0;
+        });
+        if (!hasValidData) {
+            const sheetData = certWb.Sheets[sh.sheetName];
+            if (sheetData) {
+                const flexRows = extractFlexibleQuantities(sheetData, sh.itemNum, sh.itemName);
+                if (flexRows.length > 0) {
+                    const consolidatedFlex = applyDateInspectorRules(flexRows);
+                    itemGroups[sh.itemNum] = consolidatedFlex;
+                }
+            }
+        }
+    }
+
     const sortedItemKeys = Object.keys(itemGroups).sort((a, b) => {
         const na = parseFloat(a) || 0;
         const nb = parseFloat(b) || 0;
@@ -666,17 +716,43 @@ export function isContractOrSummaryRow(rowCells: any[]): boolean {
         return true;
     }
 
-    // 2. Totales y resúmenes
-    if (rowStr.includes('total') || rowStr.includes('subtotal') || rowStr.includes('balance') || rowStr.includes('resumen') || rowStr.includes('summary')) {
-        return true;
+    // 2. Proteger partidas y registros de trainees de ser descartados por palabras comunes como "total"
+    const isTraineeContent = rowStr.includes('trainee') || rowStr.includes('ypp') ||
+        rowStr.includes('rosado') || rowStr.includes('figueroa') ||
+        rowStr.includes('ivonne') || rowStr.includes('derek') ||
+        rowStr.includes('man hour') || rowStr.includes('manhour');
+    if (isTraineeContent) {
+        return false;
     }
 
-    // 3. Revisión celda por celda
+    // 3. Totales y resúmenes explícitos a nivel de fila completa
     for (const c of rowCells) {
         const val = String(c || '').toLowerCase().trim();
-        if (isContractInfo(val)) {
+        if (
+            val === 'total' ||
+            val === 'subtotal' ||
+            val === 'sub-total' ||
+            val === 'grand total' ||
+            val === 'gran total' ||
+            val === 'balance' ||
+            val === 'balance del contrato' ||
+            val === 'resumen' ||
+            val === 'summary'
+        ) {
             return true;
         }
+    }
+
+    if (
+        rowStr.includes('grand total') ||
+        rowStr.includes('gran total') ||
+        rowStr.includes('total general') ||
+        rowStr.includes('balance del contrato') ||
+        rowStr.includes('total de certificación') ||
+        rowStr.includes('contract total') ||
+        rowStr.includes('balance pendiente')
+    ) {
+        return true;
     }
 
     return false;
@@ -753,6 +829,156 @@ export function cleanPersonName(raw: string): string {
     }
 
     return s;
+}
+
+// ─── Extractor Flexible para hojas con datos que no se parsean con los patrones estándar ─────
+
+/**
+ * Intenta extraer cantidades de una hoja de Excel usando lógica más flexible.
+ * Útil para hojas de Trainees (Items 2 y 3) u otras partidas con formatos no estándar.
+ * Busca cualquier columna numérica que pueda representar cantidades (horas, unidades, etc.)
+ */
+function extractFlexibleQuantities(
+    sheet: XLSX.WorkSheet,
+    itemNum: string,
+    itemName?: string
+): CertExcelRow[] {
+    const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    if (!rawMatrix || rawMatrix.length === 0) return [];
+
+    const rows: CertExcelRow[] = [];
+
+    // Buscar fila de encabezados (primera fila con 2 o más celdas no vacías)
+    let headerRowIdx = -1;
+    let headers: string[] = [];
+    for (let r = 0; r < Math.min(rawMatrix.length, 30); r++) {
+        const row = rawMatrix[r];
+        if (!row) continue;
+        const nonEmpty = row.filter((c: any) => String(c || '').trim() !== '').length;
+        if (nonEmpty >= 2) {
+            const rowText = row.map((c: any) => String(c || '').toLowerCase().trim()).join(' ');
+            if (
+                rowText.includes('qty') || rowText.includes('cantidad') || rowText.includes('hour') || rowText.includes('hora') ||
+                rowText.includes('date') || rowText.includes('fecha') || rowText.includes('inspector') || rowText.includes('trainee') ||
+                rowText.includes('empleado') || rowText.includes('employee') || rowText.includes('record') || rowText.includes('location') ||
+                rowText.includes('ubicacion') || rowText.includes('calc') || rowText.includes('station')
+            ) {
+                headers = row.map((c: any) => String(c || '').toLowerCase().trim());
+                headerRowIdx = r;
+                break;
+            }
+        }
+    }
+
+    if (headerRowIdx === -1) {
+        // Si no se detectó cabecera con palabras clave, tomar la primera fila con al menos 2 celdas
+        for (let r = 0; r < Math.min(rawMatrix.length, 10); r++) {
+            const row = rawMatrix[r];
+            if (row && row.filter((c: any) => String(c || '').trim() !== '').length >= 2) {
+                headers = row.map((c: any) => String(c || '').toLowerCase().trim());
+                headerRowIdx = r;
+                break;
+            }
+        }
+    }
+
+    // Mapear columnas con detección flexible
+    let qtyCol = -1;
+    let inspCol = -1;
+    let dateCol = -1;
+    let locCol = -1;
+    let calcCol = -1;
+    let personCol = -1;
+    let recordCol = -1;
+
+    for (let c = 0; c < headers.length; c++) {
+        const h = headers[c].replace(/[\s_\-\.:#]/g, '');
+        if (qtyCol === -1 && (h.includes('cantidad') || h.includes('qty') || h.includes('quantity') ||
+            h.includes('hours') || h.includes('horas') || h.includes('manhour') || h.includes('manhours') ||
+            h.includes('approved') || h.includes('verified') || h.includes('measured') ||
+            h.includes('amount') || h === 'hrs' || h === 'hr')) {
+            qtyCol = c;
+        } else if (inspCol === -1 && (h.includes('inspector') || h.includes('insp'))) {
+            inspCol = c;
+        } else if (dateCol === -1 && (h.includes('date') || h.includes('fecha'))) {
+            dateCol = c;
+        } else if (locCol === -1 && (h.includes('location') || h.includes('ubicacion') || h.includes('station') || h.includes('lugar'))) {
+            locCol = c;
+        } else if (calcCol === -1 && (h.includes('calculation') || h.includes('calculo') || h.includes('remark') || h.includes('description') || h.includes('descripcion') || h.includes('nota'))) {
+            calcCol = c;
+        } else if (personCol === -1 && (h.includes('trainee') || h.includes('persona') || h.includes('empleado') || h.includes('employee') || h.includes('nombre') || h === 'name')) {
+            personCol = c;
+        } else if (recordCol === -1 && (h.includes('record') || h.includes('no') || h === '#')) {
+            recordCol = c;
+        }
+    }
+
+    // Si no se detectó columna de cantidad, buscar cualquier columna numérica en las filas subsiguientes
+    if (qtyCol === -1) {
+        const startCheck = headerRowIdx >= 0 ? headerRowIdx + 1 : 0;
+        for (let r = startCheck; r < Math.min(rawMatrix.length, startCheck + 5); r++) {
+            const row = rawMatrix[r];
+            if (!row) continue;
+            for (let c = 0; c < row.length; c++) {
+                if (c === inspCol || c === dateCol || c === locCol || c === calcCol || c === personCol || c === recordCol) continue;
+                const cellStr = String(row[c] || '').replace(/,/g, '').trim();
+                const num = parseFloat(cellStr);
+                if (!isNaN(num) && num > 0 && !cellStr.includes('/') && !cellStr.includes(':') && cellStr.length < 10) {
+                    qtyCol = c;
+                    break;
+                }
+            }
+            if (qtyCol !== -1) break;
+        }
+    }
+
+    // Procesar filas de datos
+    const startRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 0;
+    for (let r = startRow; r < rawMatrix.length; r++) {
+        const row = rawMatrix[r];
+        if (!row || row.length === 0) continue;
+
+        // Solo saltar si es verdaderamente un resumen de contrato o total general
+        if (isContractOrSummaryRow(row)) continue;
+
+        let qty = 0;
+        if (qtyCol !== -1 && row[qtyCol] !== undefined && row[qtyCol] !== '') {
+            const valStr = String(row[qtyCol]).replace(/,/g, '').trim();
+            qty = parseFloat(valStr);
+        } else {
+            // Intentar leer cualquier número positivo de la fila
+            for (let c = 0; c < row.length; c++) {
+                if (c === inspCol || c === dateCol || c === locCol || c === calcCol || c === personCol || c === recordCol) continue;
+                const cellStr = String(row[c] || '').replace(/,/g, '').trim();
+                const num = parseFloat(cellStr);
+                if (!isNaN(num) && num > 0 && !cellStr.includes('/') && !cellStr.includes(':') && cellStr.length < 10) {
+                    qty = num;
+                    break;
+                }
+            }
+        }
+        if (isNaN(qty) || qty <= 0) continue;
+
+        const inspector = inspCol !== -1 ? String(row[inspCol] || '').trim() : '';
+        const inspDateRaw = dateCol !== -1 ? row[dateCol] : '';
+        const rawLoc = locCol !== -1 ? String(row[locCol] || '').trim() : '';
+        const rawCalc = calcCol !== -1 ? String(row[calcCol] || '').trim() : '';
+        const personNameRaw = personCol !== -1 ? String(row[personCol] || '').trim() : '';
+
+        rows.push({
+            itemNum,
+            specCode: itemNum,
+            itemName: itemName || '',
+            location: rawLoc,
+            calculations: rawCalc,
+            quantity: qty,
+            inspector,
+            inspDate: formatRawDate(inspDateRaw),
+            personName: cleanPersonName(personNameRaw) || undefined,
+        });
+    }
+
+    return rows;
 }
 
 // ─── Extractor de Datos del Libro Completo (Todas las Hojas) ─────────────────
@@ -888,14 +1114,14 @@ function extractFromBlockFormat(
             const rowStr = row.map(c => String(c).toLowerCase()).join(' ');
 
             // Detectar cabecera de la tabla
-            if (rowStr.includes('record no') || (rowStr.includes('inspector') && (rowStr.includes('quantity') || rowStr.includes('date') || rowStr.includes('cantidad')))) {
+            if (rowStr.includes('record no') || (rowStr.includes('inspector') && (rowStr.includes('quantity') || rowStr.includes('date') || rowStr.includes('cantidad') || rowStr.includes('hours') || rowStr.includes('horas')))) {
                 headerIndices = {};
                 row.forEach((colVal, colIdx) => {
                     const norm = String(colVal || '').toLowerCase().trim();
                     if (norm.includes('record no')) headerIndices.recordNo = colIdx;
                     else if (norm.includes('trainee') || norm.includes('persona') || norm.includes('empleado') || norm.includes('employee') || norm === 'nombre' || norm === 'name') headerIndices.personName = colIdx;
                     else if (norm.includes('inspector')) headerIndices.inspector = colIdx;
-                    else if (norm === 'cantidad' || norm.startsWith('cantidad') || norm === 'quantity' || norm.startsWith('quantity')) headerIndices.qtyCantidad = colIdx;
+                    else if (norm === 'cantidad' || norm.startsWith('cantidad') || norm === 'quantity' || norm.startsWith('quantity') || norm.includes('hours') || norm.includes('horas') || norm.includes('manhour') || norm.includes('manhours')) headerIndices.qtyCantidad = colIdx;
                     else if (norm.includes('verified') && norm.includes('approved')) headerIndices.qtyApproved = colIdx;
                     else if (norm.includes('quantity measured')) headerIndices.qtyMeasured = colIdx;
                     else if (norm.includes('inspection date') || norm.includes('date') || norm.includes('fecha')) headerIndices.inspDate = colIdx;
@@ -1015,9 +1241,9 @@ function extractFromTabularFormat(
 
         const rowStr = row.map(c => String(c || '').toLowerCase().trim()).join(' ');
 
-        const hasQtyTerm = rowStr.includes('cantidad') || rowStr.includes('qty') || rowStr.includes('quantity') || rowStr.includes('approved') || rowStr.includes('medid') || rowStr.includes('amount');
+        const hasQtyTerm = rowStr.includes('cantidad') || rowStr.includes('qty') || rowStr.includes('quantity') || rowStr.includes('approved') || rowStr.includes('medid') || rowStr.includes('amount') || rowStr.includes('hours') || rowStr.includes('horas') || rowStr.includes('man hour') || rowStr.includes('manhour');
         const hasOtherTerm = rowStr.includes('item') || rowStr.includes('location') || rowStr.includes('station') || rowStr.includes('ubicacion') ||
-                             rowStr.includes('calc') || rowStr.includes('descrip') || rowStr.includes('inspector') || rowStr.includes('date') || rowStr.includes('fecha');
+                             rowStr.includes('calc') || rowStr.includes('descrip') || rowStr.includes('inspector') || rowStr.includes('date') || rowStr.includes('fecha') || rowStr.includes('trainee') || rowStr.includes('employee') || rowStr.includes('empleado') || rowStr.includes('nombre') || rowStr.includes('name');
 
         if (hasQtyTerm || (hasOtherTerm && (rowStr.includes('record') || rowStr.includes('total') || rowStr.includes('unit')))) {
             const indices: any = {};
@@ -1031,7 +1257,7 @@ function extractFromTabularFormat(
                     indices.location = cIdx;
                 } else if (norm.includes('calculation') || norm.includes('calculo') || norm.includes('formula') || norm.includes('remarks') || norm.includes('description') || norm.includes('descripcion') || norm.includes('nota')) {
                     indices.calculations = cIdx;
-                } else if (norm.includes('cantidad') || norm.includes('qty') || norm.includes('quantity') || norm.includes('verified') || norm.includes('approved') || norm.includes('measured')) {
+                } else if (norm.includes('cantidad') || norm.includes('qty') || norm.includes('quantity') || norm.includes('verified') || norm.includes('approved') || norm.includes('measured') || norm.includes('hours') || norm.includes('horas') || norm.includes('manhour') || norm.includes('manhours')) {
                     if (indices.quantity === undefined || norm.includes('approved') || norm.includes('verified') || norm.includes('cantidad')) {
                         indices.quantity = cIdx;
                     }
