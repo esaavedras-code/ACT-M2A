@@ -502,6 +502,9 @@ export async function generateAct117AFromExcel(
 
             // Regla 17: Bordes y Alturas de Fila
             ensureTableBorders(ws);
+
+            // Regla del usuario: pintar de negro todos los caracteres que salgan en las ICW
+            applyAllBlackFont(ws);
         }
     }
 
@@ -652,74 +655,6 @@ function extractDataFromWorkbook(wb: XLSX.WorkBook, errors: string[]) {
                 row.itemName = sheetItemInfo.itemName;
             }
             allRows.push(row);
-        }
-
-        // Si la hoja tiene nombre de ítem (ej. "Item 7") pero no tuvo filas por formato tabular
-        if (sheetItemInfo && sheetRows.length === 0) {
-            const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-            let foundQty = 0;
-            let foundLoc = '';
-            let foundInsp = '';
-            let foundDate = '';
-
-            for (let rIdx = 0; rIdx < rawMatrix.length; rIdx++) {
-                const r = rawMatrix[rIdx];
-                if (!r || r.length === 0) continue;
-                for (let c = 0; c < r.length; c++) {
-                    const val = String(r[c] || '').toLowerCase().trim();
-                    if (!certNumDetected && val.includes('cert') && (val.includes('no') || val.includes('num') || val.includes('#'))) {
-                        const match = String(r[c] || '').match(/\d+/);
-                        if (match) certNumDetected = match[0];
-                    }
-                    if (val.includes('quantity') || val.includes('cantidad') || val.includes('qty') || val.includes('amount') || val.includes('aprob')) {
-                        // Buscar a la derecha en la misma fila
-                        for (let nextC = c + 1; nextC < r.length; nextC++) {
-                            const candidate = parseFloat(String(r[nextC] || '').replace(/,/g, ''));
-                            if (!isNaN(candidate) && candidate > 0 && foundQty === 0) {
-                                foundQty = candidate;
-                                break;
-                            }
-                        }
-                        // O buscar abajo en la misma columna (fila siguiente)
-                        if (foundQty === 0 && rIdx + 1 < rawMatrix.length) {
-                            const candidate = parseFloat(String(rawMatrix[rIdx + 1]?.[c] || '').replace(/,/g, ''));
-                            if (!isNaN(candidate) && candidate > 0) {
-                                foundQty = candidate;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Si todavía no se encuentra cantidad > 0, buscar cualquier número válido en la hoja que no sea fecha ni índice
-            if (foundQty === 0) {
-                for (const r of rawMatrix) {
-                    if (!r) continue;
-                    for (const cell of r) {
-                        const strVal = String(cell || '').trim();
-                        if (strVal.includes('/') || strVal.includes(':') || strVal.length > 10) continue;
-                        const num = parseFloat(strVal.replace(/,/g, ''));
-                        if (!isNaN(num) && num > 0 && foundQty === 0) {
-                            foundQty = num;
-                            break;
-                        }
-                    }
-                    if (foundQty > 0) break;
-                }
-            }
-
-            if (foundQty > 0) {
-                allRows.push({
-                    itemNum: sheetItemInfo.itemNum,
-                    specCode: sheetItemInfo.itemNum,
-                    itemName: sheetItemInfo.itemName || '',
-                    location: foundLoc,
-                    calculations: '',
-                    quantity: foundQty,
-                    inspector: foundInsp,
-                    inspDate: foundDate,
-                });
-            }
         }
     }
 
@@ -1431,22 +1366,19 @@ function fillDataRows(
         const locCell = ws.getCell(excelRow, 3);
         locCell.value = dataRow.location || '';
         locCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-        locCell.font = { name: 'Arial', size: 9, bold: false };
+        locCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
         const calcCell = ws.getCell(excelRow, 28);
         calcCell.value = dataRow.calculations || '';
         calcCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-        calcCell.font = { name: 'Arial', size: 9, bold: false };
+        calcCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
         const qtyCell = ws.getCell(excelRow, 56);
         qtyCell.value = dataRow.quantity;
         qtyCell.alignment = { vertical: 'middle', horizontal: 'right' };
         qtyCell.numFmt = '#,##0.000';
-        if (dataRow.isBlueQty) {
-            qtyCell.font = { name: 'Arial', size: 9, color: { argb: 'FF0000FF' }, bold: false };
-        } else {
-            qtyCell.font = { name: 'Arial', size: 9, bold: false };
-        }
+        // Regla del usuario: pintar de negro todos los caracteres que salgan en las ICW
+        qtyCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
         if (!dataRow.quantity || dataRow.quantity <= 0) {
             ws.getCell(excelRow, 62).value = '';
@@ -1456,7 +1388,7 @@ function fillDataRows(
                 result: undefined,
             };
             ws.getCell(excelRow, 62).numFmt = '$#,##0.00';
-            ws.getCell(excelRow, 62).font = { name: 'Arial', size: 9, bold: false };
+            ws.getCell(excelRow, 62).font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
             ws.getCell(excelRow, 62).alignment = { vertical: 'middle', horizontal: 'right' };
         }
 
@@ -1475,12 +1407,12 @@ function fillDataRows(
         const inspCell = ws.getCell(excelRow, 69);
         inspCell.value = inspLetter;
         inspCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        inspCell.font = { name: 'Arial', size: 9, bold: false };
+        inspCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
         const dateCell = ws.getCell(excelRow, 72);
         dateCell.value = dateStr;
         dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        dateCell.font = { name: 'Arial', size: 9, bold: false };
+        dateCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
         ws.getCell(excelRow, 76).value = '';
         ws.getRow(excelRow).height = 20;
@@ -1526,12 +1458,15 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
         ws.mergeCells('BJ30:BP30');
     } catch {}
 
-    const totalLabelFont = { bold: true, size: 9, name: 'Arial' };
+    const totalLabelFont = { bold: true, size: 9, name: 'Arial', color: { argb: 'FF000000' } };
     const totalLabelAlign = { horizontal: 'center' as const, vertical: 'middle' as const, shrinkToFit: true };
+    const totalValFont = { bold: true, size: 9, name: 'Arial', color: { argb: 'FF000000' } };
 
     if (numPages <= 1) {
         ws.getCell('BD28').value = { formula: 'SUM(BD13:BD27)', result: totalItemQty };
+        ws.getCell('BD28').font = totalValFont;
         ws.getCell('BJ28').value = { formula: 'SUM(BJ13:BJ27)', result: totalItemAmt };
+        ws.getCell('BJ28').font = totalValFont;
 
         ws.getCell('BD30').value = 'Total';
         ws.getCell('BD30').font = totalLabelFont;
@@ -1545,7 +1480,9 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
 
         if (!isLastPage) {
             ws.getCell('BD28').value = { formula: 'SUM(BD13:BD27)', result: pageQty };
+            ws.getCell('BD28').font = totalValFont;
             ws.getCell('BJ28').value = { formula: 'SUM(BJ13:BJ27)', result: pageAmt };
+            ws.getCell('BJ28').font = totalValFont;
 
             ws.getCell('BD30').value = 'Sub-Total';
             ws.getCell('BD30').font = totalLabelFont;
@@ -1559,7 +1496,9 @@ function applyTotals(ws: ExcelJS.Worksheet, ctx: {
             const sumAmtFormula = itemSheetNames.map(s => `'${s}'!BJ28`).join('+');
 
             ws.getCell('BD28').value = { formula: sumQtyFormula, result: totalItemQty };
+            ws.getCell('BD28').font = totalValFont;
             ws.getCell('BJ28').value = { formula: sumAmtFormula, result: totalItemAmt };
+            ws.getCell('BJ28').font = totalValFont;
 
             ws.getCell('BD30').value = 'Gran Total';
             ws.getCell('BD30').font = totalLabelFont;
@@ -1645,6 +1584,28 @@ function ensureTableBorders(ws: ExcelJS.Worksheet) {
         const cell = ws.getCell(29, c);
         cell.border = { ...(cell.border || {}), bottom: borderMediumBlack };
     }
+}
+
+/**
+ * Pinta de color negro todos los caracteres que salgan en los ICW (ACT-117A)
+ */
+function applyAllBlackFont(ws: ExcelJS.Worksheet) {
+    ws.eachRow({ includeEmpty: false }, (row) => {
+        row.eachCell({ includeEmpty: false }, (cell) => {
+            if (cell.font) {
+                cell.font = {
+                    ...cell.font,
+                    color: { argb: 'FF000000' },
+                };
+            } else {
+                cell.font = {
+                    name: 'Arial',
+                    size: 9,
+                    color: { argb: 'FF000000' },
+                };
+            }
+        });
+    });
 }
 
 function formatDisplayDate(dateStr: string): string {
