@@ -15,6 +15,7 @@ export interface CertExcelRow {
     inspector: string;
     inspDate: string;     // ISO string o fecha reconocible
     page?: number;
+    personName?: string;  // Nombre de persona/trainee detectado
     raw?: Record<string, any>;
     isBlueQty?: boolean;
 }
@@ -183,7 +184,9 @@ export async function scanExcelItems(
             const rows = itemGroups[key] || [];
             const validRows = rows.filter(r => {
                 const q = parseFloat(String(r.quantity ?? 0));
-                return !isNaN(q) && q > 0;
+                if (isNaN(q) || q <= 0) return false;
+                if (isContractInfo(`${r.location} ${r.calculations}`) || isContractOrSummaryRow([r.location, r.calculations])) return false;
+                return true;
             });
             const totalQty = validRows.reduce((s, r) => s + (r.quantity || 0), 0);
             const first = rows[0];
@@ -200,9 +203,9 @@ export async function scanExcelItems(
 
         // Ordenar naturalmente por número
         items.sort((a, b) => {
-            const na = parseFloat(a.itemNum) || 0;
-            const nb = parseFloat(b.itemNum) || 0;
-            return na - nb || a.itemNum.localeCompare(b.itemNum);
+            const na = parseFloat(a.itemNum || '') || 0;
+            const nb = parseFloat(b.itemNum || '') || 0;
+            return na - nb || (a.itemNum || '').localeCompare(b.itemNum || '');
         });
     } else {
         // UNA SOLA HOJA TABULAR: solo mostrar partidas con cantidad > 0
@@ -218,7 +221,9 @@ export async function scanExcelItems(
                 const first = rows[0];
                 const validRows = rows.filter(r => {
                     const q = parseFloat(String(r.quantity ?? 0));
-                    return !isNaN(q) && q > 0;
+                    if (isNaN(q) || q <= 0) return false;
+                    if (isContractInfo(`${r.location} ${r.calculations}`) || isContractOrSummaryRow([r.location, r.calculations])) return false;
+                    return true;
                 });
                 const totalQty = validRows.reduce((s, r) => s + (r.quantity || 0), 0);
                 return {
@@ -418,16 +423,8 @@ export async function generateAct117AFromExcel(
         const validRows = rawRows.filter(r => {
             const q = r.quantity;
             if (q === null || q === undefined || isNaN(q) || q <= 0) return false;
-            const textCheck = `${r.location} ${r.calculations}`.toLowerCase();
-            if (
-                textCheck.includes('contract quantity') ||
-                textCheck.includes('original contract') ||
-                textCheck.includes('contract amount') ||
-                textCheck.includes('cantidad contrato') ||
-                textCheck.includes('contrato original') ||
-                textCheck.trim() === 'contract' ||
-                textCheck.trim() === 'contrato'
-            ) {
+            const textCheck = `${r.location} ${r.calculations} ${r.itemName || ''}`;
+            if (isContractInfo(textCheck) || isContractOrSummaryRow([r.location, r.calculations, r.itemName])) {
                 return false;
             }
             return true;
@@ -435,6 +432,45 @@ export async function generateAct117AFromExcel(
 
         if (validRows.length === 0) {
             continue;
+        }
+
+        const isTrainee2 = isTraineeItem2(displayItemNo, firstRow?.specCode || matchedDbItem?.specification, itemDesc);
+        const isTrainee3 = isTraineeItem3(displayItemNo, firstRow?.specCode || matchedDbItem?.specification, itemDesc);
+
+        // En los items 2 y 3, en localización además de lo que ya pones, entre paréntesis, incluye el nombre de la persona
+        if (isTrainee2 || isTrainee3) {
+            const defaultName = isTrainee2 ? 'Ivonne Rosado Rosario' : 'Derek Figueroa Rosado';
+
+            let itemPersonDetected = '';
+            for (const r of validRows) {
+                const cand = cleanPersonName(r.personName || '') ||
+                             cleanPersonName(r.inspector || '') ||
+                             cleanPersonName(r.calculations || '') ||
+                             cleanPersonName(r.location || '');
+                if (cand) {
+                    itemPersonDetected = cand;
+                    break;
+                }
+            }
+            if (!itemPersonDetected) {
+                itemPersonDetected = cleanPersonName(firstRow?.itemName || '');
+            }
+
+            const assignedPerson = itemPersonDetected || defaultName;
+
+            for (const r of validRows) {
+                const rowPerson = cleanPersonName(r.personName || '') ||
+                                  cleanPersonName(r.inspector || '') ||
+                                  cleanPersonName(r.calculations || '') ||
+                                  cleanPersonName(r.location || '') ||
+                                  assignedPerson;
+
+                if (isTrainee2) {
+                    r.location = `Trainees Man Hour (${rowPerson})`;
+                } else if (isTrainee3) {
+                    r.location = `YPP Trainees Man Hour (${rowPerson})`;
+                }
+            }
         }
 
         itemsProcessedCount++;
@@ -484,7 +520,7 @@ export async function generateAct117AFromExcel(
             });
 
             // Reglas 5, 6, 7, 8, 9, 12: Filas de Detalle
-            fillDataRows(ws, pageRows, finalInspectors);
+            fillDataRows(ws, pageRows, finalInspectors, isTrainee2, isTrainee3);
 
             // Regla 16: Totales (Sub-Total en páginas intermedias y Gran Total en la última)
             applyTotals(ws, {
@@ -567,7 +603,54 @@ export function splitLocationAndCalculations(
     return { location: full, calculations: '' };
 }
 
-// ─── Verificador de Filas de Totales, Resúmenes o Datos del Contrato ─────────
+// ─── Verificador de Información del Contrato y Nombres de Trainees ─────────
+
+/**
+ * Detecta si un texto contiene información o datos del contrato
+ * (ej: "Contract: 13,390 LNM | Unit Price: $74.00 | Total: $990,860.00 | Certificación #16 - Octubre 2026")
+ * para excluirlo por completo de las filas de detalle (13 a 28) del ACT-117A.
+ */
+export function isContractInfo(text: string): boolean {
+    if (!text) return false;
+    const lower = text.toLowerCase().trim();
+
+    if (
+        lower.includes('contract:') ||
+        lower.includes('contrato:') ||
+        lower.includes('unit price') ||
+        lower.includes('precio unitario') ||
+        lower.includes('certificación #') ||
+        lower.includes('certificacion #') ||
+        lower.includes('cert #') ||
+        lower.includes('cert. #') ||
+        lower.includes('certificación no') ||
+        lower.includes('certificacion no') ||
+        lower.includes('cert no') ||
+        lower.includes('contract quantity') ||
+        lower.includes('contract amount') ||
+        lower.includes('contract value') ||
+        lower.includes('contract item') ||
+        lower.includes('original contract') ||
+        lower.includes('cantidad contrato') ||
+        lower.includes('cantidad de contrato') ||
+        lower.includes('monto contrato') ||
+        lower.includes('monto del contrato') ||
+        lower.includes('valor contrato') ||
+        lower.includes('contrato original') ||
+        lower.includes('presupuesto') ||
+        lower.includes('budget') ||
+        lower.includes('planos mensura') ||
+        lower.includes('material en sitio') ||
+        lower.startsWith('contract ') ||
+        lower.startsWith('contrato ') ||
+        lower === 'contract' ||
+        lower === 'contrato'
+    ) {
+        return true;
+    }
+
+    return false;
+}
 
 /**
  * Determina si una fila del Excel representa totales, balances o datos del contrato
@@ -578,49 +661,98 @@ export function isContractOrSummaryRow(rowCells: any[]): boolean {
     if (!rowCells || rowCells.length === 0) return false;
     const rowStr = rowCells.map(c => String(c || '').toLowerCase().trim()).join(' ');
 
-    // 1. Totales y resúmenes
+    // 1. Información del contrato
+    if (isContractInfo(rowStr)) {
+        return true;
+    }
+
+    // 2. Totales y resúmenes
     if (rowStr.includes('total') || rowStr.includes('subtotal') || rowStr.includes('balance') || rowStr.includes('resumen') || rowStr.includes('summary')) {
         return true;
     }
 
-    // 2. Términos específicos de datos del contrato
-    if (
-        rowStr.includes('contract quantity') ||
-        rowStr.includes('contract amount') ||
-        rowStr.includes('contract value') ||
-        rowStr.includes('contract item') ||
-        rowStr.includes('original contract') ||
-        rowStr.includes('cantidad contrato') ||
-        rowStr.includes('cantidad de contrato') ||
-        rowStr.includes('monto contrato') ||
-        rowStr.includes('monto del contrato') ||
-        rowStr.includes('valor contrato') ||
-        rowStr.includes('contrato original') ||
-        rowStr.includes('presupuesto') ||
-        rowStr.includes('budget') ||
-        rowStr.includes('planos mensura') ||
-        rowStr.includes('material en sitio')
-    ) {
-        return true;
-    }
-
-    // 3. Si alguna celda de texto dice exactamente contract o contrato
+    // 3. Revisión celda por celda
     for (const c of rowCells) {
         const val = String(c || '').toLowerCase().trim();
-        if (
-            val === 'contract' ||
-            val === 'contrato' ||
-            val === 'original contract' ||
-            val === 'contract quantity' ||
-            val === 'cantidad contrato' ||
-            val === 'cant. contrato' ||
-            val === 'balance contrato'
-        ) {
+        if (isContractInfo(val)) {
             return true;
         }
     }
 
     return false;
+}
+
+/**
+ * Identifica si una partida corresponde al Item 2 (Trainees Man Hour)
+ */
+export function isTraineeItem2(itemNum: string, specCode?: string, itemDesc?: string): boolean {
+    const cleanNum = String(itemNum || '').replace(/^item\s*/i, '').replace(/^0+/, '').trim();
+    if (cleanNum === '2') return true;
+    if (specCode && (specCode.includes('152-001') || specCode.includes('152'))) return true;
+    const desc = `${itemDesc || ''}`.toLowerCase();
+    if (desc.includes('trainee') && !desc.includes('ypp') && !desc.includes('abriendo')) return true;
+    return false;
+}
+
+/**
+ * Identifica si una partida corresponde al Item 3 (YPP Trainees Man Hour)
+ */
+export function isTraineeItem3(itemNum: string, specCode?: string, itemDesc?: string): boolean {
+    const cleanNum = String(itemNum || '').replace(/^item\s*/i, '').replace(/^0+/, '').trim();
+    if (cleanNum === '3') return true;
+    if (specCode && (specCode.includes('153-001') || specCode.includes('153'))) return true;
+    const desc = `${itemDesc || ''}`.toLowerCase();
+    if (desc.includes('ypp')) return true;
+    return false;
+}
+
+/**
+ * Limpia y valida el nombre de la persona para los items de trainees (Items 2 y 3)
+ */
+export function cleanPersonName(raw: string): string {
+    if (!raw) return '';
+    let s = raw.trim();
+
+    // Si viene entre paréntesis: (Ivonne Rosado Rosario)
+    const mParen = s.match(/\(([A-Za-zÀ-ÿ\s\.\-\']+)\)/);
+    if (mParen && mParen[1] && mParen[1].trim().length > 2) {
+        s = mParen[1].trim();
+    } else {
+        // Si no tiene paréntesis pero tiene prefijo como "Trainee:" o "Nombre:"
+        const prefixMatch = s.match(/^(?:trainee|trainees|nombre|name|student|empleado|persona|inspector)[\s\:\-]+(.+)$/i);
+        if (prefixMatch && prefixMatch[1]) {
+            s = prefixMatch[1].trim();
+        }
+    }
+
+    // Quitar comillas
+    s = s.replace(/["'«»]/g, '').trim();
+
+    // Si contiene números o datos de contrato, no es un nombre de persona
+    if (/\d/.test(s)) return '';
+    if (isContractInfo(s)) return '';
+
+    const lower = s.toLowerCase();
+    if (
+        lower === 'trainees man hour' ||
+        lower === 'ypp trainees man hour' ||
+        lower === 'ypp - trainees man hour' ||
+        lower === 'ypp' ||
+        lower === 'trainee' ||
+        lower === 'trainees' ||
+        lower === 'man hour' ||
+        lower === 'man hours' ||
+        lower === 'horas' ||
+        lower === 'hours' ||
+        lower === 'total' ||
+        lower === 'subtotal' ||
+        lower === 'n/a' ||
+        lower.length < 3
+    ) {
+        return '';
+    }
+
+    return s;
 }
 
 // ─── Extractor de Datos del Libro Completo (Todas las Hojas) ─────────────────
@@ -761,6 +893,7 @@ function extractFromBlockFormat(
                 row.forEach((colVal, colIdx) => {
                     const norm = String(colVal || '').toLowerCase().trim();
                     if (norm.includes('record no')) headerIndices.recordNo = colIdx;
+                    else if (norm.includes('trainee') || norm.includes('persona') || norm.includes('empleado') || norm.includes('employee') || norm === 'nombre' || norm === 'name') headerIndices.personName = colIdx;
                     else if (norm.includes('inspector')) headerIndices.inspector = colIdx;
                     else if (norm === 'cantidad' || norm.startsWith('cantidad') || norm === 'quantity' || norm.startsWith('quantity')) headerIndices.qtyCantidad = colIdx;
                     else if (norm.includes('verified') && norm.includes('approved')) headerIndices.qtyApproved = colIdx;
@@ -782,9 +915,10 @@ function extractFromBlockFormat(
 
                 const recordNo = headerIndices.recordNo !== undefined ? String(row[headerIndices.recordNo] || '').trim() : '';
                 const inspector = headerIndices.inspector !== undefined ? String(row[headerIndices.inspector] || '').trim() : '';
+                const personNameRaw = headerIndices.personName !== undefined ? String(row[headerIndices.personName] || '').trim() : '';
                 const inspDateRaw = headerIndices.inspDate !== undefined ? row[headerIndices.inspDate] : '';
 
-                if (!recordNo && !inspector && !inspDateRaw) {
+                if (!recordNo && !inspector && !inspDateRaw && !personNameRaw) {
                     continue;
                 }
 
@@ -811,16 +945,8 @@ function extractFromBlockFormat(
                     : '';
 
                 // Descartar si el texto de ubicación o cálculo hace referencia a datos del contrato
-                const locCalcLower = `${rawLocation} ${rawCalculations}`.toLowerCase();
-                if (
-                    locCalcLower.includes('contract quantity') ||
-                    locCalcLower.includes('original contract') ||
-                    locCalcLower.includes('contract amount') ||
-                    locCalcLower.includes('cantidad contrato') ||
-                    locCalcLower.includes('contrato original') ||
-                    locCalcLower.trim() === 'contract' ||
-                    locCalcLower.trim() === 'contrato'
-                ) {
+                const locCalcCombined = `${rawLocation} ${rawCalculations} ${currentSpec} ${currentItemName}`;
+                if (isContractInfo(locCalcCombined) || isContractOrSummaryRow([rawLocation, rawCalculations])) {
                     continue;
                 }
 
@@ -837,6 +963,7 @@ function extractFromBlockFormat(
                     inspector,
                     inspDate: formatRawDate(inspDateRaw),
                     page: pageVal,
+                    personName: cleanPersonName(personNameRaw) || undefined,
                 });
             }
         }
@@ -898,6 +1025,8 @@ function extractFromTabularFormat(
                 const norm = String(cellVal || '').toLowerCase().replace(/[\s_\-\.:#]/g, '');
                 if (norm.includes('itemnumber') || norm.includes('itemno') || norm.includes('itemnum') || norm === 'item' || norm.startsWith('item') || norm.includes('partida')) {
                     indices.itemNum = cIdx;
+                } else if (norm.includes('trainee') || norm.includes('persona') || norm.includes('empleado') || norm.includes('employee') || norm === 'nombre' || norm === 'name') {
+                    indices.personName = cIdx;
                 } else if (norm.includes('location') || norm.includes('ubicacion') || norm.includes('station') || norm.includes('estacion') || norm.includes('lugar') || norm.includes('tramo')) {
                     indices.location = cIdx;
                 } else if (norm.includes('calculation') || norm.includes('calculo') || norm.includes('formula') || norm.includes('remarks') || norm.includes('description') || norm.includes('descripcion') || norm.includes('nota')) {
@@ -926,6 +1055,7 @@ function extractFromTabularFormat(
     if (headerRowIdx === -1 || !colIndices) {
         colIndices = {
             itemNum: undefined,
+            personName: undefined,
             location: undefined,
             calculations: undefined,
             quantity: undefined,
@@ -975,18 +1105,11 @@ function extractFromTabularFormat(
 
         const rawLoc = colIndices.location !== undefined ? String(row[colIndices.location] || '').trim() : '';
         const rawCalc = colIndices.calculations !== undefined ? String(row[colIndices.calculations] || '').trim() : '';
+        const personNameRaw = colIndices.personName !== undefined ? String(row[colIndices.personName] || '').trim() : '';
 
         // Descartar si el texto de ubicación o cálculo hace referencia a datos del contrato
-        const locCalcLower = `${rawLoc} ${rawCalc}`.toLowerCase();
-        if (
-            locCalcLower.includes('contract quantity') ||
-            locCalcLower.includes('original contract') ||
-            locCalcLower.includes('contract amount') ||
-            locCalcLower.includes('cantidad contrato') ||
-            locCalcLower.includes('contrato original') ||
-            locCalcLower.trim() === 'contract' ||
-            locCalcLower.trim() === 'contrato'
-        ) {
+        const locCalcCombined = `${rawLoc} ${rawCalc} ${itemNumRaw} ${defaultItemInfo?.itemName || ''}`;
+        if (isContractInfo(locCalcCombined) || isContractOrSummaryRow([rawLoc, rawCalc])) {
             continue;
         }
 
@@ -1012,6 +1135,7 @@ function extractFromTabularFormat(
             inspector,
             inspDate: formattedDate,
             page: pageVal,
+            personName: cleanPersonName(personNameRaw) || undefined,
         });
     }
 
@@ -1350,7 +1474,9 @@ const INSPECTOR_INCISOS = [
 function fillDataRows(
     ws: ExcelJS.Worksheet,
     pageRows: CertExcelRow[],
-    inspectorsList: string[] = []
+    inspectorsList: string[] = [],
+    isTrainee2: boolean = false,
+    isTrainee3: boolean = false
 ) {
     for (let i = 0; i < ROWS_PER_PAGE; i++) {
         const excelRow = DATA_ROW_START + i;
@@ -1361,10 +1487,27 @@ function fillDataRows(
             continue;
         }
 
+        // Regla: No incluir información del contrato en las filas de la 13 a la 28
+        if (
+            isContractInfo(`${dataRow.location} ${dataRow.calculations}`) ||
+            isContractOrSummaryRow([dataRow.location, dataRow.calculations, dataRow.itemName])
+        ) {
+            clearDataRow(ws, excelRow);
+            continue;
+        }
+
         const dateStr = formatDisplayDate(dataRow.inspDate);
 
         const locCell = ws.getCell(excelRow, 3);
-        locCell.value = dataRow.location || '';
+        let finalLoc = dataRow.location || '';
+        if ((isTrainee2 || isTrainee3) && !finalLoc.includes('(')) {
+            if (isTrainee3) {
+                finalLoc = `YPP Trainees Man Hour (Derek Figueroa Rosado)`;
+            } else {
+                finalLoc = `Trainees Man Hour (Ivonne Rosado Rosario)`;
+            }
+        }
+        locCell.value = finalLoc;
         locCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
         locCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
@@ -1398,6 +1541,9 @@ function fillDataRows(
             const idx = inspectorsList.findIndex(u => u.toLowerCase() === rawInsp.toLowerCase());
             if (idx >= 0 && idx < INSPECTOR_INCISOS.length) {
                 inspLetter = INSPECTOR_INCISOS[idx].letter;
+            } else if (isTrainee2 || isTrainee3) {
+                // En items de trainees, si el campo contenía el nombre del trainee, asignar el primer inspector oficial
+                inspLetter = INSPECTOR_INCISOS[0].letter;
             } else {
                 inspLetter = rawInsp;
             }
