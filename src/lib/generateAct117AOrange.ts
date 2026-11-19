@@ -863,6 +863,27 @@ function extractDataFromExcelOrange(
         return { allRows: [], certNumDetected: '', certDateDetected: '' };
     }
 
+    // Saltar hojas que son la plantilla oficial ACT-117A (ya generadas)
+    if (isAct117AWorksheet(sheet, rawMatrix)) {
+        return { allRows: [], certNumDetected: '', certDateDetected: '' };
+    }
+
+    // Detectar formato de bloques con "Item Number:" (igual que el botón verde)
+    let hasItemNumberBlocks = false;
+    for (const row of rawMatrix) {
+        if (!row) continue;
+        for (const cell of row) {
+            if (cell && String(cell).toLowerCase().includes('item number:')) {
+                hasItemNumberBlocks = true;
+                break;
+            }
+        }
+        if (hasItemNumberBlocks) break;
+    }
+    if (hasItemNumberBlocks) {
+        return extractFromBlockFormatOrange(rawMatrix, errors, defaultItemInfo);
+    }
+
     let certNumDetected = '';
     let certDateDetected = '';
     const fallbackItemNum = defaultItemInfo?.itemNum || '';
@@ -1188,4 +1209,148 @@ async function cloneSheetOrange(source: ExcelJS.Worksheet, target: ExcelJS.Works
     if (source.pageSetup) {
         target.pageSetup = { ...source.pageSetup };
     }
+}
+
+/**
+ * Extrae datos de un Excel con formato de bloques "Item Number:" para el botón naranjado.
+ * Reutiliza la misma lógica de detección de columnas que el formato tabular naranjado.
+ */
+function extractFromBlockFormatOrange(
+    rawMatrix: any[][],
+    errors: string[],
+    defaultItemInfo?: { itemNum: string; itemName?: string }
+) {
+    const allRows: CertExcelRow[] = [];
+    let currentSpec = defaultItemInfo?.itemNum || '';
+    let currentItemName = defaultItemInfo?.itemName || '';
+    let headerIndices: any = null;
+    let certNumDetected = '';
+    let certDateDetected = '';
+
+    for (let r = 0; r < rawMatrix.length; r++) {
+        const row = rawMatrix[r];
+        if (!row || row.length === 0) continue;
+
+        let foundSpecInRow = '';
+        let foundNameInRow = '';
+
+        for (let c = 0; c < row.length; c++) {
+            const cellVal = String(row[c] || '').trim();
+            const lower = cellVal.toLowerCase();
+
+            if (lower.includes('cert') && (lower.includes('no') || lower.includes('num'))) {
+                const match = cellVal.match(/\d+/);
+                if (match && !certNumDetected) certNumDetected = match[0];
+            }
+
+            if (lower.includes('item number:')) {
+                let specVal = cellVal.replace(/item\s*number\s*:\s*/i, '').trim();
+                if (!specVal) {
+                    for (let nextC = c + 1; nextC < row.length; nextC++) {
+                        const nextV = String(row[nextC] || '').trim();
+                        if (nextV) { specVal = nextV; break; }
+                    }
+                }
+                if (specVal) foundSpecInRow = specVal;
+            }
+
+            if (lower.includes('item name:')) {
+                let nameVal = cellVal.replace(/item\s*name\s*:\s*/i, '').trim();
+                if (!nameVal) {
+                    for (let nextC = c + 1; nextC < row.length; nextC++) {
+                        const nextV = String(row[nextC] || '').trim();
+                        if (nextV) { nameVal = nextV; break; }
+                    }
+                }
+                if (nameVal) foundNameInRow = nameVal;
+            }
+        }
+
+        if (foundSpecInRow) {
+            currentSpec = foundSpecInRow;
+            currentItemName = foundNameInRow || currentItemName;
+            headerIndices = null;
+            continue;
+        }
+
+        if (currentSpec) {
+            const rowStr = row.map((c: any) => String(c).toLowerCase()).join(' ');
+
+            // Detectar fila de cabecera de tabla
+            if (
+                rowStr.includes('record no') ||
+                (rowStr.includes('inspector') && (rowStr.includes('quantity') || rowStr.includes('date') || rowStr.includes('cantidad') || rowStr.includes('hours') || rowStr.includes('horas'))) ||
+                rowStr.includes('quantity verified') ||
+                rowStr.includes('qty verified')
+            ) {
+                headerIndices = {} as any;
+                row.forEach((colVal: any, colIdx: number) => {
+                    const norm = String(colVal || '').toLowerCase().replace(/[\s_\-\.:#/\\()&]/g, '');
+                    // Prioridad 1: Quantity Verified and Approved
+                    if (norm.includes('quantityverifiedandapproved') || norm.includes('verifiedandapproved') || norm.includes('verifiedapproved') || norm.includes('qtyapproved') || norm.includes('quantityapproved') || norm.includes('approvedqty')) {
+                        headerIndices.qtyApproved = colIdx;
+                    } else if (norm.includes('quantitymeasured') || norm.includes('qtymeasured') || norm.includes('measuredqty')) {
+                        headerIndices.qtyMeasured = colIdx;
+                    } else if (norm === 'cantidad' || norm.startsWith('cantidad') || norm === 'quantity' || norm.startsWith('quantity') || norm.includes('hours') || norm.includes('horas') || norm.includes('manhour')) {
+                        if (headerIndices.qtyCantidad === undefined) headerIndices.qtyCantidad = colIdx;
+                    } else if (norm.includes('inspector') || norm.includes('insp')) {
+                        headerIndices.inspector = colIdx;
+                    } else if (norm.includes('inspectiondate') || norm.includes('date') || norm.includes('fecha')) {
+                        headerIndices.inspDate = colIdx;
+                    }
+                });
+                continue;
+            }
+
+            if (headerIndices && currentSpec) {
+                if (isContractOrSummaryRow(row)) continue;
+
+                // Columna de cantidad con jerarquía: Approved > Measured > Fallback
+                const qtyCol = headerIndices.qtyApproved !== undefined
+                    ? headerIndices.qtyApproved
+                    : (headerIndices.qtyMeasured !== undefined ? headerIndices.qtyMeasured : headerIndices.qtyCantidad);
+
+                let qty = 0;
+                if (qtyCol !== undefined && row[qtyCol] !== undefined && row[qtyCol] !== '') {
+                    const valStr = String(row[qtyCol]).replace(/,/g, '').trim();
+                    qty = parseFloat(valStr);
+                } else {
+                    // Fallback: buscar primer número positivo en la fila
+                    for (let c = 0; c < row.length; c++) {
+                        const cellStr = String(row[c] || '').replace(/,/g, '').trim();
+                        const cand = parseFloat(cellStr);
+                        if (!isNaN(cand) && cand > 0 && !cellStr.includes('/') && !cellStr.includes('-') && !cellStr.includes(':')) {
+                            qty = cand;
+                            break;
+                        }
+                    }
+                }
+
+                if (isNaN(qty) || qty <= 0) continue;
+
+                const inspDateRaw = headerIndices.inspDate !== undefined ? row[headerIndices.inspDate] : '';
+                const formattedDate = formatRawDate(inspDateRaw) || certDateDetected || '__certdate__';
+                const inspectorRaw = headerIndices.inspector !== undefined ? String(row[headerIndices.inspector] || '').trim() : '';
+
+                allRows.push({
+                    itemNum: currentSpec,
+                    specCode: currentSpec,
+                    itemName: currentItemName || undefined,
+                    location: formattedDate,
+                    calculations: inspectorRaw,
+                    quantity: qty,
+                    inspector: inspectorRaw,
+                    inspDate: formattedDate,
+                    isBlueQty: true,
+                });
+            }
+        }
+    }
+
+    if (!certDateDetected && allRows.length > 0) {
+        const dates = allRows.map(r => r.inspDate).filter(d => d && d !== '__certdate__').sort().reverse();
+        if (dates.length > 0) certDateDetected = dates[0];
+    }
+
+    return { allRows, certNumDetected, certDateDetected };
 }
