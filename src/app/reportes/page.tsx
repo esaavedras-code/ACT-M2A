@@ -452,16 +452,31 @@ function ReportesContent() {
         if (!file) return;
 
         const isExcel = file.name.toLowerCase().endsWith(".xlsx") || file.name.toLowerCase().endsWith(".xls");
-        if (!isExcel) {
+        const isPdf = file.name.toLowerCase().endsWith(".pdf");
+
+        if (!isExcel && !isPdf) {
             setAct117aFile(null);
-            setAct117aError("Solo se admiten documentos en formato Excel (.xlsx o .xls). Los archivos PDF no están permitidos.");
+            setAct117aError("Solo se admiten archivos Excel (.xlsx, .xls) o PDF (.pdf).");
             return;
         }
 
+        // ── Escanear el archivo (Excel o PDF) ──────────────────────────────────
         setAct117aScanning(true);
         try {
-            const { scanExcelItems } = await import("@/lib/generateAct117AFromExcel");
-            const scanRes = await scanExcelItems(file);
+            let scanRes: {
+                items: any[];
+                certNumDetected?: string;
+                certDateDetected?: string;
+                inspectorsDetected?: string[];
+            };
+
+            if (isPdf) {
+                const { scanPdfItems } = await import("@/lib/scanPdfItems");
+                scanRes = await scanPdfItems(file);
+            } else {
+                const { scanExcelItems } = await import("@/lib/generateAct117AFromExcel");
+                scanRes = await scanExcelItems(file);
+            }
             const scannedItems = scanRes.items || [];
 
             // Helper de normalización para cruzar los ítems encontrados en el Excel con el catálogo de PACT
@@ -526,8 +541,8 @@ function ReportesContent() {
                 setAct117aSelectedInspectors(prev => Array.from(new Set([...prev, ...scanRes.inspectorsDetected])));
             }
         } catch (e: any) {
-            console.warn("Error escaneando páginas e ítems del Excel:", e);
-            setAct117aError(`Error al leer archivo Excel: ${e.message}`);
+            console.warn("Error escaneando partidas del archivo:", e);
+            setAct117aError(`Error al leer el archivo: ${e.message}`);
         } finally {
             setAct117aScanning(false);
         }
@@ -1910,7 +1925,7 @@ function ReportesContent() {
                                 Generador de ICW (ACT-117A)
                             </h3>
                             <p className="text-[10px] font-semibold text-slate-400">
-                                Genera automáticamente los formularios ACT-117A utilizando una certificación de cantidades en Excel
+                                Genera automáticamente los formularios ACT-117A utilizando una certificación de cantidades en Excel o PDF
                             </p>
                         </div>
                     </div>
@@ -1944,12 +1959,12 @@ function ReportesContent() {
 
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 ml-1">
-                                Archivo Excel (.xlsx / .xls) *
+                                Archivo Excel o PDF *
                             </label>
                             <input
                                 id="act117a-file-input"
                                 type="file"
-                                accept=".xlsx,.xls"
+                                accept=".xlsx,.xls,.pdf"
                                 className="hidden"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0] || null;
@@ -1966,7 +1981,7 @@ function ReportesContent() {
                                 }`}
                             >
                                 <span className="truncate pr-2">
-                                    {act117aFile ? act117aFile.name : 'Seleccionar Excel (.xlsx, .xls)...'}
+                                    {act117aFile ? act117aFile.name : 'Seleccionar Excel o PDF...'}
                                 </span>
                                 <Download size={14} className="shrink-0 text-slate-400" />
                             </button>
@@ -2074,7 +2089,10 @@ function ReportesContent() {
                             return (
                                 <div className="flex items-center justify-center gap-2 py-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500">
                                     <Loader2 size={16} className="animate-spin text-emerald-600" />
-                                    Buscando páginas e ítems en el archivo Excel...
+                                    {act117aFile?.name.toLowerCase().endsWith('.pdf')
+                                        ? 'Extrayendo partidas del archivo PDF...'
+                                        : 'Buscando páginas e ítems en el archivo Excel...'
+                                    }
                                 </div>
                             );
                         }
@@ -2090,7 +2108,10 @@ function ReportesContent() {
                         if (rawList.length === 0) {
                             return (
                                 <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400">
-                                    Selecciona un archivo Excel de certificación arriba para buscar el nombre de las páginas y listar las partidas a generar en el ACT-117A.
+                                    {act117aFile && act117aFile.name.toLowerCase().endsWith('.pdf')
+                                        ? 'No se detectaron partidas en el PDF. Verifica que el archivo contenga texto seleccionable (no escaneado).'
+                                        : 'Selecciona un archivo Excel o PDF de certificación arriba para buscar las partidas a generar en el ACT-117A.'
+                                    }
                                 </div>
                             );
                         }
@@ -2230,7 +2251,7 @@ function ReportesContent() {
                                 }
                             }
 
-                            // Regla 1: Archivo Excel únicamente (.xlsx y .xls)
+                            // Regla 1: Archivo requerido (.xlsx, .xls o .pdf)
                             if (!act117aFile) {
                                 document.getElementById('act117a-file-input')?.click();
                                 return;
@@ -2321,7 +2342,7 @@ function ReportesContent() {
                                 }
                             }
 
-                            // Regla 1: Archivo Excel únicamente (.xlsx y .xls)
+                            // Regla 1: Archivo requerido (.xlsx, .xls o .pdf)
                             if (!act117aFile) {
                                 document.getElementById('act117a-file-input')?.click();
                                 return;
