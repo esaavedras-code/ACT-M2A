@@ -295,6 +295,9 @@ export async function generateAct117AOrange(
         const itemDesc = matchedDbItem?.description || firstRow?.itemName || '';
         const itemUnit = matchedDbItem?.unit || '';
 
+        const isTrainee2 = isTraineeItem2(displayItemNo, firstRow?.specCode, itemDesc);
+        const isTrainee3 = isTraineeItem3(displayItemNo, firstRow?.specCode, itemDesc);
+
         // Regla 6: Exclusión de cantidades e importes en cero
         const validRows = rawRows.filter(r => {
             const q = r.quantity;
@@ -361,7 +364,7 @@ export async function generateAct117AOrange(
             });
 
             // Reglas 8, 9, 10, 11, 12, 13, 15: Filas de Detalle para el Botón Anaranjado
-            fillDataRowsOrange(ws, pageRows, finalInspectors, finalCertDate);
+            fillDataRowsOrange(ws, pageRows, finalInspectors, finalCertDate, isTrainee2, isTrainee3, itemDesc);
 
             // Regla 18: Manejo de páginas y "Gran Total" sin cortes
             applyTotalsOrange(ws, {
@@ -417,7 +420,10 @@ function fillDataRowsOrange(
     ws: ExcelJS.Worksheet,
     pageRows: CertExcelRow[],
     inspectorsList: string[] = [],
-    certDate: string = ''
+    certDate: string = '',
+    isTrainee2: boolean = false,
+    isTrainee3: boolean = false,
+    itemDesc: string = ''
 ) {
     for (let i = 0; i < ROWS_PER_PAGE; i++) {
         const excelRow = DATA_ROW_START + i;
@@ -434,27 +440,38 @@ function fillDataRowsOrange(
             : certDate;
         const dateStr = formatDisplayDate(rowDate);
 
-        // Regla 8: En Location (columna C, filas 13 a 27), NO se escribe la estación/lugar,
-        // sino la fecha de inspección formateada como MM/DD/YYYY
+        // Location (columna C, col 3): en blanco para el botón naranjado
         const locCell = ws.getCell(excelRow, 3);
-        locCell.value = dateStr;
+        locCell.value = '';
         locCell.alignment = { vertical: 'middle', horizontal: 'center' };
         locCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
-        // Regla 10: En Calculations (columna AB, filas 13 a 27), se debe colocar el nombre del inspector
+        // Calculations (columna AB, col 28):
+        //   - Items 2 y 3: descripción adicional (nombre de la persona)
+        //   - Otros items: nombre del inspector
         const calcCell = ws.getCell(excelRow, 28);
-        calcCell.value = (dataRow.inspector || '').trim();
+        let calcValue = (dataRow.inspector || '').trim();
+        if (isTrainee2 || isTrainee3) {
+            // Descripción adicional para ítems 2 y 3
+            const personName = dataRow.personName?.trim() || dataRow.inspector?.trim() || '';
+            if (isTrainee3) {
+                calcValue = personName ? `YPP Trainees Man Hour (${personName})` : (itemDesc || 'YPP Trainees Man Hour');
+            } else {
+                calcValue = personName ? `Trainees Man Hour (${personName})` : (itemDesc || 'Trainees Man Hour');
+            }
+        }
+        calcCell.value = calcValue;
         calcCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
         calcCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
-        // Regla 13: En Quantity (columna BD, filas 13 a 27), cantidades en color AZUL
+        // Quantity (columna BD, col 56): en NEGRITAS y color AZUL
         const qtyCell = ws.getCell(excelRow, 56);
         qtyCell.value = dataRow.quantity;
         qtyCell.alignment = { vertical: 'middle', horizontal: 'right' };
         qtyCell.numFmt = '#,##0.000';
-        qtyCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF0000FF' } }; // AZUL PURO
+        qtyCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0000FF' } }; // AZUL + NEGRITAS
 
-        // Regla 12: En Amount (columna BJ, filas 13 a 27), fórmula =AO7*BD{fila} con formato de moneda. En blanco si no hay valor.
+        // Amount (columna BJ, col 62): fórmula =AO7*BD{fila}
         const amtCell = ws.getCell(excelRow, 62);
         amtCell.value = {
             formula: `AO7*BD${excelRow}`,
@@ -464,35 +481,30 @@ function fillDataRowsOrange(
         amtCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
         amtCell.alignment = { vertical: 'middle', horizontal: 'right' };
 
-        // Regla 15: En Insp. (columna BQ, celda 69), letra minúscula del inciso (a, b, etc.)
-        let inspLetter = '';
-        const rawInsp = (dataRow.inspector || '').trim();
-        if (rawInsp && inspectorsList.length > 0) {
-            const idx = inspectorsList.findIndex(u => u.toLowerCase() === rawInsp.toLowerCase());
-            if (idx >= 0 && idx < INSPECTOR_INCISOS.length) {
-                inspLetter = INSPECTOR_INCISOS[idx].letter;
-            } else {
-                inspLetter = rawInsp;
-            }
-        } else if (inspectorsList.length > 0) {
-            inspLetter = INSPECTOR_INCISOS[0].letter;
-        }
-
+        // Insp. (columna BQ, col 69): SIEMPRE EN BLANCO
         const inspCell = ws.getCell(excelRow, 69);
-        inspCell.value = inspLetter;
+        inspCell.value = '';
         inspCell.alignment = { horizontal: 'center', vertical: 'middle' };
         inspCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
-        // Regla 9: Columna Date de References vacía (columna BT, celda 72)
-        const dateRefCell = ws.getCell(excelRow, 72);
-        dateRefCell.value = '';
+        // Date (columna BT, col 72): fecha en formato MM/DD/YY
+        const dateCell = ws.getCell(excelRow, 72);
+        dateCell.value = dateStr;
+        dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        dateCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
-        // Regla 11: Columna Page de References vacía (columna BX, celda 76)
+        // Page (columna BX, col 76): vacía
         const pageRefCell = ws.getCell(excelRow, 76);
         pageRefCell.value = '';
 
         // Altura de fila adecuada
         ws.getRow(excelRow).height = 22;
+    }
+
+    // Asegurar que la columna BT (col 72) sea suficientemente ancha para MM/DD/YY
+    const colBT = ws.getColumn(72);
+    if (!colBT.width || colBT.width < 10) {
+        colBT.width = 10;
     }
 }
 
@@ -1065,6 +1077,19 @@ function extractDataFromExcelOrange(
             continue;
         }
 
+        // Excluir filas de TOTAL/SUBTOTAL: filas sin fecha y sin inspector (filas acumuladas en negritas)
+        const hasDate = colIndices.inspDate !== undefined && row[colIndices.inspDate] !== undefined && String(row[colIndices.inspDate] || '').trim() !== '';
+        const hasInspector = colIndices.inspector !== undefined && row[colIndices.inspector] !== undefined && String(row[colIndices.inspector] || '').trim() !== '';
+        const hasStatus = row.some((cell: any, cIdx: number) => {
+            if (cIdx === colIndices.quantity || cIdx === colIndices.itemNum) return false;
+            const val = String(cell || '').toLowerCase().trim();
+            return val === 'submitted' || val === 'approved' || val === 'pending' || val === 'rejected';
+        });
+        // Si no tiene fecha, no tiene inspector, y no tiene STATUS → es fila de total → excluir
+        if (!hasDate && !hasInspector && !hasStatus) {
+            continue;
+        }
+
         const inspDateRaw = colIndices.inspDate !== undefined ? row[colIndices.inspDate] : '';
         let formattedDate = formatRawDate(inspDateRaw);
         if (!formattedDate) {
@@ -1148,8 +1173,8 @@ function formatDisplayDate(dateStr: string): string {
         if (isNaN(d.getTime())) return dateStr;
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
-        const yyyy = d.getFullYear();
-        return `${mm}/${dd}/${yyyy}`;
+        const yy = String(d.getFullYear()).slice(-2); // formato MM/DD/YY (2 dígitos año)
+        return `${mm}/${dd}/${yy}`;
     } catch {
         return dateStr;
     }

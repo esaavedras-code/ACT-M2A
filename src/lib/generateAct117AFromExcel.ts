@@ -2348,7 +2348,17 @@ function fillDataRows(
         locCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
         const calcCell = ws.getCell(excelRow, 28);
-        calcCell.value = dataRow.calculations || '';
+        // Items 2 y 3: descripción adicional en Calculations
+        let calcValue = dataRow.calculations || '';
+        if (isTrainee2 || isTrainee3) {
+            const personName = dataRow.personName?.trim() || dataRow.inspector?.trim() || '';
+            if (isTrainee3) {
+                calcValue = personName ? `YPP Trainees Man Hour (${personName})` : 'YPP Trainees Man Hour';
+            } else {
+                calcValue = personName ? `Trainees Man Hour (${personName})` : 'Trainees Man Hour';
+            }
+        }
+        calcCell.value = calcValue;
         calcCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
         calcCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
@@ -2356,8 +2366,8 @@ function fillDataRows(
         qtyCell.value = dataRow.quantity;
         qtyCell.alignment = { vertical: 'middle', horizontal: 'right' };
         qtyCell.numFmt = '#,##0.000';
-        // Regla del usuario: pintar de negro todos los caracteres que salgan en las ICW
-        qtyCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
+        // Quantity siempre en NEGRITAS y color negro
+        qtyCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF000000' } };
 
         if (!dataRow.quantity || dataRow.quantity <= 0) {
             ws.getCell(excelRow, 62).value = '';
@@ -2371,25 +2381,13 @@ function fillDataRows(
             ws.getCell(excelRow, 62).alignment = { vertical: 'middle', horizontal: 'right' };
         }
 
-        let inspLetter = '';
-        const rawInsp = (dataRow.inspector || '').trim();
-        if (rawInsp && inspectorsList.length > 0) {
-            const idx = inspectorsList.findIndex(u => u.toLowerCase() === rawInsp.toLowerCase());
-            if (idx >= 0 && idx < INSPECTOR_INCISOS.length) {
-                inspLetter = INSPECTOR_INCISOS[idx].letter;
-            } else if (isTrainee2 || isTrainee3) {
-                inspLetter = INSPECTOR_INCISOS[0].letter;
-            } else {
-                inspLetter = rawInsp;
-            }
-        } else if (inspectorsList.length > 0) {
-            inspLetter = INSPECTOR_INCISOS[0].letter;
-        }
+        // Insp. (col 69): SIEMPRE EN BLANCO
         const inspCell = ws.getCell(excelRow, 69);
-        inspCell.value = inspLetter;
+        inspCell.value = '';
         inspCell.alignment = { horizontal: 'center', vertical: 'middle' };
         inspCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
+        // Date (col 72): fecha en formato MM/DD/YY
         const dateCell = ws.getCell(excelRow, 72);
         dateCell.value = dateStr;
         dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -2401,8 +2399,14 @@ function fillDataRows(
         ws.getCell(excelRow, 76).alignment = { horizontal: 'center', vertical: 'middle' };
 
         // Ajuste dinámico de altura para evitar que las letras se vean cortadas
-        const neededHeight = calculateNeededRowHeight(finalLoc, dataRow.calculations || '');
+        const neededHeight = calculateNeededRowHeight(finalLoc, calcValue);
         ws.getRow(excelRow).height = neededHeight;
+    }
+
+    // Asegurar que la columna BT (col 72) sea suficientemente ancha para MM/DD/YY
+    const colBT = ws.getColumn(72);
+    if (!colBT.width || colBT.width < 10) {
+        colBT.width = 10;
     }
 }
 
@@ -2612,8 +2616,8 @@ function formatDisplayDate(dateStr: string): string {
         if (isNaN(d.getTime())) return dateStr;
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
-        const yyyy = d.getFullYear();
-        return `${mm}/${dd}/${yyyy}`;
+        const yy = String(d.getFullYear()).slice(-2); // MM/DD/YY (2 dígitos año)
+        return `${mm}/${dd}/${yy}`;
     } catch {
         return dateStr;
     }
