@@ -154,13 +154,13 @@ export async function generateAct117AOrange(
         throw new Error('El archivo seleccionado es un documento PDF. Solo se admiten archivos Excel (.xlsx y .xls).');
     }
 
-    const certWb = XLSX.read(rawBuffer, { type: 'array', cellDates: true });
+    const certWb = XLSX.read(rawBuffer, { type: 'array', cellDates: true, cellStyles: true });
     if (!certWb.SheetNames || certWb.SheetNames.length === 0) {
         throw new Error('El archivo Excel no contiene hojas de trabajo válidas.');
     }
 
     // Regla 5, 6 y 7: Extracción con prioridad absoluta a "Quantity Verified and Approved"
-    const { allRows, certNumDetected, certDateDetected } = extractDataFromWorkbookOrange(certWb, errors);
+    const { allRows, certNumDetected, certDateDetected } = extractDataFromWorkbookOrange(certWb, errors, certWb);
 
     if (allRows.length === 0) {
         throw new Error('No se encontraron registros de certificación con cantidades válidas en el archivo Excel.');
@@ -448,9 +448,13 @@ function fillDataRowsOrange(
 
         // Calculations (columna AB, col 28):
         //   - Items 2 y 3: descripción adicional (nombre de la persona)
-        //   - Otros items: nombre del inspector
+        //   - Otros items: nombre del inspector (nunca una fecha)
         const calcCell = ws.getCell(excelRow, 28);
         let calcValue = (dataRow.inspector || '').trim();
+        // Protección: si el valor del inspector parece una fecha, dejarlo en blanco
+        if (calcValue && looksLikeDate(calcValue)) {
+            calcValue = '';
+        }
         if (isTrainee2 || isTrainee3) {
             // Descripción adicional para ítems 2 y 3
             const personName = dataRow.personName?.trim() || dataRow.inspector?.trim() || '';
@@ -464,12 +468,12 @@ function fillDataRowsOrange(
         calcCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
         calcCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
-        // Quantity (columna BD, col 56): en NEGRITAS y color AZUL
+        // Quantity (columna BD, col 56): en NEGRITAS y color NEGRO
         const qtyCell = ws.getCell(excelRow, 56);
         qtyCell.value = dataRow.quantity;
         qtyCell.alignment = { vertical: 'middle', horizontal: 'right' };
         qtyCell.numFmt = '#,##0.000';
-        qtyCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF0000FF' } }; // AZUL + NEGRITAS
+        qtyCell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF000000' } }; // NEGRO + NEGRITAS
 
         // Amount (columna BJ, col 62): fórmula =AO7*BD{fila}
         const amtCell = ws.getCell(excelRow, 62);
@@ -503,8 +507,8 @@ function fillDataRowsOrange(
 
     // Asegurar que la columna BT (col 72) sea suficientemente ancha para MM/DD/YY
     const colBT = ws.getColumn(72);
-    if (!colBT.width || colBT.width < 10) {
-        colBT.width = 10;
+    if (!colBT.width || colBT.width < 12) {
+        colBT.width = 12;
     }
 }
 
@@ -803,33 +807,57 @@ function ensureTableBordersOrange(ws: ExcelJS.Worksheet) {
 
 /**
  * Aplica colores de fuente para el reporte anaranjado:
- * - Regla 13: Cantidades en columna Quantity (BD13:BD27) en color AZUL (FF0000FF).
- * - Todo el resto del documento en color NEGRO (FF000000).
+ * - Todo el documento en color NEGRO (FF000000) sin excepciones.
  */
 function applyOrangeFontColors(ws: ExcelJS.Worksheet) {
-    ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
-        row.eachCell({ includeEmpty: false }, (cell, colNum) => {
-            // Si es la columna BD (56) entre las filas 13 y 27 y tiene valor numérico, mantener AZUL
-            if (rowNum >= DATA_ROW_START && rowNum <= DATA_ROW_END && colNum === 56 && cell.value !== '' && cell.value !== null && cell.value !== undefined) {
-                cell.font = {
-                    ...(cell.font || {}),
-                    name: 'Arial',
-                    size: 9,
-                    color: { argb: 'FF0000FF' }, // AZUL
-                };
-            } else {
-                cell.font = {
-                    ...(cell.font || {}),
-                    color: { argb: 'FF000000' }, // NEGRO
-                };
-            }
+    ws.eachRow({ includeEmpty: false }, (row, _rowNum) => {
+        row.eachCell({ includeEmpty: false }, (cell) => {
+            cell.font = {
+                ...(cell.font || {}),
+                color: { argb: 'FF000000' }, // NEGRO siempre
+            };
         });
     });
 }
 
 // ─── Extracción de Datos del Libro con Prioridad a Quantity Verified and Approved ────
 
-function extractDataFromWorkbookOrange(wb: XLSX.WorkBook, errors: string[]) {
+/**
+ * Detecta si una celda de un sheet XLSX tiene formato bold.
+ * Requiere que el workbook se haya leído con cellStyles: true.
+ */
+function isCellBoldInSheet(sheet: XLSX.WorkSheet, wb: XLSX.WorkBook, rowIdx: number, colIdx: number): boolean {
+    try {
+        const cellRef = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
+        const cell = sheet[cellRef];
+        if (!cell || cell.s === undefined) return false;
+        const styles = (wb as any).Styles;
+        if (!styles) return false;
+        const xf = styles.CellXf?.[cell.s];
+        if (!xf) return false;
+        const font = styles.Fonts?.[xf.fontId];
+        return font?.bold === true || font?.bold === 1;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Detecta si un string parece ser una fecha (para evitar meterlo en Calculations).
+ */
+function looksLikeDate(val: string): boolean {
+    if (!val) return false;
+    const v = val.trim();
+    // ISO date: 2026-10-08
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) return true;
+    // MM/DD/YYYY or MM/DD/YY
+    if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(v)) return true;
+    // JS Date.toString() style: "Thu Oct 08 2026..."
+    if (/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.test(v)) return true;
+    return false;
+}
+
+function extractDataFromWorkbookOrange(wb: XLSX.WorkBook, errors: string[], wbWithStyles?: XLSX.WorkBook) {
     const allRows: CertExcelRow[] = [];
     let certNumDetected = '';
     let certDateDetected = '';
@@ -845,7 +873,7 @@ function extractDataFromWorkbookOrange(wb: XLSX.WorkBook, errors: string[]) {
         }
 
         const { allRows: sheetRows, certNumDetected: sCertNum, certDateDetected: sCertDate } =
-            extractDataFromExcelOrange(sheet, errors, sheetItemInfo || undefined);
+            extractDataFromExcelOrange(sheet, errors, sheetItemInfo || undefined, wbWithStyles || wb);
 
         if (sCertNum && !certNumDetected) certNumDetected = sCertNum;
         if (sCertDate && !certDateDetected) certDateDetected = sCertDate;
@@ -868,7 +896,8 @@ function extractDataFromWorkbookOrange(wb: XLSX.WorkBook, errors: string[]) {
 function extractDataFromExcelOrange(
     sheet: XLSX.WorkSheet,
     errors: string[],
-    defaultItemInfo?: { itemNum: string; itemName?: string }
+    defaultItemInfo?: { itemNum: string; itemName?: string },
+    wb?: XLSX.WorkBook
 ) {
     const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
     if (!rawMatrix || rawMatrix.length === 0) {
@@ -1077,6 +1106,13 @@ function extractDataFromExcelOrange(
             continue;
         }
 
+        // ── Detectar filas de TOTAL/SUBTOTAL en negritas del Excel de origen ──
+        // Método 1: Verificar bold en la celda de cantidad vía estilos XLSX
+        if (wb && colIndices.quantity !== undefined) {
+            const qtyBold = isCellBoldInSheet(sheet, wb, i, colIndices.quantity);
+            if (qtyBold) continue; // fila de total/subtotal → omitir
+        }
+
         // Excluir filas de TOTAL/SUBTOTAL: filas sin fecha y sin inspector (filas acumuladas en negritas)
         const hasDate = colIndices.inspDate !== undefined && row[colIndices.inspDate] !== undefined && String(row[colIndices.inspDate] || '').trim() !== '';
         const hasInspector = colIndices.inspector !== undefined && row[colIndices.inspector] !== undefined && String(row[colIndices.inspector] || '').trim() !== '';
@@ -1096,14 +1132,18 @@ function extractDataFromExcelOrange(
             formattedDate = certDateDetected || '__certdate__';
         }
 
-        const inspectorRaw = colIndices.inspector !== undefined ? String(row[colIndices.inspector] || '').trim() : '';
+        // Protección: si el inspector parece una fecha, no usarlo en calculations
+        let inspectorRaw = colIndices.inspector !== undefined ? String(row[colIndices.inspector] || '').trim() : '';
+        if (looksLikeDate(inspectorRaw)) {
+            inspectorRaw = '';
+        }
 
         allRows.push({
             itemNum: itemNumRaw,
             specCode: itemNumRaw,
             itemName: defaultItemInfo?.itemName,
             location: formattedDate, // En el botón anaranjado, location lleva la fecha de inspección
-            calculations: inspectorRaw, // En el botón anaranjado, calculations lleva el nombre del inspector
+            calculations: inspectorRaw, // En el botón anaranjado, calculations lleva el nombre del inspector (nunca una fecha)
             quantity: qty,
             inspector: inspectorRaw,
             inspDate: formattedDate,
