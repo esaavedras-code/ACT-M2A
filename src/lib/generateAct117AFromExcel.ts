@@ -508,10 +508,9 @@ export async function generateAct117AFromExcel(
         const isTrainee2Check = isTraineeItem2(itemKey, firstRow?.specCode, itemDesc);
         const isTrainee3Check = isTraineeItem3(itemKey, firstRow?.specCode, itemDesc);
 
-        // Regla 10: Exclusión de Cantidades en Cero y Exclusión de Valores/Filas del Contrato
-        // Solo incluye registros que tengan cantidades (> 0). Si falta la fecha, asignarle la fecha oficial de certificación
-        // Regla usuario: No incluir cantidades con fecha que tengan más de 3 meses (90 días de 24h)
-        //   de diferencia respecto a la fecha de certificación (en las filas 13 a 27 de la forma ACT-117A)
+        // Regla: Filas de Detalle obtenidas del archivo Excel que subió el usuario
+        // Solo incluye registros que tengan cantidades (> 0). Si falta la fecha, asignarle la fecha oficial de certificación.
+        // Asegurarse de que la información de las filas 13 a 27 sea fielmente la obtenida del file de Excel subido.
         const filteredRows = rawRows.filter(r => {
             const q = r.quantity;
             if (q === null || q === undefined || isNaN(q) || q <= 0) return false;
@@ -521,16 +520,6 @@ export async function generateAct117AFromExcel(
             const textCheck = `${r.location} ${r.calculations} ${r.itemName || ''}`;
             if (isContractInfo(textCheck) || isContractOrSummaryRow([r.location, r.calculations, r.itemName])) {
                 return false;
-            }
-            // Excluir registros cuya fecha de inspección difiera más de 3 meses (90 días de 24h) de la fecha de certificación
-            if (!isNaN(certDateMs) && r.inspDate && r.inspDate !== '__certdate__' && r.inspDate !== '__nodate__') {
-                const rowDateMs = new Date(r.inspDate).getTime();
-                if (!isNaN(rowDateMs)) {
-                    const diffMs = Math.abs(certDateMs - rowDateMs);
-                    if (diffMs > THREE_MONTHS_MS) {
-                        return false;
-                    }
-                }
             }
             return true;
         });
@@ -609,10 +598,15 @@ export async function generateAct117AFromExcel(
                                   cleanPersonName(r.location || '') ||
                                   assignedPerson;
 
-                if (isTrainee2) {
-                    r.location = `Trainees Man Hour (${rowPerson})`;
-                } else if (isTrainee3) {
-                    r.location = `YPP Trainees Man Hour (${rowPerson})`;
+                // Asegurar que la información de las filas 13 a 27 sea la obtenida del Excel del usuario
+                if (!r.location || r.location.trim() === '') {
+                    if (isTrainee2) {
+                        r.location = `Trainees Man Hour (${rowPerson})`;
+                    } else if (isTrainee3) {
+                        r.location = `YPP Trainees Man Hour (${rowPerson})`;
+                    }
+                } else if (!r.location.includes('(') && rowPerson) {
+                    r.location = `${r.location.trim()} (${rowPerson})`;
                 }
             }
         }
@@ -1234,6 +1228,258 @@ function extractDataFromWorkbook(wb: XLSX.WorkBook, errors: string[]) {
     return { allRows, certNumDetected, certDateDetected, sheetItemsDetected };
 }
 
+export function isAct117AWorksheet(sheet: XLSX.WorkSheet, rawMatrix: any[][]): boolean {
+    if (!rawMatrix || rawMatrix.length === 0) return false;
+
+    // 1. Título explícito o cabeceras oficiales en las primeras filas
+    for (let r = 0; r < Math.min(rawMatrix.length, 12); r++) {
+        const row = rawMatrix[r];
+        if (!row) continue;
+        for (const cell of row) {
+            const str = String(cell || '').toLowerCase().trim();
+            if (
+                str.includes('item certification worksheet') ||
+                str.includes('act-117a') ||
+                str.includes('act 117a') ||
+                str.includes('act-117 a') ||
+                str.includes('act117a')
+            ) {
+                return true;
+            }
+        }
+    }
+
+    // 2. Encabezados de tabla en filas 10-12
+    // C11 es "Location", AB11 es "Calculations", BD11 es "Quantity", BQ12 es "Insp.", BT12 es "Date"
+    const cVal = String(sheet['C10']?.v || sheet['C11']?.v || rawMatrix[10]?.[2] || rawMatrix[9]?.[2] || '').toLowerCase().trim();
+    const bdVal = String(sheet['BD10']?.v || sheet['BD11']?.v || rawMatrix[10]?.[55] || rawMatrix[9]?.[55] || '').toLowerCase().trim();
+    if (cVal.includes('location') && (bdVal.includes('quantity') || bdVal.includes('qty'))) {
+        return true;
+    }
+
+    // 3. Revisar leyenda de inspectores en filas 29-38 (L29="a.")
+    const l29 = String(sheet['L29']?.v || rawMatrix[28]?.[11] || '').toLowerCase().trim();
+    if (l29 === 'a.' || l29 === 'a') {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Extrae la información fielmente de una hoja en formato oficial ACT-117A,
+ * asegurando que la información de las filas 13 a 27 sea exactamente la obtenida del Excel del usuario.
+ */
+export function extractFromAct117AFormat(
+    sheet: XLSX.WorkSheet,
+    rawMatrix: any[][],
+    errors: string[],
+    defaultItemInfo?: { itemNum: string; itemName?: string }
+): { allRows: CertExcelRow[]; certNumDetected: string; certDateDetected: string } {
+    let certNumDetected = '';
+    let certDateDetected = '';
+    let itemNumDetected = defaultItemInfo?.itemNum || '';
+    let itemNameDetected = defaultItemInfo?.itemName || '';
+
+    // 1. Escaneo de Cert. Num y Cert. Date en filas 5 a 8
+    for (let r = 0; r < Math.min(rawMatrix.length, 12); r++) {
+        const row = rawMatrix[r];
+        if (!row) continue;
+        for (let c = 0; c < row.length; c++) {
+            const val = String(row[c] || '').trim();
+            const lower = val.toLowerCase();
+            if (!certNumDetected && lower.includes('cert') && (lower.includes('num') || lower.includes('no') || lower.includes('#'))) {
+                for (let nc = c + 1; nc < Math.min(row.length, c + 15); nc++) {
+                    const nv = String(row[nc] || '').trim();
+                    const m = nv.match(/\d+/);
+                    if (m) {
+                        certNumDetected = m[0];
+                        break;
+                    }
+                }
+            }
+            if (!certDateDetected && lower.includes('cert') && lower.includes('date')) {
+                for (let nc = c + 1; nc < Math.min(row.length, c + 15); nc++) {
+                    const nv = row[nc];
+                    const fd = formatRawDate(nv);
+                    if (fd) {
+                        certDateDetected = fd;
+                        break;
+                    }
+                }
+            }
+            if (!itemNumDetected && (lower === 'item no.' || lower === 'item no' || lower === 'item number' || lower === 'partida')) {
+                for (let nc = c + 1; nc < Math.min(row.length, c + 15); nc++) {
+                    const nv = String(row[nc] || '').trim();
+                    if (nv && !isContractInfo(nv) && !/^(?:total|unit|subtotal)$/i.test(nv)) {
+                        itemNumDetected = nv;
+                        break;
+                    }
+                }
+            }
+            if (!itemNameDetected && (lower.includes('item description') || lower.includes('item name'))) {
+                for (let nc = c + 1; nc < Math.min(row.length, c + 25); nc++) {
+                    const nv = String(row[nc] || '').trim();
+                    if (nv && !isContractInfo(nv)) {
+                        itemNameDetected = nv;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Direct check en celdas estándar de ACT-117A
+    const bw6Val = sheet['BW6']?.v ?? sheet['BQ6']?.v;
+    if (bw6Val !== undefined && !certNumDetected) {
+        const m = String(bw6Val).trim().match(/\d+/);
+        if (m) certNumDetected = m[0];
+    }
+    const bw7Val = sheet['BW7']?.v ?? sheet['BQ7']?.v;
+    if (bw7Val !== undefined && !certDateDetected) {
+        const fd = formatRawDate(bw7Val);
+        if (fd) certDateDetected = fd;
+    }
+    const ao6Val = sheet['AO6']?.v ?? sheet['AJ6']?.v;
+    if (ao6Val !== undefined && !itemNumDetected) {
+        const s = String(ao6Val).trim();
+        if (s) itemNumDetected = s;
+    }
+    const ar8Val = sheet['AR8']?.v ?? sheet['AJ8']?.v;
+    if (ar8Val !== undefined && !itemNameDetected) {
+        const s = String(ar8Val).trim();
+        if (s) itemNameDetected = s;
+    }
+
+    // 2. Extraer catálogo de inspectores desde las filas 29 a 38
+    const inspectorsMap: Record<string, string> = {};
+    for (let r = 28; r <= 37; r++) { // Filas 29 a 38 base 0
+        const row = rawMatrix[r];
+        if (!row) continue;
+        let foundLetter = '';
+        let foundName = '';
+        for (let c = 0; c < Math.min(row.length, 25); c++) {
+            const v = String(row[c] || '').trim();
+            const m = v.match(/^([a-j])[\.\)]?$/i);
+            if (m && !foundLetter) {
+                foundLetter = m[1].toLowerCase();
+                for (let nc = c + 1; nc < Math.min(row.length, c + 25); nc++) {
+                    const nv = String(row[nc] || '').trim();
+                    if (nv && nv.length >= 2 && !/^\d+$/.test(nv) && !isContractInfo(nv) && !/^(?:total|mnf|samples|shop|dwg|req|taken|yes|n\/a)$/i.test(nv)) {
+                        foundName = nv;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        if (foundLetter && foundName) {
+            inspectorsMap[foundLetter] = foundName;
+        }
+    }
+
+    // 3. Extraer fielmente la información de las FILAS 13 a 27 (base 1)
+    const allRows: CertExcelRow[] = [];
+    for (let rNum = DATA_ROW_START; rNum <= DATA_ROW_END; rNum++) {
+        const rIdx = rNum - 1; // base 0
+        const row = rawMatrix[rIdx] || [];
+
+        // Col C (índice 2): Location
+        let location = String(sheet['C' + rNum]?.v ?? row[2] ?? '').trim();
+        if (!location) {
+            for (let c = 2; c <= 26; c++) {
+                const cv = String(row[c] || '').trim();
+                if (cv && !isContractInfo(cv)) {
+                    location = cv;
+                    break;
+                }
+            }
+        }
+
+        // Col AB (índice 27): Calculations
+        let calculations = String(sheet['AB' + rNum]?.v ?? row[27] ?? '').trim();
+        if (!calculations) {
+            for (let c = 27; c <= 54; c++) {
+                const cv = String(row[c] || '').trim();
+                if (cv && !isContractInfo(cv)) {
+                    calculations = cv;
+                    break;
+                }
+            }
+        }
+
+        // Col BD (índice 55): Quantity
+        let qty: number | null = null;
+        const qtyCellVal = sheet['BD' + rNum]?.v ?? row[55];
+        if (qtyCellVal !== undefined && qtyCellVal !== null && qtyCellVal !== '') {
+            const parsed = parseFloat(String(qtyCellVal).replace(/,/g, '').trim());
+            if (!isNaN(parsed) && parsed > 0) {
+                qty = parsed;
+            }
+        }
+        if (qty === null) {
+            for (let c = 50; c <= 60; c++) {
+                if (c === 61 || c === 62) continue; // Columna Amount
+                const cv = String(row[c] || '').replace(/,/g, '').trim();
+                const cand = parseFloat(cv);
+                if (!isNaN(cand) && cand > 0 && !cv.includes('/') && !cv.includes(':') && cv.length < 10) {
+                    qty = cand;
+                    break;
+                }
+            }
+        }
+
+        // Solo incluir registros con cantidades mayores a cero
+        if (qty === null || qty <= 0) {
+            continue;
+        }
+
+        // Descartar si el texto es resumen o totales del contrato
+        if (isContractInfo(`${location} ${calculations}`) || isContractOrSummaryRow([location, calculations])) {
+            continue;
+        }
+
+        // Col BQ (índice 68): Inspector
+        const inspCellVal = sheet['BQ' + rNum]?.v ?? row[68] ?? '';
+        let rawInsp = String(inspCellVal || '').trim();
+        let finalInspector = rawInsp;
+        const cleanL = rawInsp.toLowerCase().replace(/[\.\)]/g, '').trim();
+        if (inspectorsMap[cleanL]) {
+            finalInspector = inspectorsMap[cleanL];
+        }
+
+        // Col BT (índice 71): Date
+        const dateCellVal = sheet['BT' + rNum]?.v ?? row[71] ?? '';
+        let formattedDate = formatRawDate(dateCellVal);
+        if (!formattedDate) {
+            formattedDate = certDateDetected || '__certdate__';
+        }
+
+        // Col BX (índice 75): Page
+        const pageCellVal = sheet['BX' + rNum]?.v ?? row[75] ?? '';
+        const pageNum = parseInt(String(pageCellVal).trim()) || undefined;
+
+        allRows.push({
+            itemNum: itemNumDetected,
+            specCode: itemNumDetected,
+            itemName: itemNameDetected,
+            location,
+            calculations,
+            quantity: qty,
+            inspector: finalInspector,
+            inspDate: formattedDate,
+            page: pageNum,
+        });
+    }
+
+    if (!certDateDetected && allRows.length > 0) {
+        const dates = allRows.map(r => r.inspDate).filter(d => d && d !== '__certdate__').sort().reverse();
+        if (dates.length > 0) certDateDetected = dates[0];
+    }
+
+    return { allRows, certNumDetected, certDateDetected };
+}
+
 function extractDataFromExcel(
     sheet: XLSX.WorkSheet,
     errors: string[],
@@ -1241,6 +1487,12 @@ function extractDataFromExcel(
 ) {
     const rawMatrix: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
+    // 1. Detectar si la hoja corresponde directamente a la plantilla oficial ACT-117A
+    if (isAct117AWorksheet(sheet, rawMatrix)) {
+        return extractFromAct117AFormat(sheet, rawMatrix, errors, defaultItemInfo);
+    }
+
+    // 2. Detectar si tiene bloques con "Item Number:"
     let hasItemNumberBlocks = false;
     for (const row of rawMatrix) {
         if (!row) continue;
@@ -1500,6 +1752,29 @@ function extractFromTabularFormat(
 
             if (indices.quantity !== undefined || (indices.locationCols.length > 0 && indices.calculations !== undefined) || (fallbackItemNum && indices.quantity !== undefined)) {
                 headerRowIdx = r;
+                let actualStartRow = r + 1;
+
+                // Revisar fila siguiente (r+1) por si es una sub-cabecera multilínea (ej: fila 11 y 12 con Insp, Date, Page)
+                if (r + 1 < rawMatrix.length) {
+                    const nextRow = rawMatrix[r + 1];
+                    const nextRowStr = (nextRow || []).map(c => String(c || '').toLowerCase().trim()).join(' ');
+                    if (nextRowStr.includes('insp') || nextRowStr.includes('date') || nextRowStr.includes('fecha') || nextRowStr.includes('page')) {
+                        nextRow.forEach((cellVal: any, cIdx: number) => {
+                            const orig = String(cellVal || '').trim();
+                            const norm = orig.toLowerCase().replace(/[\s_\-\.:#/\\()]/g, '');
+                            if ((indices.inspector === undefined || indices.inspector === -1) && (norm.includes('inspector') || norm.includes('insp'))) {
+                                indices.inspector = cIdx;
+                            } else if ((indices.inspDate === undefined || indices.inspDate === -1) && (norm.includes('date') || norm.includes('fecha'))) {
+                                indices.inspDate = cIdx;
+                            } else if ((indices.page === undefined || indices.page === -1) && (norm.includes('page') || norm.includes('pag'))) {
+                                indices.page = cIdx;
+                            }
+                        });
+                        actualStartRow = r + 2;
+                    }
+                }
+
+                indices._startRow = actualStartRow;
                 colIndices = indices;
                 break;
             }
@@ -1520,7 +1795,7 @@ function extractFromTabularFormat(
     }
 
     const allRows: CertExcelRow[] = [];
-    const startRow = headerRowIdx + 1;
+    const startRow = colIndices._startRow !== undefined ? colIndices._startRow : headerRowIdx + 1;
 
     for (let i = startRow; i < rawMatrix.length; i++) {
         const row = rawMatrix[i];
@@ -1776,68 +2051,9 @@ function detectCertDate(rows: Record<string, any>[], colMap: any): string {
 }
 
 function applyDateInspectorRules(rows: CertExcelRow[]): CertExcelRow[] {
-    const byItem: Record<string, CertExcelRow[]> = {};
-    for (const row of rows) {
-        if (!byItem[row.itemNum]) byItem[row.itemNum] = [];
-        byItem[row.itemNum].push(row);
-    }
-
-    const result: CertExcelRow[] = [];
-
-    for (const itemKey of Object.keys(byItem)) {
-        const itemRows = byItem[itemKey];
-
-        const byDate: Record<string, CertExcelRow[]> = {};
-        for (const row of itemRows) {
-            const dateKey = row.inspDate || '__nodate__';
-            if (!byDate[dateKey]) byDate[dateKey] = [];
-            byDate[dateKey].push(row);
-        }
-
-        for (const dateKey of Object.keys(byDate)) {
-            const dateRows = byDate[dateKey];
-
-            if (dateRows.length === 1) {
-                result.push({ ...dateRows[0], isBlueQty: true });
-                continue;
-            }
-
-            const qtys = dateRows.map(r => r.quantity ?? 0);
-            const freqMap: Record<number, number> = {};
-            for (const q of qtys) {
-                freqMap[q] = (freqMap[q] || 0) + 1;
-            }
-
-            let maxFreq = 1;
-            let repeatedQty: number | null = null;
-            for (const [qStr, freq] of Object.entries(freqMap)) {
-                if (freq > maxFreq) {
-                    maxFreq = freq;
-                    repeatedQty = Number(qStr);
-                } else if (freq === maxFreq && maxFreq > 1 && repeatedQty === null) {
-                    repeatedQty = Number(qStr);
-                }
-            }
-
-            const allSame = Object.keys(freqMap).length === 1;
-            const someRepeat = repeatedQty !== null;
-
-            if (allSame) {
-                result.push({ ...dateRows[0], isBlueQty: true });
-            } else if (someRepeat) {
-                const firstRepeated = dateRows.find(r => (r.quantity ?? 0) === repeatedQty);
-                if (firstRepeated) {
-                    result.push({ ...firstRepeated, isBlueQty: true });
-                }
-            } else {
-                for (const row of dateRows) {
-                    result.push({ ...row, isBlueQty: true });
-                }
-            }
-        }
-    }
-
-    return result;
+    // Preservar íntegramente todas las filas obtenidas del archivo Excel que subió el usuario,
+    // garantizando que no se descarten registros con cantidades válidas en una misma fecha.
+    return rows.map(r => ({ ...r, isBlueQty: true }));
 }
 
 function groupByItem(rows: CertExcelRow[]): Record<string, CertExcelRow[]> {
@@ -2035,6 +2251,12 @@ export function calculateNeededRowHeight(loc: string, calc: string): number {
 export function paginateItemRows(rows: CertExcelRow[]): CertExcelRow[][] {
     if (!rows || rows.length === 0) return [[]];
 
+    // Si las filas son 15 o menos (caben exactamente en una página oficial ACT-117A, filas 13 a 27),
+    // mantenerlas en una sola página para respetar la estructura de la forma
+    if (rows.length <= ROWS_PER_PAGE) {
+        return [rows];
+    }
+
     const pages: CertExcelRow[][] = [];
     let currentPage: CertExcelRow[] = [];
     let currentHeightSum = 0;
@@ -2082,20 +2304,13 @@ function fillDataRows(
     isTrainee3: boolean = false,
     certDate: string = ''
 ) {
-    // Preparar la validación de 3 meses para las filas 13 a 27
-    const certDateMs = certDate ? new Date(certDate).getTime() : NaN;
-    const THREE_MONTHS_MS = 3 * 30 * 24 * 60 * 60 * 1000; // ~90 días exactos de 24h
-
     for (let i = 0; i < ROWS_PER_PAGE; i++) {
         const excelRow = DATA_ROW_START + i;
         const dataRow = pageRows[i];
 
-        // REGLA DEL USUARIO: y solo incluye en los datos de las filas 13 a 27, los datos del excel que tengan fechas y cantidades
+        // Validar que la fila de datos exista y tenga cantidad positiva
         if (
             !dataRow ||
-            !dataRow.inspDate ||
-            dataRow.inspDate.trim() === '' ||
-            dataRow.inspDate === '__nodate__' ||
             dataRow.quantity === undefined ||
             dataRow.quantity === null ||
             isNaN(dataRow.quantity) ||
@@ -2105,20 +2320,7 @@ function fillDataRows(
             continue;
         }
 
-        // Regla usuario: No incluir en las líneas 13 a 27 cantidades con fecha que tengan
-        // más de 3 meses (90 días de 24h) de diferencia respecto a la fecha de certificación
-        if (!isNaN(certDateMs) && dataRow.inspDate && dataRow.inspDate !== '__certdate__' && dataRow.inspDate !== '__nodate__') {
-            const rowDateMs = new Date(dataRow.inspDate).getTime();
-            if (!isNaN(rowDateMs)) {
-                const diffMs = Math.abs(certDateMs - rowDateMs);
-                if (diffMs > THREE_MONTHS_MS) {
-                    clearDataRow(ws, excelRow);
-                    continue;
-                }
-            }
-        }
-
-        // Regla: No incluir información del contrato en las filas de la 13 a la 28
+        // Regla: No incluir información del contrato en las filas de la 13 a la 27
         if (
             isContractInfo(`${dataRow.location} ${dataRow.calculations}`) ||
             isContractOrSummaryRow([dataRow.location, dataRow.calculations, dataRow.itemName])
@@ -2127,14 +2329,17 @@ function fillDataRows(
             continue;
         }
 
-        const dateStr = formatDisplayDate(dataRow.inspDate);
+        const rowDate = (dataRow.inspDate && dataRow.inspDate !== '__nodate__' && dataRow.inspDate !== '__certdate__')
+            ? dataRow.inspDate
+            : certDate;
+        const dateStr = formatDisplayDate(rowDate);
 
         const locCell = ws.getCell(excelRow, 3);
         let finalLoc = dataRow.location || '';
-        if ((isTrainee2 || isTrainee3) && !finalLoc.includes('(')) {
+        if (!finalLoc.trim()) {
             if (isTrainee3) {
                 finalLoc = `YPP Trainees Man Hour (Derek Figueroa Rosado)`;
-            } else {
+            } else if (isTrainee2) {
                 finalLoc = `Trainees Man Hour (Ivonne Rosado Rosario)`;
             }
         }
@@ -2173,7 +2378,6 @@ function fillDataRows(
             if (idx >= 0 && idx < INSPECTOR_INCISOS.length) {
                 inspLetter = INSPECTOR_INCISOS[idx].letter;
             } else if (isTrainee2 || isTrainee3) {
-                // En items de trainees, si el campo contenía el nombre del trainee, asignar el primer inspector oficial
                 inspLetter = INSPECTOR_INCISOS[0].letter;
             } else {
                 inspLetter = rawInsp;
@@ -2191,7 +2395,10 @@ function fillDataRows(
         dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
         dateCell.font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
 
-        ws.getCell(excelRow, 76).value = '';
+        // Columna BX (76): Page de referencia obtenida del Excel
+        ws.getCell(excelRow, 76).value = (dataRow.page !== undefined && dataRow.page !== null) ? dataRow.page : '';
+        ws.getCell(excelRow, 76).font = { name: 'Arial', size: 9, bold: false, color: { argb: 'FF000000' } };
+        ws.getCell(excelRow, 76).alignment = { horizontal: 'center', vertical: 'middle' };
 
         // Ajuste dinámico de altura para evitar que las letras se vean cortadas
         const neededHeight = calculateNeededRowHeight(finalLoc, dataRow.calculations || '');

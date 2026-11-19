@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /* PACT-Administradores - Reportes */
 import { useState, useEffect, Suspense, useRef, useMemo } from "react";
@@ -73,6 +73,7 @@ import {
     generateMobilizationReportLogic,
     generateProjectStatusReportLogic,
     generateAct117AFromExcelLogic,
+    generateAct117AOrangeLogic,
     formatDate
 } from "@/lib/reportLogic";
 import { generateCertificationsSummaryExcel } from "@/lib/generateCertificationsSummary";
@@ -369,6 +370,7 @@ function ReportesContent() {
     const [act117aCertNum, setAct117aCertNum] = useState<string>("");
     const [act117aCertDate, setAct117aCertDate] = useState<string>("");
     const [act117aProcessing, setAct117aProcessing] = useState(false);
+    const [act117aOrangeProcessing, setAct117aOrangeProcessing] = useState(false);
     const [act117aError, setAct117aError] = useState<string | null>(null);
     const [act117aSuccess, setAct117aSuccess] = useState<string | null>(null);
     const [act117aDetectedItems, setAct117aDetectedItems] = useState<any[]>([]);
@@ -2278,6 +2280,97 @@ function ReportesContent() {
                         className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-wider transition-all shadow-md shadow-emerald-100 dark:shadow-emerald-900/20 active:scale-95 cursor-pointer"
                     >
                         {act117aProcessing ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />
+                                Generando ICW (ACT-117A)...
+                            </>
+                        ) : (
+                            <>
+                                <FileSpreadsheet size={16} />
+                                {act117aSelectedItems.length > 0
+                                    ? `Generar ICW (ACT-117A) - ${act117aSelectedItems.length} Partida(s)`
+                                    : "Generar ICW (ACT-117A)"}
+                            </>
+                        )}
+                    </button>
+
+                    {/* Botón Anaranjado: Generar ICW (ACT-117A) con Reglas de Inspección */}
+                    <button
+                        type="button"
+                        disabled={act117aOrangeProcessing}
+                        onClick={async () => {
+                            // Regla 2: Número de Certificación obligatorio y con prioridad
+                            let certNum = act117aCertNum.trim();
+                            if (!certNum) {
+                                const prompted = window.prompt("Por favor ingrese el Número de Certificación (Cert. Num) [ej. 16]:");
+                                if (!prompted || !prompted.trim()) {
+                                    alert("El número de certificación (Cert. Num) es obligatorio para continuar.");
+                                    return;
+                                }
+                                certNum = prompted.trim();
+                                setAct117aCertNum(certNum);
+                            }
+
+                            // Regla 3: Fecha de la Certificación personalizada
+                            let certDate = act117aCertDate.trim();
+                            if (!certDate) {
+                                const promptedDate = window.prompt("Por favor ingrese la Fecha de Certificación (MM/DD/YYYY, ej. 09/29/2026):");
+                                if (promptedDate && promptedDate.trim()) {
+                                    certDate = promptedDate.trim();
+                                    setAct117aCertDate(certDate);
+                                }
+                            }
+
+                            // Regla 1: Archivo Excel únicamente (.xlsx y .xls)
+                            if (!act117aFile) {
+                                document.getElementById('act117a-file-input')?.click();
+                                return;
+                            }
+
+                            // Inspectores del Proyecto
+                            let currentInspectors = [...act117aSelectedInspectors];
+                            if (currentInspectors.length === 0) {
+                                const promptedInsp = window.prompt("Por favor ingrese el nombre del (los) inspector(es) para este proyecto (puede ingresar varios separados por coma):");
+                                if (promptedInsp && promptedInsp.trim()) {
+                                    const parsedInsp = promptedInsp.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
+                                    if (parsedInsp.length > 0) {
+                                        handleAddInspector(promptedInsp);
+                                        currentInspectors = parsedInsp;
+                                    }
+                                }
+                            }
+
+                            // Regla 4: Selector y filtro de partidas a generar
+                            if (act117aDetectedItems.length > 0 && act117aSelectedItems.length === 0) {
+                                alert("Por favor seleccione al menos una partida para generar los ICW.");
+                                return;
+                            }
+
+                            if (!projectId) return;
+
+                            setAct117aOrangeProcessing(true);
+                            setAct117aError(null);
+                            setAct117aSuccess(null);
+                            try {
+                                await generateAct117AOrangeLogic(
+                                    act117aFile,
+                                    projectId,
+                                    certNum,
+                                    certDate || undefined,
+                                    act117aSelectedItems.length > 0 ? act117aSelectedItems : undefined,
+                                    currentInspectors.length > 0 ? currentInspectors : undefined
+                                );
+                                const itemsCountLabel = act117aSelectedItems.length > 0 ? ` (${act117aSelectedItems.length} partida(s))` : "";
+                                setAct117aSuccess(`ICW (ACT-117A) generado y descargado exitosamente${itemsCountLabel}.`);
+                            } catch (e: any) {
+                                setAct117aError(`Error: ${e.message}`);
+                            } finally {
+                                setAct117aOrangeProcessing(false);
+                            }
+                        }}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-200 dark:disabled:bg-slate-800 text-white rounded-xl font-black text-[11px] uppercase tracking-wider transition-all shadow-md shadow-orange-100 dark:shadow-orange-900/20 active:scale-95 cursor-pointer mt-2.5"
+                    >
+                        {act117aOrangeProcessing ? (
                             <>
                                 <Loader2 size={16} className="animate-spin" />
                                 Generando ICW (ACT-117A)...

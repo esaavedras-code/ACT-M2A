@@ -2799,3 +2799,49 @@ export const generateAct117AFromExcelLogic = async (
     }
 };
 
+/**
+ * Lógica para generar el ACT-117A con el Botón Anaranjado
+ * (Reglas 1-19: fecha en Location, inspector en Calculations, cantidades en azul, multi-inspector).
+ */
+export const generateAct117AOrangeLogic = async (
+    certExcelFile: File,
+    projectId: string,
+    customCertNum?: string | number,
+    customCertDate?: string,
+    selectedItems?: string[],
+    selectedInspectors?: string[],
+): Promise<void> => {
+    const { generateAct117AOrange } = await import('./generateAct117AOrange');
+
+    const result = await generateAct117AOrange(
+        certExcelFile,
+        projectId,
+        customCertNum,
+        customCertDate,
+        selectedItems,
+        selectedInspectors
+    );
+
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const certLabel = result.certNum
+        ? `Certificacion-${result.certNum}`
+        : 'Certificacion';
+    const fileName = `ACT-117A_ICW_${certLabel}_${today}.xlsx`;
+
+    downloadBlob(result.blob, fileName);
+
+    if (result.errors.length > 0) {
+        const MAX_SHOW = 10;
+        const shown = result.errors.slice(0, MAX_SHOW);
+        const more = result.errors.length > MAX_SHOW
+            ? `\n...y ${result.errors.length - MAX_SHOW} errores adicionales.`
+            : '';
+        alert(
+            `ICW (ACT-117A) generado con ${result.itemsProcessed} ítem(s).\n\n` +
+            `⚠️ Se encontraron ${result.errors.length} problema(s):\n` +
+            shown.join('\n') + more
+        );
+    }
+};
+
+

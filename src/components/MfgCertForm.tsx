@@ -622,6 +622,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                     const isLS = selectedItem?.unit === 'LS' || selectedItem?.unit === 'LUMP SUM';
                     const targetQty = isLS ? (parseFloat(selectedItem?.mfg_cert_qty) || 1) : totalPaid;
                     const balance = total - targetQty;
+                    const displayBalance = balance <= 0 ? 0 : balance;
 
                     const matchingCerts = certs.filter(c => {
                         if (c.is_multiple) return c.item_ids?.includes(sumSearchItemId);
@@ -653,7 +654,7 @@ const MfgCertForm = forwardRef<FormRef, { projectId?: string, numAct?: string, o
                                 {/* Balance */}
                                 <div className={`px-4 py-4 flex flex-col gap-0.5 ${balance < 0 ? 'bg-red-600' : balance === 0 ? 'bg-slate-600' : 'bg-teal-600'}`}>
                                     <p className="text-[9px] font-black text-white/80 uppercase tracking-widest">Balance Disponible</p>
-                                    <p className="text-xl font-black text-white leading-tight">{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className="text-xl font-black text-white leading-tight">{displayBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                     <p className="text-[9px] font-bold text-white/70">{selectedItem?.unit} {balance < 0 ? '⚠ Excedido' : balance === 0 ? '✓ Completo' : '✓ Disponible'}</p>
                                 </div>
                             </div>
