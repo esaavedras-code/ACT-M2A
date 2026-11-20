@@ -744,6 +744,62 @@ export function splitLocationAndCalculations(
     return { location: full, calculations: '' };
 }
 
+// ─── Helper: Convierte el valor crudo de celda "Record No" en texto limpio ───
+
+/**
+ * Dado el valor bruto de una celda "Record No" del Excel, devuelve el texto limpio
+ * que se debe usar como Location en el ACT-117A.
+ * Reglas:
+ *  - Si es un objeto Date (Excel lo convirtió) → devuelve '' (no es un Record No, es una fecha)
+ *  - Si el string contiene "GMT", "UTC" o tiene el patrón de fecha completa con hora → ''
+ *  - Si es un número serial de Excel (> 40000) que representa una fecha → ''
+ *  - En cualquier otro caso, devuelve el texto tal como está.
+ */
+export function cleanRecordNoValue(raw: any): string {
+    if (raw === null || raw === undefined || raw === '') return '';
+
+    // Caso 1: Excel entregó un objeto Date directamente (cellDates: true)
+    if (raw instanceof Date) return '';
+
+    // Caso 2: Número — puede ser número serial de fecha de Excel (> 40000 ≈ año 2009+)
+    if (typeof raw === 'number') {
+        // Números seriales de fecha de Excel suelen estar en el rango 25000-100000
+        if (raw > 25000 && raw < 200000) {
+            // Verificar si es número de registro válido: los Record No suelen ser < 10000
+            // Si está en rango de fecha de Excel, descartar
+            if (raw > 40000) return '';
+        }
+        return String(raw).trim();
+    }
+
+    const str = String(raw).trim();
+    if (!str) return '';
+
+    // Caso 3: String con marca de zona horaria → es una fecha
+    if (
+        str.includes('GMT') ||
+        str.includes('UTC') ||
+        str.includes('T00:') ||
+        str.includes('T01:') ||
+        str.includes('T02:') ||
+        str.includes('T03:') ||
+        str.includes('T04:') ||
+        str.includes('T05:') ||
+        str.includes('T06:')
+    ) return '';
+
+    // Caso 4: Formato "Sat Oct 31 2026 ..." (toString de Date JS)
+    if (/^\w{3}\s+\w{3}\s+\d{2}\s+\d{4}/.test(str)) return '';
+
+    // Caso 5: Formato ISO "2026-10-31" o "2026-10-31T..." → fecha sin hora
+    if (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(str)) return '';
+
+    // Caso 6: Formato "10/31/2026" o "31/10/2026" solo (posible fecha)
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) return '';
+
+    return str;
+}
+
 // ─── Verificador de Información del Contrato y Nombres de Trainees ─────────
 
 /**
@@ -1111,6 +1167,12 @@ function extractFlexibleQuantities(
         // Solo saltar si es verdaderamente un resumen de contrato o total general
         if (isContractOrSummaryRow(row)) continue;
 
+        // REGLA: Si hay columna Record No pero la celda está vacía → es total/subtotal → descartar
+        if (recordCol !== -1) {
+            const recordNoVal = String(row[recordCol] || '').trim();
+            if (!recordNoVal) continue;
+        }
+
         let qty = 0;
         if (qtyCol !== -1 && row[qtyCol] !== undefined && row[qtyCol] !== '') {
             const valStr = String(row[qtyCol]).replace(/,/g, '').trim();
@@ -1130,15 +1192,28 @@ function extractFlexibleQuantities(
         const rawCalc = calcCol !== -1 ? String(row[calcCol] || '').trim() : '';
         const personNameRaw = personCol !== -1 ? String(row[personCol] || '').trim() : '';
 
-        // Construir localización desde las columnas de location/trabajos/losa/estaciones/MOT
-        const locParts: string[] = [];
-        for (const lc of locCols) {
-            const val = String(row[lc] || '').trim();
-            if (val && !locParts.includes(val) && !isContractInfo(val)) {
-                locParts.push(val);
+        // REGLA: Si hay columna Record No, su valor va en location.
+        // Si no, construir location desde columnas de localización detectadas.
+        let rawLoc = '';
+        if (recordCol !== -1) {
+            // Usar cleanRecordNoValue para descartar fechas y obtener solo el texto real del Record No
+            rawLoc = cleanRecordNoValue(row[recordCol]);
+        } else {
+            // Construir localización desde las columnas de location/trabajos/losa/estaciones/MOT
+            const locParts: string[] = [];
+            for (const lc of locCols) {
+                const val = String(row[lc] || '').trim();
+                if (val && !locParts.includes(val) && !isContractInfo(val)) {
+                    locParts.push(val);
+                }
             }
+            rawLoc = locParts.join(' - ');
         }
-        const rawLoc = locParts.join(' - ');
+
+        // Salvaguarda adicional: si location aún tiene formato de fecha, limpiarla
+        if (rawLoc && (rawLoc.includes('GMT') || rawLoc.includes('UTC') || /^\w{3}\s+\w{3}\s+\d{2}\s+\d{4}/.test(rawLoc))) {
+            rawLoc = '';
+        }
 
         // Descartar si el texto de ubicación o cálculo hace referencia a datos del contrato
         if (isContractInfo(`${rawLoc} ${rawCalc}`)) continue;
@@ -1588,7 +1663,7 @@ function extractFromBlockFormat(
                 row.forEach((colVal, colIdx) => {
                     const orig = String(colVal || '').trim();
                     const norm = orig.toLowerCase().replace(/[\s_\-\.:#/\\()]/g, '');
-                    if (norm.includes('recordno')) headerIndices.recordNo = colIdx;
+                    if (norm.includes('recordno') || (norm.startsWith('record') && norm.length <= 10)) headerIndices.recordNo = colIdx;
                     else if (norm.includes('trainee') || norm.includes('persona') || norm.includes('empleado') || norm.includes('employee') || norm === 'nombre' || norm === 'name') headerIndices.personName = colIdx;
                     else if (norm.includes('inspector')) headerIndices.inspector = colIdx;
                     else if (norm === 'cantidad' || norm.startsWith('cantidad') || norm === 'quantity' || norm.startsWith('quantity') || norm.includes('hours') || norm.includes('horas') || norm.includes('manhour') || norm.includes('manhours')) headerIndices.qtyCantidad = colIdx;
@@ -1610,6 +1685,13 @@ function extractFromBlockFormat(
                 }
 
                 const recordNo = headerIndices.recordNo !== undefined ? String(row[headerIndices.recordNo] || '').trim() : '';
+
+                // REGLA: Si hay columna Record No pero la celda está vacía en esta fila,
+                // es una fila de total/subtotal en negrilla → descartarla
+                if (headerIndices.recordNo !== undefined && !recordNo) {
+                    continue;
+                }
+
                 const inspector = headerIndices.inspector !== undefined ? String(row[headerIndices.inspector] || '').trim() : '';
                 const personNameRaw = headerIndices.personName !== undefined ? String(row[headerIndices.personName] || '').trim() : '';
                 let qtyStr = '';
@@ -1632,19 +1714,40 @@ function extractFromBlockFormat(
                     formattedDate = certDateDetected || '__certdate__';
                 }
 
-                // Construir location a partir de las columnas detectadas (Descripción de Trabajos, ID losa, Estaciones, MOT, etc.)
-                const locParts: string[] = [];
-                for (const lc of (headerIndices.locationCols || [])) {
-                    const val = String(row[lc] || '').trim();
-                    if (val && !locParts.includes(val) && !isContractInfo(val)) {
-                        locParts.push(val);
+                // REGLA: En location se pone el valor de la columna Record No del Excel.
+                // Si no hay columna Record No, construir location desde columnas de localización detectadas.
+                let rawLocation = '';
+                if (recordNo) {
+                    // Usar cleanRecordNoValue para descartar fechas y obtener solo el texto real del Record No
+                    const rawRecordNoCell = headerIndices.recordNo !== undefined ? row[headerIndices.recordNo] : undefined;
+                    rawLocation = cleanRecordNoValue(rawRecordNoCell);
+                } else {
+                    // Fallback: construir location desde columnas de localización detectadas
+                    const locParts: string[] = [];
+                    for (const lc of (headerIndices.locationCols || [])) {
+                        const val = String(row[lc] || '').trim();
+                        if (val && !locParts.includes(val) && !isContractInfo(val)) {
+                            locParts.push(val);
+                        }
                     }
+                    rawLocation = locParts.join(' - ');
                 }
-                const rawLocation = locParts.join(' - ');
 
-                const rawCalculations = headerIndices.calculations !== undefined && row[headerIndices.calculations]
+                // Salvaguarda adicional: si location aún tiene formato de fecha, limpiarla
+                if (rawLocation && (rawLocation.includes('GMT') || rawLocation.includes('UTC') || /^\w{3}\s+\w{3}\s+\d{2}\s+\d{4}/.test(rawLocation))) {
+                    rawLocation = '';
+                }
+
+                // REGLA: Si el ítem tiene descripción adicional (currentItemName distinto al specCode),
+                // anotarla en calculations
+                let rawCalculations = headerIndices.calculations !== undefined && row[headerIndices.calculations]
                     ? String(row[headerIndices.calculations]).trim()
                     : '';
+
+                // Si hay descripción adicional del ítem y no hay ya un cálculo asignado, incluirla en calculations
+                if (!rawCalculations && currentItemName && currentItemName !== currentSpec) {
+                    rawCalculations = currentItemName;
+                }
 
                 // Descartar si el texto de ubicación o cálculo hace referencia a datos del contrato
                 const locCalcCombined = `${rawLocation} ${rawCalculations} ${currentSpec} ${currentItemName}`;
@@ -1652,15 +1755,18 @@ function extractFromBlockFormat(
                     continue;
                 }
 
-                const { location, calculations } = splitLocationAndCalculations(rawLocation, rawCalculations, currentItemName);
+                // Para location usamos directamente rawLocation (Record No), sin pasar por splitLocationAndCalculations
+                // Para calculations usamos rawCalculations
+                const finalLocation = rawLocation;
+                const finalCalculations = rawCalculations;
                 const pageVal = headerIndices.page !== undefined ? parseInt(String(row[headerIndices.page])) || undefined : undefined;
 
                 allRows.push({
                     itemNum: currentSpec,
                     specCode: currentSpec,
                     itemName: currentItemName,
-                    location,
-                    calculations,
+                    location: finalLocation,
+                    calculations: finalCalculations,
                     quantity: qty,
                     inspector,
                     inspDate: formattedDate,
@@ -1729,7 +1835,9 @@ function extractFromTabularFormat(
             row.forEach((cellVal, cIdx) => {
                 const orig = String(cellVal || '').trim();
                 const norm = orig.toLowerCase().replace(/[\s_\-\.:#/\\()]/g, '');
-                if (norm.includes('itemnumber') || norm.includes('itemno') || norm.includes('itemnum') || norm === 'item' || norm.startsWith('item') || norm.includes('partida')) {
+                if (norm.includes('recordno') || norm === 'recordno' || norm === 'record#' || norm === 'recordnumber' || (norm.startsWith('record') && norm.length <= 10)) {
+                    indices.recordNo = cIdx;
+                } else if (norm.includes('itemnumber') || norm.includes('itemno') || norm.includes('itemnum') || norm === 'item' || norm.startsWith('item') || norm.includes('partida')) {
                     indices.itemNum = cIdx;
                 } else if (norm.includes('trainee') || norm.includes('persona') || norm.includes('empleado') || norm.includes('employee') || norm === 'nombre' || norm === 'name') {
                     indices.personName = cIdx;
@@ -1806,6 +1914,14 @@ function extractFromTabularFormat(
             continue;
         }
 
+        // REGLA: Si hay columna Record No pero la celda de esta fila está vacía → es un total/subtotal → descartar
+        if (colIndices.recordNo !== undefined) {
+            const recordNoVal = String(row[colIndices.recordNo] || '').trim();
+            if (!recordNoVal) {
+                continue;
+            }
+        }
+
         let itemNumRaw = fallbackItemNum;
         if (colIndices.itemNum !== undefined && row[colIndices.itemNum] !== undefined && String(row[colIndices.itemNum]).trim() !== '') {
             itemNumRaw = String(row[colIndices.itemNum]).trim();
@@ -1839,16 +1955,34 @@ function extractFromTabularFormat(
             formattedDate = certDateDetected || '__certdate__';
         }
 
-        // Construir localización desde las columnas de location/trabajos/losa/estaciones/MOT
-        const locParts: string[] = [];
-        for (const lc of (colIndices.locationCols || [])) {
-            const val = String(row[lc] || '').trim();
-            if (val && !locParts.includes(val) && !isContractInfo(val)) {
-                locParts.push(val);
+        // REGLA: Si hay columna Record No, su valor va en location.
+        // Si no hay Record No, construir location desde columnas de localización detectadas.
+        let rawLoc = '';
+        if (colIndices.recordNo !== undefined) {
+            // Usar cleanRecordNoValue para descartar fechas y obtener solo el texto real del Record No
+            rawLoc = cleanRecordNoValue(row[colIndices.recordNo]);
+        } else {
+            // Construir localización desde las columnas de location/trabajos/losa/estaciones/MOT
+            const locParts: string[] = [];
+            for (const lc of (colIndices.locationCols || [])) {
+                const val = String(row[lc] || '').trim();
+                if (val && !locParts.includes(val) && !isContractInfo(val)) {
+                    locParts.push(val);
+                }
             }
+            rawLoc = locParts.join(' - ');
         }
-        const rawLoc = locParts.join(' - ');
-        const rawCalc = colIndices.calculations !== undefined ? String(row[colIndices.calculations] || '').trim() : '';
+
+        // Si location tiene formato de fecha completa con hora, limpiarla (salvaguarda adicional)
+        if (rawLoc && (rawLoc.includes('GMT') || rawLoc.includes('UTC') || /^\w{3}\s+\w{3}\s+\d{2}\s+\d{4}/.test(rawLoc))) {
+            rawLoc = '';
+        }
+
+        let rawCalc = colIndices.calculations !== undefined ? String(row[colIndices.calculations] || '').trim() : '';
+        // Si hay descripción adicional del ítem y no hay cálculo asignado, incluirla en calculations
+        if (!rawCalc && defaultItemInfo?.itemName && defaultItemInfo.itemName !== itemNumRaw) {
+            rawCalc = defaultItemInfo.itemName;
+        }
         const personNameRaw = colIndices.personName !== undefined ? String(row[colIndices.personName] || '').trim() : '';
 
         // Descartar si el texto de ubicación o cálculo hace referencia a datos del contrato
@@ -1857,7 +1991,9 @@ function extractFromTabularFormat(
             continue;
         }
 
-        const { location, calculations } = splitLocationAndCalculations(rawLoc, rawCalc, defaultItemInfo?.itemName || '');
+        // Para location usamos directamente rawLoc (Record No si existe), sin pasar por splitLocationAndCalculations
+        const finalLocation = rawLoc;
+        const finalCalculations = rawCalc;
 
         const inspector = colIndices.inspector !== undefined ? String(row[colIndices.inspector] || '').trim() : '';
 
@@ -1871,8 +2007,8 @@ function extractFromTabularFormat(
             itemNum: itemNumRaw,
             specCode: itemNumRaw,
             itemName: defaultItemInfo?.itemName || '',
-            location,
-            calculations,
+            location: finalLocation,
+            calculations: finalCalculations,
             quantity: qty,
             inspector,
             inspDate: formattedDate,

@@ -2308,6 +2308,7 @@ function ReportesContent() {
                         ) : (
                             <>
                                 <FileSpreadsheet size={16} />
+                                CONTRATISTA &nbsp;—&nbsp;
                                 {act117aSelectedItems.length > 0
                                     ? `Generar ICW (ACT-117A) - ${act117aSelectedItems.length} Partida(s)`
                                     : "Generar ICW (ACT-117A)"}
@@ -2399,6 +2400,7 @@ function ReportesContent() {
                         ) : (
                             <>
                                 <FileSpreadsheet size={16} />
+                                PMIS &nbsp;—&nbsp;
                                 {act117aSelectedItems.length > 0
                                     ? `Generar ICW (ACT-117A) - ${act117aSelectedItems.length} Partida(s)`
                                     : "Generar ICW (ACT-117A)"}
