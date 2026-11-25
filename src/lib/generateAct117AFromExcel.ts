@@ -1581,7 +1581,7 @@ function extractDataFromExcel(
     }
 
     if (hasItemNumberBlocks) {
-        return extractFromBlockFormat(rawMatrix, errors, defaultItemInfo);
+        return extractFromBlockFormat(rawMatrix, errors, defaultItemInfo, sheet);
     } else {
         return extractFromTabularFormat(sheet, errors, defaultItemInfo);
     }

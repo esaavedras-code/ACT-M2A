@@ -4,7 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
 import {
-    Save, X, Plus, Trash2, Link2, Paperclip, Upload, Loader2, ChevronDown, Check
+    RECURRENCE_OPTIONS,
+    RECURRENCE_UNITS,
+    RecurrenceType,
+    RecurrenceUnit,
+    createNextRecurrenceIfNeeded,
+} from "@/lib/taskUtils";
+import {
+    Save, X, Plus, Trash2, Link2, Paperclip, Upload, Loader2, ChevronDown, Check, Repeat
 } from "lucide-react";
 
 const TASK_TYPES = ["Email", "Llamada", "Por contestar", "Reunión", "Seguimiento", "Documento", "Facturación", "Permiso", "RFI", "Submittal", "Otro"];
@@ -35,6 +42,10 @@ type FormData = {
     due_time: string;
     reminder_option: string;
     reminder_custom_date: string;
+    recurrence_type: RecurrenceType;
+    recurrence_interval: number;
+    recurrence_unit: RecurrenceUnit;
+    recurrence_end_date: string;
     tags: string[];
     assignees: string[];
     links: ReminderLink[];
@@ -44,7 +55,12 @@ const emptyForm: FormData = {
     title: "", description: "", project_id: "", project_ids: [], subproject: "",
     urgency: 2, type: "Seguimiento", status: "Pendiente",
     due_date: "", due_time: "", reminder_option: "1",
-    reminder_custom_date: "", tags: [], assignees: [], links: [],
+    reminder_custom_date: "",
+    recurrence_type: "none",
+    recurrence_interval: 1,
+    recurrence_unit: "days",
+    recurrence_end_date: "",
+    tags: [], assignees: [], links: [],
 };
 
 type Props = {
@@ -192,6 +208,10 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     due_time: dueDate ? dueDate.toTimeString().slice(0, 5) : "",
                     reminder_option: "1",
                     reminder_custom_date: "",
+                    recurrence_type: (r.recurrence_type as RecurrenceType) || "none",
+                    recurrence_interval: r.recurrence_interval || 1,
+                    recurrence_unit: (r.recurrence_unit as RecurrenceUnit) || "days",
+                    recurrence_end_date: r.recurrence_end_date ? String(r.recurrence_end_date).split("T")[0] : "",
                     tags: (r.tags || []).filter((t: string) => !t.startsWith("Resp: ")),
                     assignees: (() => {
                         const fromTable = (aRes.data || []).map((a: any) => {
@@ -414,6 +434,10 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 status: form.status,
                 due_date,
                 reminder_date,
+                recurrence_type: form.recurrence_type || "none",
+                recurrence_interval: form.recurrence_type === "custom" ? Math.max(1, Number(form.recurrence_interval) || 1) : 1,
+                recurrence_unit: form.recurrence_type === "custom" ? form.recurrence_unit : "days",
+                recurrence_end_date: form.recurrence_type !== "none" && form.recurrence_end_date ? form.recurrence_end_date : null,
                 tags: form.tags,
                 created_by: userName,
                 user_email: userEmail || null,
@@ -538,6 +562,9 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                         }
                     }
                 }
+            }
+            if (rid && form.status === "Completado" && form.recurrence_type !== "none") {
+                await createNextRecurrenceIfNeeded(rid);
             }
             alert("Pendiente guardado exitosamente");
             onSaved();
@@ -777,6 +804,62 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                         value={form.reminder_custom_date}
                         onChange={e => setField("reminder_custom_date", e.target.value)}
                     />
+                )}
+            </div>
+
+            {/* Repetir Evento */}
+            <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1 flex items-center gap-1.5">
+                    <Repeat size={13} className="text-blue-600" /> Repetir Evento
+                </label>
+                <select
+                    className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                    value={form.recurrence_type}
+                    onChange={e => setField("recurrence_type", e.target.value as RecurrenceType)}
+                >
+                    {RECURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+
+                {form.recurrence_type === "custom" && (
+                    <div className="mt-2 p-3 rounded-xl border-2 border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 space-y-2">
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                            Repetir cada:
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <input
+                                type="number"
+                                min={1}
+                                max={365}
+                                className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-semibold"
+                                value={form.recurrence_interval}
+                                onChange={e => setField("recurrence_interval", Math.max(1, parseInt(e.target.value) || 1))}
+                            />
+                            <select
+                                className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                value={form.recurrence_unit}
+                                onChange={e => setField("recurrence_unit", e.target.value as RecurrenceUnit)}
+                            >
+                                {RECURRENCE_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                )}
+
+                {form.recurrence_type !== "none" && (
+                    <div className="mt-2 space-y-1.5">
+                        <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            Repetir hasta (Opcional — dejar vacío para repetir siempre):
+                        </label>
+                        <input
+                            type="date"
+                            className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                            value={form.recurrence_end_date}
+                            onChange={e => setField("recurrence_end_date", e.target.value)}
+                        />
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Al marcar este pendiente como Completado, se creará automáticamente la siguiente repetición.
+                        </p>
+                    </div>
                 )}
             </div>
 

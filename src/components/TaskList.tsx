@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
-import { getUserReminders } from "@/lib/taskUtils";
-import { Search, ChevronDown, ChevronUp, AlertTriangle, Clock, CheckCircle, RefreshCw, Loader2, Pencil, Trash2, Tag, CalendarDays, User } from "lucide-react";
+import { getUserReminders, createNextRecurrenceIfNeeded, formatRecurrenceLabel } from "@/lib/taskUtils";
+import { Search, ChevronDown, ChevronUp, AlertTriangle, Clock, CheckCircle, RefreshCw, Loader2, Pencil, Trash2, Tag, CalendarDays, User, Repeat } from "lucide-react";
 
 type Reminder = {
     id: string;
@@ -23,6 +23,11 @@ type Reminder = {
     updated_at?: string;
     is_auto_generated?: boolean;
     subproject?: string;
+    recurrence_type?: string;
+    recurrence_interval?: number;
+    recurrence_unit?: string;
+    recurrence_end_date?: string;
+    recurrence_next_created?: boolean;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -123,6 +128,12 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
     const handleStatusChange = async (id: string, newStatus: string) => {
         await supabase.from("reminders").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", id);
         setReminders(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+        if (newStatus === "Completado") {
+            const res = await createNextRecurrenceIfNeeded(id);
+            if (res.created) {
+                fetchReminders();
+            }
+        }
     };
 
     // Filtrado y ordenamiento en cliente
@@ -287,6 +298,11 @@ export default function TaskList({ initialFilter = "all", onEdit }: Props) {
                                             )}
                                             {r.is_auto_generated && (
                                                 <span className="text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-wide">Auto • Sistema</span>
+                                            )}
+                                            {formatRecurrenceLabel(r) && (
+                                                <span className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                    <Repeat size={10} /> {formatRecurrenceLabel(r)}
+                                                </span>
                                             )}
                                         </div>
 

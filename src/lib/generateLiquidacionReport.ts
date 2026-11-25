@@ -354,7 +354,8 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         const ROW_H = MAX_ROWS > 9 ? Math.max(9, Math.floor(108 / MAX_ROWS)) : 12;
 
         let rowsDrawn = 0;
-        detailRows.slice(0, MAX_ROWS).forEach((row) => {
+        const drawnRows = detailRows.slice(0, MAX_ROWS);
+        drawnRows.forEach((row) => {
             for (let i = 0; i < 8; i++) RECT(pg, COL_X[i], Y - ROW_H, COL_W[i], ROW_H, WH, 0.4);
             const fSize = ROW_H < 11 ? 5 : 5.5;
             const qSize = ROW_H < 11 ? 5.5 : 6.5;
@@ -378,6 +379,10 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
 
         // ── FILAS RESUMEN ────────────────────────────────
         const SUM_H = 13;
+        const pageSubTotal = roundedAmt(drawnRows.reduce((sum, row) => sum + row.qty, 0), 2);
+        // Si hay una sola hoja por ítem, BALANCE TOTAL es igual a SUB-TOTAL;
+        // si hubiera varias hojas del mismo ítem, es la suma de todos sus subtotales (totalExe).
+        const balanceTotal = roundedAmt(totalExe, 2);
         const subAmt = roundedAmt(totalExe * pUnit, 2);
         const totalQty = roundedAmt(qOrig + choTotalQty, 2);
         const totalAmt = roundedAmt(mOrig + choTotalAmt, 2);
@@ -389,9 +394,9 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         // ── Fila 1: SUB-TOTAL (izq) | AUMENTO (centro-der) ──
         for (let i = 0; i < 8; i++) RECT(pg, COL_X[i], Y - SUM_H, COL_W[i], SUM_H, WH, 0.5);
 
-        // SUB-TOTAL: label + cantidad ejecutada
+        // SUB-TOTAL: label + suma de todo lo ejecutado en esa misma columna
         TXT(pg, 'SUB-TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
-        TXT(pg, formatNum(totalExe, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
+        TXT(pg, formatNum(pageSubTotal, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
         // AUMENTO: solo la cantidad de aumento según lo que hay pendiente (cuando totalExe > totalQty)
         TXT(pg, 'AUMENTO', hCX(3), Y - 9, 6.5, true, 'center');
@@ -404,9 +409,9 @@ export const generateLiquidacionItemsReportLogic = async (projectId: string) => 
         // ── Fila 2: BALANCE TOTAL (izq) | ECONOMIA (centro-der) ──
         for (let i = 0; i < 8; i++) RECT(pg, COL_X[i], Y - SUM_H, COL_W[i], SUM_H, WH, 0.5);
 
-        // BALANCE TOTAL: label + cantidad total ajustada
+        // BALANCE TOTAL: label + suma de todos los subtotales del ítem (igual a SUB-TOTAL si es 1 hoja)
         TXT(pg, 'BALANCE TOTAL', hCX(0), Y - 9, 6.5, true, 'center');
-        TXT(pg, formatNum(totalQty, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
+        TXT(pg, formatNum(balanceTotal, 2), COL_X[1] + COL_W[1] - 3, Y - 9, 6.5, false, 'right');
 
         // ECONOMIA: solo la cantidad de economía según lo que hay pendiente (cuando totalQty > totalExe)
         TXT(pg, 'ECONOMIA', hCX(3), Y - 9, 6.5, true, 'center');

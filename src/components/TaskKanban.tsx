@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
-import { getUserReminders } from "@/lib/taskUtils";
-import { Loader2 } from "lucide-react";
+import { getUserReminders, createNextRecurrenceIfNeeded, formatRecurrenceLabel } from "@/lib/taskUtils";
+import { Loader2, Repeat } from "lucide-react";
 
 type Reminder = {
     id: string;
@@ -15,6 +15,11 @@ type Reminder = {
     due_date?: string;
     project_id?: string;
     project_name?: string;
+    recurrence_type?: string;
+    recurrence_interval?: number;
+    recurrence_unit?: string;
+    recurrence_end_date?: string;
+    recurrence_next_created?: boolean;
 };
 
 const COLUMNS = ["Pendiente", "En Proceso", "Esperando Respuesta", "Completado"] as const;
@@ -81,10 +86,17 @@ export default function TaskKanban({ onEdit }: Props) {
     };
     const handleDrop = async (col: Column) => {
         if (!draggingId) return;
-        setReminders(prev => prev.map(r => r.id === draggingId ? { ...r, status: col } : r));
-        await supabase.from("reminders").update({ status: col, updated_at: new Date().toISOString() }).eq("id", draggingId);
+        const targetId = draggingId;
+        setReminders(prev => prev.map(r => r.id === targetId ? { ...r, status: col } : r));
+        await supabase.from("reminders").update({ status: col, updated_at: new Date().toISOString() }).eq("id", targetId);
         setDraggingId(null);
         setDraggingOver(null);
+        if (col === "Completado") {
+            const res = await createNextRecurrenceIfNeeded(targetId);
+            if (res.created) {
+                fetchReminders();
+            }
+        }
     };
 
     const byStatus = (col: Column) => reminders.filter(r => r.status === col);
@@ -136,8 +148,15 @@ export default function TaskKanban({ onEdit }: Props) {
                                             <p className="text-[10px] text-slate-400 mt-1">{r.project_name}</p>
                                         )}
 
-                                        <div className="flex items-center justify-between mt-2">
-                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${style.badge}`}>{r.type}</span>
+                                        <div className="flex items-center justify-between mt-2 gap-1 flex-wrap">
+                                            <div className="flex items-center gap-1">
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${style.badge}`}>{r.type}</span>
+                                                {formatRecurrenceLabel(r) && (
+                                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 flex items-center gap-0.5" title={formatRecurrenceLabel(r) || ""}>
+                                                        <Repeat size={9} /> {formatRecurrenceLabel(r)}
+                                                    </span>
+                                                )}
+                                            </div>
                                             {r.due_date && (
                                                 <span className={`text-[9px] font-semibold ${isOverdue ? "text-red-500" : "text-slate-400"}`}>
                                                     {isOverdue ? "⚠️ " : ""}{new Date(r.due_date).toLocaleDateString()}
