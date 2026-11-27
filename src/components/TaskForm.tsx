@@ -6,9 +6,17 @@ import { getLocalStorageItem } from "@/lib/utils";
 import {
     RECURRENCE_OPTIONS,
     RECURRENCE_UNITS,
+    CUSTOM_RECURRENCE_MODES,
+    WEEKDAY_OPTIONS,
+    ORDINAL_OPTIONS,
+    MONTH_OPTIONS,
     RecurrenceType,
     RecurrenceUnit,
+    RecurrenceConfig,
+    CustomRecurrenceMode,
     createNextRecurrenceIfNeeded,
+    previewNextDueDates,
+    formatRecurrenceLabel,
 } from "@/lib/taskUtils";
 import {
     Save, X, Plus, Trash2, Link2, Paperclip, Upload, Loader2, ChevronDown, Check, Repeat
@@ -46,6 +54,7 @@ type FormData = {
     recurrence_interval: number;
     recurrence_unit: RecurrenceUnit;
     recurrence_end_date: string;
+    recurrence_config: RecurrenceConfig;
     tags: string[];
     assignees: string[];
     links: ReminderLink[];
@@ -60,6 +69,7 @@ const emptyForm: FormData = {
     recurrence_interval: 1,
     recurrence_unit: "days",
     recurrence_end_date: "",
+    recurrence_config: { mode: "interval" },
     tags: [], assignees: [], links: [],
 };
 
@@ -212,6 +222,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     recurrence_interval: r.recurrence_interval || 1,
                     recurrence_unit: (r.recurrence_unit as RecurrenceUnit) || "days",
                     recurrence_end_date: r.recurrence_end_date ? String(r.recurrence_end_date).split("T")[0] : "",
+                    recurrence_config: (r.recurrence_config as RecurrenceConfig) || { mode: "interval" },
                     tags: (r.tags || []).filter((t: string) => !t.startsWith("Resp: ")),
                     assignees: (() => {
                         const fromTable = (aRes.data || []).map((a: any) => {
@@ -438,6 +449,7 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                 recurrence_interval: form.recurrence_type === "custom" ? Math.max(1, Number(form.recurrence_interval) || 1) : 1,
                 recurrence_unit: form.recurrence_type === "custom" ? form.recurrence_unit : "days",
                 recurrence_end_date: form.recurrence_type !== "none" && form.recurrence_end_date ? form.recurrence_end_date : null,
+                recurrence_config: form.recurrence_type === "custom" ? (form.recurrence_config || { mode: "interval" }) : null,
                 tags: form.tags,
                 created_by: userName,
                 user_email: userEmail || null,
@@ -820,30 +832,337 @@ export default function TaskForm({ reminderId, onSaved, onCancel }: Props) {
                     {RECURRENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
 
-                {form.recurrence_type === "custom" && (
-                    <div className="mt-2 p-3 rounded-xl border-2 border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 space-y-2">
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                            Repetir cada:
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <input
-                                type="number"
-                                min={1}
-                                max={365}
-                                className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-semibold"
-                                value={form.recurrence_interval}
-                                onChange={e => setField("recurrence_interval", Math.max(1, parseInt(e.target.value) || 1))}
-                            />
-                            <select
-                                className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
-                                value={form.recurrence_unit}
-                                onChange={e => setField("recurrence_unit", e.target.value as RecurrenceUnit)}
-                            >
-                                {RECURRENCE_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                            </select>
+                {form.recurrence_type === "custom" && (() => {
+                    const cfg = form.recurrence_config || { mode: "interval" };
+                    const customMode: CustomRecurrenceMode = cfg.mode || "interval";
+                    const updateCfg = (patch: Partial<RecurrenceConfig>) => {
+                        setField("recurrence_config", { ...cfg, ...patch });
+                    };
+                    const handleModeChange = (newMode: CustomRecurrenceMode) => {
+                        const baseDate = form.due_date ? new Date(form.due_date + "T12:00:00") : new Date();
+                        if (newMode === "month_day") {
+                            updateCfg({ mode: newMode, dayOfMonth: cfg.dayOfMonth ?? baseDate.getDate() });
+                        } else if (newMode === "month_weekday") {
+                            updateCfg({ mode: newMode, ordinal: cfg.ordinal ?? 1, weekday: cfg.weekday ?? baseDate.getDay() });
+                        } else if (newMode === "month_relative_weekday") {
+                            updateCfg({
+                                mode: newMode,
+                                weekday: cfg.weekday ?? 1,
+                                ordinal: cfg.ordinal ?? 3,
+                                anchorWeekday: cfg.anchorWeekday ?? 4,
+                            });
+                        } else if (newMode === "year_weekday") {
+                            updateCfg({
+                                mode: newMode,
+                                ordinal: cfg.ordinal ?? 1,
+                                weekday: cfg.weekday ?? baseDate.getDay(),
+                                month: cfg.month ?? baseDate.getMonth(),
+                            });
+                        } else {
+                            updateCfg({ mode: newMode });
+                        }
+                    };
+                    const toggleWeekday = (dow: number) => {
+                        const current = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
+                        const next = current.includes(dow)
+                            ? current.filter(d => d !== dow)
+                            : [...current, dow].sort((a, b) => a - b);
+                        updateCfg({ weekdays: next });
+                    };
+
+                    const previewBase = form.due_date ? new Date(form.due_date + "T12:00:00") : new Date();
+                    const previewDates = previewNextDueDates(
+                        previewBase,
+                        form.recurrence_type,
+                        form.recurrence_interval,
+                        form.recurrence_unit,
+                        form.recurrence_end_date,
+                        cfg,
+                        3
+                    );
+                    const ruleSummary = formatRecurrenceLabel({
+                        recurrence_type: form.recurrence_type,
+                        recurrence_interval: form.recurrence_interval,
+                        recurrence_unit: form.recurrence_unit,
+                        recurrence_config: cfg,
+                    });
+
+                    return (
+                        <div className="mt-2 p-3 rounded-xl border-2 border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 space-y-3">
+                            <div>
+                                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                    Tipo de regla personalizada:
+                                </label>
+                                <select
+                                    className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-medium"
+                                    value={customMode}
+                                    onChange={e => handleModeChange(e.target.value as CustomRecurrenceMode)}
+                                >
+                                    {CUSTOM_RECURRENCE_MODES.map(m => (
+                                        <option key={m.value} value={m.value}>{m.label}</option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                    {CUSTOM_RECURRENCE_MODES.find(m => m.value === customMode)?.hint}
+                                </p>
+                            </div>
+
+                            {customMode === "interval" && (
+                                <div className="space-y-2">
+                                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                        Repetir cada:
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={365}
+                                            className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-semibold"
+                                            value={form.recurrence_interval}
+                                            onChange={e => setField("recurrence_interval", Math.max(1, parseInt(e.target.value) || 1))}
+                                        />
+                                        <select
+                                            className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                            value={form.recurrence_unit}
+                                            onChange={e => setField("recurrence_unit", e.target.value as RecurrenceUnit)}
+                                        >
+                                            {RECURRENCE_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                                        </select>
+                                    </div>
+                                    {form.recurrence_unit === "weeks" && (
+                                        <div className="pt-1">
+                                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                                                Días de la semana (opcional):
+                                            </label>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {WEEKDAY_OPTIONS.map(w => {
+                                                    const selected = Array.isArray(cfg.weekdays) && cfg.weekdays.includes(w.value);
+                                                    return (
+                                                        <button
+                                                            key={w.value}
+                                                            type="button"
+                                                            onClick={() => toggleWeekday(w.value)}
+                                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                                                                selected
+                                                                    ? "bg-blue-600 text-white border-blue-600"
+                                                                    : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400"
+                                                            }`}
+                                                        >
+                                                            {w.short}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {customMode === "month_day" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Día del mes:
+                                        </label>
+                                        <select
+                                            className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-medium"
+                                            value={cfg.dayOfMonth ?? 15}
+                                            onChange={e => updateCfg({ dayOfMonth: parseInt(e.target.value, 10) })}
+                                        >
+                                            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                                                <option key={d} value={d}>Día {d}</option>
+                                            ))}
+                                            <option value={-1}>Último día del mes</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Cada cuántos meses:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={36}
+                                            className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-semibold"
+                                            value={form.recurrence_interval}
+                                            onChange={e => setField("recurrence_interval", Math.max(1, parseInt(e.target.value) || 1))}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {customMode === "month_weekday" && (
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Orden:
+                                        </label>
+                                        <select
+                                            className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                            value={cfg.ordinal ?? 1}
+                                            onChange={e => updateCfg({ ordinal: parseInt(e.target.value, 10) })}
+                                        >
+                                            {ORDINAL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Día:
+                                        </label>
+                                        <select
+                                            className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                            value={cfg.weekday ?? 2}
+                                            onChange={e => updateCfg({ weekday: parseInt(e.target.value, 10) })}
+                                        >
+                                            {WEEKDAY_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Cada N meses:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={36}
+                                            className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-semibold"
+                                            value={form.recurrence_interval}
+                                            onChange={e => setField("recurrence_interval", Math.max(1, parseInt(e.target.value) || 1))}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {customMode === "month_relative_weekday" && (
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                                Día que se repite:
+                                            </label>
+                                            <select
+                                                className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                                value={cfg.weekday ?? 1}
+                                                onChange={e => updateCfg({ weekday: parseInt(e.target.value, 10) })}
+                                            >
+                                                {WEEKDAY_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                                Cada cuántos meses:
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={36}
+                                                className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-semibold"
+                                                value={form.recurrence_interval}
+                                                onChange={e => setField("recurrence_interval", Math.max(1, parseInt(e.target.value) || 1))}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            De la semana que contiene al:
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <select
+                                                className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                                value={cfg.ordinal ?? 3}
+                                                onChange={e => updateCfg({ ordinal: parseInt(e.target.value, 10) })}
+                                            >
+                                                {ORDINAL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                            </select>
+                                            <select
+                                                className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                                value={cfg.anchorWeekday ?? 4}
+                                                onChange={e => updateCfg({ anchorWeekday: parseInt(e.target.value, 10) })}
+                                            >
+                                                {WEEKDAY_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {customMode === "year_weekday" && (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Orden:
+                                        </label>
+                                        <select
+                                            className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                            value={cfg.ordinal ?? 1}
+                                            onChange={e => updateCfg({ ordinal: parseInt(e.target.value, 10) })}
+                                        >
+                                            {ORDINAL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Día de la semana:
+                                        </label>
+                                        <select
+                                            className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                            value={cfg.weekday ?? 1}
+                                            onChange={e => updateCfg({ weekday: parseInt(e.target.value, 10) })}
+                                        >
+                                            {WEEKDAY_OPTIONS.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Mes:
+                                        </label>
+                                        <select
+                                            className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm"
+                                            value={cfg.month ?? 0}
+                                            onChange={e => updateCfg({ month: parseInt(e.target.value, 10) })}
+                                        >
+                                            {MONTH_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                                            Cada N años:
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={20}
+                                            className="w-full px-2.5 py-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-blue-500 outline-none text-sm font-semibold"
+                                            value={form.recurrence_interval}
+                                            onChange={e => setField("recurrence_interval", Math.max(1, parseInt(e.target.value) || 1))}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Resumen y vista previa de próximas fechas */}
+                            <div className="pt-2 border-t border-blue-200/70 dark:border-blue-800/50 space-y-1">
+                                {ruleSummary && (
+                                    <p className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                                        Regla: {ruleSummary}
+                                    </p>
+                                )}
+                                {previewDates.length > 0 ? (
+                                    <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                                        <span className="font-semibold">Próximas fechas: </span>
+                                        {previewDates
+                                            .map(d => d.toLocaleDateString("es-PR", { weekday: "short", day: "numeric", month: "short", year: "numeric" }))
+                                            .join("  •  ")}
+                                    </p>
+                                ) : (
+                                    <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                        No hay fechas futuras dentro del límite configurado.
+                                    </p>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {form.recurrence_type !== "none" && (
                     <div className="mt-2 space-y-1.5">

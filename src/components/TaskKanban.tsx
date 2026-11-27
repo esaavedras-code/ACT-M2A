@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { getLocalStorageItem } from "@/lib/utils";
-import { getUserReminders, createNextRecurrenceIfNeeded, formatRecurrenceLabel } from "@/lib/taskUtils";
+import { getUserReminders, createNextRecurrenceIfNeeded, formatRecurrenceLabel, RecurrenceConfig } from "@/lib/taskUtils";
 import { Loader2, Repeat } from "lucide-react";
 
 type Reminder = {
@@ -19,6 +19,7 @@ type Reminder = {
     recurrence_interval?: number;
     recurrence_unit?: string;
     recurrence_end_date?: string;
+    recurrence_config?: RecurrenceConfig | null;
     recurrence_next_created?: boolean;
 };
 
